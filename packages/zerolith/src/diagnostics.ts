@@ -73,7 +73,20 @@ export type DiagnosticCode =
     | "computed_cycle"
     | "effect_cycle"
     | "effect_loop"
-    | "on_dispose_outside_scope";
+    | "on_dispose_outside_scope"
+    | "binding_in_tag_position"
+    | "binding_in_comment"
+    | "binding_in_raw_text"
+    | "binding_not_single"
+    | "script_in_template"
+    | "template_unclosed_tag"
+    | "unsafe_property_binding"
+    | "unsafe_attribute_binding"
+    | "unsafe_url_blocked"
+    | "unrenderable_value"
+    | "event_handler_not_function"
+    | "each_key_undefined"
+    | "each_key_duplicate";
 
 /**
  * Every diagnostic the runtime can emit. The documentation pages for the
@@ -105,6 +118,71 @@ export const diagnosticCatalog: Readonly<Record<DiagnosticCode, DiagnosticText>>
     {
         cause: "onDispose() was called with no enclosing effect or scope to attach to.",
         fix: "Call onDispose() inside an effect, a scope(), or a component."
+    },
+    binding_in_tag_position:
+    {
+        cause: "An expression appears where a tag or attribute name is expected.",
+        fix: "Bind values only as element content or inside an attribute value; tag and attribute names must be static."
+    },
+    binding_in_comment:
+    {
+        cause: "An expression appears inside an HTML comment.",
+        fix: "Remove the expression from the comment; comments are static."
+    },
+    binding_in_raw_text:
+    {
+        cause: "An expression appears inside an element whose content is raw text.",
+        fix: "Set the content of style, textarea, and title elements through a .textContent or .value property binding instead."
+    },
+    binding_not_single:
+    {
+        cause: "A boolean attribute, property, or event binding has more than one expression or extra text.",
+        fix: "Bind exactly one expression with nothing around it, for example ?disabled=${flag}."
+    },
+    script_in_template:
+    {
+        cause: "A template contains a script element.",
+        fix: "Keep scripts in modules; templates describe markup only."
+    },
+    template_unclosed_tag:
+    {
+        cause: "A template ends inside a tag, attribute, or comment.",
+        fix: "Close the tag or comment inside the same template literal."
+    },
+    unsafe_property_binding:
+    {
+        cause: "A property binding targets a property that parses its value as HTML.",
+        fix: "Bind child content with ${} instead; for trusted markup use the raw HTML API explicitly."
+    },
+    unsafe_attribute_binding:
+    {
+        cause: "An attribute binding targets an attribute that runs script or parses HTML.",
+        fix: "Use an @event binding for handlers and child content for markup."
+    },
+    unsafe_url_blocked:
+    {
+        cause: "A URL attribute received a value with a scheme that can run script, and the attribute was removed.",
+        fix: "Pass http, https, mailto, tel, or a relative URL; data URLs are allowed only for images."
+    },
+    unrenderable_value:
+    {
+        cause: "A value of a type the renderer cannot display was bound as content.",
+        fix: "Bind a string, number, signal, template, node, or iterable; call component functions rather than passing them."
+    },
+    event_handler_not_function:
+    {
+        cause: "An @event binding received something other than a function or an object with handleEvent.",
+        fix: "Pass a function, for example @click=${() => count.set(count.get() + 1)}."
+    },
+    each_key_undefined:
+    {
+        cause: "The key function passed to each() returned undefined for an item.",
+        fix: "Return a stable string or number per item, such as its id."
+    },
+    each_key_duplicate:
+    {
+        cause: "Two items in an each() list produced the same key.",
+        fix: "Return a key that is unique within the list; duplicates make rows indistinguishable."
     }
 };
 

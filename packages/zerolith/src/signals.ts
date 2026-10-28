@@ -75,9 +75,22 @@ interface Consumer
     notify(): void;
 }
 
-interface Owner
+interface OwnerNode
 {
     children: Array<() => void> | undefined;
+}
+
+/**
+ * Owns the effects and scopes created while it runs, independent of any
+ * running effect, so a part of the UI can outlive the effect that created
+ * it and still be disposed as a unit. Internal to the runtime packages.
+ */
+export interface Owner
+{
+    /** Runs `fn` untracked with this owner current and returns its result. */
+    run<T>(fn: () => T): T;
+    /** Disposes everything created under this owner, in reverse order of creation. */
+    dispose(): void;
 }
 
 /**
@@ -98,7 +111,7 @@ interface Edge
 }
 
 let consumer: Consumer | undefined;
-let owner: Owner | undefined;
+let owner: OwnerNode | undefined;
 let batchDepth = 0;
 let pending: Effect | undefined;
 let rounds = 0;
@@ -113,7 +126,7 @@ function enter(node: Consumer): Consumer | undefined
 }
 
 /** Makes `node` the current owner and returns the one it replaces. */
-function own(node: Owner): Owner | undefined
+function own(node: OwnerNode): OwnerNode | undefined
 {
     const previous = owner;
     owner = node;
@@ -529,7 +542,7 @@ class Computed<T> implements ReadableSignal<T>, Source, Consumer
     }
 }
 
-class Effect implements Consumer, Owner
+class Effect implements Consumer, OwnerNode
 {
     flags = TRACKING;
     sources: Edge | undefined = undefined;
@@ -741,40 +754,65 @@ export function untracked<T>(fn: () => T): T
     }
 }
 
-/** Runs `fn` as the owner of every effect and scope created inside it, so they can be disposed together. */
+/** Creates an owner, itself owned by the current effect or scope. */
+export function createOwner(): Owner
+{
+    const node: OwnerNode = { children: undefined };
+    const handle: Owner = {
+        run<T>(fn: () => T): T
+        {
+            const previousOwner = owner;
+            const previousConsumer = consumer;
+            owner = node;
+            consumer = undefined;
+            try
+            {
+                return fn();
+            }
+            finally
+            {
+                owner = previousOwner;
+                consumer = previousConsumer;
+            }
+        },
+        dispose(): void
+        {
+            const children = node.children;
+            node.children = undefined;
+            if (children !== undefined)
+            {
+                disposeAll(children);
+            }
+        }
+    };
+    adopt(() => handle.dispose());
+    return handle;
+}
+
+/**
+ * Runs `fn` untracked as the owner of every effect and scope created inside
+ * it, so they can be disposed together.
+ */
 export function scope<T>(fn: () => T): Scope<T>
 {
-    const node: Owner = { children: [] };
-    const previous = owner;
-    owner = node;
+    const handle = createOwner();
     let value: T;
     try
     {
-        value = fn();
+        value = handle.run(fn);
     }
     catch (error)
     {
-        if (node.children !== undefined)
-        {
-            disposeAll(node.children);
-        }
+        handle.dispose();
         throw error;
     }
-    finally
-    {
-        owner = previous;
-    }
-    const dispose = (): void =>
-    {
-        const children = node.children;
-        node.children = undefined;
-        if (children !== undefined)
-        {
-            disposeAll(children);
-        }
-    };
-    adopt(dispose);
-    return { value, dispose };
+    return { value, dispose: () => handle.dispose() };
+}
+
+/** True for values created by `signal()` or `computed()`. */
+export function isSignal(value: unknown): value is ReadableSignal<unknown>
+{
+    return value instanceof State || value instanceof Computed;
 }
 
 /** Registers `fn` to run when the enclosing effect re-runs or is disposed, or when the enclosing scope is disposed. */

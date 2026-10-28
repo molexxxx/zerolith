@@ -18,3 +18,6 @@ export { DIAGNOSTIC_URL, ZerolithError, diagnosticCatalog, onDiagnostic } from "
 
 export type { EffectFunction, Equals, ReadableSignal, Scope, Signal, SignalOptions } from "./signals.js";
 export { batch, computed, effect, onDispose, scope, signal, untracked } from "./signals.js";
+
+export type { KeyOf, Root, RowOf, View } from "./render.js";
+export { each, html, render, when } from "./render.js";
