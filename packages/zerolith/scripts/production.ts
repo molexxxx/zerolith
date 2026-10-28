@@ -12,14 +12,13 @@ const production = dist + "production/";
 await rm(production, { recursive: true, force: true });
 await mkdir(production, { recursive: true });
 
-for (const name of await readdir(dist))
+async function copyModule(name: string): Promise<void>
 {
-    if (!name.endsWith(".js") || name === "catalog.production.js")
-    {
-        continue;
-    }
     const source = name === "catalog.js" ? dist + "catalog.production.js" : dist + name;
     const text = (await readFile(source, "utf8")).replace(/^\/\/# sourceMappingURL=.*$/m, "");
     await writeFile(production + name, text);
 }
+
+const names = (await readdir(dist)).filter((name) => name.endsWith(".js") && name !== "catalog.production.js");
+await Promise.all(names.map(copyModule));
 await copyFile(dist + "index.d.ts", production + "index.d.ts");
