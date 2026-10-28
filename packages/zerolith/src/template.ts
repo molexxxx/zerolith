@@ -12,6 +12,7 @@ export const ATTRIBUTE = 1;
 export const BOOLEAN = 2;
 export const PROPERTY = 3;
 export const EVENT = 4;
+export const REF = 5;
 
 /** Where and how one or more expressions bind into the template. */
 export interface PartSpec
@@ -84,6 +85,10 @@ function attributeSpec(name: string, strings: string[]): PartSpec
     {
         kind = EVENT;
         actual = name.slice(1);
+    }
+    else if (name.toLowerCase() === "ref")
+    {
+        kind = REF;
     }
     if (kind !== ATTRIBUTE && (strings.length !== 2 || strings[0] !== "" || strings[1] !== ""))
     {

@@ -182,6 +182,24 @@ describe("attribute bindings", () =>
         expect(() => mount(html`<button @click=${handler}>x</button>`)).toThrow(/event_handler_not_function/);
     });
 
+    it("hands the element to a ref signal and resets it on removal, or calls a ref function once", () =>
+    {
+        const input = signal<HTMLInputElement | undefined>(undefined);
+        const seen: Element[] = [];
+        const el = mount(html`<input ref=${input}><p ref=${(element: Element) => seen.push(element)}></p>`);
+        expect(input.get()).toBe(el.querySelector("input"));
+        expect(seen).toEqual([el.querySelector("p")]);
+        root?.dispose();
+        root = undefined;
+        expect(input.get()).toBeUndefined();
+        expect(seen).toHaveLength(1);
+    });
+
+    it("rejects a ref target that is neither a signal nor a function", () =>
+    {
+        expect(() => mount(html`<p ref=${"x"}></p>`)).toThrow(/ref_not_assignable/);
+    });
+
     it("blocks scriptable URLs and reports a warning", () =>
     {
         const seen: Diagnostic[] = [];

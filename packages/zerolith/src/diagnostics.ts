@@ -90,7 +90,8 @@ export type DiagnosticCode =
     | "event_handler_not_function"
     | "each_key_undefined"
     | "each_key_duplicate"
-    | "css_value_not_allowed";
+    | "css_value_not_allowed"
+    | "ref_not_assignable";
 
 /** Builds the full diagnostic record for a catalog code. */
 export function diagnostic(code: DiagnosticCode, severity: DiagnosticSeverity, args?: DiagnosticArgs, location?: DiagnosticLocation): Diagnostic

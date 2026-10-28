@@ -101,5 +101,10 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
     {
         cause: "A css literal received a value that is not a number or another css result.",
         fix: "Interpolate only numbers and css results; put dynamic values in custom properties set through a style binding."
+    },
+    ref_not_assignable:
+    {
+        cause: "A ref binding received something other than a writable signal or a function.",
+        fix: "Pass a signal created with signal<Element | undefined>(undefined) or a callback that receives the element."
     }
 };

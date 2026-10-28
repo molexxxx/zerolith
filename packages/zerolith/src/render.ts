@@ -5,8 +5,8 @@
  * attribute and the component function never runs again.
  */
 import { diagnostic, fail, report } from "./diagnostics.js";
-import { type Owner, type ReadableSignal, type Signal, createOwner, effect, isSignal, signal } from "./signals.js";
-import { ATTRIBUTE, BOOLEAN, CHILD, EVENT, type PartSpec, type Prepared, prepare, walker } from "./template.js";
+import { type Owner, type ReadableSignal, type Signal, createOwner, effect, isSignal, onDispose, signal, untracked } from "./signals.js";
+import { ATTRIBUTE, BOOLEAN, CHILD, EVENT, type PartSpec, type Prepared, REF, prepare, walker } from "./template.js";
 
 /** Brand carried by every value the renderer accepts as a description of UI. */
 export const VIEW: unique symbol = Symbol("zerolith.view");
@@ -346,6 +346,7 @@ class AttributePart implements BoundPart
     private owner: Owner | undefined = undefined;
     private listener: EventListenerOrEventListenerObject | undefined = undefined;
     private listenerOptions: AddEventListenerOptions | undefined = undefined;
+    private target: unknown = undefined;
 
     constructor(element: Element, spec: PartSpec)
     {
@@ -359,6 +360,11 @@ class AttributePart implements BoundPart
         if (this.spec.kind === EVENT)
         {
             this.listen(values[0]);
+            return;
+        }
+        if (this.spec.kind === REF)
+        {
+            this.reference(values[0]);
             return;
         }
         this.owner?.dispose();
@@ -413,6 +419,41 @@ class AttributePart implements BoundPart
             return;
         }
         (element as unknown as Record<string, unknown>)[spec.name] = value;
+    }
+
+    /** Hands the element to a writable signal or a callback; the signal is reset when the element's template is removed. */
+    private reference(target: unknown): void
+    {
+        if (target === this.target)
+        {
+            return;
+        }
+        this.target = target;
+        this.owner?.dispose();
+        this.owner = createOwner();
+        this.owner.run(() =>
+        {
+            const { element } = this;
+            if (typeof target === "function")
+            {
+                (target as (element: Element) => void)(element);
+                return;
+            }
+            if (isSignal(target) && typeof (target as Partial<Signal<unknown>>).set === "function")
+            {
+                const holder = target as Signal<Element | undefined>;
+                holder.set(element);
+                onDispose(() =>
+                {
+                    if (untracked(() => holder.get()) === element)
+                    {
+                        holder.set(undefined);
+                    }
+                });
+                return;
+            }
+            throw fail("ref_not_assignable", { type: describe(target) });
+        });
     }
 
     private listen(handler: unknown): void

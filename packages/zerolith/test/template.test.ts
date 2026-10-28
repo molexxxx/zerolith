@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ZerolithError } from "zerolith";
-import { ATTRIBUTE, BOOLEAN, CHILD, EVENT, PROPERTY, scan } from "../src/template.js";
+import { ATTRIBUTE, BOOLEAN, CHILD, EVENT, PROPERTY, REF, scan } from "../src/template.js";
 
 function codeOf(fn: () => unknown): string | undefined
 {
@@ -52,8 +52,8 @@ describe("scan", () =>
 
     it("recognizes the boolean, property, and event prefixes and keeps the source case", () =>
     {
-        const { parts } = scan(["<input ?disabled=", " .valueAsNumber=", " @keyDown=", ">"]);
-        expect(parts.map((part) => [part.kind, part.name])).toEqual([[BOOLEAN, "disabled"], [PROPERTY, "valueAsNumber"], [EVENT, "keyDown"]]);
+        const { parts } = scan(["<input ?disabled=", " .valueAsNumber=", " @keyDown=", " ref=", ">"]);
+        expect(parts.map((part) => [part.kind, part.name])).toEqual([[BOOLEAN, "disabled"], [PROPERTY, "valueAsNumber"], [EVENT, "keyDown"], [REF, "ref"]]);
     });
 
     it("parses closing tags, comments, and raw text elements without binding into them", () =>
