@@ -3,7 +3,11 @@
     "compilerOptions": {
         "noEmit": true,
         "isolatedDeclarations": false,
-        "types": ["node"]
+        "types": ["node"],
+        "paths": {
+            "zerolith": ["./packages/zerolith/src/index.ts"],
+            "@zerolith/router": ["./packages/router/src/index.ts"]
+        }
     },
     "include": [
         "packages/*/src",

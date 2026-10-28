@@ -3,10 +3,12 @@ import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
 
 const coreEntry = fileURLToPath(new URL("./packages/zerolith/src/index.ts", import.meta.url));
+const routerEntry = fileURLToPath(new URL("./packages/router/src/index.ts", import.meta.url));
 
 export default defineConfig({
     resolve: {
         alias: {
+            "@zerolith/router": routerEntry,
             zerolith: coreEntry
         }
     },
