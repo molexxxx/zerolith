@@ -4,6 +4,9 @@
  * data: the overlay renders it, the editor surfaces it, the MCP endpoint
  * returns it, and a terminal prints it.
  */
+import { diagnosticCatalog } from "./catalog.js";
+
+export { diagnosticCatalog };
 
 /**
  * How safely a suggestion can be applied without a human reading it,
@@ -46,9 +49,9 @@ export interface Diagnostic
     /** Stable snake_case identifier, for example `signal_written_inside_computed`. Codes are public API; message text is not. */
     code: string;
     severity: DiagnosticSeverity;
-    /** One sentence naming what happened. */
+    /** One sentence naming what happened. Empty in production builds. */
     cause: string;
-    /** One sentence naming what to do about it. */
+    /** One sentence naming what to do about it. Empty in production builds. */
     fix: string;
     /** Documentation page for the code, with the arguments encoded in the query string. */
     url: string;
@@ -89,109 +92,6 @@ export type DiagnosticCode =
     | "each_key_duplicate"
     | "css_value_not_allowed";
 
-/**
- * Every diagnostic the runtime can emit. The documentation pages for the
- * codes are generated from this table, so an entry here is the single
- * source of truth for both the message and the docs.
- */
-export const diagnosticCatalog: Readonly<Record<DiagnosticCode, DiagnosticText>> = {
-    signal_written_inside_computed:
-    {
-        cause: "A signal was written while a computed value was being evaluated.",
-        fix: "Move the write into an effect or an event handler; computed functions must be pure."
-    },
-    computed_cycle:
-    {
-        cause: "A computed value read itself, directly or through other computed values.",
-        fix: "Break the cycle, for example by reading the previous value inside untracked()."
-    },
-    effect_cycle:
-    {
-        cause: "An effect was triggered synchronously while it was already running.",
-        fix: "Do not write to a signal the effect reads from inside its own cleanup function."
-    },
-    effect_loop:
-    {
-        cause: "Effects kept re-triggering each other for more than 100 rounds in one batch.",
-        fix: "Find the effect that writes a signal it also reads and make the write conditional."
-    },
-    on_dispose_outside_scope:
-    {
-        cause: "onDispose() was called with no enclosing effect or scope to attach to.",
-        fix: "Call onDispose() inside an effect, a scope(), or a component."
-    },
-    binding_in_tag_position:
-    {
-        cause: "An expression appears where a tag or attribute name is expected.",
-        fix: "Bind values only as element content or inside an attribute value; tag and attribute names must be static."
-    },
-    binding_in_comment:
-    {
-        cause: "An expression appears inside an HTML comment.",
-        fix: "Remove the expression from the comment; comments are static."
-    },
-    binding_in_raw_text:
-    {
-        cause: "An expression appears inside an element whose content is raw text.",
-        fix: "Set the content of style, textarea, and title elements through a .textContent or .value property binding instead."
-    },
-    binding_not_single:
-    {
-        cause: "A boolean attribute, property, or event binding has more than one expression or extra text.",
-        fix: "Bind exactly one expression with nothing around it, for example ?disabled=${flag}."
-    },
-    script_in_template:
-    {
-        cause: "A template contains a script element.",
-        fix: "Keep scripts in modules; templates describe markup only."
-    },
-    template_unclosed_tag:
-    {
-        cause: "A template ends inside a tag, attribute, or comment.",
-        fix: "Close the tag or comment inside the same template literal."
-    },
-    unsafe_property_binding:
-    {
-        cause: "A property binding targets a property that parses its value as HTML.",
-        fix: "Bind child content with ${} instead; for trusted markup use the raw HTML API explicitly."
-    },
-    unsafe_attribute_binding:
-    {
-        cause: "An attribute binding targets an attribute that runs script or parses HTML.",
-        fix: "Use an @event binding for handlers and child content for markup."
-    },
-    unsafe_url_blocked:
-    {
-        cause: "A URL attribute received a value with a scheme that can run script, and the attribute was removed.",
-        fix: "Pass http, https, mailto, tel, or a relative URL; data URLs are allowed only for images."
-    },
-    unrenderable_value:
-    {
-        cause: "A value of a type the renderer cannot display was bound as content.",
-        fix: "Bind a string, number, signal, template, node, or iterable; call component functions rather than passing them."
-    },
-    event_handler_not_function:
-    {
-        cause: "An @event binding received something other than a function or an object with handleEvent.",
-        fix: "Pass a function, for example @click=${() => count.set(count.get() + 1)}."
-    },
-    each_key_undefined:
-    {
-        cause: "The key function passed to each() returned undefined for an item.",
-        fix: "Return a stable string or number per item, such as its id."
-    },
-    each_key_duplicate:
-    {
-        cause: "Two items in an each() list produced the same key.",
-        fix: "Return a key that is unique within the list; duplicates make rows indistinguishable."
-    },
-    css_value_not_allowed:
-    {
-        cause: "A css literal received a value that is not a number or another css result.",
-        fix: "Interpolate only numbers and css results; put dynamic values in custom properties set through a style binding."
-    }
-};
-
 /** Builds the full diagnostic record for a catalog code. */
 export function diagnostic(code: DiagnosticCode, severity: DiagnosticSeverity, args?: DiagnosticArgs, location?: DiagnosticLocation): Diagnostic
 {
@@ -206,7 +106,7 @@ export function diagnostic(code: DiagnosticCode, severity: DiagnosticSeverity, a
         }
         url += "?" + query.toString();
     }
-    const record: Diagnostic = { code, severity, cause: text.cause, fix: text.fix, url };
+    const record: Diagnostic = { code, severity, cause: text?.cause ?? "", fix: text?.fix ?? "", url };
     if (args !== undefined)
     {
         record.args = args;
@@ -225,7 +125,8 @@ export class ZerolithError extends Error
 
     constructor(record: Diagnostic)
     {
-        super(`[zerolith] ${record.code}: ${record.cause} ${record.fix} ${record.url}`);
+        const detail = (record.cause === "" ? "" : ": " + record.cause) + (record.fix === "" ? "" : " " + record.fix);
+        super(`[zerolith] ${record.code}${detail} ${record.url}`);
         this.name = "ZerolithError";
         this.diagnostic = record;
     }

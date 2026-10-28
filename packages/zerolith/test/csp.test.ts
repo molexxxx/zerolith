@@ -11,26 +11,57 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * with Trusted Types enforced, loads it through an import map, and drives a
  * small app in headless Chromium. This is the buildless exit test: the same
  * files that ship to npm must run with no eval, no inline script, and the
- * zerolith Trusted Types policy as the only one allowed.
+ * zerolith Trusted Types policy as the only one allowed. It runs once per
+ * entry: the development build with message text and the production build
+ * without it.
  */
 
 const dist = fileURLToPath(new URL("../dist/", import.meta.url));
 
-const importMap = "{\"imports\":{\"zerolith\":\"/zerolith/index.js\"}}";
-const importMapHash = createHash("sha256").update(importMap).digest("base64");
+interface Entry
+{
+    name: string;
+    path: string;
+    module: string;
+}
 
-const page = `<!doctype html>
+const entries: Entry[] = [
+    { name: "development", path: "/development", module: "/zerolith/index.js" },
+    { name: "production", path: "/production", module: "/zerolith/production/index.js" }
+];
+
+function importMapFor(entry: Entry): string
+{
+    return `{"imports":{"zerolith":"${entry.module}"}}`;
+}
+
+function pageFor(entry: Entry): string
+{
+    return `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>csp</title>
-<script type="importmap">${importMap}</script>
+<title>csp ${entry.name}</title>
+<script type="importmap">${importMapFor(entry)}</script>
 <script type="module" src="/app.js"></script>
 </head>
 <body><main id="app"></main></body>
 </html>`;
+}
 
-const app = `import { computed, each, html, render, signal, when } from "zerolith";
+function cspFor(entry: Entry): string
+{
+    const hash = createHash("sha256").update(importMapFor(entry)).digest("base64");
+    return [
+        "default-src 'none'",
+        `script-src 'self' 'sha256-${hash}'`,
+        "require-trusted-types-for 'script'",
+        "trusted-types zerolith",
+        "base-uri 'none'"
+    ].join("; ");
+}
+
+const app = `import { computed, each, html, onDispose, render, signal, when } from "zerolith";
 const count = signal(0);
 const items = signal([{ id: 1, name: "a" }, { id: 2, name: "b" }]);
 function App()
@@ -42,16 +73,21 @@ function App()
         \${when(computed(() => count.get() > 1), () => html\`<p id="many">many</p>\`)}\`;
 }
 render(App(), document.getElementById("app"));
-globalThis.__app = { count, items };
+globalThis.app = {
+    probeError()
+    {
+        try
+        {
+            onDispose(() => undefined);
+            return "";
+        }
+        catch (error)
+        {
+            return error.message;
+        }
+    }
+};
 `;
-
-const csp = [
-    "default-src 'none'",
-    `script-src 'self' 'sha256-${importMapHash}'`,
-    "require-trusted-types-for 'script'",
-    "trusted-types zerolith",
-    "base-uri 'none'"
-].join("; ");
 
 let server: Server;
 let origin: string;
@@ -62,10 +98,11 @@ beforeAll(async () =>
     server = createServer(async (request, response) =>
     {
         const url = request.url ?? "/";
-        if (url === "/")
+        const entry = entries.find((candidate) => candidate.path === url);
+        if (entry !== undefined)
         {
-            response.writeHead(200, { "content-type": "text/html; charset=utf-8", "content-security-policy": csp });
-            response.end(page);
+            response.writeHead(200, { "content-type": "text/html; charset=utf-8", "content-security-policy": cspFor(entry) });
+            response.end(pageFor(entry));
             return;
         }
         if (url === "/app.js")
@@ -106,7 +143,7 @@ afterAll(async () =>
 
 describe("buildless under a strict CSP", () =>
 {
-    it("runs the published modules from an import map with Trusted Types enforced", async () =>
+    it.each(entries)("runs the $name entry from an import map with Trusted Types enforced", async (entry) =>
     {
         const tab = await browser.newPage();
         const errors: string[] = [];
@@ -127,7 +164,7 @@ describe("buildless under a strict CSP", () =>
                 violations.push(`${event.violatedDirective} ${event.blockedURI} ${event.sample}`);
             });
         });
-        await tab.goto(origin + "/");
+        await tab.goto(origin + entry.path);
         await tab.waitForSelector("#inc");
 
         const enforced = await tab.evaluate(() =>
@@ -149,6 +186,18 @@ describe("buildless under a strict CSP", () =>
         expect(await tab.textContent("#count")).toBe("Count: 2");
         expect(await tab.textContent("#many")).toBe("many");
         expect(await tab.evaluate(() => Array.from(document.querySelectorAll("li")).map((li) => li.textContent))).toEqual(["a", "b"]);
+
+        const message = await tab.evaluate(() => (globalThis as { app?: { probeError(): string } }).app?.probeError() ?? "");
+        expect(message).toContain("on_dispose_outside_scope");
+        expect(message).toContain("https://zerolith.dev/e/on_dispose_outside_scope");
+        if (entry.name === "production")
+        {
+            expect(message).not.toContain("onDispose() was called");
+        }
+        else
+        {
+            expect(message).toContain("onDispose() was called");
+        }
 
         const violations = await tab.evaluate(() => (globalThis as { cspViolations?: string[] }).cspViolations) ?? [];
         const probe = violations.filter((violation) => violation.includes("Element innerHTML|<b>x</b>"));
