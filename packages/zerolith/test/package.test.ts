@@ -42,10 +42,15 @@ describe("zerolith package manifest", () =>
 
 describe("zerolith built output", () =>
 {
-    it("imports nothing at runtime", async () =>
+    it("imports only its own modules at runtime", async () =>
     {
         const built = await readFile(new URL("dist/index.js", packageRoot), "utf8");
-        expect(built).not.toMatch(/^\s*import\s/m);
+        const specifiers = [...built.matchAll(/from\s+"([^"]+)"/g)].map((match) => match[1]);
+        expect(specifiers.length).toBeGreaterThan(0);
+        for (const specifier of specifiers)
+        {
+            expect(specifier).toMatch(/^\.\.?\//);
+        }
         expect(built).not.toMatch(/\brequire\s*\(/);
         expect(built).not.toMatch(/\bimport\s*\(/);
     });

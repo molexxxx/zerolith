@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import * as zerolith from "zerolith";
+import { effect, signal } from "zerolith";
 
 describe("browser test environment", () =>
 {
@@ -9,8 +9,15 @@ describe("browser test environment", () =>
         expect(document.createElement("template")).toBeInstanceOf(HTMLTemplateElement);
     });
 
-    it("loads the runtime entry as an ES module", () =>
+    it("runs the reactivity core in the browser", () =>
     {
-        expect(Object.keys(zerolith)).toEqual([]);
+        const count = signal(1);
+        const seen: number[] = [];
+        effect(() =>
+        {
+            seen.push(count.get());
+        });
+        count.set(2);
+        expect(seen).toEqual([1, 2]);
     });
 });
