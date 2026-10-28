@@ -19,7 +19,7 @@ export default defineConfig({
                 test: {
                     name: "node",
                     environment: "node",
-                    include: ["packages/*/test/**/*.test.ts"],
+                    include: ["packages/*/test/**/*.test.ts", "examples/*/test/**/*.test.ts"],
                     exclude: ["**/*.browser.test.ts", "**/node_modules/**", "**/dist/**"]
                 }
             },

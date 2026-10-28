@@ -108,9 +108,15 @@ describe("router", () =>
             </main>`);
         const prevented = (id: string, init: MouseEventInit = {}): boolean =>
         {
+            let byRouter = false;
+            document.addEventListener("click", (event) =>
+            {
+                byRouter = event.defaultPrevented;
+                event.preventDefault();
+            }, { once: true });
             const event = new MouseEvent("click", { bubbles: true, cancelable: true, ...init });
             el.querySelector(`#${id}`)?.dispatchEvent(event);
-            return event.defaultPrevented;
+            return byRouter;
         };
         expect(prevented("external")).toBe(false);
         expect(prevented("download")).toBe(false);

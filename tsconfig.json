@@ -3,6 +3,8 @@
     "compilerOptions": {
         "noEmit": true,
         "isolatedDeclarations": false,
+        "allowJs": true,
+        "checkJs": true,
         "types": ["node"],
         "paths": {
             "zerolith": ["./packages/zerolith/src/index.ts"],
@@ -15,6 +17,8 @@
         "packages/*/scripts",
         "scripts",
         "benchmarks/*.ts",
+        "examples/*/*.js",
+        "examples/*/test",
         "vitest.config.ts"
     ],
     "exclude": [

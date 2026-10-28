@@ -1,0 +1,65 @@
+/* Global styles: tokens and resets. Component styles live in css`` literals next to their components. */
+:root {
+    --bg: #101214;
+    --panel: #181b1f;
+    --line: #2a2f36;
+    --text: #e6e8eb;
+    --muted: #9aa3ad;
+    --accent: #7cc4ff;
+    --danger: #ff8a80;
+    color-scheme: dark;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font: 16px/1.5 system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+}
+
+a {
+    color: var(--accent);
+}
+
+button,
+input,
+textarea {
+    font: inherit;
+    color: inherit;
+}
+
+button {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+}
+
+button[data-kind="primary"] {
+    background: var(--accent);
+    color: #04121f;
+    border-color: transparent;
+}
+
+button[data-kind="danger"] {
+    color: var(--danger);
+}
+
+input,
+textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+}
+
+input:user-invalid,
+textarea:user-invalid {
+    border-color: var(--danger);
+}

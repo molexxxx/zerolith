@@ -13,6 +13,7 @@ Status: pre-alpha, nothing published. This repository holds the runtime, the fir
 | `docs/policy` | Support window, release channels, versioning and deprecation rules |
 | `docs/decisions` | Architecture decision records |
 | `docs/research` | The design research the project started from |
+| `examples/` | Applications built on the packages with no build step; `npm run serve` hosts them, and their tests run in `npm run check` |
 
 ## Commands
 
@@ -28,6 +29,8 @@ Requires Node 24 or newer and npm 11.
 | `npm run test:browser` | Run the browser test project in headless Chromium (first run: `npx playwright install chromium`) |
 | `npm run check` | Build, typecheck, lint, and run both test projects; this is what CI runs |
 | `npm run sbom` | Emit a CycloneDX SBOM of the runtime dependency graph |
+| `npm run serve` | Serve the repository on port 8080 for the examples (build first) |
+| `npm run bench` | Run the keyed-table benchmark against a vanilla DOM baseline |
 
 ## Policies
 
