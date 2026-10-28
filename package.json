@@ -17,7 +17,8 @@
         "test": "vitest run --project node",
         "test:browser": "vitest run --project browser",
         "test:all": "vitest run",
-        "check": "npm run build && npm run typecheck && npm run lint && npm run test:all",
+        "size": "node scripts/size.ts",
+        "check": "npm run build && npm run typecheck && npm run lint && npm run test:all && npm run size",
         "sbom": "npm sbom --sbom-format cyclonedx --omit dev"
     },
     "devDependencies": {
@@ -25,6 +26,7 @@
         "@vitest/browser-playwright": "5.0.5",
         "oxlint": "1.90.0",
         "playwright": "1.64.1",
+        "rolldown": "1.2.15",
         "typescript": "7.0.2",
         "vitest": "5.0.5"
     }

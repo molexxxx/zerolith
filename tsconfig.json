@@ -8,6 +8,7 @@
     "include": [
         "packages/*/src",
         "packages/*/test",
+        "scripts",
         "vitest.config.ts"
     ],
     "exclude": [
