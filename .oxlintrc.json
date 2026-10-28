@@ -29,6 +29,13 @@
             "rules": {
                 "no-console": "off"
             }
+        },
+        {
+            "files": ["benchmarks/**"],
+            "rules": {
+                "no-console": "off",
+                "no-await-in-loop": "off"
+            }
         }
     ],
     "ignorePatterns": ["dist", "coverage", "node_modules", "docs/research"]

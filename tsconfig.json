@@ -10,6 +10,7 @@
         "packages/*/test",
         "packages/*/scripts",
         "scripts",
+        "benchmarks/*.ts",
         "vitest.config.ts"
     ],
     "exclude": [

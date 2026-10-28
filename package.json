@@ -18,6 +18,7 @@
         "test:browser": "vitest run --project browser",
         "test:all": "vitest run",
         "size": "node scripts/size.ts",
+        "bench": "node benchmarks/run.ts",
         "check": "npm run build && npm run typecheck && npm run lint && npm run test:all && npm run size",
         "sbom": "npm sbom --sbom-format cyclonedx --omit dev"
     },
