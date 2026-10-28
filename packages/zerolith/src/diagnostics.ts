@@ -86,7 +86,8 @@ export type DiagnosticCode =
     | "unrenderable_value"
     | "event_handler_not_function"
     | "each_key_undefined"
-    | "each_key_duplicate";
+    | "each_key_duplicate"
+    | "css_value_not_allowed";
 
 /**
  * Every diagnostic the runtime can emit. The documentation pages for the
@@ -183,6 +184,11 @@ export const diagnosticCatalog: Readonly<Record<DiagnosticCode, DiagnosticText>>
     {
         cause: "Two items in an each() list produced the same key.",
         fix: "Return a key that is unique within the list; duplicates make rows indistinguishable."
+    },
+    css_value_not_allowed:
+    {
+        cause: "A css literal received a value that is not a number or another css result.",
+        fix: "Interpolate only numbers and css results; put dynamic values in custom properties set through a style binding."
     }
 };
 
