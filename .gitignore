@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+test-results/
+playwright-report/
+sbom.cdx.json
+.DS_Store
+Thumbs.db
+docs/research/notes/

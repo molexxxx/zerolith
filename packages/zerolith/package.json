@@ -1,0 +1,46 @@
+{
+    "name": "zerolith",
+    "version": "0.0.0",
+    "description": "The front end of the zero-server pair: a signals runtime that runs from an import map or a bundle with no second-class path",
+    "license": "Apache-2.0",
+    "author": "molexxxx",
+    "homepage": "https://github.com/molexxxx/zerolith#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/molexxxx/zerolith.git",
+        "directory": "packages/zerolith"
+    },
+    "bugs": {
+        "url": "https://github.com/molexxxx/zerolith/issues"
+    },
+    "keywords": [
+        "zerolith",
+        "zero-server",
+        "signals",
+        "reactive",
+        "frontend",
+        "buildless",
+        "esm"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "engines": {
+        "node": ">=24.0.0"
+    },
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "src",
+        "LICENSE",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json"
+    }
+}

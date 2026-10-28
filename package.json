@@ -1,0 +1,31 @@
+{
+    "name": "zerolith-monorepo",
+    "private": true,
+    "description": "Monorepo for zerolith, the front end of the zero-server pair",
+    "license": "Apache-2.0",
+    "type": "module",
+    "engines": {
+        "node": ">=24.0.0"
+    },
+    "workspaces": [
+        "packages/*"
+    ],
+    "scripts": {
+        "build": "npm run build --workspaces --if-present",
+        "typecheck": "tsc -p tsconfig.json",
+        "lint": "oxlint",
+        "test": "vitest run --project node",
+        "test:browser": "vitest run --project browser",
+        "test:all": "vitest run",
+        "check": "npm run build && npm run typecheck && npm run lint && npm run test:all",
+        "sbom": "npm sbom --sbom-format cyclonedx --omit dev"
+    },
+    "devDependencies": {
+        "@types/node": "26.6.6",
+        "@vitest/browser-playwright": "5.0.5",
+        "oxlint": "1.90.0",
+        "playwright": "1.64.1",
+        "typescript": "7.0.2",
+        "vitest": "5.0.5"
+    }
+}
