@@ -195,11 +195,16 @@ export function trackNode<T extends object>(node: T, kind: NodeSnapshot["kind"],
     emit({ type: "node", id });
 }
 
-/** Saves named state for a reload the way the dev server's client does; exposed for tests. */
+/**
+ * Queues values for named state signals created from now on, each taken
+ * once. The dev server's client writes them to sessionStorage before a
+ * reload; the Vite plugin's runtime calls this between a module's disposal
+ * and the re-render that follows. An empty record drops what is left.
+ */
 export function saveRestore(state: Record<string, unknown>): void
 {
-    sessionStorage.setItem(RESTORE_KEY, JSON.stringify(state));
-    restored = readRestore();
+    const names = Object.keys(state);
+    restored = names.length === 0 ? undefined : { ...state };
 }
 
 /** Records a mounted root. */

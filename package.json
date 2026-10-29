@@ -11,7 +11,8 @@
     "workspaces": [
         "packages/zerolith",
         "packages/router",
-        "packages/devtools"
+        "packages/devtools",
+        "packages/vite"
     ],
     "scripts": {
         "build": "npm run build --workspaces --if-present",

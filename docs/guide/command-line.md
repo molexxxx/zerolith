@@ -15,7 +15,7 @@ zerolith dev examples/notes --port 8080
 zerolith serve dist --port 8080
 ```
 
-`dev` serves the folder with directory indexes and a nearest-index fallback, so a client-side route such as `/notes/abc` loads the application's `index.html`. It injects a small module into HTML pages and announces file changes over server-sent events: a changed stylesheet is swapped in place, and any other change reloads the page. Before reloading, the client saves the values of every named signal, and the development build of zerolith restores them when signals with the same names are created again, so a form draft or a selected tab survives an edit with no build step and no component boundary.
+`dev` serves the folder with directory indexes and a nearest-index fallback, so a client-side route such as `/notes/abc` loads the application's `index.html`. It injects a small module into HTML pages and announces file changes over server-sent events: a changed stylesheet is swapped in place, and any other change reloads the page. Before reloading, the client saves the values of every named signal, and the development build of zerolith restores them when signals with the same names are created again, so a form draft or a selected tab survives an edit with no build step and no component boundary. Under Vite, the plugin in `@zerolith/vite` does the same restore without reloading the page; see [Vite](/guide/vite/).
 
 ```ts
 const draft = signal("", { name: "draft" });    // restored across dev reloads

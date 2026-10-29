@@ -20,7 +20,9 @@ const entries: Entry[] = [
     { specifier: "zerolith", file: "packages/zerolith/src/index.ts", title: "zerolith" },
     { specifier: "zerolith/ssr", file: "packages/zerolith/src/ssr.ts", title: "zerolith/ssr" },
     { specifier: "@zerolith/router", file: "packages/router/src/index.ts", title: "@zerolith/router" },
-    { specifier: "@zerolith/devtools", file: "packages/devtools/src/index.ts", title: "@zerolith/devtools" }
+    { specifier: "@zerolith/devtools", file: "packages/devtools/src/index.ts", title: "@zerolith/devtools" },
+    { specifier: "@zerolith/vite", file: "packages/vite/src/index.ts", title: "@zerolith/vite" },
+    { specifier: "@zerolith/vite/runtime", file: "packages/vite/src/runtime.ts", title: "@zerolith/vite/runtime" }
 ];
 
 interface Page

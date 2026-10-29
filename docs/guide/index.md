@@ -49,4 +49,7 @@ With a bundler, install the packages and import them; the `development` export c
 - [Routing](/guide/routing/): the typed route table and plain anchors.
 - [Server rendering](/guide/server-rendering/): rendering views to HTML with no DOM.
 - [Diagnostics](/guide/diagnostics/): the error record, stable codes, and production builds.
+- [Dev tools](/guide/dev-tools/): the in-page inspector, named signals, and Performance tracks.
+- [Command line](/guide/command-line/): the dev server for the buildless path, import maps with integrity, and project checks.
+- [Vite](/guide/vite/): hot module replacement that swaps components in place and keeps named state.
 - [Reference](/reference/zerolith/): every export, generated from the source.

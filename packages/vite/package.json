@@ -1,0 +1,54 @@
+{
+    "name": "@zerolith/vite",
+    "version": "0.0.0",
+    "description": "The Vite plugin for zerolith: hot module replacement that swaps components in place and keeps named signal state, with no effect on production builds",
+    "license": "Apache-2.0",
+    "author": "molexxxx",
+    "homepage": "https://github.com/molexxxx/zerolith#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/molexxxx/zerolith.git",
+        "directory": "packages/vite"
+    },
+    "bugs": {
+        "url": "https://github.com/molexxxx/zerolith/issues"
+    },
+    "keywords": [
+        "zerolith",
+        "vite",
+        "vite-plugin",
+        "hmr"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "engines": {
+        "node": ">=24.0.0"
+    },
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        },
+        "./runtime": {
+            "types": "./dist/runtime.d.ts",
+            "default": "./dist/runtime.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "src",
+        "LICENSE",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json"
+    },
+    "peerDependencies": {
+        "vite": "^8.0.0",
+        "zerolith": "*"
+    },
+    "devDependencies": {
+        "zerolith": "*"
+    }
+}
