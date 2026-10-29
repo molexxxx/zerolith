@@ -59,4 +59,5 @@ With a bundler, install the packages and import them; the `development` export c
 - [Accessibility](/guide/accessibility/): focus trap, roving tabindex, live announcer, focus origin, hidden text, and preference signals.
 - [Custom elements](/guide/elements/): mount a view inside a tree another framework owns, with attributes and properties as signals.
 - [Internationalization](/guide/i18n/): locale negotiation and state on Intl, formatters that follow the locale, and compiled MessageFormat 2 catalogs.
+- [Observability](/guide/observability/): spans for navigations, hydration, and requests through the OpenTelemetry API.
 - [Reference](/reference/zerolith/): every export, generated from the source.

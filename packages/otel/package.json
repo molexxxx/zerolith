@@ -1,0 +1,57 @@
+{
+    "name": "@zerolith/otel",
+    "version": "0.0.0",
+    "description": "OpenTelemetry spans for zerolith applications through @opentelemetry/api: a span per navigation, per hydration, and per request of the typed client with traceparent propagation",
+    "license": "Apache-2.0",
+    "author": "molexxxx",
+    "homepage": "https://github.com/molexxxx/zerolith#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/molexxxx/zerolith.git",
+        "directory": "packages/otel"
+    },
+    "bugs": {
+        "url": "https://github.com/molexxxx/zerolith/issues"
+    },
+    "keywords": [
+        "zerolith",
+        "opentelemetry",
+        "tracing"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "engines": {
+        "node": ">=24.0.0"
+    },
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "src",
+        "LICENSE",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json"
+    },
+    "peerDependencies": {
+        "@opentelemetry/api": ">=1.9.0 <2.0.0",
+        "@zerolith/client": "*",
+        "@zerolith/router": "*",
+        "zerolith": "*"
+    },
+    "peerDependenciesMeta": {
+        "@zerolith/client": { "optional": true },
+        "@zerolith/router": { "optional": true }
+    },
+    "devDependencies": {
+        "@zerolith/client": "*",
+        "@zerolith/router": "*",
+        "zerolith": "*"
+    }
+}

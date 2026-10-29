@@ -15,6 +15,7 @@ export default defineConfig({
             "@zerolith/client/port": fileURLToPath(new URL("./packages/client/src/port.ts", import.meta.url)),
             "@zerolith/client/generate": fileURLToPath(new URL("./packages/client/src/generate.ts", import.meta.url)),
             "@zerolith/client": fileURLToPath(new URL("./packages/client/src/index.ts", import.meta.url)),
+            "@zerolith/otel": fileURLToPath(new URL("./packages/otel/src/index.ts", import.meta.url)),
             "@zerolith/i18n/compile": fileURLToPath(new URL("./packages/i18n/src/compile.ts", import.meta.url)),
             "@zerolith/i18n": fileURLToPath(new URL("./packages/i18n/src/index.ts", import.meta.url)),
             "@zerolith/a11y": fileURLToPath(new URL("./packages/a11y/src/index.ts", import.meta.url)),

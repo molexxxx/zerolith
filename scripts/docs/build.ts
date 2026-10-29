@@ -33,7 +33,8 @@ const entries: Entry[] = [
     { specifier: "@zerolith/test", file: "packages/test/src/index.ts", title: "@zerolith/test" },
     { specifier: "@zerolith/a11y", file: "packages/a11y/src/index.ts", title: "@zerolith/a11y" },
     { specifier: "@zerolith/i18n", file: "packages/i18n/src/index.ts", title: "@zerolith/i18n" },
-    { specifier: "@zerolith/i18n/compile", file: "packages/i18n/src/compile.ts", title: "@zerolith/i18n/compile" }
+    { specifier: "@zerolith/i18n/compile", file: "packages/i18n/src/compile.ts", title: "@zerolith/i18n/compile" },
+    { specifier: "@zerolith/otel", file: "packages/otel/src/index.ts", title: "@zerolith/otel" }
 ];
 
 interface Page

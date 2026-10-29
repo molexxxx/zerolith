@@ -17,7 +17,8 @@
         "packages/client",
         "packages/test",
         "packages/a11y",
-        "packages/i18n"
+        "packages/i18n",
+        "packages/otel"
     ],
     "scripts": {
         "build": "npm run build --workspaces --if-present",

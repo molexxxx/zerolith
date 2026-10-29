@@ -90,6 +90,20 @@ export interface Match
 /** The arguments `href()` takes for a path: none when it has no parameters. */
 export type HrefArgs<Path extends string> = Record<string, never> extends ParamsOf<Path> ? [] : [params: ParamsOf<Path>];
 
+/** What `observe` receives: a navigation starting, committing, or failing, with one id per navigation. */
+export interface NavigationEvent
+{
+    readonly type: "start" | "commit" | "error";
+    /** The same number for the start and the end of one navigation. */
+    readonly id: number;
+    readonly url: URL;
+    readonly mode: "push" | "replace" | "pop";
+    /** The matched route's name on commit; undefined when the fallback rendered. */
+    readonly name?: string | undefined;
+    /** The loader's error on failure. */
+    readonly error?: unknown;
+}
+
 /** Options for `createRouter`. */
 export interface RouterOptions
 {
@@ -101,6 +115,8 @@ export interface RouterOptions
     scroll?: boolean;
     /** The window to attach to. Defaults to the global window; `null` attaches to none, as on the server, even where a window exists. */
     window?: Window | null;
+    /** Receives one event when a navigation starts and one when it commits or fails; the hook tracing and logging attach to. */
+    observe?: (event: NavigationEvent) => void;
 }
 
 /** The router returned by `createRouter`, typed by its route table. */
@@ -328,6 +344,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
     {
         const run = ++generation;
         pending.set(true);
+        options.observe?.({ type: "start", id: run, url: target, mode });
         let resolved: Resolved;
         try
         {
@@ -339,6 +356,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             {
                 pending.set(false);
             }
+            options.observe?.({ type: "error", id: run, url: target, mode, error });
             if (options.onError === undefined)
             {
                 throw error;
@@ -363,6 +381,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             }
         }
         commit(target, resolved, restored);
+        options.observe?.({ type: "commit", id: run, url: target, mode, name: resolved.match?.name });
     };
 
     const toUrl = (to: string): URL => new URL(to, win === undefined ? "http://localhost/" : win.location.href);

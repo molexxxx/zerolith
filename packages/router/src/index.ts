@@ -9,6 +9,7 @@ export type {
     LazyView,
     LoadContext,
     Match,
+    NavigationEvent,
     RouteContext,
     RouteDefinition,
     RouteTable,
