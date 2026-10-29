@@ -9,7 +9,7 @@ Status: pre-alpha, nothing published. This repository holds the runtime, the fir
 | Path | Contents |
 | --- | --- |
 | `packages/zerolith` | The core runtime: signals, `html` and `css` tags, rendering, hydration, diagnostics |
-| `packages/*` | First-party packages under the `@zerolith/*` scope as they are added (router, devtools, forms, client, test, vite) |
+| `packages/*` | First-party packages under the `@zerolith/*` scope: router, forms, client, test, a11y, devtools, vite |
 | `crates/zerolith` | The Rust command line: `dev` and `serve` for the buildless path, `importmap` with integrity hashes, `doctor` |
 | `docs/policy` | Support window, release channels, versioning and deprecation rules |
 | `docs/decisions` | Architecture decision records |

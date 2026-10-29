@@ -10,6 +10,7 @@
         "paths": {
             "zerolith": ["./packages/zerolith/src/index.ts"],
             "zerolith/ssr": ["./packages/zerolith/src/ssr.ts"],
+            "zerolith/element": ["./packages/zerolith/src/element.ts"],
             "@zerolith/router": ["./packages/router/src/index.ts"],
             "@zerolith/router/server": ["./packages/router/src/server.ts"],
             "@zerolith/devtools": ["./packages/devtools/src/index.ts"],
@@ -18,6 +19,7 @@
             "@zerolith/forms": ["./packages/forms/src/index.ts"],
             "@zerolith/client": ["./packages/client/src/index.ts"],
             "@zerolith/client/generate": ["./packages/client/src/generate.ts"],
+            "@zerolith/client/port": ["./packages/client/src/port.ts"],
             "@zerolith/test": ["./packages/test/src/index.ts"],
             "@zerolith/a11y": ["./packages/a11y/src/index.ts"]
         }

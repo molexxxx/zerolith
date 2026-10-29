@@ -36,6 +36,10 @@
             "types": "./dist/generate.d.ts",
             "default": "./dist/generate.js"
         },
+        "./port": {
+            "types": "./dist/port.d.ts",
+            "default": "./dist/port.js"
+        },
         "./package.json": "./package.json"
     },
     "files": [

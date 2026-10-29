@@ -38,6 +38,11 @@
             "development": "./dist/ssr.js",
             "default": "./dist/production/ssr.js"
         },
+        "./element": {
+            "types": "./dist/element.d.ts",
+            "development": "./dist/element.js",
+            "default": "./dist/production/element.js"
+        },
         "./package.json": "./package.json"
     },
     "files": [

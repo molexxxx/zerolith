@@ -46,3 +46,11 @@ A response outside 2xx rejects with a `ProblemError`. Its `problem` is the RFC 9
 - `headers` are sent with every request, or computed per request when given as a function, which is where a bearer token goes.
 - `transport` replaces `fetch`. A test can answer in process; an Electron renderer can forward requests over a message port and get the same typed client.
 - Each call accepts `signal` and `headers` of its own, and `request` returns the `Request` a call would send without sending it.
+
+## Over a message port
+
+Where `fetch` cannot reach the server, the same client runs over a message port: an Electron renderer behind `contextBridge`, a worker, or a test. `servePort`, from `@zerolith/client/port`, answers requests where the handler lives; `portTransport` sends them from where the client lives. Requests and responses cross as plain messages with text bodies, so JSON and encoded forms travel and binary uploads do not.
+
+@include packages/client/test/examples/port.example.test.ts#port
+
+In Electron, the main process creates a `MessageChannelMain`, keeps one port for `servePort`, and posts the other to the renderer, whose preload script forwards it to the page with `window.postMessage`; Electron's `MessagePortMain` and the page's `MessagePort` are both accepted. Problems cross unchanged, and a handler that throws answers with a 500 problem, so the client's error handling is the same on every transport.

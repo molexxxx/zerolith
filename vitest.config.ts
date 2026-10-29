@@ -10,6 +10,7 @@ export default defineConfig({
         alias: {
             "@zerolith/vite/runtime": fileURLToPath(new URL("./packages/vite/src/runtime.ts", import.meta.url)),
             "@zerolith/vite": fileURLToPath(new URL("./packages/vite/src/index.ts", import.meta.url)),
+            "@zerolith/client/port": fileURLToPath(new URL("./packages/client/src/port.ts", import.meta.url)),
             "@zerolith/client/generate": fileURLToPath(new URL("./packages/client/src/generate.ts", import.meta.url)),
             "@zerolith/client": fileURLToPath(new URL("./packages/client/src/index.ts", import.meta.url)),
             "@zerolith/a11y": fileURLToPath(new URL("./packages/a11y/src/index.ts", import.meta.url)),
@@ -18,6 +19,7 @@ export default defineConfig({
             "@zerolith/devtools": fileURLToPath(new URL("./packages/devtools/src/index.ts", import.meta.url)),
             "@zerolith/router/server": fileURLToPath(new URL("./packages/router/src/server.ts", import.meta.url)),
             "@zerolith/router": routerEntry,
+            "zerolith/element": fileURLToPath(new URL("./packages/zerolith/src/element.ts", import.meta.url)),
             "zerolith/ssr": fileURLToPath(new URL("./packages/zerolith/src/ssr.ts", import.meta.url)),
             zerolith: coreEntry
         }

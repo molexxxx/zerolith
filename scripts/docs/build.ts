@@ -19,6 +19,7 @@ const out = join(root, "site");
 const entries: Entry[] = [
     { specifier: "zerolith", file: "packages/zerolith/src/index.ts", title: "zerolith" },
     { specifier: "zerolith/ssr", file: "packages/zerolith/src/ssr.ts", title: "zerolith/ssr" },
+    { specifier: "zerolith/element", file: "packages/zerolith/src/element.ts", title: "zerolith/element" },
     { specifier: "@zerolith/router", file: "packages/router/src/index.ts", title: "@zerolith/router" },
     { specifier: "@zerolith/router/server", file: "packages/router/src/server.ts", title: "@zerolith/router/server" },
     { specifier: "@zerolith/devtools", file: "packages/devtools/src/index.ts", title: "@zerolith/devtools" },
@@ -27,6 +28,7 @@ const entries: Entry[] = [
     { specifier: "@zerolith/forms", file: "packages/forms/src/index.ts", title: "@zerolith/forms" },
     { specifier: "@zerolith/client", file: "packages/client/src/index.ts", title: "@zerolith/client" },
     { specifier: "@zerolith/client/generate", file: "packages/client/src/generate.ts", title: "@zerolith/client/generate" },
+    { specifier: "@zerolith/client/port", file: "packages/client/src/port.ts", title: "@zerolith/client/port" },
     { specifier: "@zerolith/test", file: "packages/test/src/index.ts", title: "@zerolith/test" },
     { specifier: "@zerolith/a11y", file: "packages/a11y/src/index.ts", title: "@zerolith/a11y" }
 ];
