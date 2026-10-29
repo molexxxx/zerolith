@@ -320,8 +320,14 @@ mod tests {
             Some(root.join("index.html"))
         );
         assert_eq!(resolve(&root, "/app/missing.js"), None);
-        assert_eq!(resolve(&root, "/app/typed.js"), Some(root.join("app/typed.ts")));
-        assert_eq!(resolve(&root, "/app/typed.ts"), Some(root.join("app/typed.ts")));
+        assert_eq!(
+            resolve(&root, "/app/typed.js"),
+            Some(root.join("app/typed.ts"))
+        );
+        assert_eq!(
+            resolve(&root, "/app/typed.ts"),
+            Some(root.join("app/typed.ts"))
+        );
         assert_eq!(resolve(&root, "/../secret"), None);
         assert_eq!(
             resolve(&root, "/app/%6Dain.js"),
