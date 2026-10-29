@@ -21,7 +21,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "zerolith", version, about = "The zerolith command line", long_about = None)]
+#[command(name = "zerolith", bin_name = "zerolith", version, about = "The zerolith command line", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
