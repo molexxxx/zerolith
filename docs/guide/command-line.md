@@ -29,7 +29,7 @@ The server also answers `/.well-known/appspecific/com.chrome.devtools.json` on l
 zerolith importmap --html index.html
 ```
 
-Copies the installed `zerolith`, `@zerolith/router`, and `@zerolith/devtools` modules into `vendor/`, writes `vendor/importmap.json`, and replaces or inserts the import map and `modulepreload` links in the page. The map carries an `integrity` entry with the SRI hash of every module reachable from the entries, so a modified file fails to load. Pass `--development` to map the entries with diagnostic text and the inspector instead of the production ones.
+Copies the installed `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, and `@zerolith/devtools` modules into `vendor/`, writes `vendor/importmap.json`, and replaces or inserts the import map and `modulepreload` links in the page. The map carries an `integrity` entry with the SRI hash of every module reachable from the entries, so a modified file fails to load. Pass `--development` to map the entries with diagnostic text and the inspector instead of the production ones.
 
 ## doctor
 

@@ -7,7 +7,7 @@ use std::process::ExitCode;
 
 use serde::Serialize;
 
-use crate::importmap::{ImportMap, integrity};
+use crate::importmap::{ImportMap, PACKAGES, integrity};
 
 /// One finding.
 #[derive(Debug, Serialize)]
@@ -106,7 +106,7 @@ pub fn check(root: &Path) -> Vec<Finding> {
             "Load the application with <script type=\"module\" src=\"/app.js\"></script>.",
         ));
     }
-    for package in ["zerolith", "@zerolith/router", "@zerolith/devtools"] {
+    for package in PACKAGES {
         let vendored = map
             .imports
             .keys()

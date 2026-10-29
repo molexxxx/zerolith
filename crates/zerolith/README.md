@@ -11,7 +11,7 @@ zerolith doctor [root] [--json]
 
 `dev` serves files under the root with directory indexes and a nearest-index fallback for client-side routes, injects a small client into HTML pages, and announces file changes over server-sent events. A changed stylesheet is swapped in place; any other change reloads the page after the client saves the values of named signals, which the development build of zerolith restores on the next load. It also serves Chrome's automatic-workspace file on loopback so DevTools can edit sources in place.
 
-`importmap` copies the installed `zerolith`, `@zerolith/router`, and `@zerolith/devtools` modules into a vendor folder and writes an import map whose `integrity` entries hold the SRI hash of every module, plus `modulepreload` links; with `--html` it replaces or inserts them in the page.
+`importmap` copies the installed `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, and `@zerolith/devtools` modules into a vendor folder and writes an import map whose `integrity` entries hold the SRI hash of every module, plus `modulepreload` links; with `--html` it replaces or inserts them in the page.
 
 `doctor` reports coded findings: a missing index or import map, map targets that do not exist, integrity mismatches, a missing module script, and vendored packages older than the installed ones.
 

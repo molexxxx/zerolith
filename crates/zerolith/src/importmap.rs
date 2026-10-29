@@ -12,7 +12,14 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 /// The packages vendored by default, in dependency order.
-const PACKAGES: [&str; 3] = ["zerolith", "@zerolith/router", "@zerolith/devtools"];
+/// The packages the import map vendors and the doctor checks.
+pub const PACKAGES: [&str; 5] = [
+    "zerolith",
+    "@zerolith/router",
+    "@zerolith/forms",
+    "@zerolith/client",
+    "@zerolith/devtools",
+];
 
 /// The generated import map, written as `importmap.json` next to the vendored files.
 #[derive(Debug, Default, Serialize, Deserialize)]
