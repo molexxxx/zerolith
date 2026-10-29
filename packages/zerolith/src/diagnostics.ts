@@ -92,7 +92,11 @@ export type DiagnosticCode =
     | "css_value_not_allowed"
     | "ref_not_assignable"
     | "hydration_mismatch"
-    | "jsx_not_lowered";
+    | "jsx_not_lowered"
+    | "template_frozen_read"
+    | "image_without_alt"
+    | "button_without_name"
+    | "frame_without_title";
 
 /** Builds the full diagnostic record for a catalog code. */
 export function diagnostic(code: DiagnosticCode, severity: DiagnosticSeverity, args?: DiagnosticArgs, location?: DiagnosticLocation): Diagnostic

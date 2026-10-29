@@ -118,5 +118,25 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
     {
         cause: "A JSX expression reached the runtime, which means the lowering in @zerolith/vite did not run for this file.",
         fix: "Add zerolith() to the Vite plugins and keep JSX in .jsx or .tsx files; without a build step write html templates instead."
+    },
+    template_frozen_read:
+    {
+        cause: "A .get() read is bound in a template, so the value was read once when the template was created and never updates; the Vite plugin reports it in development, since the runtime cannot tell a frozen read from a deliberate one.",
+        fix: "Bind the signal itself, or computed(() => ...) for a derived value; call .get() only inside computed, effect, resource.params, and event handlers."
+    },
+    image_without_alt:
+    {
+        cause: "An <img> in a template has no alt attribute, so assistive technology has nothing to read for it.",
+        fix: "Add alt text that says what the image conveys, or alt=\"\" when it is decorative."
+    },
+    button_without_name:
+    {
+        cause: "A <button> has no content and no aria-label, so it has no accessible name.",
+        fix: "Put text inside the button, or add aria-label; an icon alone needs the label."
+    },
+    frame_without_title:
+    {
+        cause: "An <iframe> has no title attribute, so what it embeds is not announced.",
+        fix: "Add a title that names the embedded content."
     }
 };

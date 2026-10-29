@@ -5,11 +5,14 @@
  */
 import { type Plugin, parseSync } from "vite";
 import { type JsxOutput, lowerJsx } from "./jsx.js";
+import { lintModule, position } from "./lint.js";
 import { type ModuleParser, transformModule } from "./transform.js";
 
 export type { AstNode, Edit, IdentityMap } from "./ast.js";
 export type { JsxOutput } from "./jsx.js";
 export { JsxError, lowerJsx } from "./jsx.js";
+export type { Finding, LintCode } from "./lint.js";
+export { lintModule, position } from "./lint.js";
 export type { ModuleParser, ParsedModule, TransformOutput } from "./transform.js";
 export { transformModule } from "./transform.js";
 
@@ -22,6 +25,8 @@ export interface ZerolithPluginOptions
     exclude?: RegExp;
     /** Lowers JSX in `.jsx` and `.tsx` files to `html` calls. Defaults to true. */
     jsx?: boolean;
+    /** Warns in the terminal about a `.get()` read bound in a template and about static accessibility defects. Defaults to true. */
+    lint?: boolean;
 }
 
 const DEFAULT_INCLUDE = /\.[cm]?[jt]sx?$/;
@@ -98,6 +103,14 @@ export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
                 if (meta?.ssr === true || id.startsWith("\0"))
                 {
                     return null;
+                }
+                if (options.lint !== false)
+                {
+                    for (const finding of lintModule(code, id, parse))
+                    {
+                        const { line, column } = position(code, finding.offset);
+                        this.warn({ message: `${finding.code}: ${finding.message} https://zerolith.dev/e/${finding.code}`, pos: finding.offset, loc: { file: id, line, column } });
+                    }
                 }
                 return transformModule(code, id, parse);
             }

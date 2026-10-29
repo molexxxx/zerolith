@@ -63,3 +63,12 @@ The plugin does not rewrite anything for `vite build`. It checks the output inst
 ## JSX
 
 Ahead of every other transform, the plugin lowers each JSX expression in a `.jsx` or `.tsx` file to the `html` call it stands for, following RFC 0001: elements become template markup, the `prop:`, `on:`, and `bool:` namespaces become the other binding forms, and capitalized tags become component calls with a `children` prop. The lowered module keeps its line count, and nothing from JSX reaches the browser; `zerolith/jsx-runtime` exists for the types a `tsconfig` with `"jsxImportSource": "zerolith"` reads, and throws a `jsx_not_lowered` diagnostic if it is ever called. Pass `jsx: false` to leave JSX files to Vite's own transform. The [templates guide](/guide/templates/) shows the same component in both spellings.
+
+## Development warnings
+
+The runtime cannot tell a frozen read from a deliberate one, and it does not read markup for meaning, so the plugin does both at transform time and warns in the terminal, with the file and position and a link to the diagnostic's page:
+
+- `template_frozen_read`: a `.get()` read is bound in a template, which the rule on the first page of this guide calls out as the mistake nothing else can catch. Bind the signal, or `computed(() => ...)`.
+- `image_without_alt`, `button_without_name`, `frame_without_title`: the accessibility defects visible in the template's static markup, the same codes `@zerolith/test` reports at run time.
+
+They are warnings, not errors, because a template may read a value once on purpose. Pass `lint: false` to turn them off.
