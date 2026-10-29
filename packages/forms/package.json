@@ -1,0 +1,50 @@
+{
+    "name": "@zerolith/forms",
+    "version": "0.0.0",
+    "description": "Forms for zerolith: native forms that post FormData and work without JavaScript, enhanced with fetch, pending state, and RFC 9457 problem+json field errors when it runs, with Standard Schema validation shared by client and server",
+    "license": "Apache-2.0",
+    "author": "molexxxx",
+    "homepage": "https://github.com/molexxxx/zerolith#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/molexxxx/zerolith.git",
+        "directory": "packages/forms"
+    },
+    "bugs": {
+        "url": "https://github.com/molexxxx/zerolith/issues"
+    },
+    "keywords": [
+        "zerolith",
+        "forms",
+        "progressive-enhancement",
+        "problem-details",
+        "standard-schema"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "engines": {
+        "node": ">=24.0.0"
+    },
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "src",
+        "LICENSE",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json"
+    },
+    "peerDependencies": {
+        "zerolith": "*"
+    },
+    "devDependencies": {
+        "zerolith": "*"
+    }
+}
