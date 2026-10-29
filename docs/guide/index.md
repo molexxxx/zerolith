@@ -55,4 +55,5 @@ With a bundler, install the packages and import them; the `development` export c
 - [Command line](/guide/command-line/): the dev server for the buildless path, import maps with integrity, and project checks.
 - [Vite](/guide/vite/): hot module replacement that swaps components in place and keeps named state.
 - [Testing](/guide/testing/): mount with cleanup, settle async work, and check hydration and accessibility in tests.
+- [Accessibility](/guide/accessibility/): focus trap, roving tabindex, live announcer, focus origin, hidden text, and preference signals.
 - [Reference](/reference/zerolith/): every export, generated from the source.

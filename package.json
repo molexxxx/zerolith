@@ -15,7 +15,8 @@
         "packages/vite",
         "packages/forms",
         "packages/client",
-        "packages/test"
+        "packages/test",
+        "packages/a11y"
     ],
     "scripts": {
         "build": "npm run build --workspaces --if-present",

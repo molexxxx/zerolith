@@ -11,6 +11,7 @@
         "@zerolith/forms": "./packages/forms/src/index.ts",
         "@zerolith/client": "./packages/client/src/index.ts",
         "@zerolith/client/generate": "./packages/client/src/generate.ts",
-        "@zerolith/test": "./packages/test/src/index.ts"
+        "@zerolith/test": "./packages/test/src/index.ts",
+        "@zerolith/a11y": "./packages/a11y/src/index.ts"
     }
 }
