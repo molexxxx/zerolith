@@ -27,6 +27,17 @@ afterEach(() =>
 
 describe("html and render", () =>
 {
+    it("takes a selector for the container and reports one that matches nothing", () =>
+    {
+        host = document.createElement("div");
+        host.id = "selector-host";
+        document.body.append(host);
+        root = render(html`<p>by selector</p>`, "#selector-host");
+        expect(root.container).toBe(host);
+        expect(host.textContent).toBe("by selector");
+        expect(() => render(html`<p></p>`, "#nowhere")).toThrow(/mount_target_missing/);
+    });
+
     it("renders text, numbers, nested templates, nodes, and iterables", () =>
     {
         const strong = document.createElement("strong");

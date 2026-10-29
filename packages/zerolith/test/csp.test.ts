@@ -72,7 +72,7 @@ function App()
         <ul>\${each(items, (item) => item.id, (item) => html\`<li>\${computed(() => item.get().name)}</li>\`)}</ul>
         \${when(computed(() => count.get() > 1), () => html\`<p id="many">many</p>\`)}\`;
 }
-render(App(), document.getElementById("app"));
+render(App(), "#app");
 globalThis.app = {
     probeError()
     {

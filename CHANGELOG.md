@@ -2,6 +2,10 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
+## Unreleased
+
+- `zerolith`: `render` and `hydrate` take a CSS selector for the container as well as an element, expose the element as `container` on the root, and report a selector that matches nothing as `mount_target_missing`. The `@zerolith/vite` runtime and `tracedHydrate` in `@zerolith/otel` take the same targets.
+
 ## 0.1.0-alpha.1 (2026-10-29)
 
 The first published alpha. The API is not frozen: minor versions may change it until 1.0.0, and the `alpha` dist-tag marks that.

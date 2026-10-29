@@ -103,14 +103,9 @@ fn index_html(name: &str, flavor: Flavor) -> String {
 
 const STYLES: &str = ":root {\n    --bg: #101214;\n    --panel: #181b1f;\n    --line: #2a2f36;\n    --text: #e6e8eb;\n    --muted: #9aa3ad;\n    --accent: #7cc4ff;\n    color-scheme: dark;\n}\n* { box-sizing: border-box; }\nbody { margin: 0; font: 16px/1.5 system-ui, sans-serif; background: var(--bg); color: var(--text); }\na { color: var(--accent); }\nbutton { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }\n";
 
-fn main_source(ext: &str, typescript: bool) -> String {
-    let host = if typescript {
-        "document.getElementById(\"app\") as HTMLElement"
-    } else {
-        "/** @type {HTMLElement} */ (document.getElementById(\"app\"))"
-    };
+fn main_source(ext: &str) -> String {
     format!(
-        "// Mounts the application: wait for the router, render the layout around its outlet, open the inspector in development.\nimport {{ render }} from \"zerolith\";\nimport {{ mountDevtools }} from \"@zerolith/devtools\";\nimport {{ Layout }} from \"./components/layout.{ext}\";\nimport {{ router }} from \"./router.{ext}\";\n\nawait router.ready;\nrender(Layout({{ content: router.outlet() }}), {host});\nmountDevtools();\n"
+        "// Mounts the application: wait for the router, render the layout around its outlet, open the inspector in development.\nimport {{ render }} from \"zerolith\";\nimport {{ mountDevtools }} from \"@zerolith/devtools\";\nimport {{ Layout }} from \"./components/layout.{ext}\";\nimport {{ router }} from \"./router.{ext}\";\n\nawait router.ready;\nrender(Layout({{ content: router.outlet() }}), \"#app\");\nmountDevtools();\n"
     )
 }
 
@@ -278,7 +273,7 @@ pub fn scaffold(root: &Path, name: &str, flavor: Flavor) -> std::io::Result<Vec<
             "node_modules/\ndist/\nvendor/\n".to_string(),
         ),
         ("src/styles.css".to_string(), STYLES.to_string()),
-        (format!("src/main.{ext}"), main_source(ext, typescript)),
+        (format!("src/main.{ext}"), main_source(ext)),
         (format!("src/routes.{ext}"), routes_source(ext)),
         (format!("src/router.{ext}"), router_source(ext, typescript)),
         (

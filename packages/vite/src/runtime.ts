@@ -87,22 +87,39 @@ function unmount(container: Element | DocumentFragment, entry: Mounted): void
  * into the same container replaces the first, which is what happens when the
  * entry module itself is re-executed.
  */
-export function render(factory: () => unknown, container: Element | DocumentFragment): core.Root
+export function render(factory: () => unknown, target: core.MountTarget): core.Root
 {
-    mounted.get(container)?.root.dispose();
-    const entry: Mounted = { factory, root: core.render(factory(), container), fresh: true };
+    const previous = element(target);
+    if (previous !== null)
+    {
+        mounted.get(previous)?.root.dispose();
+    }
+    const root = core.render(factory(), target);
+    const { container } = root;
+    const entry: Mounted = { factory, root, fresh: true };
     mounted.set(container, entry);
-    return { dispose: () => unmount(container, entry) };
+    return { container, dispose: () => unmount(container, entry) };
 }
 
 /** The `hydrate` counterpart of `render`: hydrates once, then re-renders on updates. */
-export function hydrate(factory: () => unknown, container: Element | DocumentFragment): core.HydrateResult
+export function hydrate(factory: () => unknown, target: core.MountTarget): core.HydrateResult
 {
-    mounted.get(container)?.root.dispose();
-    const result = core.hydrate(factory(), container);
+    const previous = element(target);
+    if (previous !== null)
+    {
+        mounted.get(previous)?.root.dispose();
+    }
+    const result = core.hydrate(factory(), target);
+    const { container } = result;
     const entry: Mounted = { factory, root: result, fresh: true };
     mounted.set(container, entry);
-    return { mismatches: result.mismatches, dispose: () => unmount(container, entry) };
+    return { container, mismatches: result.mismatches, dispose: () => unmount(container, entry) };
+}
+
+/** The element a target names when it exists; `core.render` reports a selector that matches nothing. */
+function element(target: core.MountTarget): Element | DocumentFragment | null
+{
+    return typeof target === "string" ? document.querySelector(target) : target;
 }
 
 /**

@@ -10,5 +10,5 @@ render(
             <em data-testid="child">a child</em>
         </Counter>
     </main>,
-    document.getElementById("app") as HTMLElement
+    "#app"
 );

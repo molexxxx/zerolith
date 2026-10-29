@@ -114,6 +114,11 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
         cause: "The server-rendered markup did not match the view, and the differing part was rendered again on the client.",
         fix: "Render the same view with the same data on the server and the client; check the mismatches returned by hydrate()."
     },
+    mount_target_missing:
+    {
+        cause: "render or hydrate received a selector that matches no element in the document.",
+        fix: "Check the selector, and mount once the element exists: a module script runs after the document is parsed, so an element earlier in the page is already there."
+    },
     jsx_not_lowered:
     {
         cause: "A JSX expression reached the runtime, which means the lowering in @zerolith/vite did not run for this file.",

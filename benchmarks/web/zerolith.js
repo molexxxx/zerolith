@@ -23,7 +23,7 @@ function Row(row)
         </tr>`;
 }
 
-render(html`<table class="table table-hover table-striped test-data"><tbody>${each(rows, (row) => row.id, Row)}</tbody></table>`, document.getElementById("main"));
+render(html`<table class="table table-hover table-striped test-data"><tbody>${each(rows, (row) => row.id, Row)}</tbody></table>`, "#main");
 
 globalThis.bench = {
     create: () => timed(() => rows.set(buildRows(1000))),

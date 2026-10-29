@@ -6,7 +6,7 @@
  * makes every call free until one is configured.
  */
 import { type Context, type Span, SpanKind, SpanStatusCode, type Tracer, context, trace } from "@opentelemetry/api";
-import { type HydrateResult, hydrate } from "zerolith";
+import { type HydrateResult, type MountTarget, hydrate } from "zerolith";
 import type { Transport } from "@zerolith/client";
 import type { NavigationEvent } from "@zerolith/router";
 
@@ -58,7 +58,7 @@ export function navigationObserver(tracer: Tracer = defaultTracer()): (event: Na
 }
 
 /** `hydrate` inside a span named `hydrate`, with the number of mismatches as `zerolith.hydration.mismatches`. */
-export function tracedHydrate(view: unknown, container: Element | DocumentFragment, tracer: Tracer = defaultTracer()): HydrateResult
+export function tracedHydrate(view: unknown, container: MountTarget, tracer: Tracer = defaultTracer()): HydrateResult
 {
     return tracer.startActiveSpan("hydrate", (span) =>
     {

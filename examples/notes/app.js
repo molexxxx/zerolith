@@ -3,4 +3,4 @@ import { render } from "zerolith";
 import { Layout } from "./components.js";
 import { router } from "./router.js";
 
-render(Layout({ content: router.outlet() }), /** @type {HTMLElement} */ (document.getElementById("app")));
+render(Layout({ content: router.outlet() }), "#app");

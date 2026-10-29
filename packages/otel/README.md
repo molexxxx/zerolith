@@ -9,7 +9,7 @@ import { navigationObserver, tracedHydrate, tracedTransport } from "@zerolith/ot
 const tracer = trace.getTracer("my-app");
 const router = createRouter(routes, { observe: navigationObserver(tracer) });
 const api = createClient<Api>(routes, { transport: tracedTransport(undefined, tracer) });
-tracedHydrate(App(router), document.getElementById("app") as HTMLElement, tracer);
+tracedHydrate(App(router), "#app", tracer);
 ```
 
 - `navigationObserver` opens a span when a navigation starts and ends it on commit or failure, with the route name, the path, and the mode as attributes.

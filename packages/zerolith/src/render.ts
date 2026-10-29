@@ -26,6 +26,8 @@ export interface View
 /** The handle returned by `render()`. */
 export interface Root
 {
+    /** The element or fragment the view was rendered into. */
+    readonly container: Element | DocumentFragment;
     /** Removes everything rendered and disposes every effect it created. */
     dispose(): void;
 }
@@ -860,9 +862,28 @@ class AttributePart implements BoundPart
     }
 }
 
-/** Renders a view at the end of `container` and returns a handle to dispose it. */
-export function render(view: unknown, container: Element | DocumentFragment): Root
+/** Where a view mounts: an element or fragment, or a CSS selector for one element in the document. */
+export type MountTarget = Element | DocumentFragment | string;
+
+/** The element behind a mount target; a selector that matches nothing is a `mount_target_missing` error. */
+function resolveTarget(target: MountTarget): Element | DocumentFragment
 {
+    if (typeof target !== "string")
+    {
+        return target;
+    }
+    const element = document.querySelector(target);
+    if (element === null)
+    {
+        throw fail("mount_target_missing", { selector: target });
+    }
+    return element;
+}
+
+/** Renders a view at the end of `target`, an element or a selector for one, and returns a handle to dispose it. */
+export function render(view: unknown, target: MountTarget): Root
+{
+    const container = resolveTarget(target);
     const anchor = document.createComment("");
     container.append(anchor);
     const part = new ChildPart(anchor);
@@ -875,6 +896,7 @@ export function render(view: unknown, container: Element | DocumentFragment): Ro
         });
     });
     const root: Root = {
+        container,
         dispose(): void
         {
             untrackRoot(root);
@@ -887,14 +909,15 @@ export function render(view: unknown, container: Element | DocumentFragment): Ro
 }
 
 /**
- * Attaches a view to markup the server rendered into `container` with
- * `renderToString`, reusing the nodes and binding signals, listeners,
- * properties, and refs. Any disagreement is repaired on the client and
- * returned in `mismatches`. Without server-rendered markup it falls back
- * to `render`.
+ * Attaches a view to markup the server rendered into `target`, an element
+ * or a selector for one, with `renderToString`, reusing the nodes and
+ * binding signals, listeners, properties, and refs. Any disagreement is
+ * repaired on the client and returned in `mismatches`. Without
+ * server-rendered markup it falls back to `render`.
  */
-export function hydrate(view: unknown, container: Element | DocumentFragment): HydrateResult
+export function hydrate(view: unknown, target: MountTarget): HydrateResult
 {
+    const container = resolveTarget(target);
     const found: HydrationMismatch[] = [];
     let start: Comment | undefined;
     for (let node = container.firstChild; node !== null; node = node.nextSibling)
@@ -941,6 +964,7 @@ export function hydrate(view: unknown, container: Element | DocumentFragment): H
         mismatches = previous;
     }
     const result: HydrateResult = {
+        container,
         mismatches: found,
         dispose(): void
         {

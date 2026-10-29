@@ -18,7 +18,7 @@ Signals are read once. `each` and `when` render their current state. Property, e
 
 ## Hydration
 
-The rendered markup carries comment markers around every bound value. `hydrate(view, container)` binds the same view to those nodes instead of creating new ones: text nodes, attributes, keyed rows, and branches are adopted in place, and signals, listeners, properties, and refs are attached. Where the markup and the view disagree, the differing part is rendered on the client, a `hydration_mismatch` warning is reported, and the result's `mismatches` list says what differed.
+The rendered markup carries comment markers around every bound value. `hydrate(view, container)`, with the container an element or a CSS selector for one as `render` takes it, binds the same view to those nodes instead of creating new ones: text nodes, attributes, keyed rows, and branches are adopted in place, and signals, listeners, properties, and refs are attached. Where the markup and the view disagree, the differing part is rendered on the client, a `hydration_mismatch` warning is reported, and the result's `mismatches` list says what differed.
 
 @include packages/zerolith/test/examples/hydrate.example.browser.test.ts#hydrate
 

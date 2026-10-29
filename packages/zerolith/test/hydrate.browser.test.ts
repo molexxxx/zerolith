@@ -25,6 +25,18 @@ afterEach(() =>
 
 describe("hydrate", () =>
 {
+    it("takes a selector for the container and reports one that matches nothing", () =>
+    {
+        host = document.createElement("div");
+        host.id = "hydrate-host";
+        host.innerHTML = renderToString(html`<p>${"same"}</p>`);
+        document.body.append(host);
+        result = hydrate(html`<p>${"same"}</p>`, "#hydrate-host");
+        expect(result.container).toBe(host);
+        expect(result.mismatches).toEqual([]);
+        expect(() => hydrate(html`<p>${"same"}</p>`, "#nowhere")).toThrow(/mount_target_missing/);
+    });
+
     it("reuses the server-rendered nodes and binds signals, listeners, and properties", () =>
     {
         const count = signal(1);

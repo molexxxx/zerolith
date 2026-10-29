@@ -11,5 +11,5 @@ import { router } from "./router.ts";
 await load(locale.locale.get());
 await router.ready;
 focusOrigin();
-render(Layout({ content: router.outlet() }), document.getElementById("app") as HTMLElement);
+render(Layout({ content: router.outlet() }), "#app");
 mountDevtools();

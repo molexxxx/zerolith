@@ -23,7 +23,7 @@ function Counter({ start = 0 }: { start?: number })
         <button @click=${() => count.set(count.get() + 1)}>Add one</button>`;
 }
 
-render(Counter({ start: 1 }), document.getElementById("app")!);
+render(Counter({ start: 1 }), "#app");
 ```
 
 Bind the signal, not its value: `${count}` stays live, while `${count.get()}` reads once.

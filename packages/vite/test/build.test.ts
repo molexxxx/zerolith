@@ -23,7 +23,7 @@ beforeAll(async () =>
 {
     folder = await mkdtemp(join(tmpdir(), "zerolith-build-"));
     await writeFile(join(folder, "index.html"), "<!doctype html><html><body><div id=\"app\"></div><script type=\"module\" src=\"/main.js\"></script></body></html>");
-    await writeFile(join(folder, "main.js"), "import { html, render } from \"zerolith\";\nrender(html`<p>built</p>`, document.getElementById(\"app\"));\n");
+    await writeFile(join(folder, "main.js"), "import { html, render } from \"zerolith\";\nrender(html`<p>built</p>`, \"#app\");\n");
 });
 
 afterAll(async () =>
