@@ -70,9 +70,28 @@ enum Command {
 async fn main() -> ExitCode {
     let cli = Cli::parse();
     let result = match cli.command {
-        Command::Dev { root, port } => server::run(server::Options { root, port, reload: true }).await,
-        Command::Serve { root, port } => server::run(server::Options { root, port, reload: false }).await,
-        Command::Importmap { root, out, development, html } => importmap::run(&root, &out, development, html.as_deref()),
+        Command::Dev { root, port } => {
+            server::run(server::Options {
+                root,
+                port,
+                reload: true,
+            })
+            .await
+        }
+        Command::Serve { root, port } => {
+            server::run(server::Options {
+                root,
+                port,
+                reload: false,
+            })
+            .await
+        }
+        Command::Importmap {
+            root,
+            out,
+            development,
+            html,
+        } => importmap::run(&root, &out, development, html.as_deref()),
         Command::Doctor { root, json } => return doctor::run(&root, json),
     };
     match result {

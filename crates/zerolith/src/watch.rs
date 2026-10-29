@@ -46,7 +46,10 @@ pub fn url_path(root: &Path, changed: &Path) -> Option<String> {
 }
 
 /// Starts watching `root` recursively; the watcher stops when dropped.
-pub fn start(root: PathBuf, sender: broadcast::Sender<Change>) -> notify::Result<RecommendedWatcher> {
+pub fn start(
+    root: PathBuf,
+    sender: broadcast::Sender<Change>,
+) -> notify::Result<RecommendedWatcher> {
     let canonical = root.canonicalize().unwrap_or(root.clone());
     let mut watcher = notify::recommended_watcher(move |result: notify::Result<notify::Event>| {
         if let Ok(event) = result {
@@ -69,8 +72,14 @@ mod tests {
     #[test]
     fn builds_url_paths_and_ignores_tooling_folders() {
         let root = Path::new("/project");
-        assert_eq!(url_path(root, Path::new("/project/app/main.js")), Some("/app/main.js".to_string()));
-        assert_eq!(url_path(root, Path::new("/project/node_modules/x/index.js")), None);
+        assert_eq!(
+            url_path(root, Path::new("/project/app/main.js")),
+            Some("/app/main.js".to_string())
+        );
+        assert_eq!(
+            url_path(root, Path::new("/project/node_modules/x/index.js")),
+            None
+        );
         assert_eq!(url_path(root, Path::new("/elsewhere/main.js")), None);
         assert!(ignored(Path::new("site/index.html")));
         assert!(!ignored(Path::new("examples/notes/index.html")));

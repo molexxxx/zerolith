@@ -43,7 +43,7 @@ pub fn percent_decode(input: &str) -> String {
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
     while i < bytes.len() {
-        if bytes[i] == b'%' && i + 2 < bytes.len() + 0 && i + 2 <= bytes.len() - 1 {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
             let hex = &input[i + 1..i + 3];
             if let Ok(value) = u8::from_str_radix(hex, 16) {
                 out.push(value);
@@ -63,7 +63,10 @@ pub fn percent_decode(input: &str) -> String {
 pub fn resolve(root: &Path, request_path: &str) -> Option<PathBuf> {
     let decoded = percent_decode(request_path);
     let relative = Path::new(decoded.trim_start_matches('/'));
-    if relative.components().any(|component| !matches!(component, Component::Normal(_) | Component::CurDir)) {
+    if relative
+        .components()
+        .any(|component| !matches!(component, Component::Normal(_) | Component::CurDir))
+    {
         return None;
     }
     let candidate = root.join(relative);
@@ -119,32 +122,61 @@ pub fn workspace_uuid(root: &Path) -> String {
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
     let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
-    format!("{}-{}-{}-{}-{}", &hex[0..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..32])
+    format!(
+        "{}-{}-{}-{}-{}",
+        &hex[0..8],
+        &hex[8..12],
+        &hex[12..16],
+        &hex[16..20],
+        &hex[20..32]
+    )
 }
 
 async fn events(State(state): State<Arc<AppState>>) -> Response {
     match &state.changes {
         Some(sender) => {
             let stream = BroadcastStream::new(sender.subscribe()).filter_map(|change| {
-                change.ok().and_then(|change| serde_json::to_string(&change).ok().map(|data| Ok::<Event, std::convert::Infallible>(Event::default().event("change").data(data))))
+                change.ok().and_then(|change| {
+                    serde_json::to_string(&change).ok().map(|data| {
+                        Ok::<Event, std::convert::Infallible>(
+                            Event::default().event("change").data(data),
+                        )
+                    })
+                })
             });
-            Sse::new(stream).keep_alive(KeepAlive::default()).into_response()
+            Sse::new(stream)
+                .keep_alive(KeepAlive::default())
+                .into_response()
         }
         None => StatusCode::NOT_FOUND.into_response(),
     }
 }
 
 async fn client() -> Response {
-    ([(header::CONTENT_TYPE, "text/javascript; charset=utf-8"), (header::CACHE_CONTROL, "no-cache")], CLIENT).into_response()
+    (
+        [
+            (header::CONTENT_TYPE, "text/javascript; charset=utf-8"),
+            (header::CACHE_CONTROL, "no-cache"),
+        ],
+        CLIENT,
+    )
+        .into_response()
 }
 
-async fn devtools_json(State(state): State<Arc<AppState>>, ConnectInfo(address): ConnectInfo<SocketAddr>) -> Response {
+async fn devtools_json(
+    State(state): State<Arc<AppState>>,
+    ConnectInfo(address): ConnectInfo<SocketAddr>,
+) -> Response {
     if !address.ip().is_loopback() {
         return StatusCode::NOT_FOUND.into_response();
     }
     let root = state.root.canonicalize().unwrap_or(state.root.clone());
     let body = serde_json::json!({ "workspace": { "root": display(&root), "uuid": workspace_uuid(&root) } });
-    ([(header::CONTENT_TYPE, "application/json; charset=utf-8")], body.to_string()).into_response()
+    (
+        [(header::CONTENT_TYPE, "application/json; charset=utf-8")],
+        body.to_string(),
+    )
+        .into_response()
 }
 
 async fn file(State(state): State<Arc<AppState>>, uri: Uri) -> Response {
@@ -154,7 +186,10 @@ async fn file(State(state): State<Arc<AppState>>, uri: Uri) -> Response {
     let Ok(bytes) = tokio::fs::read(&path).await else {
         return (StatusCode::NOT_FOUND, "Not found").into_response();
     };
-    let extension = path.extension().and_then(|extension| extension.to_str()).unwrap_or("");
+    let extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or("");
     let mime = content_type(extension);
     let body = if state.changes.is_some() && (extension == "html" || extension == "htm") {
         Body::from(inject_client(&String::from_utf8_lossy(&bytes)))
@@ -162,8 +197,12 @@ async fn file(State(state): State<Arc<AppState>>, uri: Uri) -> Response {
         Body::from(bytes)
     };
     let mut response = Response::new(body);
-    response.headers_mut().insert(header::CONTENT_TYPE, HeaderValue::from_static(mime));
-    response.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+    response
+        .headers_mut()
+        .insert(header::CONTENT_TYPE, HeaderValue::from_static(mime));
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
     response
 }
 
@@ -173,7 +212,10 @@ pub fn app(root: PathBuf, changes: Option<broadcast::Sender<Change>>) -> Router 
     Router::new()
         .route("/__zerolith/events", get(events))
         .route("/__zerolith/client.js", get(client))
-        .route("/.well-known/appspecific/com.chrome.devtools.json", get(devtools_json))
+        .route(
+            "/.well-known/appspecific/com.chrome.devtools.json",
+            get(devtools_json),
+        )
         .fallback(get(file))
         .with_state(state)
 }
@@ -188,14 +230,27 @@ pub async fn run(options: Options) -> std::io::Result<()> {
     } else {
         (None, None)
     };
-    let listener = tokio::net::TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, options.port))).await?;
+    let listener =
+        tokio::net::TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, options.port)))
+            .await?;
     let address = listener.local_addr()?;
-    println!("zerolith: serving {} at http://{address}/{}", display(&root), if options.reload { " with live reload" } else { "" });
-    let result = axum::serve(listener, app(root, sender).into_make_service_with_connect_info::<SocketAddr>())
-        .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
-        })
-        .await;
+    println!(
+        "zerolith: serving {} at http://{address}/{}",
+        display(&root),
+        if options.reload {
+            " with live reload"
+        } else {
+            ""
+        }
+    );
+    let result = axum::serve(
+        listener,
+        app(root, sender).into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(async {
+        let _ = tokio::signal::ctrl_c().await;
+    })
+    .await;
     drop(watcher);
     result
 }
@@ -207,10 +262,15 @@ mod tests {
     use std::path::Path;
 
     fn fixture() -> std::path::PathBuf {
-        let root = std::env::temp_dir().join(format!("zerolith-server-test-{}", std::process::id()));
+        let root =
+            std::env::temp_dir().join(format!("zerolith-server-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("app/deep")).unwrap();
-        fs::write(root.join("index.html"), "<html><head></head><body></body></html>").unwrap();
+        fs::write(
+            root.join("index.html"),
+            "<html><head></head><body></body></html>",
+        )
+        .unwrap();
         fs::write(root.join("app/index.html"), "<html></html>").unwrap();
         fs::write(root.join("app/main.js"), "export {};").unwrap();
         root
@@ -219,21 +279,37 @@ mod tests {
     #[test]
     fn resolves_files_indexes_and_route_fallbacks() {
         let root = fixture();
-        assert_eq!(resolve(&root, "/app/main.js"), Some(root.join("app/main.js")));
+        assert_eq!(
+            resolve(&root, "/app/main.js"),
+            Some(root.join("app/main.js"))
+        );
         assert_eq!(resolve(&root, "/app/"), Some(root.join("app/index.html")));
         assert_eq!(resolve(&root, "/app"), Some(root.join("app/index.html")));
-        assert_eq!(resolve(&root, "/app/deep/route/here"), Some(root.join("app/index.html")));
-        assert_eq!(resolve(&root, "/other/route"), Some(root.join("index.html")));
+        assert_eq!(
+            resolve(&root, "/app/deep/route/here"),
+            Some(root.join("app/index.html"))
+        );
+        assert_eq!(
+            resolve(&root, "/other/route"),
+            Some(root.join("index.html"))
+        );
         assert_eq!(resolve(&root, "/app/missing.js"), None);
         assert_eq!(resolve(&root, "/../secret"), None);
-        assert_eq!(resolve(&root, "/app/%6Dain.js"), Some(root.join("app/main.js")));
+        assert_eq!(
+            resolve(&root, "/app/%6Dain.js"),
+            Some(root.join("app/main.js"))
+        );
         let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
     fn injects_the_client_once_before_head_end() {
         let injected = inject_client("<html><head><title>x</title></head><body></body></html>");
-        assert!(injected.contains("<script type=\"module\" src=\"/__zerolith/client.js\"></script>\n</head>"));
+        assert!(
+            injected.contains(
+                "<script type=\"module\" src=\"/__zerolith/client.js\"></script>\n</head>"
+            )
+        );
         assert_eq!(inject_client(&injected), injected);
         assert!(inject_client("<p>no head</p>").starts_with("<script"));
     }

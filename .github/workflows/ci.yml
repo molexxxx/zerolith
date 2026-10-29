@@ -76,8 +76,6 @@ jobs:
         run: rustup show active-toolchain
 
       - name: Format
-        # Advisory until rustfmt is available on the development machine; see the Rust section of CONTRIBUTING.md.
-        continue-on-error: true
         run: cargo fmt --all --check
 
       - name: Lint

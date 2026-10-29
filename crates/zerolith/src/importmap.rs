@@ -78,7 +78,9 @@ fn reachable(entries: &[String], files: &BTreeMap<String, Vec<u8>>) -> Vec<Strin
         if seen.contains(&url) {
             continue;
         }
-        let Some(bytes) = files.get(&url) else { continue };
+        let Some(bytes) = files.get(&url) else {
+            continue;
+        };
         seen.push(url.clone());
         for specifier in relative_imports(&String::from_utf8_lossy(bytes)) {
             queue.push(resolve_url(&url, &specifier));
@@ -96,7 +98,10 @@ struct Manifest {
 
 /// The `sha256-...` integrity value for file contents.
 pub fn integrity(bytes: &[u8]) -> String {
-    format!("sha256-{}", base64::engine::general_purpose::STANDARD.encode(Sha256::digest(bytes)))
+    format!(
+        "sha256-{}",
+        base64::engine::general_purpose::STANDARD.encode(Sha256::digest(bytes))
+    )
 }
 
 /// Picks the file an export entry resolves to under the given condition, falling back to `default`.
@@ -104,10 +109,10 @@ fn resolve_export(entry: &serde_json::Value, development: bool) -> Option<String
     match entry {
         serde_json::Value::String(path) => Some(path.clone()),
         serde_json::Value::Object(conditions) => {
-            if development {
-                if let Some(serde_json::Value::String(path)) = conditions.get("development") {
-                    return Some(path.clone());
-                }
+            if development
+                && let Some(serde_json::Value::String(path)) = conditions.get("development")
+            {
+                return Some(path.clone());
             }
             match conditions.get("default") {
                 Some(serde_json::Value::String(path)) => Some(path.clone()),
@@ -118,7 +123,12 @@ fn resolve_export(entry: &serde_json::Value, development: bool) -> Option<String
     }
 }
 
-fn copy_tree(from: &Path, to: &Path, prefix: &str, files: &mut BTreeMap<String, Vec<u8>>) -> io::Result<()> {
+fn copy_tree(
+    from: &Path,
+    to: &Path,
+    prefix: &str,
+    files: &mut BTreeMap<String, Vec<u8>>,
+) -> io::Result<()> {
     fs::create_dir_all(to)?;
     for entry in fs::read_dir(from)? {
         let entry = entry?;
@@ -144,15 +154,21 @@ fn copy_tree(from: &Path, to: &Path, prefix: &str, files: &mut BTreeMap<String, 
 pub fn vendor(root: &Path, out: &Path, development: bool) -> io::Result<Vendored> {
     let mut vendored = Vendored::default();
     let mut files: BTreeMap<String, Vec<u8>> = BTreeMap::new();
-    let base = format!("/{}", out.to_string_lossy().replace('\\', "/").trim_matches('/'));
+    let base = format!(
+        "/{}",
+        out.to_string_lossy().replace('\\', "/").trim_matches('/')
+    );
     for package in PACKAGES {
         let folder = root.join("node_modules").join(package);
         let manifest_path = folder.join("package.json");
         if !manifest_path.is_file() {
             continue;
         }
-        let manifest: Manifest = serde_json::from_str(&fs::read_to_string(&manifest_path)?).map_err(io::Error::other)?;
-        vendored.versions.insert(package.to_string(), manifest.version.clone());
+        let manifest: Manifest =
+            serde_json::from_str(&fs::read_to_string(&manifest_path)?).map_err(io::Error::other)?;
+        vendored
+            .versions
+            .insert(package.to_string(), manifest.version.clone());
         let target = root.join(out).join(package);
         let prefix = format!("{base}/{package}");
         let mut copied_dist = false;
@@ -164,12 +180,24 @@ pub fn vendor(root: &Path, out: &Path, development: bool) -> io::Result<Vendored
                 continue;
             };
             let file = file.trim_start_matches("./").to_string();
-            let specifier = if subpath == "." { package.to_string() } else { format!("{package}/{}", subpath.trim_start_matches("./")) };
-            vendored.map.imports.insert(specifier, format!("{prefix}/{file}"));
+            let specifier = if subpath == "." {
+                package.to_string()
+            } else {
+                format!("{package}/{}", subpath.trim_start_matches("./"))
+            };
+            vendored
+                .map
+                .imports
+                .insert(specifier, format!("{prefix}/{file}"));
             if !copied_dist {
                 let dist = folder.join("dist");
                 if dist.is_dir() {
-                    copy_tree(&dist, &target.join("dist"), &format!("{prefix}/dist"), &mut files)?;
+                    copy_tree(
+                        &dist,
+                        &target.join("dist"),
+                        &format!("{prefix}/dist"),
+                        &mut files,
+                    )?;
                     copied_dist = true;
                 }
             }
@@ -177,7 +205,10 @@ pub fn vendor(root: &Path, out: &Path, development: bool) -> io::Result<Vendored
         fs::write(target.join("VERSION"), format!("{}\n", manifest.version))?;
     }
     if vendored.map.imports.is_empty() {
-        return Err(io::Error::new(io::ErrorKind::NotFound, "no zerolith packages found under node_modules; run npm install first"));
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "no zerolith packages found under node_modules; run npm install first",
+        ));
     }
     let entries: Vec<String> = vendored.map.imports.values().cloned().collect();
     vendored.modules = reachable(&entries, &files);
@@ -187,7 +218,13 @@ pub fn vendor(root: &Path, out: &Path, development: bool) -> io::Result<Vendored
         }
     }
     fs::create_dir_all(root.join(out))?;
-    fs::write(root.join(out).join("importmap.json"), format!("{}\n", serde_json::to_string_pretty(&vendored.map).map_err(io::Error::other)?))?;
+    fs::write(
+        root.join(out).join("importmap.json"),
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&vendored.map).map_err(io::Error::other)?
+        ),
+    )?;
     Ok(vendored)
 }
 
@@ -196,7 +233,9 @@ pub fn html_tags(vendored: &Vendored) -> String {
     let map = serde_json::to_string(&vendored.map).unwrap_or_default();
     let mut out = format!("<script type=\"importmap\">{map}</script>\n");
     for module in &vendored.modules {
-        out.push_str(&format!("<link rel=\"modulepreload\" href=\"{module}\" data-zerolith-preload>\n"));
+        out.push_str(&format!(
+            "<link rel=\"modulepreload\" href=\"{module}\" data-zerolith-preload>\n"
+        ));
     }
     out
 }
@@ -205,14 +244,18 @@ pub fn html_tags(vendored: &Vendored) -> String {
 pub fn update_html(html: &str, tags: &str) -> String {
     let stripped: String = html
         .lines()
-        .filter(|line| !(line.contains("rel=\"modulepreload\"") && line.contains("data-zerolith-preload")))
+        .filter(|line| {
+            !(line.contains("rel=\"modulepreload\"") && line.contains("data-zerolith-preload"))
+        })
         .map(|line| format!("{line}\n"))
         .collect();
     let mut result = String::new();
     let mut rest = stripped.as_str();
     let mut replaced = false;
     while let Some(start) = rest.find("<script type=\"importmap\">") {
-        let Some(end_offset) = rest[start..].find("</script>") else { break };
+        let Some(end_offset) = rest[start..].find("</script>") else {
+            break;
+        };
         let end = start + end_offset + "</script>".len();
         result.push_str(&rest[..start]);
         if !replaced {
@@ -243,10 +286,19 @@ pub fn run(root: &Path, out: &Path, development: bool, html: Option<&Path>) -> i
             let path = root.join(file);
             let current = fs::read_to_string(&path)?;
             fs::write(&path, update_html(&current, &tags))?;
-            println!("zerolith: vendored {} packages into {} and updated {}", vendored.versions.len(), out.display(), file.display());
+            println!(
+                "zerolith: vendored {} packages into {} and updated {}",
+                vendored.versions.len(),
+                out.display(),
+                file.display()
+            );
         }
         None => {
-            println!("zerolith: vendored {} packages into {}; add this to the head of your HTML:\n{tags}", vendored.versions.len(), out.display());
+            println!(
+                "zerolith: vendored {} packages into {}; add this to the head of your HTML:\n{tags}",
+                vendored.versions.len(),
+                out.display()
+            );
         }
     }
     Ok(())
@@ -254,58 +306,126 @@ pub fn run(root: &Path, out: &Path, development: bool, html: Option<&Path>) -> i
 
 #[cfg(test)]
 mod tests {
-    use super::{ImportMap, Vendored, html_tags, integrity, relative_imports, resolve_export, resolve_url, update_html, vendor};
+    use super::{
+        ImportMap, Vendored, html_tags, integrity, relative_imports, resolve_export, resolve_url,
+        update_html, vendor,
+    };
     use std::fs;
 
     #[test]
     fn hashes_match_the_sri_format() {
-        assert_eq!(integrity(b""), "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=");
+        assert_eq!(
+            integrity(b""),
+            "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+        );
     }
 
     #[test]
     fn follows_static_relative_imports() {
         let source = "import { a } from \"./a.js\";\nexport { b } from './b.js';\nimport c from \"zerolith\";\nexport * from \"../up.js\";";
-        assert_eq!(relative_imports(source), vec!["./a.js", "../up.js", "./b.js"]);
-        assert_eq!(resolve_url("/vendor/pkg/dist/index.js", "./x.js"), "/vendor/pkg/dist/x.js");
-        assert_eq!(resolve_url("/vendor/pkg/dist/index.js", "../up.js"), "/vendor/pkg/up.js");
+        assert_eq!(
+            relative_imports(source),
+            vec!["./a.js", "../up.js", "./b.js"]
+        );
+        assert_eq!(
+            resolve_url("/vendor/pkg/dist/index.js", "./x.js"),
+            "/vendor/pkg/dist/x.js"
+        );
+        assert_eq!(
+            resolve_url("/vendor/pkg/dist/index.js", "../up.js"),
+            "/vendor/pkg/up.js"
+        );
     }
 
     #[test]
     fn resolves_export_conditions() {
         let entry = serde_json::json!({ "types": "./dist/index.d.ts", "development": "./dist/index.js", "default": "./dist/production/index.js" });
-        assert_eq!(resolve_export(&entry, false), Some("./dist/production/index.js".to_string()));
-        assert_eq!(resolve_export(&entry, true), Some("./dist/index.js".to_string()));
-        assert_eq!(resolve_export(&serde_json::json!("./dist/x.js"), false), Some("./dist/x.js".to_string()));
+        assert_eq!(
+            resolve_export(&entry, false),
+            Some("./dist/production/index.js".to_string())
+        );
+        assert_eq!(
+            resolve_export(&entry, true),
+            Some("./dist/index.js".to_string())
+        );
+        assert_eq!(
+            resolve_export(&serde_json::json!("./dist/x.js"), false),
+            Some("./dist/x.js".to_string())
+        );
     }
 
     #[test]
     fn vendors_installed_packages_and_updates_html() {
-        let root = std::env::temp_dir().join(format!("zerolith-importmap-test-{}", std::process::id()));
+        let root =
+            std::env::temp_dir().join(format!("zerolith-importmap-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         let core = root.join("node_modules/zerolith");
         fs::create_dir_all(core.join("dist/production")).unwrap();
         fs::write(core.join("package.json"), r#"{"name":"zerolith","version":"0.0.0","exports":{".":{"development":"./dist/index.js","default":"./dist/production/index.js"},"./package.json":"./package.json"}}"#).unwrap();
         fs::write(core.join("dist/index.js"), "export const dev = 1;").unwrap();
-        fs::write(core.join("dist/production/index.js"), "export { prod } from \"./inner.js\";").unwrap();
-        fs::write(core.join("dist/production/inner.js"), "export const prod = 1;").unwrap();
+        fs::write(
+            core.join("dist/production/index.js"),
+            "export { prod } from \"./inner.js\";",
+        )
+        .unwrap();
+        fs::write(
+            core.join("dist/production/inner.js"),
+            "export const prod = 1;",
+        )
+        .unwrap();
         fs::write(root.join("index.html"), "<html><head><script type=\"importmap\">{}</script>\n<link rel=\"modulepreload\" href=\"/old.js\" data-zerolith-preload>\n</head><body></body></html>").unwrap();
 
         let vendored = vendor(&root, std::path::Path::new("vendor"), false).unwrap();
-        assert_eq!(vendored.map.imports.get("zerolith"), Some(&"/vendor/zerolith/dist/production/index.js".to_string()));
-        assert!(root.join("vendor/zerolith/dist/production/index.js").is_file());
-        assert_eq!(vendored.modules, vec!["/vendor/zerolith/dist/production/index.js", "/vendor/zerolith/dist/production/inner.js"]);
-        assert!(vendored.map.integrity.contains_key("/vendor/zerolith/dist/production/inner.js"));
-        assert!(!vendored.map.integrity.contains_key("/vendor/zerolith/dist/index.js"));
-        assert_eq!(vendored.versions.get("zerolith"), Some(&"0.0.0".to_string()));
+        assert_eq!(
+            vendored.map.imports.get("zerolith"),
+            Some(&"/vendor/zerolith/dist/production/index.js".to_string())
+        );
+        assert!(
+            root.join("vendor/zerolith/dist/production/index.js")
+                .is_file()
+        );
+        assert_eq!(
+            vendored.modules,
+            vec![
+                "/vendor/zerolith/dist/production/index.js",
+                "/vendor/zerolith/dist/production/inner.js"
+            ]
+        );
+        assert!(
+            vendored
+                .map
+                .integrity
+                .contains_key("/vendor/zerolith/dist/production/inner.js")
+        );
+        assert!(
+            !vendored
+                .map
+                .integrity
+                .contains_key("/vendor/zerolith/dist/index.js")
+        );
+        assert_eq!(
+            vendored.versions.get("zerolith"),
+            Some(&"0.0.0".to_string())
+        );
         assert!(root.join("vendor/importmap.json").is_file());
 
-        let updated = update_html(&fs::read_to_string(root.join("index.html")).unwrap(), &html_tags(&vendored));
+        let updated = update_html(
+            &fs::read_to_string(root.join("index.html")).unwrap(),
+            &html_tags(&vendored),
+        );
         assert!(updated.contains("\"zerolith\":\"/vendor/zerolith/dist/production/index.js\""));
         assert!(!updated.contains("/old.js"));
         assert_eq!(updated.matches("<script type=\"importmap\">").count(), 1);
         assert!(updated.contains("<link rel=\"modulepreload\" href=\"/vendor/zerolith/dist/production/index.js\" data-zerolith-preload>"));
 
-        let inserted = update_html("<html><head></head></html>", &html_tags(&Vendored { map: ImportMap::default(), modules: vec![], versions: Default::default() }));
+        let inserted = update_html(
+            "<html><head></head></html>",
+            &html_tags(&Vendored {
+                map: ImportMap::default(),
+                modules: vec![],
+                versions: Default::default(),
+            }),
+        );
         assert!(inserted.contains("<script type=\"importmap\">"));
         let _ = fs::remove_dir_all(&root);
     }
