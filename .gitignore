@@ -11,3 +11,5 @@ target/
 Thumbs.db
 docs/research/
 .vitest/
+packages/cli/platforms/*/zerolith
+packages/cli/platforms/*/zerolith.exe

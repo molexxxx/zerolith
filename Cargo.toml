@@ -14,3 +14,7 @@ unsafe_code = "forbid"
 
 [workspace.lints.clippy]
 all = "warn"
+
+[profile.release]
+strip = true
+lto = "thin"

@@ -16,4 +16,4 @@ The first published alpha. The API is not frozen: minor versions may change it u
 - `@zerolith/otel`: navigation, hydration, and request spans through `@opentelemetry/api`.
 - `@zerolith/devtools`: the in-page inspector.
 - `@zerolith/vite`: JSX lowering, hot replacement with named-signal restore, the production build check, and development warnings.
-- `zerolith` (crates.io): `dev` serving TypeScript and JSX through oxc, `build`, `importmap`, `doctor`, and `new`.
+- `@zerolith/cli` and the `zerolith` crate: `dev` serving TypeScript and JSX through oxc, `build`, `importmap`, `doctor`, and `new`; npm installs a prebuilt binary through one optional platform package per target (Linux, macOS, and Windows on x64 and arm64).

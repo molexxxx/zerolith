@@ -6,7 +6,7 @@ order: 11
 
 # Command line
 
-The `zerolith` binary is written in Rust and covers the parts of development that need a process outside the browser. Build it with `cargo build --release` from the repository; it is not on crates.io yet.
+The `zerolith` binary is written in Rust and covers the parts of development that need a process outside the browser. It installs from npm as `@zerolith/cli`, a thin package whose optional dependencies carry a prebuilt binary for Linux (glibc), macOS, and Windows on x64 and arm64, so `npm install --save-dev @zerolith/cli` followed by `npx zerolith` works wherever npm does, and `zerolith new` writes that dependency into the scaffold. Elsewhere, and on musl systems such as Alpine, `cargo install zerolith` builds the same crate from crates.io and `ZEROLITH_BINARY_PATH` tells the npm shim where it is.
 
 ## dev and serve
 

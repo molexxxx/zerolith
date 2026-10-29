@@ -7,6 +7,10 @@ name: Release
 # zerolith, workflow release.yml) is the normal credential; the NPM_TOKEN
 # secret is only read when it exists, for the first publish of a package
 # that has no trusted publisher yet.
+#
+# @zerolith/cli carries no binary: one platform package per target does,
+# built here on the matching runner. Linux builds on Ubuntu 22.04 so the
+# binaries link against glibc 2.35 and run on older distributions.
 
 on:
   push:
@@ -37,9 +41,44 @@ permissions:
   contents: read
 
 jobs:
+  binaries:
+    name: binary ${{ matrix.name }}
+    if: github.event.inputs.package == 'all' || github.event.inputs.package == '@zerolith/cli' || startsWith(github.ref_name, '@zerolith/cli@')
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { name: linux-x64, runner: ubuntu-22.04, binary: zerolith }
+          - { name: linux-arm64, runner: ubuntu-22.04-arm, binary: zerolith }
+          - { name: darwin-arm64, runner: macos-15, binary: zerolith }
+          - { name: darwin-x64, runner: macos-15-intel, binary: zerolith }
+          - { name: win32-x64, runner: windows-2025, binary: zerolith.exe }
+          - { name: win32-arm64, runner: windows-11-arm, binary: zerolith.exe }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Toolchain
+        run: rustup show active-toolchain
+
+      - name: Build
+        run: cargo build --release --locked --package zerolith
+
+      - name: Upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ matrix.name }}
+          path: target/release/${{ matrix.binary }}
+          if-no-files-found: error
+          retention-days: 7
+
   npm:
     name: npm ${{ github.event.inputs.package || github.ref_name }}
-    if: github.event_name == 'workflow_dispatch' || !startsWith(github.ref_name, 'crate@')
+    needs: binaries
+    if: ${{ !cancelled() && (needs.binaries.result == 'success' || needs.binaries.result == 'skipped') && (github.event_name == 'workflow_dispatch' || !startsWith(github.ref_name, 'crate@')) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -69,6 +108,17 @@ jobs:
       - name: SBOM
         run: npm run sbom > sbom.cdx.json
 
+      - name: Binaries
+        if: needs.binaries.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: "{darwin,linux,win32}-*"
+          path: packages/cli/platforms
+
+      - name: Mark the binaries executable
+        if: needs.binaries.result == 'success'
+        run: find packages/cli/platforms -name zerolith -type f -exec chmod 755 {} +
+
       - name: Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -88,15 +138,32 @@ jobs:
           if [ "$DRY_RUN" = "true" ]; then
             flags="$flags --dry-run"
           fi
-          if [ "$selection" = "all" ]; then
-            packages="zerolith @zerolith/router @zerolith/forms @zerolith/client @zerolith/test @zerolith/a11y @zerolith/i18n @zerolith/devtools @zerolith/vite @zerolith/otel"
-          else
-            packages="$selection"
-          fi
+          libraries="zerolith @zerolith/router @zerolith/forms @zerolith/client @zerolith/test @zerolith/a11y @zerolith/i18n @zerolith/devtools @zerolith/vite @zerolith/otel"
+          platforms="@zerolith/cli-linux-x64 @zerolith/cli-linux-arm64 @zerolith/cli-darwin-arm64 @zerolith/cli-darwin-x64 @zerolith/cli-win32-x64 @zerolith/cli-win32-arm64"
+          case "$selection" in
+            all) packages="$libraries $platforms @zerolith/cli" ;;
+            @zerolith/cli) packages="$platforms @zerolith/cli" ;;
+            *) packages="$selection" ;;
+          esac
           for package in $packages; do
             echo "publishing $package"
-            # shellcheck disable=SC2086
-            npm publish --workspace "$package" $flags
+            case "$package" in
+              @zerolith/cli-*)
+                directory="packages/cli/platforms/${package#@zerolith/cli-}"
+                ls "$directory"/zerolith* >/dev/null
+                # shellcheck disable=SC2086
+                (cd "$directory" && npm publish $flags)
+                ;;
+              @zerolith/cli)
+                node scripts/platforms.ts
+                # shellcheck disable=SC2086
+                npm publish --workspace "$package" $flags
+                ;;
+              *)
+                # shellcheck disable=SC2086
+                npm publish --workspace "$package" $flags
+                ;;
+            esac
           done
 
       - name: Upload SBOM

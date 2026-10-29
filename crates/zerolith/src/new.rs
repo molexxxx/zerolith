@@ -38,6 +38,7 @@ fn package_json(name: &str, flavor: Flavor) -> String {
         format!("        \"@zerolith/test\": \"{framework}\""),
     ];
     let mut dev = vec![
+        format!("        \"@zerolith/cli\": \"{framework}\""),
         format!(
             "        \"@vitest/browser-playwright\": \"{}\"",
             version_of("@vitest/browser-playwright")

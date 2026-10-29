@@ -7,7 +7,7 @@
 
 Routing, forms, rendering, and i18n, with clear patterns for you and your agent.
 
-> **Pre-alpha.** Nothing is published to npm yet and the API is still settling. Watch the repository or join the [discussions](https://github.com/molexxxx/zerolith/discussions) to follow along.
+> **Alpha.** Packages publish under the `alpha` dist-tag (`npm install zerolith@alpha`) and the API is still settling. Watch the repository or join the [discussions](https://github.com/molexxxx/zerolith/discussions) to follow along.
 
 zerolith is a standalone frontend framework: fine-grained signals, HTML templates that need no compiler, a typed router, server rendering with hydration, and tooling that works wherever the app is served. It talks to any backend over plain HTTP.
 
@@ -69,7 +69,7 @@ npm run build
 npm run serve
 ```
 
-Then open http://127.0.0.1:8080/examples/notes/. To scaffold your own application, build the command line with `cargo build --release` and run `zerolith new my-app`.
+Then open http://127.0.0.1:8080/examples/notes/. To scaffold your own application, run `npx @zerolith/cli new my-app`.
 
 ## Where it's going
 

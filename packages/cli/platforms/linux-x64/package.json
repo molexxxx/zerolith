@@ -1,0 +1,30 @@
+{
+    "name": "@zerolith/cli-linux-x64",
+    "version": "0.1.0-alpha.1",
+    "description": "The zerolith command line binary for Linux on x64 (glibc); installed through @zerolith/cli",
+    "license": "Apache-2.0",
+    "author": "molexxxx",
+    "homepage": "https://github.com/molexxxx/zerolith#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/molexxxx/zerolith.git",
+        "directory": "packages/cli/platforms/linux-x64"
+    },
+    "bugs": {
+        "url": "https://github.com/molexxxx/zerolith/issues"
+    },
+    "os": [
+        "linux"
+    ],
+    "cpu": [
+        "x64"
+    ],
+    "engines": {
+        "node": ">=24.0.0"
+    },
+    "files": [
+        "zerolith",
+        "LICENSE",
+        "README.md"
+    ]
+}

@@ -10,6 +10,8 @@
 
 Every package in the repository, the crate included, carries the same version and is released together. A release commit sets that version in every `packages/*/package.json`, in the ranges the packages declare on each other, in the root `package.json`, and in `Cargo.toml`, refreshes both lockfiles, and adds the `CHANGELOG.md` entry.
 
+The platform packages under `packages/cli/platforms` are not workspaces, since npm refuses to install a workspace whose `os` and `cpu` do not match the machine; the workflow publishes each from its directory with the binary built for it, then runs `scripts/platforms.ts` to add them as optional dependencies of `@zerolith/cli` and publishes that.
+
 Tags select what the release workflow publishes:
 
 - `<package>@<version>` publishes that npm package (for example `zerolith@1.4.0` or `@zerolith/router@1.4.0`).

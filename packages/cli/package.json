@@ -1,0 +1,42 @@
+{
+    "name": "@zerolith/cli",
+    "version": "0.1.0-alpha.1",
+    "description": "The zerolith command line from npm: a dev server that serves TypeScript and JSX without a build step, a static build, import maps with integrity hashes, project checks, and the scaffold, as a prebuilt native binary for the platform npm installs on",
+    "license": "Apache-2.0",
+    "author": "molexxxx",
+    "homepage": "https://github.com/molexxxx/zerolith#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/molexxxx/zerolith.git",
+        "directory": "packages/cli"
+    },
+    "bugs": {
+        "url": "https://github.com/molexxxx/zerolith/issues"
+    },
+    "keywords": [
+        "zerolith",
+        "cli",
+        "dev-server",
+        "import-map",
+        "scaffold"
+    ],
+    "type": "module",
+    "engines": {
+        "node": ">=24.0.0"
+    },
+    "bin": {
+        "zerolith": "./dist/bin.js"
+    },
+    "exports": {
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "src",
+        "LICENSE",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json"
+    }
+}
