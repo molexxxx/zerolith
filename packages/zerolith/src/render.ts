@@ -9,6 +9,7 @@
  * and the client walks the existing nodes with the template's part indices.
  */
 import { URL_ATTRIBUTES, describe, isNothing, isText, join, safeUrl } from "./binding.js";
+import { measure, trackRoot, untrackRoot } from "./devtools.js";
 import { diagnostic, fail, report } from "./diagnostics.js";
 import { type Owner, type ReadableSignal, type Signal, createOwner, effect, isSignal, onDispose, signal, untracked } from "./signals.js";
 import { ATTRIBUTE, BOOLEAN, CHILD, EVENT, type PartSpec, type Prepared, REF, prepare, trusted, walker } from "./template.js";
@@ -866,17 +867,23 @@ export function render(view: unknown, container: Element | DocumentFragment): Ro
     container.append(anchor);
     const part = new ChildPart(anchor);
     const owner = createOwner();
-    owner.run(() =>
+    measure("Render", "render", () =>
     {
-        part.set(view);
+        owner.run(() =>
+        {
+            part.set(view);
+        });
     });
-    return {
+    const root: Root = {
         dispose(): void
         {
+            untrackRoot(root);
             owner.dispose();
             part.destroy();
         }
     };
+    trackRoot(root, container, "render");
+    return root;
 }
 
 /**
@@ -905,40 +912,46 @@ export function hydrate(view: unknown, container: Element | DocumentFragment): H
     mismatches = found;
     try
     {
-        if (start === undefined || end === undefined)
+        measure("Render", "hydrate", () =>
         {
-            mismatch("root", "server-rendered markup", "");
-            const anchor = document.createComment("");
-            container.append(anchor);
-            part = new ChildPart(anchor);
-            owner.run(() =>
+            if (start === undefined || end === undefined)
             {
-                part.set(view);
-            });
-        }
-        else
-        {
-            const cursor = start.nextSibling ?? end;
-            part = new ChildPart(end);
-            owner.run(() =>
+                mismatch("root", "server-rendered markup", "");
+                const anchor = document.createComment("");
+                container.append(anchor);
+                part = new ChildPart(anchor);
+                owner.run(() =>
+                {
+                    part.set(view);
+                });
+            }
+            else
             {
-                part.set(view, cursor);
-            });
-        }
+                const cursor = start.nextSibling ?? end;
+                part = new ChildPart(end);
+                owner.run(() =>
+                {
+                    part.set(view, cursor);
+                });
+            }
+        });
     }
     finally
     {
         mismatches = previous;
     }
-    return {
+    const result: HydrateResult = {
         mismatches: found,
         dispose(): void
         {
+            untrackRoot(result);
             owner.dispose();
             part.destroy();
             start?.remove();
         }
     };
+    trackRoot(result, container, "hydrate");
+    return result;
 }
 
 /** Reads a signal or returns a plain value unchanged. */

@@ -5,6 +5,7 @@
  * returns it, and a terminal prints it.
  */
 import { diagnosticCatalog } from "./catalog.js";
+import { trackDiagnostic } from "./devtools.js";
 
 /**
  * How safely a suggestion can be applied without a human reading it,
@@ -135,7 +136,9 @@ export class ZerolithError extends Error
 /** Builds an error for a catalog code. */
 export function fail(code: DiagnosticCode, args?: DiagnosticArgs, location?: DiagnosticLocation): ZerolithError
 {
-    return new ZerolithError(diagnostic(code, "error", args, location));
+    const record = diagnostic(code, "error", args, location);
+    trackDiagnostic(record);
+    return new ZerolithError(record);
 }
 
 /** Receives every non-throwing diagnostic the runtime reports. */
@@ -156,6 +159,7 @@ export function onDiagnostic(listener: DiagnosticListener): () => void
 /** Reports a non-throwing diagnostic to every listener. */
 export function report(record: Diagnostic): void
 {
+    trackDiagnostic(record);
     for (const listener of listeners)
     {
         listener(record);

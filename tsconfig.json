@@ -10,7 +10,8 @@
         "paths": {
             "zerolith": ["./packages/zerolith/src/index.ts"],
             "zerolith/ssr": ["./packages/zerolith/src/ssr.ts"],
-            "@zerolith/router": ["./packages/router/src/index.ts"]
+            "@zerolith/router": ["./packages/router/src/index.ts"],
+            "@zerolith/devtools": ["./packages/devtools/src/index.ts"]
         }
     },
     "include": [

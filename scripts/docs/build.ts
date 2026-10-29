@@ -19,7 +19,8 @@ const out = join(root, "site");
 const entries: Entry[] = [
     { specifier: "zerolith", file: "packages/zerolith/src/index.ts", title: "zerolith" },
     { specifier: "zerolith/ssr", file: "packages/zerolith/src/ssr.ts", title: "zerolith/ssr" },
-    { specifier: "@zerolith/router", file: "packages/router/src/index.ts", title: "@zerolith/router" }
+    { specifier: "@zerolith/router", file: "packages/router/src/index.ts", title: "@zerolith/router" },
+    { specifier: "@zerolith/devtools", file: "packages/devtools/src/index.ts", title: "@zerolith/devtools" }
 ];
 
 interface Page

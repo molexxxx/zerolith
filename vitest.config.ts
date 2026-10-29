@@ -8,6 +8,7 @@ const routerEntry = fileURLToPath(new URL("./packages/router/src/index.ts", impo
 export default defineConfig({
     resolve: {
         alias: {
+            "@zerolith/devtools": fileURLToPath(new URL("./packages/devtools/src/index.ts", import.meta.url)),
             "@zerolith/router": routerEntry,
             "zerolith/ssr": fileURLToPath(new URL("./packages/zerolith/src/ssr.ts", import.meta.url)),
             zerolith: coreEntry

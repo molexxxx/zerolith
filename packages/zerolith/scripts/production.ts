@@ -1,6 +1,7 @@
 /**
- * Builds dist/production: the compiled modules with the diagnostic catalog
- * replaced by the empty production catalog. Source map comments are
+ * Builds dist/production: the compiled modules with every `x.js` that has
+ * an `x.production.js` sibling replaced by that sibling (the diagnostic
+ * catalog and the devtools instrumentation). Source map comments are
  * dropped because the maps are not copied.
  */
 import { copyFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
@@ -12,14 +13,18 @@ const production = dist + "production/";
 await rm(production, { recursive: true, force: true });
 await mkdir(production, { recursive: true });
 
+const all = await readdir(dist);
+const replacements = new Set(all.filter((name) => name.endsWith(".production.js")));
+
 async function copyModule(name: string): Promise<void>
 {
-    const source = name === "catalog.js" ? dist + "catalog.production.js" : dist + name;
+    const replacement = name.replace(/\.js$/, ".production.js");
+    const source = replacements.has(replacement) ? dist + replacement : dist + name;
     const text = (await readFile(source, "utf8")).replace(/^\/\/# sourceMappingURL=.*$/m, "");
     await writeFile(production + name, text);
 }
 
-const names = (await readdir(dist)).filter((name) => name.endsWith(".js") && name !== "catalog.production.js");
+const names = all.filter((name) => name.endsWith(".js") && !replacements.has(name));
 await Promise.all(names.map(copyModule));
 await copyFile(dist + "index.d.ts", production + "index.d.ts");
 await copyFile(dist + "ssr.d.ts", production + "ssr.d.ts");

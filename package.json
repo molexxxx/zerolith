@@ -10,7 +10,8 @@
     },
     "workspaces": [
         "packages/zerolith",
-        "packages/router"
+        "packages/router",
+        "packages/devtools"
     ],
     "scripts": {
         "build": "npm run build --workspaces --if-present",

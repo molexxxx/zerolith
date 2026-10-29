@@ -13,6 +13,7 @@
  * version counter, which keeps it correct without keeping it alive in its
  * sources' subscriber lists.
  */
+import { measure, trackFlush, trackNode } from "./devtools.js";
 import { fail } from "./diagnostics.js";
 
 const RUNNING = 1;
@@ -30,6 +31,8 @@ export interface SignalOptions<T>
 {
     /** Defaults to `Object.is`. */
     equals?: Equals<T>;
+    /** A label shown by the dev tools; it has no effect on behavior. */
+    name?: string;
 }
 
 /** A value that can be read and tracked. */
@@ -309,6 +312,7 @@ function endBatch(): void
     }
     let error: unknown;
     let failed = false;
+    let ran = 0;
     while (pending !== undefined)
     {
         let node: Effect | undefined = pending;
@@ -321,6 +325,7 @@ function endBatch(): void
             node.flags &= ~NOTIFIED;
             if (!(node.flags & DISPOSED) && stale(node))
             {
+                ran++;
                 try
                 {
                     node.run();
@@ -339,10 +344,24 @@ function endBatch(): void
     }
     rounds = 0;
     batchDepth--;
+    if (ran > 0)
+    {
+        trackFlush(ran);
+    }
     if (failed)
     {
         throw error;
     }
+}
+
+function countTargets(source: Source): number
+{
+    let count = 0;
+    for (let edge = source.targets; edge !== undefined; edge = edge.nextTarget)
+    {
+        count++;
+    }
+    return count;
 }
 
 class State<T> implements Signal<T>, Source
@@ -686,13 +705,17 @@ function adopt(dispose: () => void): void
 /** Creates a writable signal. */
 export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T>
 {
-    return new State(initial, options?.equals ?? Object.is);
+    const node = new State(initial, options?.equals ?? Object.is);
+    trackNode(node, "state", options?.name, () => ({ value: untracked(() => node.get()), observers: countTargets(node) }));
+    return node;
 }
 
 /** Creates a lazily evaluated, memoized value derived from other signals. The function must not write signals. */
 export function computed<T>(fn: () => T, options?: SignalOptions<T>): ReadableSignal<T>
 {
-    return new Computed(fn, options?.equals ?? Object.is);
+    const node = new Computed(fn, options?.equals ?? Object.is);
+    trackNode(node, "computed", options?.name ?? (fn.name === "" ? undefined : fn.name), () => ({ value: untracked(() => node.get()), observers: countTargets(node) }));
+    return node;
 }
 
 /**
@@ -704,9 +727,13 @@ export function computed<T>(fn: () => T, options?: SignalOptions<T>): ReadableSi
 export function effect(fn: EffectFunction): () => void
 {
     const node = new Effect(fn);
+    trackNode(node, "effect", fn.name === "" ? undefined : fn.name, () => ({ observers: 0 }));
     try
     {
-        node.run();
+        measure("Signals", "effect", () =>
+        {
+            node.run();
+        });
     }
     catch (error)
     {

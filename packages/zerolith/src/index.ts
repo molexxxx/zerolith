@@ -28,3 +28,6 @@ export { each, html, hydrate, render, unsafeHtml, when } from "./render.js";
 
 export type { Styles } from "./css.js";
 export { SCOPE_MARKER, css } from "./css.js";
+
+export type { DevtoolsEvent, DevtoolsHook, NodeSnapshot, RootSnapshot } from "./devtools.js";
+export { internal as devtoolsInternal } from "./devtools.js";
