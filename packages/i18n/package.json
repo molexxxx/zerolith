@@ -25,7 +25,7 @@
         "node": ">=24.0.0"
     },
     "bin": {
-        "zerolith-i18n": "./dist/cli.js"
+        "zerolith-i18n": "dist/cli.js"
     },
     "exports": {
         ".": {
