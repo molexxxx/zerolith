@@ -48,4 +48,12 @@ zerolith new my-app --js
 zerolith new my-app --buildless
 ```
 
-Writes the application layout the [structure guide](/guide/structure/) describes, with a working first page, the scripts, and an `AGENTS.md`, pinning the tool versions this repository tests with. The default is Vite and TypeScript; `--js` keeps Vite with JavaScript and JSDoc types; `--buildless` writes an import map instead of a bundler configuration, to be filled by `zerolith importmap` after `npm install`.
+Writes the application layout the [structure guide](/guide/structure/) describes, with a working first page, the scripts, and an `AGENTS.md`, pinning the tool versions this repository tests with. The default is Vite and TypeScript; `--js` keeps Vite with JavaScript and JSDoc types; `--buildless` writes an import map instead of a bundler configuration, filled by `zerolith importmap` after `npm install`, with TypeScript sources that `zerolith dev` serves and `zerolith build` writes out for static hosting.
+
+## build
+
+```
+zerolith build . --out dist
+```
+
+The production output of a buildless project, for any static host. Every file under the project is copied into the output folder, except `node_modules`, `vendor`, `dist`, `target`, `test`, hidden folders and files, and the development files (`package.json`, `tsconfig.json`, `AGENTS.md`, `README.md`, and `*.config.*`); `.ts`, `.tsx`, `.jsx`, and `.mts` sources are transformed to JavaScript the same way `dev` serves them and renamed to `.js`; relative imports that named those files, static and dynamic, are rewritten to `.js`, and so are the module scripts in HTML pages. The installed packages are then vendored into `vendor/` inside the output with an import map carrying integrity hashes, written into every page at the output's root. No bundler runs: the output is the project's modules, served as they are, which is what the buildless path promises.

@@ -85,7 +85,7 @@ The framework's own `AGENTS.md` follows the same shape, and the documentation si
 ```
 zerolith new my-app              Vite and TypeScript
 zerolith new my-app --js         Vite and JavaScript with JSDoc
-zerolith new my-app --buildless  an import map, no bundler, JavaScript
+zerolith new my-app --buildless  an import map and no bundler; TypeScript served by zerolith dev and built by zerolith build
 ```
 
 The command writes the layout with a working first page, the scripts, and the `AGENTS.md`, pinning the tool versions this repository tests with. `cd my-app && npm install && npm run dev` starts it.

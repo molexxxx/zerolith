@@ -54,7 +54,8 @@ fn package_json(name: &str, flavor: Flavor) -> String {
             ));
             vec![
                 "        \"dev\": \"zerolith dev .\"",
-                "        \"vendor\": \"zerolith importmap --html index.html\"",
+                "        \"vendor\": \"zerolith importmap --html index.html --development\"",
+                "        \"build\": \"zerolith build . --out dist\"",
                 "        \"check\": \"npm run typecheck && npm run lint && npm test\"",
                 "        \"typecheck\": \"tsc -p tsconfig.json\"",
                 "        \"lint\": \"oxlint\"",
@@ -198,8 +199,9 @@ const VITEST_CONFIG: &str = "import { playwright } from \"@vitest/browser-playwr
 
 const VITE_CONFIG: &str = "import { defineConfig } from \"vite\";\nimport { zerolith } from \"@zerolith/vite\";\n\nexport default defineConfig({\n    plugins: [zerolith()]\n});\n";
 
-fn tsconfig(typescript: bool) -> String {
-    let files = if typescript {
+fn tsconfig(flavor: Flavor) -> String {
+    let typescript = flavor != Flavor::ViteJavaScript;
+    let files = if flavor == Flavor::ViteTypeScript {
         "\"src\", \"test\", \"vite.config.ts\", \"vitest.config.ts\""
     } else {
         "\"src\", \"test\", \"vitest.config.ts\""
@@ -259,14 +261,14 @@ pub fn scaffold(root: &Path, name: &str, flavor: Flavor) -> std::io::Result<Vec<
             root.display()
         )));
     }
-    let typescript = flavor == Flavor::ViteTypeScript;
+    let typescript = flavor != Flavor::ViteJavaScript;
     let ext = if typescript { "ts" } else { "js" };
     let mut files = vec![
         ("package.json".to_string(), package_json(name, flavor)),
         ("index.html".to_string(), index_html(name, flavor)),
         ("AGENTS.md".to_string(), agents_md(name, flavor)),
         ("README.md".to_string(), readme(name, flavor)),
-        ("tsconfig.json".to_string(), tsconfig(typescript)),
+        ("tsconfig.json".to_string(), tsconfig(flavor)),
         (".oxlintrc.json".to_string(), OXLINTRC.to_string()),
         ("vitest.config.ts".to_string(), VITEST_CONFIG.to_string()),
         (
@@ -334,7 +336,7 @@ mod tests {
         for (flavor, folder, entry) in [
             (Flavor::ViteTypeScript, "ts-app", "src/main.ts"),
             (Flavor::ViteJavaScript, "js-app", "src/main.js"),
-            (Flavor::Buildless, "plain-app", "src/main.js"),
+            (Flavor::Buildless, "plain-app", "src/main.ts"),
         ] {
             let root = base.join(folder);
             let files = scaffold(&root, folder, flavor).unwrap();

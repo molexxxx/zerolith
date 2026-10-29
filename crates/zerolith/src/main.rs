@@ -3,8 +3,10 @@
 //! `dev` and `serve` host a folder for the buildless path, `importmap`
 //! vendors the installed packages and writes an import map with integrity
 //! hashes, `doctor` checks a project for the mistakes that are easy to make
-//! without a build step, and `new` writes the standard application layout.
+//! without a build step, `build` writes the production output of a buildless
+//! project, and `new` writes the standard application layout.
 
+mod build;
 mod doctor;
 mod importmap;
 mod mime;
@@ -66,6 +68,15 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Build the project for static hosting: sources transformed to JavaScript, specifiers and module scripts rewritten, packages vendored with an import map and integrity hashes.
+    Build {
+        /// The project folder.
+        #[arg(default_value = ".")]
+        root: PathBuf,
+        /// The output folder, relative to the project; it is emptied first.
+        #[arg(long, default_value = "dist")]
+        out: PathBuf,
+    },
     /// Write a new application with the standard layout: Vite and TypeScript by default.
     New {
         /// The folder to create; its name becomes the application's name.
@@ -106,6 +117,7 @@ async fn main() -> ExitCode {
             html,
         } => importmap::run(&root, &out, development, html.as_deref()),
         Command::Doctor { root, json } => return doctor::run(&root, json),
+        Command::Build { root, out } => build::run(&root, &out),
         Command::New {
             root,
             js,

@@ -85,7 +85,8 @@ pub fn strip_types(path: &Path, source: &str) -> Result<String, TransformError> 
         return Err(error);
     }
     let scoping = semantic.semantic.into_scoping();
-    let options = TransformOptions::default();
+    let mut options = TransformOptions::default();
+    options.typescript.only_remove_type_imports = true;
     let result =
         Transformer::new(&allocator, path, &options).build_with_scoping(scoping, &mut program);
     if let Some(error) = parse_errors(result.diagnostics, source) {
@@ -583,5 +584,75 @@ mod tests {
             transform(Path::new("c.js"), "const a = 1;\n").unwrap(),
             "const a = 1;\n"
         );
+    }
+}
+
+/// Whether a relative specifier names a source the build renames to `.js`.
+fn renamed_source(specifier: &str) -> bool {
+    (specifier.starts_with("./") || specifier.starts_with("../"))
+        && [".ts", ".tsx", ".jsx", ".mts"]
+            .iter()
+            .any(|extension| specifier.ends_with(extension))
+}
+
+fn renamed(specifier: &str) -> String {
+    match specifier.rfind('.') {
+        Some(index) => format!("{}.js", &specifier[..index]),
+        None => specifier.to_string(),
+    }
+}
+
+/// Rewrites relative import and export specifiers that name `.ts`, `.tsx`, `.jsx`, or `.mts` files to `.js`, in static and dynamic imports.
+pub fn rewrite_specifiers(source: &str) -> Result<String, TransformError> {
+    let allocator = Allocator::default();
+    let parsed = Parser::new(&allocator, source, SourceType::mjs()).parse();
+    if let Some(error) = parse_errors(parsed.diagnostics, source) {
+        return Err(error);
+    }
+    let mut edits = Vec::new();
+    let mut spans: Vec<Span> = Vec::new();
+    for requests in parsed.module_record.requested_modules.values() {
+        for request in requests {
+            spans.push(request.span);
+        }
+    }
+    for dynamic in &parsed.module_record.dynamic_imports {
+        spans.push(dynamic.module_request);
+    }
+    for span in spans {
+        let text = &source[span.start as usize..span.end as usize];
+        let Some(quote) = text.chars().next().filter(|c| *c == '"' || *c == '\'') else {
+            continue;
+        };
+        let inner = &text[1..text.len().saturating_sub(1)];
+        if text.len() < 2 || !text.ends_with(quote) || !renamed_source(inner) {
+            continue;
+        }
+        edits.push(Edit {
+            start: span.start,
+            end: span.end,
+            text: format!("{quote}{}{quote}", renamed(inner)),
+        });
+    }
+    Ok(apply_edits(source, edits))
+}
+
+#[cfg(test)]
+mod specifier_tests {
+    use super::rewrite_specifiers;
+
+    #[test]
+    fn renames_relative_source_specifiers_only() {
+        let source = "import { a } from \"./a.ts\";\nimport b from './b.tsx';\nexport * from \"../c.mts\";\nimport \"./side.jsx\";\nimport { keep } from \"./keep.js\";\nimport { bare } from \"zerolith\";\nconst lazy = () => import(\"./lazy.ts\");\nconst dynamic = import(name);\n";
+        let out = rewrite_specifiers(source).unwrap();
+        assert!(out.contains("from \"./a.js\""));
+        assert!(out.contains("from './b.js'"));
+        assert!(out.contains("from \"../c.js\""));
+        assert!(out.contains("import \"./side.js\""));
+        assert!(out.contains("from \"./keep.js\""));
+        assert!(out.contains("from \"zerolith\""));
+        assert!(out.contains("import(\"./lazy.js\")"));
+        assert!(out.contains("import(name)"));
+        assert_eq!(out.lines().count(), source.lines().count());
     }
 }

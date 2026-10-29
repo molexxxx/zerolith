@@ -1,6 +1,6 @@
 # zerolith (command line)
 
-The Rust side of zerolith: a dev server for the buildless path that serves TypeScript and JSX as JavaScript through oxc, import map generation with integrity hashes, project checks, and a scaffold for new applications.
+The Rust side of zerolith: a dev server for the buildless path that serves TypeScript and JSX as JavaScript through oxc, a build that writes the same transformation to a folder for static hosting, import map generation with integrity hashes, project checks, and a scaffold for new applications.
 
 ```
 zerolith dev [root] [--port 8080]       serve with live reload
@@ -15,6 +15,6 @@ zerolith doctor [root] [--json]
 
 `doctor` reports coded findings: a missing index or import map, map targets that do not exist, integrity mismatches, a missing module script, and vendored packages older than the installed ones.
 
-`new` writes the standard application layout with a working first page, the scripts, and an `AGENTS.md`: Vite and TypeScript by default, `--js` for JavaScript with JSDoc types, `--buildless` for an import map and no bundler.
+`new` writes the standard application layout with a working first page, the scripts, and an `AGENTS.md`: Vite and TypeScript by default, `--js` for JavaScript with JSDoc types, `--buildless` for TypeScript on an import map with no bundler, served by `dev` and written out by `build`.
 
 Build with `cargo build --release`; the binary is `target/release/zerolith`. Nothing is published to crates.io yet.

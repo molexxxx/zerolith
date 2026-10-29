@@ -159,6 +159,16 @@ fn copy_tree(
 
 /// Copies each installed package's published modules into `out` under the project root and returns the import map.
 pub fn vendor(root: &Path, out: &Path, development: bool) -> io::Result<Vendored> {
+    vendor_from(&root.join("node_modules"), root, out, development)
+}
+
+/// Like `vendor`, reading the packages from `packages` (a node_modules folder) and writing under `root/out`, so a build can vendor into its output folder.
+pub fn vendor_from(
+    packages: &Path,
+    root: &Path,
+    out: &Path,
+    development: bool,
+) -> io::Result<Vendored> {
     let mut vendored = Vendored::default();
     let mut files: BTreeMap<String, Vec<u8>> = BTreeMap::new();
     let base = format!(
@@ -166,7 +176,7 @@ pub fn vendor(root: &Path, out: &Path, development: bool) -> io::Result<Vendored
         out.to_string_lossy().replace('\\', "/").trim_matches('/')
     );
     for package in PACKAGES {
-        let folder = root.join("node_modules").join(package);
+        let folder = packages.join(package);
         let manifest_path = folder.join("package.json");
         if !manifest_path.is_file() {
             continue;
