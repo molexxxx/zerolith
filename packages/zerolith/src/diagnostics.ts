@@ -97,7 +97,8 @@ export type DiagnosticCode =
     | "image_without_alt"
     | "button_without_name"
     | "frame_without_title"
-    | "mount_target_missing";
+    | "mount_target_missing"
+    | "template_not_prepared";
 
 /** Builds the full diagnostic record for a catalog code. */
 export function diagnostic(code: DiagnosticCode, severity: DiagnosticSeverity, args?: DiagnosticArgs, location?: DiagnosticLocation): Diagnostic

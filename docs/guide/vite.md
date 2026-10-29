@@ -46,7 +46,7 @@ Unnamed signals in a component are created again when the root re-renders, and u
 
 ## What the plugin leaves alone
 
-- Production builds. The plugin applies only to the dev server (`apply: "serve"`), so `vite build` emits the same output with or without it.
+- Production builds. The development rewrite applies only to the dev server; `vite build` gets the prepare pass and the output check described below.
 - Server-side transforms, classes, lowercase functions, anonymous default exports, and `render` reached through anything other than the binding imported from `zerolith`. An aliased import such as `import { render as mount }` is followed; a `render` stored in a variable first is not.
 - Modules under `node_modules`. Pass `include` and `exclude` regular expressions to change which ids are rewritten; both are tested against the id with path separators normalized to `/`.
 
@@ -58,7 +58,9 @@ The plugin also keeps `zerolith`, `@zerolith/router`, `@zerolith/devtools`, and 
 
 ## In a production build
 
-The plugin does not rewrite anything for `vite build`. It checks the output instead: a module of the development build of the core, anything under `zerolith/dist/` that is not under `production/`, that reaches a build in production mode fails the build with the module that leaked, because it means the `production` export condition did not apply, through a `resolve.conditions` override or an alias. The size of this repository's tasks example, built for production, is measured in CI next to the core's budget, so the built path is held to a number the same way the runtime is. The remaining passes the build path will carry are listed in the project's decision records.
+For `vite build`, the plugin runs the template prepare pass of ADR 0005 ahead of every other transform. Each `html` literal is scanned at build time with the same scanner the runtime uses, and the module registers the markup and the part table next to the literal through `prepared`, so the browser parses the static markup once and binds the template without scanning it; a template the scanner refuses is a build error at the literal instead of an exception in the browser. The scanner then leaves the bundle: the core's scanner module is replaced by one that reports `template_not_prepared`, which a template the build never saw would hit, so `html` must reach the pass as a tag. A module that declares or passes `html` around as a value, or a library that bundles its own copy of it, fails the build at that line; pass `prepare: false` to keep the scanner and leave the literals alone.
+
+The output is then checked: a module of the development build of the core, anything under `zerolith/dist/` that is not under `production/`, that reaches a build in production mode fails the build with the module that leaked, because it means the `production` export condition did not apply, through a `resolve.conditions` override or an alias. The size of this repository's tasks example, built for production, is measured in CI next to the core's budget, so the built path is held to a number the same way the runtime is.
 
 ## JSX
 

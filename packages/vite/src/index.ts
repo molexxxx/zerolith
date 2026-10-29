@@ -4,8 +4,10 @@
  * development, and the checks ADR 0005 puts on production output.
  */
 import { type Plugin, parseSync } from "vite";
+import { scan } from "zerolith";
 import { type JsxOutput, lowerJsx } from "./jsx.js";
 import { lintModule, position } from "./lint.js";
+import { PrepareError, prepareModule } from "./prepare.js";
 import { type ModuleParser, transformModule } from "./transform.js";
 
 export type { AstNode, Edit, IdentityMap } from "./ast.js";
@@ -13,6 +15,8 @@ export type { JsxOutput } from "./jsx.js";
 export { JsxError, lowerJsx } from "./jsx.js";
 export type { Finding, LintCode } from "./lint.js";
 export { lintModule, position } from "./lint.js";
+export type { PrepareOutput, ScannedPart, TemplateScanner } from "./prepare.js";
+export { PREPARED_BINDING, PrepareError, TEMPLATE_BINDING, prepareModule } from "./prepare.js";
 export type { ModuleParser, ParsedModule, TransformOutput } from "./transform.js";
 export { transformModule } from "./transform.js";
 
@@ -27,11 +31,15 @@ export interface ZerolithPluginOptions
     jsx?: boolean;
     /** Warns in the terminal about a `.get()` read bound in a template and about static accessibility defects. Defaults to true. */
     lint?: boolean;
+    /** In `vite build`, scans every `html` literal ahead of time and drops the scanner from the bundle. Defaults to true. */
+    prepare?: boolean;
 }
 
 const DEFAULT_INCLUDE = /\.[cm]?[jt]sx?$/;
 const DEFAULT_EXCLUDE = /\/node_modules\//;
 const JSX_FILES = /\.[jt]sx$/;
+/** The core module that imports the scanner; the prepare pass points it at the stand-in that reports an unprepared template. */
+const SCANNER_IMPORTER = /[\\/]zerolith[\\/]dist[\\/](?:production[\\/])?template\.js$/;
 
 /** Packages served as they are so the application and the plugin's runtime share one copy of each. */
 const UNOPTIMIZED: readonly string[] = ["zerolith", "zerolith/ssr", "zerolith/element", "zerolith/jsx-runtime", "@zerolith/router", "@zerolith/forms", "@zerolith/client", "@zerolith/a11y", "@zerolith/i18n", "@zerolith/devtools", "@zerolith/vite/runtime"];
@@ -43,6 +51,25 @@ const parse: ModuleParser = (filename, code) => parseSync(filename, code, { sour
 
 /** Parses a JSX file as the extension says, so the lowering sees the tree before any other transform. */
 const parseJsx: ModuleParser = (filename, code) => parseSync(filename, code, { sourceType: "module", lang: filename.endsWith(".tsx") ? "tsx" : "jsx" });
+
+/** Parses a module as its extension says, for the passes that run before Vite's own transform. */
+function parseFor(id: string): ModuleParser
+{
+    let lang: "js" | "jsx" | "ts" | "tsx" = "js";
+    if (id.endsWith(".tsx"))
+    {
+        lang = "tsx";
+    }
+    else if (/\.[cm]?ts$/.test(id))
+    {
+        lang = "ts";
+    }
+    else if (id.endsWith(".jsx"))
+    {
+        lang = "jsx";
+    }
+    return (filename, code) => parseSync(filename, code, { sourceType: "module", lang });
+}
 
 /** Lowers one file's JSX, turning a refusal into a Vite error with its position. */
 function lower(code: string, id: string): JsxOutput | null
@@ -59,10 +86,11 @@ function lower(code: string, id: string): JsxOutput | null
  * accepts its own update: named signals are saved before the module is
  * replaced, every root renders again, and the saved values flow back into
  * signals created with the same names. The zerolith packages are kept out
- * of dependency pre-bundling. In a production build the code is left
- * alone, and the build fails if a module of the development build of the
- * core reached the output of a build in production mode, which means the
- * `production` export condition did not apply.
+ * of dependency pre-bundling. In `vite build` every `html` literal is
+ * scanned ahead of time and the scanner leaves the bundle, and the build
+ * fails if a module of the development build of the core reached the
+ * output of a build in production mode, which means the `production`
+ * export condition did not apply.
  */
 export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
 {
@@ -84,6 +112,45 @@ export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
                         return null;
                     }
                     return lower(code, id);
+                }
+            }
+        });
+    }
+    if (options.prepare !== false)
+    {
+        plugins.push({
+            name: "zerolith:prepare",
+            enforce: "pre",
+            apply: "build",
+            resolveId(source, importer)
+            {
+                if (source === "./scan.js" && importer !== undefined && SCANNER_IMPORTER.test(importer))
+                {
+                    return importer.replace(/template\.js$/, "scan.unprepared.js");
+                }
+                return null;
+            },
+            transform: {
+                filter: { id: { include: DEFAULT_INCLUDE } },
+                handler(code, id)
+                {
+                    if (id.startsWith("\0") || !code.includes("zerolith"))
+                    {
+                        return null;
+                    }
+                    try
+                    {
+                        return prepareModule(code, id, parseFor(id), scan);
+                    }
+                    catch (error)
+                    {
+                        if (error instanceof PrepareError)
+                        {
+                            const { line, column } = position(code, error.offset);
+                            this.error({ message: error.message, pos: error.offset, loc: { file: id, line, column } });
+                        }
+                        throw error;
+                    }
                 }
             }
         });

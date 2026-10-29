@@ -13,9 +13,7 @@ import { styleSheets } from "./css.js";
 import { diagnostic, fail, report } from "./diagnostics.js";
 import { PART_END, PART_START, type TemplateView, directiveWrapsBranch, isDirective, isRawHtml, isTemplate, resolveDirective } from "./render.js";
 import { isSignal, scope } from "./signals.js";
-import { ATTRIBUTE, BOOLEAN, CHILD, type PartSpec, scan } from "./template.js";
-
-const scanned: WeakMap<TemplateStringsArray, { markup: string; parts: readonly PartSpec[] }> = new WeakMap();
+import { ATTRIBUTE, BOOLEAN, CHILD, type PartSpec, scanned } from "./template.js";
 
 const MARKER = /<!--zl\$-->|\s*zl\$(\d+)/g;
 
@@ -110,13 +108,7 @@ function renderValue(value: unknown): string
 
 function renderTemplate(view: TemplateView): string
 {
-    let entry = scanned.get(view.strings);
-    if (entry === undefined)
-    {
-        entry = scan(view.strings);
-        scanned.set(view.strings, entry);
-    }
-    const { markup, parts } = entry;
+    const { markup, parts } = scanned(view.strings);
     const slots: Array<{ spec: PartSpec; values: readonly unknown[] }> = [];
     let offset = 0;
     for (const spec of parts)

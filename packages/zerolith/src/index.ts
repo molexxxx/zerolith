@@ -26,6 +26,9 @@ export { resource } from "./resource.js";
 export type { HydrateResult, HydrationMismatch, KeyOf, MountTarget, Root, RowOf, View } from "./render.js";
 export { each, html, hydrate, render, unsafeHtml, when } from "./render.js";
 
+export type { PartSpec, PreparedPart, Scanned } from "./template.js";
+export { prepared, scan } from "./template.js";
+
 export type { Styles } from "./css.js";
 export { SCOPE_MARKER, css } from "./css.js";
 

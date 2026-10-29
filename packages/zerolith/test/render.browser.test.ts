@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Diagnostic, type Root, ZerolithError, computed, each, effect, html, onDiagnostic, render, signal, when } from "zerolith";
+import { type Diagnostic, type Root, ZerolithError, computed, each, effect, html, onDiagnostic, prepared, render, scan, signal, when } from "zerolith";
 
 let root: Root | undefined;
 let host: HTMLElement | undefined;
@@ -36,6 +36,19 @@ describe("html and render", () =>
         expect(root.container).toBe(host);
         expect(host.textContent).toBe("by selector");
         expect(() => render(html`<p></p>`, "#nowhere")).toThrow(/mount_target_missing/);
+    });
+
+    it("renders a template prepared ahead of time as it renders a scanned one", () =>
+    {
+        const strings = ["<p class=\"", "\">", "</p>"];
+        const { markup, parts } = scan(strings);
+        const tag = prepared(strings, markup, parts.map((part) => [part.kind, part.name, part.strings]));
+        const scannedHost = document.createElement("div");
+        const scannedRoot = render(html`<p class="${"note"}">${"prepared"}</p>`, scannedHost);
+        const el = mount(html(tag, "note", "prepared"));
+        expect(el.innerHTML).toBe(scannedHost.innerHTML);
+        expect(el.querySelector("p")?.className).toBe("note");
+        scannedRoot.dispose();
     });
 
     it("renders text, numbers, nested templates, nodes, and iterables", () =>

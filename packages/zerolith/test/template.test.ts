@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ZerolithError } from "zerolith";
-import { ATTRIBUTE, BOOLEAN, CHILD, EVENT, PROPERTY, REF, scan } from "../src/template.js";
+import { ATTRIBUTE, BOOLEAN, CHILD, EVENT, PROPERTY, REF, prepared, scan, scanned } from "../src/template.js";
 
 function codeOf(fn: () => unknown): string | undefined
 {
@@ -79,5 +79,23 @@ describe("scan", () =>
         expect(codeOf(() => scan(["<iframe srcdoc=", "></iframe>"]))).toBe("unsafe_attribute_binding");
         expect(codeOf(() => scan(["<button onclick=", "></button>"]))).toBe("unsafe_attribute_binding");
         expect(codeOf(() => scan(["<input ?disabled=\"a ", "\">"]))).toBe("binding_not_single");
+    });
+});
+
+describe("prepared", () =>
+{
+    it("registers a scan made ahead of time and hands the strings back", () =>
+    {
+        const strings = ["<p class=\"", "\">", "</p>"];
+        const own = scan(strings);
+        expect(prepared(strings, own.markup, own.parts.map((part) => [part.kind, part.name, part.strings]))).toBe(strings);
+        expect(scanned(strings)).toEqual(own);
+    });
+
+    it("scans once and keeps the result otherwise", () =>
+    {
+        const strings = ["<p>", "</p>"];
+        expect(scanned(strings)).toBe(scanned(strings));
+        expect(scanned(strings).parts[0]?.count).toBe(1);
     });
 });

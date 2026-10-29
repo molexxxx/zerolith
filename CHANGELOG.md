@@ -5,6 +5,8 @@ Every package in this repository is released together and carries the same versi
 ## Unreleased
 
 - `zerolith`: `render` and `hydrate` take a CSS selector for the container as well as an element, expose the element as `container` on the root, and report a selector that matches nothing as `mount_target_missing`. The `@zerolith/vite` runtime and `tracedHydrate` in `@zerolith/otel` take the same targets.
+- `zerolith`: `prepared` registers a template's scan made ahead of time, `scan` is exported for build tools, and `template_not_prepared` reports a template a scanner-free bundle never saw.
+- `@zerolith/vite`: the template prepare pass runs in `vite build`, scanning every `html` literal at build time and dropping the scanner from the bundle; `prepare: false` keeps the old behavior.
 
 ## 0.1.0-alpha.1 (2026-10-29)
 

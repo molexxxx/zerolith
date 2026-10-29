@@ -114,6 +114,11 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
         cause: "The server-rendered markup did not match the view, and the differing part was rendered again on the client.",
         fix: "Render the same view with the same data on the server and the client; check the mismatches returned by hydrate()."
     },
+    template_not_prepared:
+    {
+        cause: "A template reached the runtime that the build's prepare pass never saw, in a bundle built without the scanner.",
+        fix: "Build every module that uses html through @zerolith/vite, or pass prepare: false to the plugin to keep the scanner in the bundle."
+    },
     mount_target_missing:
     {
         cause: "render or hydrate received a selector that matches no element in the document.",
