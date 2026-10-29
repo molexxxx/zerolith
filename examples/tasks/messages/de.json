@@ -1,0 +1,16 @@
+{
+    "title": "Aufgaben",
+    "search": "Suchen",
+    "open-count": ".input {$count :number}\n.match $count\n0 {{Keine offenen Aufgaben}}\none {{Eine offene Aufgabe}}\n* {{{$count} offene Aufgaben}}",
+    "done": "Erledigt",
+    "new-task": "Neue Aufgabe",
+    "title-label": "Titel",
+    "save": "Speichern",
+    "remove": "Löschen",
+    "cancel": "Abbrechen",
+    "confirm": "{$title} löschen?",
+    "created-at": "Erstellt am {$when :date length=medium}",
+    "language": "Sprache",
+    "back": "Alle Aufgaben",
+    "not-found": "Diese Aufgabe gibt es nicht."
+}

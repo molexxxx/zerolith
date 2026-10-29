@@ -738,7 +738,111 @@ function select(selectors, variants)
         {
             continue;
         }
-        if (bestRank === undefined || rank.some((score, index) => score > bestRank[index] && rank.slice(0, index).every((earlier, position) => earlier === bestRank[position])))
+        if (matches && better(rank, bestRank))
+        {
+            best = variant;
+            bestRank = rank;
+        }
+    }
+    return best === undefined ? "" : best.pattern();
+}
+function better(rank, current)
+{
+    if (current === undefined)
+    {
+        return true;
+    }
+    for (const [index, score] of rank.entries())
+    {
+        const other = current[index] ?? 0;
+        if (score !== other)
+        {
+            return score > other;
+        }
+    }
+    return false;
+}`;
+
+const HELPERS_TS = `interface Selector
+{
+    value: string;
+    categories: string[];
+}
+interface Variant
+{
+    keys: string[];
+    pattern: () => string;
+}
+const formats: Map<string, unknown> = new Map();
+function cached<T>(kind: string, options: object, create: () => T): T
+{
+    const key = kind + JSON.stringify(options);
+    let instance = formats.get(key) as T | undefined;
+    if (instance === undefined)
+    {
+        instance = create();
+        formats.set(key, instance);
+    }
+    return instance;
+}
+function number(value: number, options: Intl.NumberFormatOptions): string
+{
+    return cached("n", options, () => new Intl.NumberFormat(locale, options)).format(value);
+}
+function date(value: Date | number, options: Intl.DateTimeFormatOptions): string
+{
+    return cached("d", options, () => new Intl.DateTimeFormat(locale, options)).format(value);
+}
+function plural(value: number, type: "cardinal" | "ordinal"): string
+{
+    return cached("p", { type }, () => new Intl.PluralRules(locale, { type })).select(value);
+}
+function better(rank: number[], current: number[] | undefined): boolean
+{
+    if (current === undefined)
+    {
+        return true;
+    }
+    for (const [index, score] of rank.entries())
+    {
+        const other = current[index] ?? 0;
+        if (score !== other)
+        {
+            return score > other;
+        }
+    }
+    return false;
+}
+function select(selectors: Selector[], variants: Variant[]): string
+{
+    let best: Variant | undefined;
+    let bestRank: number[] | undefined;
+    for (const variant of variants)
+    {
+        const rank: number[] = [];
+        let matches = true;
+        for (const [index, key] of variant.keys.entries())
+        {
+            const selector = selectors[index];
+            if (key === "*")
+            {
+                rank.push(0);
+            }
+            else if (selector !== undefined && key === selector.value)
+            {
+                rank.push(2);
+            }
+            else if (selector !== undefined && selector.categories.includes(key))
+            {
+                rank.push(1);
+            }
+            else
+            {
+                matches = false;
+                break;
+            }
+        }
+        if (matches && better(rank, bestRank))
         {
             best = variant;
             bestRank = rank;
@@ -769,7 +873,7 @@ export function compileMessages(locale: string, catalog: Catalog, options: Compi
     }
     out.push(`export const locale${javascript ? "" : ": string"} = ${JSON.stringify(locale)};`);
     out.push("");
-    out.push(javascript ? HELPERS : HELPERS.replace(/^function (\w+)\(([^)]*)\)/gm, (_match, name: string, params: string) => `function ${name}(${params.split(", ").filter((p) => p !== "").map((p) => `${p}: any`).join(", ")}): any`).replace("const formats = new Map();", "const formats: Map<string, any> = new Map();").replace("let best;", "let best: any;").replace("let bestRank;", "let bestRank: any;").replace("const rank = [];", "const rank: number[] = [];"));
+    out.push(javascript ? HELPERS : HELPERS_TS);
     out.push("");
     const names: string[] = [];
     const seen = new Set<string>();
@@ -829,10 +933,15 @@ export function compileIndex(locales: readonly string[], options: CompileOptions
     {
         lines.push("// @ts-check");
     }
+    if (!javascript)
+    {
+        lines.push(`import type * as first from "./${locales[0] ?? "en"}.${extension}";`);
+        lines.push("");
+    }
     lines.push(`export const locales${javascript ? "" : ": readonly string[]"} = ${JSON.stringify(locales)};`);
     lines.push("");
     lines.push(`/** Loads one locale's messages; each locale is its own module. */`);
-    lines.push(javascript ? "export const loaders = {" : `export const loaders: Readonly<Record<string, () => Promise<typeof import("./${locales[0] ?? "en"}.${extension}")>>> = {`);
+    lines.push(javascript ? "export const loaders = {" : "export const loaders: Readonly<Record<string, () => Promise<typeof first>>> = {");
     lines.push(locales.map((locale) => `    ${JSON.stringify(locale)}: () => import("./${locale}.${extension}")`).join(",\n"));
     lines.push("};");
     lines.push("");

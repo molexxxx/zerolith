@@ -108,7 +108,8 @@ describe("compileMessages", () =>
         expect(code).toContain("export function report(args: { author: string | number; count: number; when: Date | number }): string");
         expect(code).toContain("export function title(): string");
         expect(code).toContain("export const locale: string = \"en\";");
-        expect(code).toContain("function number(value: any, options: any): any");
+        expect(code).toContain("function number(value: number, options: Intl.NumberFormatOptions): string");
+        expect(code).not.toContain(": any");
         const js = compileMessages("en", { title: "Title" }, { language: "js" }).code;
         expect(js).toContain("// @ts-check");
         expect(js).toContain("export function title()");

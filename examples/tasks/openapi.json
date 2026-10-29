@@ -1,0 +1,64 @@
+{
+    "openapi": "3.2.0",
+    "info": { "title": "Tasks", "version": "1.0.0" },
+    "paths": {
+        "/api/tasks": {
+            "get": {
+                "operationId": "listTasks",
+                "summary": "Every task, newest first.",
+                "responses": { "200": { "description": "The tasks.", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Task" } } } } } }
+            },
+            "post": {
+                "operationId": "createTask",
+                "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TaskDraft" } } } },
+                "responses": {
+                    "201": { "description": "The created task.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Task" } } } },
+                    "400": { "description": "Invalid.", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } } }
+                }
+            }
+        },
+        "/api/tasks/{id}": {
+            "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+            "get": {
+                "operationId": "getTask",
+                "responses": {
+                    "200": { "description": "The task.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Task" } } } },
+                    "404": { "description": "Unknown.", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } } }
+                }
+            },
+            "patch": {
+                "operationId": "updateTask",
+                "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "done": { "type": "boolean" } } } } } },
+                "responses": { "200": { "description": "The updated task.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Task" } } } } }
+            },
+            "delete": {
+                "operationId": "deleteTask",
+                "responses": { "204": { "description": "Deleted." } }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "Task": {
+                "type": "object",
+                "required": ["id", "title", "done", "createdAt"],
+                "properties": {
+                    "id": { "type": "string" },
+                    "title": { "type": "string" },
+                    "done": { "type": "boolean" },
+                    "createdAt": { "type": "string", "format": "date-time" }
+                }
+            },
+            "TaskDraft": { "type": "object", "required": ["title"], "properties": { "title": { "type": "string", "minLength": 2 } } },
+            "Problem": {
+                "type": "object",
+                "properties": {
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "fields": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } }
+                }
+            }
+        }
+    }
+}

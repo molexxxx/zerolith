@@ -1,0 +1,16 @@
+{
+    "title": "Tasks",
+    "search": "Search",
+    "open-count": ".input {$count :number}\n.match $count\n0 {{No open tasks}}\none {{One open task}}\n* {{{$count} open tasks}}",
+    "done": "Done",
+    "new-task": "New task",
+    "title-label": "Title",
+    "save": "Save",
+    "remove": "Delete",
+    "cancel": "Cancel",
+    "confirm": "Delete {$title}?",
+    "created-at": "Created {$when :date length=medium}",
+    "language": "Language",
+    "back": "All tasks",
+    "not-found": "No such task."
+}
