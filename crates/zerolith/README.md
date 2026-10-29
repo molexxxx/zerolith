@@ -1,6 +1,6 @@
 # zerolith (command line)
 
-The Rust side of zerolith: a dev server for the buildless path, import map generation with integrity hashes, project checks, and a scaffold for new applications.
+The Rust side of zerolith: a dev server for the buildless path that serves TypeScript and JSX as JavaScript through oxc, import map generation with integrity hashes, project checks, and a scaffold for new applications.
 
 ```
 zerolith dev [root] [--port 8080]       serve with live reload

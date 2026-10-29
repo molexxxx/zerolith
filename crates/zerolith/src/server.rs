@@ -20,6 +20,7 @@ use tokio_stream::StreamExt;
 use tokio_stream::wrappers::BroadcastStream;
 
 use crate::mime::content_type;
+use crate::transform;
 use crate::watch::{self, Change};
 
 /// What `run` needs.
@@ -76,6 +77,17 @@ pub fn resolve(root: &Path, request_path: &str) -> Option<PathBuf> {
     }
     if candidate.is_file() {
         return Some(candidate);
+    }
+    if candidate
+        .extension()
+        .is_some_and(|extension| extension == "js")
+    {
+        for source in ["ts", "tsx", "jsx", "mts"] {
+            let sibling = candidate.with_extension(source);
+            if sibling.is_file() {
+                return Some(sibling);
+            }
+        }
     }
     if candidate.extension().is_some() {
         return None;
@@ -190,9 +202,22 @@ async fn file(State(state): State<Arc<AppState>>, uri: Uri) -> Response {
         .extension()
         .and_then(|extension| extension.to_str())
         .unwrap_or("");
-    let mime = content_type(extension);
+    let mime = if transform::transforms(extension) {
+        content_type("js")
+    } else {
+        content_type(extension)
+    };
     let body = if state.changes.is_some() && (extension == "html" || extension == "htm") {
         Body::from(inject_client(&String::from_utf8_lossy(&bytes)))
+    } else if transform::transforms(extension) {
+        match transform::transform(&path, &String::from_utf8_lossy(&bytes)) {
+            Ok(code) => Body::from(code),
+            Err(error) => {
+                let message = format!("{}: {error}", display(&path));
+                eprintln!("zerolith: {message}");
+                return (StatusCode::INTERNAL_SERVER_ERROR, message).into_response();
+            }
+        }
     } else {
         Body::from(bytes)
     };
@@ -273,6 +298,7 @@ mod tests {
         .unwrap();
         fs::write(root.join("app/index.html"), "<html></html>").unwrap();
         fs::write(root.join("app/main.js"), "export {};").unwrap();
+        fs::write(root.join("app/typed.ts"), "export const a: number = 1;").unwrap();
         root
     }
 
@@ -294,6 +320,8 @@ mod tests {
             Some(root.join("index.html"))
         );
         assert_eq!(resolve(&root, "/app/missing.js"), None);
+        assert_eq!(resolve(&root, "/app/typed.js"), Some(root.join("app/typed.ts")));
+        assert_eq!(resolve(&root, "/app/typed.ts"), Some(root.join("app/typed.ts")));
         assert_eq!(resolve(&root, "/../secret"), None);
         assert_eq!(
             resolve(&root, "/app/%6Dain.js"),

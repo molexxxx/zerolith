@@ -10,6 +10,7 @@ mod importmap;
 mod mime;
 mod new;
 mod server;
+mod transform;
 mod watch;
 
 use std::path::PathBuf;
