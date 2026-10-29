@@ -16,7 +16,7 @@ In development it rewrites each module so that exported functions with capitaliz
 
 The guide is `docs/guide/vite.md` in the repository.
 
-Status: pre-alpha, nothing published.
+Status: alpha. Install with `npm install --save-dev @zerolith/vite@alpha`; the API may change before 1.0.
 
 ## License
 

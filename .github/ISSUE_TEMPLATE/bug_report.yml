@@ -68,7 +68,7 @@ body:
     id: version
     attributes:
       label: Commit or version
-      description: Until the first release, the commit hash you built from.
+      description: The zerolith version from `npm ls zerolith`, or the commit hash if you built from a clone.
     validations:
       required: true
   - type: input

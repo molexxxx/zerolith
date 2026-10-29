@@ -26,7 +26,7 @@ it("renders and hydrates", async () =>
 
 The guide is `docs/guide/testing.md` in the repository.
 
-Status: pre-alpha, nothing published.
+Status: alpha. Install with `npm install --save-dev @zerolith/test@alpha`; the API may change before 1.0.
 
 ## License
 

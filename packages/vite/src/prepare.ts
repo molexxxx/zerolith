@@ -1,5 +1,5 @@
 /**
- * The template prepare pass of ADR 0005: every `html` literal in a module
+ * The template prepare pass: every `html` literal in a module
  * is scanned at build time, and the lowered module registers the markup and
  * the part table next to the literal, so the browser binds the template
  * without scanning it and the scanner leaves the bundle. Pure string work

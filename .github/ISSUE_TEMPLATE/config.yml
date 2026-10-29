@@ -6,9 +6,6 @@ contact_links:
   - name: Suggest an idea
     url: https://github.com/molexxxx/zerolith/discussions/categories/ideas
     about: Early ideas and feature requests, before they become an RFC.
-  - name: Propose an API change
-    url: https://github.com/molexxxx/zerolith/blob/main/docs/rfcs/0000-template.md
-    about: Changes to the public API start as an RFC pull request using this template.
   - name: Report a vulnerability
     url: https://github.com/molexxxx/zerolith/security/advisories/new
     about: Report security problems privately, never in a public issue.

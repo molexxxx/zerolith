@@ -2,7 +2,7 @@
 
 A standalone frontend framework: fine-grained signals, HTML templates that need no compiler, and a runtime that loads from an import map or a bundle with no second-class path. It works with any backend over plain HTTP.
 
-Status: pre-alpha. Nothing is published yet. The direction is in the repository's `docs/ROADMAP.md` and the decisions in `docs/decisions/`.
+Status: alpha. Install with `npm install zerolith@alpha`; the API may change before 1.0. The direction is in the repository's `docs/ROADMAP.md`.
 
 ## The one rule to learn first
 

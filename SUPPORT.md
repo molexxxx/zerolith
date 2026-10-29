@@ -1,6 +1,6 @@
 # Support
 
-zerolith is pre-alpha. Nothing is published to npm yet, the API is still settling, and there is no supported release line. The [support policy](docs/policy/support.md) describes the window that starts with the first stable release.
+zerolith is in alpha. Every package is published to npm under the `alpha` dist-tag, and the command line to crates.io as well, but the API is still settling and there is no supported release line: fixes ship in the next alpha and are not backported. The [support policy](docs/policy/support.md) describes the window that starts with the first stable release.
 
 ## Getting help
 
@@ -13,3 +13,4 @@ zerolith is pre-alpha. Nothing is published to npm yet, the API is still settlin
 - The [guides](docs/guide/index.md) cover each part of the framework, and every example in them runs as a test.
 - `zerolith doctor` checks a buildless project's import map and integrity hashes.
 - The [roadmap](docs/ROADMAP.md) lists what exists today and what is planned, which answers most "does it do X yet" questions.
+- The [changelog](CHANGELOG.md) lists what changed in each alpha, breaking changes included.

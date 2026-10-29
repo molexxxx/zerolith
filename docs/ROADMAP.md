@@ -1,8 +1,6 @@
 # Roadmap
 
-Where zerolith stands, what comes next, and where it is headed. There are no dates: items move when they are ready, and anything that changes the public API goes through an [RFC](rfcs/0000-template.md) first.
-
-The project began with a design research pass on 2026-10-28 that surveyed the framework landscape and set the plan. That report is not published; its conclusions are recorded in the [architecture decisions](decisions/) and in this roadmap. Where an ADR or RFC mentions "the research report", it means that document.
+Where zerolith stands, what comes next, and where it is headed. There are no dates: items move when they are ready, and anything that changes the public API goes through an RFC first, as [GOVERNANCE.md](../GOVERNANCE.md) describes.
 
 ## Shipped
 
@@ -18,7 +16,7 @@ Everything here runs and is tested in this repository, and the first alpha is pu
 
 - Freeze the API of the core, templates, and router for 1.0.
 - Trusted publishing for every package and the crate, then the canary channel.
-- The prepare pass in the Rust command line, so `zerolith build` emits the same modules the Vite plugin does ([ADR 0005](decisions/0005-build-path.md)).
+- The template prepare pass in the Rust command line, so `zerolith build` emits the same modules the Vite plugin does.
 - Run the template lint from the Rust command line, so `zerolith doctor` reports the same warnings as the Vite plugin.
 
 ## Planned
@@ -59,4 +57,4 @@ Everything here runs and is tested in this repository, and the first alpha is pu
 
 - **A required compiler.** The bundler and the command line optimize; plain files always run.
 - **WebRTC in the core.** A separate package may follow later.
-- **Coupling to a particular backend.** zerolith talks to servers over plain HTTP ([ADR 0002](decisions/0002-standalone-framework.md)).
+- **Coupling to a particular backend.** zerolith talks to any server over plain HTTP; an integration with a specific server is a separate package, never a requirement of the core.

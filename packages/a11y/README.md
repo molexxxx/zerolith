@@ -21,7 +21,7 @@ createAnnouncer().announce("Saved");
 
 The guide is `docs/guide/accessibility.md` in the repository.
 
-Status: pre-alpha, nothing published.
+Status: alpha. Install with `npm install @zerolith/a11y@alpha`; the API may change before 1.0.
 
 ## License
 

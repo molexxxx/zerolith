@@ -2,7 +2,7 @@
 
 `npm run bench` runs the keyed-table operation set of js-framework-benchmark against two pages in headless Chromium: the zerolith implementation (`web/zerolith.js`, loading the production entry unbundled through an import map) and a hand-written DOM baseline (`web/vanilla.js`). Each sample times the operation plus the synchronous style and layout it forces, then waits a frame outside the measurement. The script prints the median per operation and the geometric mean of the zerolith to vanilla ratios. Pass an iteration count as the first argument; the default is 7.
 
-This is a regression and architecture check, not a substitute for the public benchmark: the vanilla baseline here is written for this harness, and js-framework-benchmark measures through tracing to paint with CPU throttling. Submitting an entry there is part of the release work.
+This is a regression and architecture check, not a substitute for the public benchmark: the vanilla baseline here is written for this harness, and js-framework-benchmark measures through tracing to paint with CPU throttling. An entry there is on the [roadmap](../docs/ROADMAP.md).
 
 ## 2026-10-28, first run after the template layer
 

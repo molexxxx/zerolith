@@ -18,7 +18,7 @@ tracedHydrate(App(router), "#app", tracer);
 
 The guide is `docs/guide/observability.md` in the repository.
 
-Status: pre-alpha, nothing published.
+Status: alpha. Install with `npm install @zerolith/otel@alpha`; the API may change before 1.0.
 
 ## License
 

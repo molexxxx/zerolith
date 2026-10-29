@@ -19,7 +19,7 @@ A response outside 2xx rejects with a `ProblemError` carrying the RFC 9457 probl
 
 The guide is `docs/guide/client.md` in the repository.
 
-Status: pre-alpha, nothing published.
+Status: alpha. Install with `npm install @zerolith/client@alpha`; the API may change before 1.0.
 
 ## License
 

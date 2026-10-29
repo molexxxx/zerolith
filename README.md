@@ -38,7 +38,7 @@ Bind the signal, not its value: `${count}` stays live, while `${count.get()}` re
 
 ## What works today
 
-Everything below runs and is tested in this repository. None of it is published yet.
+Everything below runs, is tested in this repository, and is published under the `alpha` dist-tag.
 
 | Area | Package | What it does |
 | --- | --- | --- |
@@ -58,27 +58,37 @@ Two example applications show it end to end: [notes](examples/notes) with no bui
 
 ## Getting started
 
-Until the first release, work from a clone. Node 24 or newer is required.
+Node 24 or newer is required. Scaffold an application with the command line, which comes from npm with a prebuilt binary:
+
+```sh
+npx @zerolith/cli@alpha new my-app
+cd my-app
+npm install
+npm run dev
+```
+
+`new` writes a Vite and TypeScript project by default; `--js` writes JavaScript with JSDoc types, and `--buildless` writes a project that runs from an import map with no bundler. To add zerolith to an existing project, install `zerolith@alpha` and the `@zerolith/*` packages you need at the same tag.
+
+The examples run from a clone:
 
 ```sh
 git clone https://github.com/molexxxx/zerolith.git
 cd zerolith
 npm ci
-npx playwright install chromium
 npm run build
 npm run serve
 ```
 
-Then open http://127.0.0.1:8080/examples/notes/. To scaffold your own application, run `npx @zerolith/cli new my-app`.
+Then open http://127.0.0.1:8080/examples/notes/.
 
 ## Where it's going
 
-Next is a frozen API for the core, templates, and router, followed by the first canary release with npm provenance. After that come signals the server can push, agent tooling with MCP servers and a public eval suite, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
+Next is a frozen API for the core, templates, and router, and a canary channel built from every merge to the default branch. After that come signals the server can push, agent tooling with MCP servers and a public eval suite, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
 
 ## Documentation
 
 - [Guides](docs/guide/index.md), from [application structure](docs/guide/structure.md) to [testing](docs/guide/testing.md). `npm run docs` builds them into a site with the generated reference.
-- [Architecture decisions](docs/decisions) and [RFCs](docs/rfcs).
+- The [roadmap](docs/ROADMAP.md) and the [changelog](CHANGELOG.md).
 - [Support window and channels](docs/policy/support.md), [releases](docs/policy/releases.md), and [versioning](docs/policy/versioning.md).
 - [Brand](brand/README.md): the mark, colors, type, and icons.
 

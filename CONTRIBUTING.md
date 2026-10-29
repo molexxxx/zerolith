@@ -6,7 +6,7 @@ Thank you for considering a contribution. This page covers the mechanics; [GOVER
 
 - **Questions and ideas:** [GitHub Discussions](https://github.com/molexxxx/zerolith/discussions).
 - **Bugs and documentation problems:** [issues](https://github.com/molexxxx/zerolith/issues/new/choose), using the templates.
-- **A new public API or a change to one:** an RFC first, copied from [docs/rfcs/0000-template.md](docs/rfcs/0000-template.md); see GOVERNANCE.md.
+- **A new public API or a change to one:** an RFC first, opened with the [RFC issue form](https://github.com/molexxxx/zerolith/issues/new?template=rfc.yml); see GOVERNANCE.md.
 - **Vulnerabilities:** privately, as [SECURITY.md](SECURITY.md) describes. Never in a public issue.
 
 ## Setup
@@ -25,7 +25,6 @@ Thank you for considering a contribution. This page covers the mechanics; [GOVER
 | `crates/zerolith` | The Rust command line: `new`, `dev`, `serve`, `build`, `importmap`, `doctor` |
 | `examples/` | Applications built on the packages; their tests run in `npm run check` |
 | `docs/guide` | The guides; examples are pulled from tests with `@include` |
-| `docs/decisions`, `docs/rfcs` | Architecture decision records and RFCs |
 | `docs/policy` | Support window, release channels, versioning and deprecation rules |
 | `docs/ROADMAP.md` | What is shipped, next, and planned |
 | `brand/` | The brand system; `brand/README.md` describes the rules |

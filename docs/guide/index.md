@@ -8,7 +8,7 @@ order: 0
 
 A standalone frontend framework. Fine-grained signals drive HTML templates that need no compiler, a typed router handles navigation, and the same files run from an import map in the browser or through a bundler. It talks to any backend over plain HTTP.
 
-Status: pre-alpha. The API is being frozen; nothing is published to npm yet.
+Status: alpha. Every package is published under the `alpha` dist-tag (`npm install zerolith@alpha`), and the API may change until it is frozen for 1.0.
 
 ## The one rule to learn first
 

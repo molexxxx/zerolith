@@ -18,7 +18,7 @@ format.number(1234.5, { style: "currency", currency: "EUR" });
 
 The guide is `docs/guide/i18n.md` in the repository.
 
-Status: pre-alpha, nothing published.
+Status: alpha. Install with `npm install @zerolith/i18n@alpha`; the API may change before 1.0.
 
 ## License
 

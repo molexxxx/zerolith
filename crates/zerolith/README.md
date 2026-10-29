@@ -7,6 +7,8 @@ zerolith dev [root] [--port 8080]       serve with live reload
 zerolith serve [root] [--port 8080]     serve without watching
 zerolith importmap [root] [--out vendor] [--development] [--html index.html]
 zerolith doctor [root] [--json]
+zerolith build [root] [--out dist]
+zerolith new <name> [--js] [--buildless]
 ```
 
 Install it from npm as `@zerolith/cli`, which carries a prebuilt binary for Linux (glibc), macOS, and Windows on x64 and arm64, or from crates.io with `cargo install zerolith`.
@@ -19,4 +21,4 @@ Install it from npm as `@zerolith/cli`, which carries a prebuilt binary for Linu
 
 `new` writes the standard application layout with a working first page, the scripts, and an `AGENTS.md`: Vite and TypeScript by default, `--js` for JavaScript with JSDoc types, `--buildless` for TypeScript on an import map with no bundler, served by `dev` and written out by `build`.
 
-Build with `cargo build --release`; the binary is `target/release/zerolith`. Nothing is published to crates.io yet.
+From this repository, `cargo build --release` puts the binary at `target/release/zerolith`.

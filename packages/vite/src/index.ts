@@ -1,7 +1,7 @@
 /**
- * The Vite plugin: the JSX lowering of RFC 0001 ahead of every other
- * transform, hot module replacement for zerolith applications in
- * development, and the checks ADR 0005 puts on production output.
+ * The Vite plugin: the JSX lowering ahead of every other transform, hot
+ * module replacement for zerolith applications in development, and the
+ * template prepare pass and the checks on production output.
  */
 import { type Plugin, parseSync } from "vite";
 import { scan } from "zerolith";

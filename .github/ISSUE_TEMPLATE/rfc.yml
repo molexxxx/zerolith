@@ -1,0 +1,49 @@
+name: RFC
+description: Propose a new public API, a change to one, a policy change, or a new dependency of a published package.
+title: "RFC: "
+labels: ["rfc"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        An RFC is decided on this issue, as [GOVERNANCE.md](https://github.com/molexxxx/zerolith/blob/main/GOVERNANCE.md) describes. Early ideas that are not ready for a design belong in [Discussions](https://github.com/molexxxx/zerolith/discussions/categories/ideas) first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is hard or impossible today, for whom, and the evidence.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: The design, with code samples of what a user writes and what the framework does with it. Name every new or changed export.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else would solve the problem, and why this proposal is preferred.
+    validations:
+      required: true
+  - type: textarea
+    id: migration
+    attributes:
+      label: Migration
+      description: What existing code has to change, and the codemod if any API changes.
+    validations:
+      required: true
+  - type: textarea
+    id: size
+    attributes:
+      label: Effect on size and on the agent index
+      description: The change to the production bundle in bytes, measured by `npm run size`, and the change to the public surface the documentation and the agent index carry.
+    validations:
+      required: true
+  - type: textarea
+    id: questions
+    attributes:
+      label: Open questions
+      description: Optional. What the discussion has to settle before the final comment period.

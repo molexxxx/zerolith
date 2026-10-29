@@ -1,5 +1,5 @@
 /**
- * The JSX lowering of RFC 0001: each JSX expression in a `.jsx` or `.tsx`
+ * The JSX lowering: each JSX expression in a `.jsx` or `.tsx`
  * file becomes the `html` call it stands for, with components called as
  * functions. Pure string work over the parser's tree, so the plugin and
  * the command line can share it. Lowered code keeps its line count: a

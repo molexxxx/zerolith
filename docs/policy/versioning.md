@@ -15,7 +15,7 @@ The following are not public API and may change in a minor or patch release:
 
 - Anything exported from a path containing `internal` or `labs`, and anything in the `@zerolith-labs` scope.
 - Exact message text, stack traces, and the HTML or CSS structure of dev tools.
-- The compiled output format of the optional compiler, as long as the runtime accepts both the old and the new format within the same major.
+- The output of the build-time passes (the template prepare pass and the JSX lowering), as long as the runtime accepts both the old and the new output within the same major.
 
 ## Breaking changes
 

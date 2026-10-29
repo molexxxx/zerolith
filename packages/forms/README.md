@@ -19,7 +19,7 @@ Validation is written once as a Standard Schema and runs on both sides: `validat
 
 The guide is `docs/guide/forms.md` in the repository.
 
-Status: pre-alpha, nothing published.
+Status: alpha. Install with `npm install @zerolith/forms@alpha`; the API may change before 1.0.
 
 ## License
 

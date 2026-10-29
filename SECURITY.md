@@ -4,14 +4,14 @@
 
 Report vulnerabilities privately; do not open a public issue.
 
-- Preferred: GitHub private vulnerability reporting on this repository, once the repository is public.
+- Preferred: [GitHub private vulnerability reporting](https://github.com/molexxxx/zerolith/security/advisories/new) on this repository.
 - Otherwise: email molex@sent.com with "zerolith security" in the subject.
 
 You will receive an acknowledgment within three business days and a triage decision within ten. The project follows coordinated disclosure with a 90-day window from acknowledgment; fixes for confirmed issues ship earlier whenever possible, and the window is extended only by agreement with the reporter. Credit is given in the advisory unless you ask otherwise. There is no bug bounty.
 
 ## Supported versions
 
-Security fixes are published for every release line inside the support window described in [docs/policy/support.md](docs/policy/support.md). Pre-release channels (canary, experimental) receive fixes on their next build and are not backported.
+Security fixes are published for every release line inside the support window described in [docs/policy/support.md](docs/policy/support.md). Until 1.0.0 there is no supported line: fixes ship in the next alpha. Pre-release channels (alpha, canary, experimental) receive fixes in their next version and are not backported.
 
 ## What the runtime guarantees
 
@@ -24,7 +24,7 @@ These are the properties the runtime is designed and tested to hold. A violation
 
 ## Supply chain
 
-- Every published package is built in CI from a tagged commit and published with provenance attestations (npm trusted publishing).
-- A CycloneDX SBOM is produced for every release and attached to the GitHub release.
+- Every published package is built and published by the release workflow in this repository, with npm provenance attestations.
+- A CycloneDX SBOM is produced by every release run and uploaded as an artifact of that run.
 - GitHub Actions are pinned to commit SHAs and updated through reviewed pull requests.
 - OpenSSF Scorecard runs on the default branch and its results are public.

@@ -1,12 +1,13 @@
 # Support window and release channels
 
-This policy takes effect with the first stable release and is published beforehand so adopters can plan against it.
+This policy takes effect with the first stable release and is published beforehand so adopters can plan against it. Until then the packages are alpha versions: fixes ship in the next alpha and nothing is backported.
 
 ## Channels
 
 | Channel | npm dist-tag | What it is | Who should use it |
 | --- | --- | --- | --- |
 | Latest | `latest` | Stable releases that follow semantic versioning | Everyone in production |
+| Alpha | `alpha` | Pre-release versions before 1.0.0, API not frozen | Early adopters evaluating zerolith |
 | Canary | `canary` | Builds from the default branch that passed the full CI matrix | Projects that want the next fix early, and ecosystem maintainers testing compatibility |
 | Experimental | `experimental` | Builds from an accepted RFC branch, API not yet frozen | Reviewers of that RFC |
 
@@ -32,6 +33,6 @@ Until the project has at least two maintainers with release rights, only one maj
 
 A platform leaving this list is announced one minor release ahead and is a minor change, not a major one, because the runtime emits standard JavaScript and the loss is of testing coverage, not of code paths.
 
-## Dependencies of the toolchain
+## Third-party ranges
 
-Dev tooling packages (`@zerolith/cli`, `@zerolith/vite`, `@zerolith/test`) may depend on third-party packages. Their supported range of Vite, Vitest, and TypeScript is listed in each package's README and tested in CI; a bump of that range is a minor release.
+The core has no dependencies, and the other packages depend on zerolith packages only, with two exceptions declared as peer dependencies: Vite for `@zerolith/vite` and `@opentelemetry/api` for `@zerolith/otel`. The supported range of each is its peer range, tested in CI against the version the repository pins; widening or narrowing a range is a minor release.

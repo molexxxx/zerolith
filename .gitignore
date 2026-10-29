@@ -10,6 +10,8 @@ target/
 .DS_Store
 Thumbs.db
 docs/research/
+docs/decisions/
+docs/rfcs/
 .vitest/
 packages/cli/platforms/*/zerolith
 packages/cli/platforms/*/zerolith.exe

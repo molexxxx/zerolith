@@ -20,7 +20,7 @@ Tags select what the release workflow publishes:
 
 ## Before 1.0.0
 
-Alpha and beta versions (`0.1.0-alpha.1` and on) are published under the `alpha` or `beta` dist-tag, never `latest`, so `npm install zerolith` resolves to nothing until a stable version exists and `npm install zerolith@alpha` opts in. The changelog marks breaking changes between pre-releases the same way it does between minors.
+Alpha and beta versions (`0.1.0-alpha.1` and on) are published under the `alpha` or `beta` dist-tag. npm also gives the first version of a new package the `latest` tag, so `latest` points at `0.1.0-alpha.1` until a stable version takes it; install with `@alpha` (`npm install zerolith@alpha`) to get the newest pre-release. The changelog marks breaking changes between pre-releases the same way it does between minors.
 
 ## Steps for a stable release
 
@@ -34,11 +34,11 @@ No step publishes from a developer machine. Publishing credentials do not exist 
 
 ## Credentials
 
-npm trusted publishing is configured per package on npmjs.com (owner `molexxxx`, repository `zerolith`, workflow `release.yml`, no environment), and provenance is attached from the public repository. A package that does not exist on the registry yet cannot have a trusted publisher, so its first publish uses a granular access token stored as the `NPM_TOKEN` repository secret; the secret is deleted once every package has a trusted publisher, and the workflow ignores its absence. The crate publishes with the `CRATES_IO_TOKEN` secret until crates.io trusted publishing is configured for it.
+The release workflow publishes to npm with provenance and to crates.io, and the credentials for both exist only as secrets of this repository. npm trusted publishing (repository `zerolith`, workflow `release.yml`) replaces the npm token package by package, since a package has to exist on the registry before it can have a trusted publisher; the crate moves to crates.io trusted publishing the same way.
 
 ## Canary releases
 
-Every merge to the default branch that passes CI publishes a canary version (`0.0.0-canary.<sha>` style) under the `canary` dist-tag. Canary versions are retained for 90 days.
+Once the canary channel opens (see the [roadmap](../ROADMAP.md)), every merge to the default branch that passes CI publishes a canary version (`0.0.0-canary.<sha>` style) under the `canary` dist-tag. Canary versions are retained for 90 days.
 
 ## Security releases
 

@@ -1,5 +1,5 @@
 /**
- * The types that make JSX a spelling of `html` (RFC 0001). A `tsconfig`
+ * The types that make JSX a spelling of `html`. A `tsconfig`
  * with `"jsx": "react-jsx"` and `"jsxImportSource": "zerolith"` resolves
  * this module for element and attribute types; the lowering in
  * `@zerolith/vite` rewrites the JSX before any of it runs, so the
