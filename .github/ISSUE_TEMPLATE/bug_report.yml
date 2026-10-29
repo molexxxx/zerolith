@@ -1,0 +1,81 @@
+name: Bug report
+description: Something in zerolith behaves differently from the docs or from what you expected.
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Questions and ideas belong in [Discussions](https://github.com/molexxxx/zerolith/discussions), and vulnerabilities must be reported privately as [SECURITY.md](https://github.com/molexxxx/zerolith/blob/main/SECURITY.md) describes.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, including the full error text.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Smallest reproduction
+      description: Code, a repository link, or numbered steps. The smaller it is, the faster it gets fixed.
+      render: ts
+    validations:
+      required: true
+  - type: input
+    id: diagnostic
+    attributes:
+      label: Diagnostic code
+      description: Runtime errors and Vite plugin warnings carry a code, such as template_frozen_read. Leave empty if there was none.
+  - type: dropdown
+    id: packages
+    attributes:
+      label: Packages involved
+      multiple: true
+      options:
+        - zerolith (core)
+        - "@zerolith/router"
+        - "@zerolith/forms"
+        - "@zerolith/client"
+        - "@zerolith/i18n"
+        - "@zerolith/a11y"
+        - "@zerolith/test"
+        - "@zerolith/devtools"
+        - "@zerolith/otel"
+        - "@zerolith/vite"
+        - zerolith command line (Rust)
+        - Docs site
+    validations:
+      required: true
+  - type: dropdown
+    id: loading
+    attributes:
+      label: How the app is loaded
+      options:
+        - Import map with no build step
+        - Vite
+        - Another bundler
+        - Server rendering
+        - zerolith build output
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+      description: Until the first release, the commit hash you built from.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser and version, operating system, and Node version.
+      placeholder: Chrome 151, Windows 11, Node 24
+    validations:
+      required: true

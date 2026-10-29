@@ -1,0 +1,22 @@
+name: Documentation problem
+description: A guide, reference page, or example is wrong, unclear, or missing.
+labels: ["docs"]
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Page
+      description: The path or link of the page, for example docs/guide/routing.md.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong or missing
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested change
+      description: Optional. Examples in the guides come from tests, so a wrong example usually means a wrong test region too.
