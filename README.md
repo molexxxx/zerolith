@@ -31,7 +31,8 @@ Requires Node 24 or newer and npm 11.
 | `npm run check` | Build, typecheck, lint, run both test projects, check the size budget, and build the docs; this is what CI runs |
 | `npm run sbom` | Emit a CycloneDX SBOM of the runtime dependency graph |
 | `npm run docs` | Build the documentation site into `site/`; fails on an undocumented export, a missing example, or a broken link |
-| `npm run serve` | Serve the repository on port 8080 for the examples and the built site at `/site/` (build first) |
+| `npm run serve` | Serve the repository on port 8080 for the examples (build first) |
+| `npm run docs:serve` | Serve the built documentation site on port 8081 (run `npm run docs` first) |
 | `npm run bench` | Run the keyed-table benchmark against a vanilla DOM baseline |
 
 ## Policies

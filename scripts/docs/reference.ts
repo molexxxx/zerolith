@@ -5,6 +5,8 @@
  * exist.
  */
 import { execFile } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import { type Param, type TsType, type TypeParam, paramsText, typeParamsText, typeText } from "./types.ts";
 
@@ -83,11 +85,13 @@ const HEADINGS: Record<string, string> = {
     namespace: "Namespaces"
 };
 
-/** Runs deno doc over the entries and returns the parsed document. */
+/** Runs deno doc over the entries and returns the parsed document. The deno npm package's entry is run with Node directly, so no shell is involved. */
 export async function extract(root: string, entries: Entry[]): Promise<DocJson>
 {
-    const bin = `${root}node_modules/.bin/deno${process.platform === "win32" ? ".cmd" : ""}`;
-    const { stdout } = await run(bin, ["doc", "--json", ...entries.map((entry) => entry.file)], { cwd: root, maxBuffer: 64 * 1024 * 1024, shell: process.platform === "win32" });
+    const folder = join(root, "node_modules", "deno");
+    const manifest = JSON.parse(await readFile(join(folder, "package.json"), "utf8")) as { bin: string | Record<string, string> };
+    const bin = typeof manifest.bin === "string" ? manifest.bin : manifest.bin["deno"] ?? "bin.cjs";
+    const { stdout } = await run(process.execPath, [join(folder, bin), "doc", "--json", ...entries.map((entry) => entry.file)], { cwd: root, maxBuffer: 64 * 1024 * 1024 });
     const doc = JSON.parse(stdout) as DocJson;
     if (doc.version !== 2)
     {

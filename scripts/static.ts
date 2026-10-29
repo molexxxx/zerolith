@@ -28,8 +28,8 @@ const types: Readonly<Record<string, string>> = {
 
 export const repositoryRoot: string = fileURLToPath(new URL("../", import.meta.url));
 
-/** The file a request path maps to, after the example fallback. */
-export function resolvePath(pathname: string): string
+/** The file a request path maps to under `root`, after the example fallback. */
+export function resolvePath(pathname: string, root: string = repositoryRoot): string
 {
     let path = normalize(decodeURIComponent(pathname)).replace(/^([.][.][\\/])+/, "");
     const example = /^[\\/]examples[\\/]([^\\/]+)(?:[\\/]|$)/.exec(path);
@@ -37,16 +37,16 @@ export function resolvePath(pathname: string): string
     {
         path = join("examples", example[1] ?? "", "index.html");
     }
-    return join(repositoryRoot, path);
+    return join(root, path);
 }
 
-/** Creates the server without listening. */
-export function createStaticServer(): Server
+/** Creates the server without listening. `root` defaults to the repository; pass `site/` to serve the built docs at `/`. */
+export function createStaticServer(root: string = repositoryRoot): Server
 {
     return createServer(async (request, response) =>
     {
         const url = new URL(request.url ?? "/", "http://localhost");
-        let file = resolvePath(url.pathname);
+        let file = resolvePath(url.pathname, root);
         try
         {
             let info = await stat(file);
