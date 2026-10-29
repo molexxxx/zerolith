@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zerolith brand</title>
+<meta name="description" content="The zerolith brand: the mark, lockups, app icon, color, type, interface, icons, and the rules every zerolith surface follows.">
+<link rel="icon" href="app-icon/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="app-icon/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="apple-touch-icon" href="app-icon/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Martian+Mono:wght@400&family=Onest:wght@400;600&family=Unbounded:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+html { scrollbar-color: var(--zl-control-line) var(--zl-bg); }
+body { margin: 0; background: var(--zl-bg); color: var(--zl-text); font-family: var(--zl-font-text); font-size: var(--zl-text-md); line-height: var(--zl-leading-text); caret-color: var(--zl-text); }
+::selection { background: var(--zl-line); color: var(--zl-text); }
+img { display: block; max-width: 100%; height: auto; }
+a { color: inherit; text-decoration: underline; text-decoration-color: var(--zl-control-line); text-decoration-thickness: 2px; text-underline-offset: 0.25em; }
+a:hover { text-decoration-color: var(--zl-text); }
+:focus-visible { outline: var(--zl-rule) solid var(--zl-focus); outline-offset: 2px; }
+code, pre, .mono { font-family: var(--zl-font-mono); font-size: 0.875em; }
+h1, h2, h3 { font-family: var(--zl-font-display); font-weight: var(--zl-weight-display); letter-spacing: var(--zl-tracking-display); line-height: var(--zl-leading-display); text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: 66ch; }
+.wrap { width: min(1200px, 100%); margin-inline: auto; padding-inline: var(--zl-space-6); }
+.label { font-family: var(--zl-font-mono); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--zl-text-muted); }
+.for-light { display: none; }
+@media (prefers-color-scheme: light)
+{
+    :root:not([data-theme="dark"]) .for-light { display: block; }
+    :root:not([data-theme="dark"]) .for-dark { display: none; }
+}
+:root[data-theme="light"] .for-light { display: block; }
+:root[data-theme="light"] .for-dark { display: none; }
+.i { display: inline-block; width: 24px; height: 24px; flex: none; vertical-align: middle; }
+
+.top { border-bottom: var(--zl-rule) solid var(--zl-line); }
+.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: var(--zl-space-4); min-height: 72px; }
+.top img { height: 30px; width: auto; }
+.theme { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0; background: transparent; color: var(--zl-text); border: var(--zl-rule) solid var(--zl-control-line); border-radius: var(--zl-radius); cursor: pointer; }
+.theme:hover { border-color: var(--zl-text); }
+.theme .sun { display: none; }
+:root[data-theme="light"] .theme .sun { display: inline-block; }
+:root[data-theme="light"] .theme .moon { display: none; }
+@media (prefers-color-scheme: light)
+{
+    :root:not([data-theme="dark"]) .theme .sun { display: inline-block; }
+    :root:not([data-theme="dark"]) .theme .moon { display: none; }
+}
+
+.hero { padding-block: var(--zl-space-16) var(--zl-space-8); display: grid; gap: var(--zl-space-8); }
+.hero-row { display: flex; align-items: center; justify-content: space-between; gap: var(--zl-space-8); flex-wrap: wrap; }
+.hero-row .lockup { height: 112px; width: auto; }
+.hero-row .tile { width: 136px; height: 136px; }
+.hero h1 { font-size: clamp(var(--zl-text-2xl), 5vw, var(--zl-text-3xl)); }
+.hero .lead { font-size: 1.25rem; color: var(--zl-text-muted); }
+.index { display: flex; flex-wrap: wrap; gap: var(--zl-space-2) var(--zl-space-6); padding-top: var(--zl-space-6); border-top: var(--zl-rule) solid var(--zl-line); }
+.index a { font-family: var(--zl-font-mono); font-size: var(--zl-text-sm); text-transform: uppercase; letter-spacing: 0.06em; color: var(--zl-text-muted); text-decoration: none; padding-block: var(--zl-space-2); }
+.index a:hover { color: var(--zl-text); }
+
+section { padding-block: var(--zl-space-16); border-top: var(--zl-rule) solid var(--zl-line); }
+section > .wrap { display: grid; gap: var(--zl-space-8); }
+section h2 { font-size: clamp(1.75rem, 3.2vw, 2.5rem); }
+.intro { display: grid; gap: var(--zl-space-4); }
+.intro p { color: var(--zl-text-muted); }
+.grid { display: grid; gap: var(--zl-space-4); }
+.grid.three { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.grid.two { grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+figure { margin: 0; display: grid; gap: var(--zl-space-3); }
+figcaption { font-family: var(--zl-font-mono); font-size: var(--zl-text-sm); color: var(--zl-text-muted); overflow-wrap: anywhere; }
+.plate { display: flex; align-items: center; justify-content: center; padding: var(--zl-space-8); min-height: 220px; border: var(--zl-rule) solid var(--zl-line); }
+.plate.basalt { background: var(--zl-basalt-950); }
+.plate.paper { background: var(--zl-basalt-50); }
+.plate.lichen { background: var(--zl-lichen-300); border-color: var(--zl-lichen-300); }
+.plate img { max-height: 128px; width: auto; }
+.plate.wide img { max-height: 96px; }
+.plate.tall img { max-height: 160px; }
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--zl-space-6); margin: 0; padding: 0; list-style: none; }
+.rules li { display: grid; align-content: start; gap: var(--zl-space-2); padding-top: var(--zl-space-4); border-top: var(--zl-rule) solid var(--zl-line); }
+.rules b { font-weight: 600; }
+.rules span { color: var(--zl-text-muted); }
+
+.icons-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--zl-space-8); }
+.mask { border-radius: 50%; overflow: hidden; width: 160px; height: 160px; }
+.round { border-radius: 22%; overflow: hidden; }
+.tab { display: inline-flex; align-items: center; gap: var(--zl-space-2); padding: var(--zl-space-2) var(--zl-space-4); font-size: 0.875rem; border: var(--zl-rule) solid var(--zl-line); }
+.tab.dark { background: #202124; color: #E8EAED; border-color: #202124; }
+.tab.light { background: #FFFFFF; color: #0F1114; border-color: var(--zl-basalt-200); }
+.tab img { width: 16px; height: 16px; }
+
+.ramp { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--zl-space-3); }
+.swatch { display: grid; gap: var(--zl-space-2); }
+.swatch i { display: block; height: 72px; border: var(--zl-rule) solid var(--zl-line); }
+.swatch span { font-family: var(--zl-font-mono); font-size: 0.75rem; color: var(--zl-text-muted); font-variant-numeric: tabular-nums; }
+.swatch b { font-weight: 600; font-size: 0.875rem; }
+.table-scroll { overflow-x: auto; border: var(--zl-rule) solid var(--zl-line); }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: var(--zl-space-3) var(--zl-space-4); border-bottom: var(--zl-rule) solid var(--zl-line); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+th { font-family: var(--zl-font-mono); font-size: 0.75rem; font-weight: 400; text-transform: uppercase; letter-spacing: 0.06em; color: var(--zl-text-muted); }
+td code { font-size: var(--zl-text-sm); }
+.chip { display: inline-flex; align-items: center; gap: var(--zl-space-2); }
+.chip i { display: inline-block; width: 18px; height: 18px; border: var(--zl-rule) solid var(--zl-control-line); }
+.budget { padding: var(--zl-space-6); border: var(--zl-rule) solid var(--zl-line); display: grid; gap: var(--zl-space-3); }
+
+.specimen { display: grid; grid-template-columns: minmax(180px, 220px) 1fr; gap: var(--zl-space-6); padding-top: var(--zl-space-6); border-top: var(--zl-rule) solid var(--zl-line); align-items: start; }
+.specimen .who { display: grid; gap: var(--zl-space-1); }
+.specimen .who b { font-weight: 600; }
+.specimen .who span { color: var(--zl-text-muted); font-size: var(--zl-text-sm); }
+.sample-display { font-family: var(--zl-font-display); font-weight: 600; letter-spacing: var(--zl-tracking-display); font-size: clamp(var(--zl-text-xl), 4vw, var(--zl-text-2xl)); line-height: 1.05; text-wrap: balance; }
+.scale { display: grid; gap: var(--zl-space-3); }
+.scale-row { display: grid; grid-template-columns: 9rem 1fr; align-items: baseline; gap: var(--zl-space-4); }
+.scale-row code { color: var(--zl-text-muted); }
+.scale-row .d { font-family: var(--zl-font-display); font-weight: 600; letter-spacing: var(--zl-tracking-display); line-height: var(--zl-leading-display); }
+.home { font-family: var(--zl-font-mono); font-size: var(--zl-text-sm); text-transform: uppercase; letter-spacing: 0.06em; color: var(--zl-text-muted); text-decoration: none; padding-block: var(--zl-space-3); }
+.home:hover { color: var(--zl-text); }
+.docnav { display: flex; flex-wrap: wrap; gap: var(--zl-space-6); border-bottom: var(--zl-rule) solid var(--zl-line); }
+.docnav a { font-family: var(--zl-font-mono); font-size: var(--zl-text-sm); text-transform: uppercase; letter-spacing: 0.06em; color: var(--zl-text-muted); text-decoration: none; padding-block: var(--zl-space-3); margin-bottom: calc(-1 * var(--zl-rule)); border-bottom: var(--zl-rule) solid transparent; }
+.docnav a:hover { color: var(--zl-text); }
+.docnav a[aria-current="page"] { color: var(--zl-accent-text); border-bottom-color: var(--zl-accent-text); }
+.states { display: grid; grid-template-columns: repeat(4, max-content); gap: var(--zl-space-6); align-items: start; padding: var(--zl-space-6); border: var(--zl-rule) solid var(--zl-line); background: var(--zl-surface); }
+.state { display: grid; gap: var(--zl-space-2); justify-items: start; }
+.sample-text { font-size: var(--zl-text-lg); max-width: 60ch; }
+.sample-mono { font-family: var(--zl-font-mono); font-size: var(--zl-text-sm); display: grid; gap: var(--zl-space-2); }
+
+.demo { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--zl-space-8); padding: var(--zl-space-8); border: var(--zl-rule) solid var(--zl-line); background: var(--zl-surface); }
+.stack { display: grid; gap: var(--zl-space-4); align-content: start; }
+.buttons { display: flex; flex-wrap: wrap; gap: var(--zl-space-3); }
+.btn { min-height: 48px; padding: 0 var(--zl-space-6); display: inline-flex; align-items: center; gap: var(--zl-space-2); font: 600 1rem/1 var(--zl-font-text); border-radius: var(--zl-radius); cursor: pointer; text-decoration: none; }
+.btn.primary { background: var(--zl-accent); color: var(--zl-on-accent); border: var(--zl-rule) solid var(--zl-accent); }
+.btn.primary:hover { background: var(--zl-lichen-200); border-color: var(--zl-lichen-200); }
+.btn.secondary { background: transparent; color: var(--zl-text); border: var(--zl-rule) solid var(--zl-text); }
+.btn.secondary:hover { background: var(--zl-text); color: var(--zl-bg); }
+.btn:disabled { background: transparent; color: var(--zl-text-muted); border: var(--zl-rule) dashed var(--zl-control-line); cursor: not-allowed; }
+.btn.primary.is-hover { background: var(--zl-lichen-200); border-color: var(--zl-lichen-200); }
+.btn.is-focus { outline: var(--zl-rule) solid var(--zl-focus); outline-offset: 2px; }
+.field input.is-focus { border-color: var(--zl-focus); }
+.field { display: grid; gap: var(--zl-space-2); }
+.field label { font-family: var(--zl-font-mono); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--zl-text-muted); }
+.field input { min-height: 48px; padding: 0 var(--zl-space-4); font: 1rem/1.5 var(--zl-font-mono); color: var(--zl-text); background: var(--zl-bg); border: var(--zl-rule) solid var(--zl-control-line); border-radius: var(--zl-radius); }
+.field input:focus-visible { outline: none; border-color: var(--zl-focus); }
+.field input[aria-invalid="true"] { border-color: var(--zl-danger); }
+.field .help { font-size: 0.875rem; color: var(--zl-text-muted); }
+.field .err { font-size: 0.875rem; color: var(--zl-danger); display: flex; align-items: center; gap: var(--zl-space-2); }
+.field .err .i { width: 18px; height: 18px; }
+.callout { display: grid; grid-template-columns: auto 1fr; gap: var(--zl-space-3); padding: var(--zl-space-4); border: var(--zl-rule) solid var(--zl-line); }
+.callout .i.hint { color: var(--zl-hint); }
+.callout .i.warning { color: var(--zl-warning); }
+.callout .i.danger { color: var(--zl-danger); }
+.callout b { font-weight: 600; }
+.tags { display: flex; flex-wrap: wrap; gap: var(--zl-space-2); }
+.tag { font-family: var(--zl-font-mono); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; padding: var(--zl-space-2) var(--zl-space-3); border: var(--zl-rule) solid var(--zl-line); }
+pre.code { margin: 0; padding: var(--zl-space-6); background: var(--zl-code-bg); color: var(--zl-code-text); border: var(--zl-rule) solid var(--zl-line); overflow-x: auto; line-height: 1.7; font-size: 0.875rem; }
+.kw { color: var(--zl-code-keyword); }
+.st { color: var(--zl-code-string); }
+.cm { color: var(--zl-code-comment); }
+
+.icon-group { display: grid; gap: var(--zl-space-4); }
+.icon-group h3 { font-size: var(--zl-text-lg); }
+.icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: var(--zl-space-3); }
+.icon-cell { display: grid; justify-items: center; gap: var(--zl-space-3); padding: var(--zl-space-6) var(--zl-space-3) var(--zl-space-4); border: var(--zl-rule) solid var(--zl-line); }
+.icon-cell span { font-family: var(--zl-font-mono); font-size: 0.75rem; color: var(--zl-text-muted); }
+.icon-cell .i.hint { color: var(--zl-hint); }
+.icon-cell .i.warning { color: var(--zl-warning); }
+.icon-cell .i.danger { color: var(--zl-danger); }
+
+.gh { padding: var(--zl-space-6); border: var(--zl-rule) solid var(--zl-line); }
+.gh.dark { background: #0D1117; }
+.gh.light { background: #FFFFFF; }
+
+.terminal { margin: 0; padding: var(--zl-space-6); background: var(--zl-basalt-950); color: var(--zl-basalt-100); border: var(--zl-rule) solid var(--zl-line); font-family: var(--zl-font-mono); font-size: 0.875rem; line-height: 1.9; overflow-x: auto; }
+.terminal .p { color: var(--zl-basalt-400); }
+.terminal .badge { background: var(--zl-lichen-300); color: var(--zl-basalt-950); padding: 0.1em 0.5em; }
+.terminal .ok { color: #8DD35F; }
+.terminal .bad { color: #FF7B72; }
+.terminal .hint { color: #7CB3FF; }
+.terminal .dim { color: var(--zl-basalt-400); }
+.cursor { display: inline-block; width: 0.6em; height: 1.1em; vertical-align: text-bottom; background: var(--zl-basalt-100); animation: blink 1.1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }
+
+.never { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--zl-space-4); margin: 0; padding: 0; list-style: none; }
+.never li { padding: var(--zl-space-4); border: var(--zl-rule) solid var(--zl-line); display: grid; align-content: start; gap: var(--zl-space-1); }
+.never b { font-weight: 600; }
+.never span { color: var(--zl-text-muted); font-size: var(--zl-text-sm); }
+footer { border-top: var(--zl-rule) solid var(--zl-line); padding-block: var(--zl-space-12); color: var(--zl-text-muted); font-size: var(--zl-text-sm); }
+footer .wrap { display: grid; gap: var(--zl-space-3); }
+
+@media (max-width: 640px)
+{
+    .wrap { padding-inline: var(--zl-space-4); }
+    .hero { padding-block: var(--zl-space-12) var(--zl-space-6); }
+    .hero-row .lockup { height: 72px; }
+    .hero-row .tile { width: 96px; height: 96px; }
+    section { padding-block: var(--zl-space-12); }
+    .specimen { grid-template-columns: 1fr; gap: var(--zl-space-3); }
+    .demo { padding: var(--zl-space-4); }
+    .plate { min-height: 180px; padding: var(--zl-space-6); }
+    .scale-row { grid-template-columns: 1fr; gap: var(--zl-space-1); }
+    .states { grid-template-columns: repeat(2, max-content); padding: var(--zl-space-4); }
+    .stack-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .stack-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: var(--zl-space-2) var(--zl-space-4); padding: var(--zl-space-3) var(--zl-space-4); border-bottom: var(--zl-rule) solid var(--zl-line); }
+    .stack-table tr:last-child { border-bottom: 0; }
+    .stack-table td { display: block; padding: 0; border: 0; white-space: normal; }
+    .stack-table td:first-child { grid-column: 1 / -1; }
+    .stack-table td:not(:first-child)::before { display: block; font-family: var(--zl-font-mono); font-size: var(--zl-text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--zl-text-muted); }
+    .tokens-table td:nth-child(2)::before { content: "Dark"; }
+    .tokens-table td:nth-child(3)::before { content: "Light"; }
+    .terminal-table td:nth-child(2)::before { content: "Color"; }
+    .terminal-table td:nth-child(3)::before { content: "Used for"; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+<div class="wrap">
+<a class="home" href="#mark">Brand reference</a>
+<button class="theme" type="button" aria-label="Switch to light theme" aria-pressed="false"><svg class="i moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5A8 8 0 1 0 19.5 14.5Z"/></svg><svg class="i sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M8 8H16V16H8Z"/><path d="M12 2V5M12 19V22M2 12H5M19 12H22M4.5 4.5L6 6M18 18L19.5 19.5M4.5 19.5L6 18M18 6L19.5 4.5"/></svg></button>
+</div>
+</header>
+
+<main>
+<div class="wrap hero">
+<div class="hero-row">
+<img class="lockup for-dark" src="lockup/horizontal-on-dark.svg" alt="zerolith" width="695" height="112">
+<img class="lockup for-light" src="lockup/horizontal-on-light.svg" alt="zerolith" width="695" height="112">
+<img class="tile round" src="app-icon/app-icon.svg" alt="The zerolith app icon: a chartreuse tile with the stele in basalt" width="136" height="136">
+</div>
+<h1>Full framework. Zero guesswork.</h1>
+<p class="lead">The zerolith brand: one mark, one palette, three typefaces, and the rules that keep GitHub, npm, the command line, dev tools, and the docs looking like the same product.</p>
+<nav class="index" aria-label="Sections">
+<a href="#mark">Mark</a><a href="#lockups">Lockups</a><a href="#app-icon">App icon</a><a href="#color">Color</a><a href="#type">Type</a><a href="#interface">Interface</a><a href="#icons">Icons</a><a href="#github">GitHub and npm</a><a href="#terminal">Command line</a><a href="#never">Never</a>
+</nav>
+</div>
+
+<section id="mark">
+<div class="wrap">
+<div class="intro">
+<h2>The stele</h2>
+<p>A standing stone with a zero cut through it. It is always one color, and the zero stays open so the ground shows through. A second color inside the zero leaves a seam that renders as a jagged edge, so the mark never carries one.</p>
+</div>
+<div class="grid three">
+<figure><div class="plate basalt"><img src="mark/stele-chartreuse.svg" alt="The stele in chartreuse on basalt" width="64" height="101"></div><figcaption>mark/stele-chartreuse.svg on basalt</figcaption></figure>
+<figure><div class="plate paper"><img src="mark/stele-basalt.svg" alt="The stele in basalt on a light ground" width="64" height="101"></div><figcaption>mark/stele-basalt.svg on light grounds</figcaption></figure>
+<figure><div class="plate lichen"><img src="mark/stele-basalt.svg" alt="The stele in basalt on chartreuse" width="64" height="101"></div><figcaption>mark/stele-basalt.svg on chartreuse</figcaption></figure>
+</div>
+<ul class="rules">
+<li><b>Clear space</b><span>Keep the width of the zero free on every side.</span></li>
+<li><b>Smallest size</b><span>16 px tall. Below that, use the favicon tile instead.</span></li>
+<li><b>Color</b><span>Chartreuse on basalt, basalt on light grounds and on chartreuse. Chalk is the quiet fallback on dark photography.</span></li>
+<li><b>One per view</b><span>The stele appears once in a composition. No echoes, contours, outlines, or rock drawings around it.</span></li>
+</ul>
+</div>
+</section>
+
+<section id="lockups">
+<div class="wrap">
+<div class="intro">
+<h2>Lockups</h2>
+<p>The wordmark is Unbounded at weight 600, lowercase, tracked to -0.03 em, and converted to outlines so it renders without the font. The stele stands 1.55 times the cap height, 0.31 em from the word.</p>
+</div>
+<div class="grid two">
+<figure><div class="plate basalt wide"><img src="lockup/horizontal-on-dark.svg" alt="Horizontal lockup on a dark ground" width="560" height="90"></div><figcaption>lockup/horizontal-on-dark.svg</figcaption></figure>
+<figure><div class="plate paper wide"><img src="lockup/horizontal-on-light.svg" alt="Horizontal lockup on a light ground" width="560" height="90"></div><figcaption>lockup/horizontal-on-light.svg</figcaption></figure>
+<figure><div class="plate basalt tall"><img src="lockup/stacked-on-dark.svg" alt="Stacked lockup on a dark ground" width="280" height="160"></div><figcaption>lockup/stacked-on-dark.svg</figcaption></figure>
+<figure><div class="plate paper tall"><img src="lockup/stacked-on-light.svg" alt="Stacked lockup on a light ground" width="280" height="160"></div><figcaption>lockup/stacked-on-light.svg</figcaption></figure>
+</div>
+</div>
+</section>
+
+<section id="app-icon">
+<div class="wrap">
+<div class="intro">
+<h2>App icon and favicon</h2>
+<p>A chartreuse tile with the stele in basalt. The rounded tile is for the web; the square and maskable versions are for platforms that apply their own mask.</p>
+</div>
+<div class="icons-row">
+<figure><img class="round" src="app-icon/icon-512.png" alt="App icon, 512 px source shown at 192 px" width="192" height="192"><figcaption>icon-512.png</figcaption></figure>
+<figure><div class="mask"><img src="app-icon/icon-maskable-512.png" alt="Maskable icon under a circular mask" width="160" height="160"></div><figcaption>icon-maskable-512.png</figcaption></figure>
+<figure><img class="round" src="app-icon/apple-touch-icon.png" alt="Apple touch icon" width="120" height="120"><figcaption>apple-touch-icon.png</figcaption></figure>
+<figure><img src="app-icon/favicon.svg" alt="Favicon at 48 px" width="48" height="48"><figcaption>48 px</figcaption></figure>
+<figure><img src="app-icon/favicon.svg" alt="Favicon at 32 px" width="32" height="32"><figcaption>32 px</figcaption></figure>
+</div>
+<div class="icons-row">
+<span class="tab light"><img src="app-icon/favicon.svg" alt="" width="16" height="16">zerolith docs</span>
+<span class="tab dark"><img src="app-icon/favicon.svg" alt="" width="16" height="16">zerolith docs</span>
+</div>
+</div>
+</section>
+
+<section id="color">
+<div class="wrap">
+<div class="intro">
+<h2>Color</h2>
+<p>Basalt carries the page. Chartreuse is the one live wire, and it goes on five things only: the mark, the primary action, the active nav item, code keywords, and focus. On light grounds chartreuse can only be a fill; deep olive takes its text and focus roles.</p>
+</div>
+<div class="ramp" role="list" aria-label="Basalt ramp">
+<div class="swatch" role="listitem"><i style="background: #F5F6F8"></i><b>basalt 50</b><span>#F5F6F8</span></div>
+<div class="swatch" role="listitem"><i style="background: #E8EAED"></i><b>basalt 100</b><span>#E8EAED</span></div>
+<div class="swatch" role="listitem"><i style="background: #D5DAE0"></i><b>basalt 200</b><span>#D5DAE0</span></div>
+<div class="swatch" role="listitem"><i style="background: #C9CED4"></i><b>basalt 300</b><span>#C9CED4</span></div>
+<div class="swatch" role="listitem"><i style="background: #9AA3AD"></i><b>basalt 400</b><span>#9AA3AD</span></div>
+<div class="swatch" role="listitem"><i style="background: #737C88"></i><b>basalt 500</b><span>#737C88</span></div>
+<div class="swatch" role="listitem"><i style="background: #4F5864"></i><b>basalt 600</b><span>#4F5864</span></div>
+<div class="swatch" role="listitem"><i style="background: #2A2F37"></i><b>basalt 800</b><span>#2A2F37</span></div>
+<div class="swatch" role="listitem"><i style="background: #171A1F"></i><b>basalt 900</b><span>#171A1F</span></div>
+<div class="swatch" role="listitem"><i style="background: #0F1114"></i><b>basalt 950</b><span>#0F1114</span></div>
+</div>
+<div class="ramp" role="list" aria-label="Lichen">
+<div class="swatch" role="listitem"><i style="background: #C8E679"></i><b>lichen 200</b><span>#C8E679</span></div>
+<div class="swatch" role="listitem"><i style="background: #AACF16"></i><b>lichen 300</b><span>#AACF16</span></div>
+<div class="swatch" role="listitem"><i style="background: #4B5E00"></i><b>lichen 700</b><span>#4B5E00</span></div>
+</div>
+<div class="table-scroll">
+<table class="stack-table tokens-table">
+<caption class="label" style="caption-side: top; text-align: left; padding: var(--zl-space-3) var(--zl-space-4)">Semantic tokens in tokens.css</caption>
+<thead><tr><th scope="col">Token</th><th scope="col">Dark</th><th scope="col">Light</th></tr></thead>
+<tbody>
+<tr><td><code>--zl-bg</code></td><td><span class="chip"><i style="background: #0F1114"></i>#0F1114</span></td><td><span class="chip"><i style="background: #F5F6F8"></i>#F5F6F8</span></td></tr>
+<tr><td><code>--zl-surface</code></td><td><span class="chip"><i style="background: #171A1F"></i>#171A1F</span></td><td><span class="chip"><i style="background: #FFFFFF"></i>#FFFFFF</span></td></tr>
+<tr><td><code>--zl-line</code></td><td><span class="chip"><i style="background: #2A2F37"></i>#2A2F37</span></td><td><span class="chip"><i style="background: #D5DAE0"></i>#D5DAE0</span></td></tr>
+<tr><td><code>--zl-control-line</code></td><td><span class="chip"><i style="background: #737C88"></i>#737C88</span></td><td><span class="chip"><i style="background: #737C88"></i>#737C88</span></td></tr>
+<tr><td><code>--zl-text</code></td><td><span class="chip"><i style="background: #E8EAED"></i>#E8EAED</span></td><td><span class="chip"><i style="background: #0F1114"></i>#0F1114</span></td></tr>
+<tr><td><code>--zl-text-muted</code></td><td><span class="chip"><i style="background: #9AA3AD"></i>#9AA3AD</span></td><td><span class="chip"><i style="background: #4F5864"></i>#4F5864</span></td></tr>
+<tr><td><code>--zl-accent</code></td><td><span class="chip"><i style="background: #AACF16"></i>#AACF16</span></td><td><span class="chip"><i style="background: #AACF16"></i>#AACF16, fill only</span></td></tr>
+<tr><td><code>--zl-on-accent</code></td><td><span class="chip"><i style="background: #0F1114"></i>#0F1114</span></td><td><span class="chip"><i style="background: #0F1114"></i>#0F1114</span></td></tr>
+<tr><td><code>--zl-accent-text</code></td><td><span class="chip"><i style="background: #AACF16"></i>#AACF16</span></td><td><span class="chip"><i style="background: #4B5E00"></i>#4B5E00</span></td></tr>
+<tr><td><code>--zl-focus</code></td><td><span class="chip"><i style="background: #AACF16"></i>#AACF16</span></td><td><span class="chip"><i style="background: #4B5E00"></i>#4B5E00</span></td></tr>
+<tr><td><code>--zl-danger</code></td><td><span class="chip"><i style="background: #FF7B72"></i>#FF7B72</span></td><td><span class="chip"><i style="background: #C42B2B"></i>#C42B2B</span></td></tr>
+<tr><td><code>--zl-warning</code></td><td><span class="chip"><i style="background: #E8C547"></i>#E8C547</span></td><td><span class="chip"><i style="background: #7A5B00"></i>#7A5B00</span></td></tr>
+<tr><td><code>--zl-hint</code></td><td><span class="chip"><i style="background: #7CB3FF"></i>#7CB3FF</span></td><td><span class="chip"><i style="background: #1F5BB8"></i>#1F5BB8</span></td></tr>
+<tr><td><code>--zl-success</code></td><td><span class="chip"><i style="background: #E8EAED"></i>#E8EAED, with the check icon</span></td><td><span class="chip"><i style="background: #0F1114"></i>#0F1114, with the check icon</span></td></tr>
+<tr><td><code>--zl-code-bg</code></td><td><span class="chip"><i style="background: #0F1114"></i>#0F1114</span></td><td><span class="chip"><i style="background: #0F1114"></i>#0F1114</span></td></tr>
+<tr><td><code>--zl-code-text</code></td><td><span class="chip"><i style="background: #E8EAED"></i>#E8EAED</span></td><td><span class="chip"><i style="background: #E8EAED"></i>#E8EAED</span></td></tr>
+<tr><td><code>--zl-code-keyword</code></td><td><span class="chip"><i style="background: #AACF16"></i>#AACF16</span></td><td><span class="chip"><i style="background: #AACF16"></i>#AACF16, on the dark code ground</span></td></tr>
+<tr><td><code>--zl-code-string</code></td><td><span class="chip"><i style="background: #C9CED4"></i>#C9CED4</span></td><td><span class="chip"><i style="background: #C9CED4"></i>#C9CED4</span></td></tr>
+<tr><td><code>--zl-code-comment</code></td><td><span class="chip"><i style="background: #9AA3AD"></i>#9AA3AD</span></td><td><span class="chip"><i style="background: #9AA3AD"></i>#9AA3AD</span></td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+
+<section id="type">
+<div class="wrap">
+<div class="intro">
+<h2>Type</h2>
+<p>Three families, each with one job. All three are free under the SIL Open Font License 1.1.</p>
+</div>
+<div class="specimen"><div class="who"><b>Unbounded 600</b><span>Wordmark and headings. Tracking -0.03 em, sentence case, lowercase in the wordmark.</span></div><div class="sample-display">Full framework. Zero guesswork.</div></div>
+<div class="specimen"><div class="who"><b>Onest 400 and 600</b><span>Body text and interface labels.</span></div><p class="sample-text">A signal holds a value and tells whatever reads it when the value changes. Templates bind to signals directly, so an update touches only the text that changed.</p></div>
+<div class="specimen"><div class="who"><b>Martian Mono 400</b><span>Code, file names, and small uppercase labels.</span></div><div class="sample-mono"><span>const count = signal(0);</span><span class="label">Project name</span></div></div>
+<div class="specimen"><div class="who"><b>Scale</b><span>The sizes in tokens.css. Body leading 1.6, display leading 1.05.</span></div><div class="scale">
+<div class="scale-row"><code>--zl-text-3xl</code><span class="d" style="font-size: var(--zl-text-3xl)">Signals</span></div>
+<div class="scale-row"><code>--zl-text-2xl</code><span class="d" style="font-size: var(--zl-text-2xl)">Signals</span></div>
+<div class="scale-row"><code>--zl-text-xl</code><span class="d" style="font-size: var(--zl-text-xl)">Signals</span></div>
+<div class="scale-row"><code>--zl-text-lg</code><span style="font-size: var(--zl-text-lg)">Signals hold a value.</span></div>
+<div class="scale-row"><code>--zl-text-md</code><span style="font-size: var(--zl-text-md)">Signals hold a value.</span></div>
+<div class="scale-row"><code>--zl-text-sm</code><span style="font-size: var(--zl-text-sm)">Signals hold a value.</span></div>
+<div class="scale-row"><code>--zl-text-xs</code><span style="font-size: var(--zl-text-xs)">Signals hold a value.</span></div>
+</div></div>
+</div>
+</section>
+
+<section id="interface">
+<div class="wrap">
+<div class="intro">
+<h2>Interface</h2>
+<p>Square corners, 2 px rules, and no shadows, glows, or gradients. The primary action is the one solid chartreuse block on the screen.</p>
+</div>
+<div class="demo">
+<div class="stack">
+<nav class="docnav" aria-label="Sample docs navigation"><a href="#interface" aria-current="page">Guide</a><a href="#interface">Reference</a><a href="#interface">Examples</a></nav>
+<div class="buttons"><button class="btn primary" type="button">Get started</button><button class="btn secondary" type="button">View source</button></div>
+<div class="field">
+<label for="search">Search docs</label>
+<input id="search" class="is-focus" value="signal" aria-describedby="search-help">
+<span class="help" id="search-help">Shown in its focused state.</span>
+</div>
+<div class="field">
+<label for="project">Project name</label>
+<input id="project" value="my-app" aria-describedby="project-help">
+<span class="help" id="project-help">Lowercase letters, numbers, and dashes.</span>
+</div>
+<div class="field">
+<label for="port">Port</label>
+<input id="port" value="80800" aria-invalid="true" aria-describedby="port-error">
+<span class="err" id="port-error"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M8 3H16L21 8V16L16 21H8L3 16V8Z"/><path d="M9 9L15 15M15 9L9 15"/></svg>Use a port from 1 to 65535.</span>
+</div>
+<div class="tags"><span class="tag">pre-alpha</span><span class="tag">0 runtime deps</span></div>
+</div>
+<div class="stack">
+<pre class="code"><span class="kw">import</span> { html, signal } <span class="kw">from</span> <span class="st">"zerolith"</span>;
+
+<span class="kw">const</span> count = signal(<span class="st">0</span>);
+<span class="cm">// Bind the signal itself so the text stays live.</span>
+<span class="kw">export const</span> view = html<span class="st">`&lt;p&gt;${</span>count<span class="st">} clicks&lt;/p&gt;`</span>;</pre>
+<div class="callout"><svg class="i warning" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 3L22 20H2Z"/><path d="M12 9V13.5"/><rect x="11" y="15.5" width="2" height="2" fill="currentColor" stroke="none"/></svg><p><b>template_frozen_read.</b> <code>${count.get()}</code> reads once when the template is created and never updates. Bind <code>count</code> instead.</p></div>
+<div class="callout"><svg class="i hint" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M9 17H15"/><path d="M10 21H14"/><path d="M9 17V14.6A6.5 6.5 0 1 1 15 14.6V17"/></svg><p><b>Tip.</b> Run <code>zerolith doctor</code> before you deploy a buildless app; it checks the import map and every integrity hash.</p></div>
+</div>
+</div>
+<figure>
+<div class="states">
+<div class="state"><button class="btn primary" type="button">Get started</button><span class="label">Default</span></div>
+<div class="state"><button class="btn primary is-hover" type="button">Get started</button><span class="label">Hover</span></div>
+<div class="state"><button class="btn secondary is-focus" type="button">View source</button><span class="label">Focus</span></div>
+<div class="state"><button class="btn" type="button" disabled>Publishing</button><span class="label">Disabled</span></div>
+</div>
+<figcaption>Button states, laid side by side for reference. A real screen shows one primary action.</figcaption>
+</figure>
+</div>
+</section>
+
+<section id="icons">
+<div class="wrap">
+<div class="intro">
+<h2>Icons</h2>
+<p>Drawn on a 24 px grid with 2 px strokes, square caps, and mitered corners, so they match the rules around them. Every file uses <code>currentColor</code>. The three diagnostics differ in shape as well as color.</p>
+</div>
+<div class="icon-group"><h3>Interface</h3><div class="icon-grid">
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg><span>search</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M8 8H20V20H8Z"/><path d="M16 4H4V16"/></svg><span>copy</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 12.5L9.5 18L20 6.5"/></svg><span>check</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M14 4H20V10"/><path d="M20 4L11 13"/><path d="M17 14V20H4V7H10"/></svg><span>external</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M10 14L14 10"/><path d="M8.5 11.5L5.5 14.5A3.54 3.54 0 0 0 10.5 19.5L13.5 16.5"/><path d="M15.5 12.5L18.5 9.5A3.54 3.54 0 0 0 13.5 4.5L10.5 7.5"/></svg><span>link</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 6H20M4 12H20M4 18H20"/></svg><span>menu</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 6L18 18M18 6L6 18"/></svg><span>close</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M9 5L16 12L9 19"/></svg><span>chevron-right</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M5 9L12 16L19 9"/></svg><span>chevron-down</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 12H19M13 6L19 12L13 18"/></svg><span>arrow-right</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M8 8H16V16H8Z"/><path d="M12 2V5M12 19V22M2 12H5M19 12H22M4.5 4.5L6 6M18 18L19.5 19.5M4.5 19.5L6 18M18 6L19.5 4.5"/></svg><span>sun</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5A8 8 0 1 0 19.5 14.5Z"/></svg><span>moon</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 3H21V21H3Z"/><path d="M12 11V17"/><rect x="11" y="6.5" width="2" height="2" fill="currentColor" stroke="none"/></svg><span>note</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 4H21V20H3Z"/><path d="M7 9L10 12L7 15"/><path d="M12.5 15H17"/></svg><span>terminal</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M5 3H19V21H5Z"/><path d="M9 3V21"/><path d="M12 8H16"/></svg><span>guide</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M8 7L3 12L8 17"/><path d="M16 7L21 12L16 17"/><path d="M14 4L10 20"/></svg><span>code</span></div>
+</div></div>
+<div class="icon-group"><h3>Packages</h3><div class="icon-grid">
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path fill-rule="evenodd" fill="currentColor" stroke="none" transform="translate(0.571 0.571) scale(0.3571)" d="M26 4h12q6 0 6.64 5.97l5.04 47.05Q50 60 47 60H17q-3 0-2.68-2.98l5.04-47.05Q20 4 26 4ZM30 13h4q3 0 3.26 2.99l2.56 29.02Q40 47 38 47H26q-2 0-1.82-1.99l2.56-29.02Q27 13 30 13Z"/></svg><span>zerolith</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 21V12"/><path d="M12 12L6 6"/><path d="M12 12L18 6"/><path d="M5 10V5H10"/><path d="M19 10V5H14"/></svg><span>router</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 9H21V17H3Z"/><path d="M7 11.5V14.5"/><path d="M3 5H11"/></svg><span>forms</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 8H19"/><path d="M15 4L19 8L15 12"/><path d="M20 16H5"/><path d="M9 12L5 16L9 20"/></svg><span>client</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 3H15V11H9L6 14V11H3Z"/><path d="M18 8H21V18H19V21L16 18H10V14"/></svg><span>i18n</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><circle cx="12" cy="4.5" r="2"/><path d="M5 9H19"/><path d="M12 9V14"/><path d="M8.5 21L12 14L15.5 21"/></svg><span>a11y</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 3H21V21H3Z"/><path d="M7.5 12L10.5 15L16.5 9"/></svg><span>test</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M14 10V3H3V14H10"/><path d="M13 13L21 16L17.5 17.5L16 21Z"/></svg><span>devtools</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5H13"/><path d="M7 10H17"/><path d="M11 15H21"/><path d="M5 20H9"/></svg><span>otel</span></div>
+<div class="icon-cell"><svg class="i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M9 3V8"/><path d="M15 3V8"/><path d="M6 8H18V11A6 6 0 0 1 6 11Z"/><path d="M12 17V21"/></svg><span>vite</span></div>
+</div></div>
+<div class="icon-group"><h3>Diagnostics</h3><div class="icon-grid">
+<div class="icon-cell"><svg class="i danger" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M8 3H16L21 8V16L16 21H8L3 16V8Z"/><path d="M9 9L15 15M15 9L9 15"/></svg><span>error</span></div>
+<div class="icon-cell"><svg class="i warning" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 3L22 20H2Z"/><path d="M12 9V13.5"/><rect x="11" y="15.5" width="2" height="2" fill="currentColor" stroke="none"/></svg><span>warning</span></div>
+<div class="icon-cell"><svg class="i hint" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M9 17H15"/><path d="M10 21H14"/><path d="M9 17V14.6A6.5 6.5 0 1 1 15 14.6V17"/></svg><span>hint</span></div>
+</div></div>
+</div>
+</section>
+
+<section id="github">
+<div class="wrap">
+<div class="intro">
+<h2>GitHub and npm</h2>
+<p>The README header ships in a dark and a light version, chosen by GitHub's theme. npm shows the light version. The social card is what a shared link unfurls into.</p>
+</div>
+<figure><div class="gh dark"><img src="github/readme-header-dark.svg" alt="README header on GitHub's dark theme" width="1280" height="320"></div><figcaption>github/readme-header-dark.svg on GitHub dark</figcaption></figure>
+<figure><div class="gh light"><img src="github/readme-header-light.svg" alt="README header on GitHub's light theme" width="1280" height="320"></div><figcaption>github/readme-header-light.svg on GitHub light and npm</figcaption></figure>
+<figure><img src="github/social-card.png" alt="Social card: the lockup, Full framework. Zero guesswork., and the command zerolith new my-app" width="1280" height="640" style="border: var(--zl-rule) solid var(--zl-line)"><figcaption>github/social-card.png, 1280 by 640</figcaption></figure>
+<pre class="code">&lt;picture&gt;
+  &lt;source media="(prefers-color-scheme: dark)" srcset="brand/github/readme-header-dark.svg"&gt;
+  &lt;img alt="zerolith: Full framework. Zero guesswork." src="brand/github/readme-header-light.svg"&gt;
+&lt;/picture&gt;</pre>
+</div>
+</section>
+
+<section id="terminal">
+<div class="wrap">
+<div class="intro">
+<h2>Command line</h2>
+<p>Severity uses the basic ANSI colors, so each terminal theme tunes them to its own background. Chartreuse appears only as a badge with basalt text, which reads on light and dark terminals alike. Output stays plain when <code>NO_COLOR</code> is set or the output is not a terminal. The sample below shows real messages with illustrative values.</p>
+</div>
+<pre class="terminal" aria-label="Sample terminal output"><span class="p">$</span> zerolith new my-app
+<span class="badge">zerolith</span> wrote 12 files to my-app
+<span class="dim">next:</span> cd my-app &amp;&amp; npm install &amp;&amp; npm run dev
+<span class="p">$</span> zerolith dev
+<span class="badge">zerolith</span> serving my-app at <span class="ok">http://127.0.0.1:8080/</span> with live reload
+<span class="p">$</span> zerolith doctor
+<span class="bad">error</span> integrity_mismatch: /vendor/zerolith/index.js no longer matches its integrity hash
+  <span class="hint">fix:</span> The file changed after the import map was written; regenerate the import map or restore the file.
+<span class="p">$</span> <span class="cursor"></span></pre>
+<div class="table-scroll">
+<table class="stack-table terminal-table">
+<thead><tr><th scope="col">Role</th><th scope="col">Color</th><th scope="col">Used for</th></tr></thead>
+<tbody>
+<tr><td>Badge</td><td><code>#AACF16</code> background, <code>#0F1114</code> text</td><td>The <code>zerolith</code> prefix on status lines</td></tr>
+<tr><td>Success</td><td>ANSI green, SGR 32</td><td>Addresses, completed steps</td></tr>
+<tr><td>Error</td><td>ANSI red, SGR 31</td><td>Error findings</td></tr>
+<tr><td>Warning</td><td>ANSI yellow, SGR 33</td><td>Warning findings</td></tr>
+<tr><td>Hint</td><td>ANSI blue, SGR 34</td><td>The <code>fix:</code> line under a finding</td></tr>
+<tr><td>Muted</td><td>ANSI bright black, SGR 90</td><td>Labels such as <code>next:</code></td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+
+</main>
+
+<footer>
+<div class="wrap">
+<p>Every asset on this page is a file in <code>brand/</code>. The SVGs are the sources; <code>npm run brand</code> renders the PNG and ICO files from them. Tokens live in <code>tokens.css</code> and <code>tokens.json</code>.</p>
+<p>Unbounded, Onest, and Martian Mono are licensed under the SIL Open Font License 1.1.</p>
+</div>
+</footer>
+
+<script>
+const root = document.documentElement;
+const toggle = document.querySelector(".theme");
+const prefersLight = matchMedia("(prefers-color-scheme: light)");
+try
+{
+    const saved = localStorage.getItem("zl-theme");
+    if (saved === "light" || saved === "dark")
+    {
+        root.dataset.theme = saved;
+    }
+}
+catch
+{
+}
+const current = () => root.dataset.theme ?? (prefersLight.matches ? "light" : "dark");
+const sync = () =>
+{
+    const light = current() === "light";
+    toggle.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
+    toggle.setAttribute("aria-pressed", String(light));
+};
+toggle.addEventListener("click", () =>
+{
+    root.dataset.theme = current() === "light" ? "dark" : "light";
+    try
+    {
+        localStorage.setItem("zl-theme", root.dataset.theme);
+    }
+    catch
+    {
+    }
+    sync();
+});
+prefersLight.addEventListener("change", sync);
+sync();
+</script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+/*
+ * zerolith brand tokens, "Slab on Basalt". Dark is the default; light applies
+ * when the reader prefers it or the root carries data-theme="light". Code
+ * blocks stay on basalt in both themes. Chartreuse is a fill on light grounds,
+ * never a text or line color; its text role there is --zl-accent-text.
+ */
+:root
+{
+    --zl-basalt-50: #F5F6F8;
+    --zl-basalt-100: #E8EAED;
+    --zl-basalt-200: #D5DAE0;
+    --zl-basalt-300: #C9CED4;
+    --zl-basalt-400: #9AA3AD;
+    --zl-basalt-500: #737C88;
+    --zl-basalt-600: #4F5864;
+    --zl-basalt-800: #2A2F37;
+    --zl-basalt-900: #171A1F;
+    --zl-basalt-950: #0F1114;
+    --zl-lichen-200: #C8E679;
+    --zl-lichen-300: #AACF16;
+    --zl-lichen-700: #4B5E00;
+
+    --zl-font-display: "Unbounded", system-ui, sans-serif;
+    --zl-font-text: "Onest", system-ui, sans-serif;
+    --zl-font-mono: "Martian Mono", ui-monospace, monospace;
+    --zl-weight-display: 600;
+    --zl-tracking-display: -0.03em;
+    --zl-text-xs: 0.75rem;
+    --zl-text-sm: 0.875rem;
+    --zl-text-md: 1rem;
+    --zl-text-lg: 1.25rem;
+    --zl-text-xl: 1.75rem;
+    --zl-text-2xl: 2.5rem;
+    --zl-text-3xl: 3.5rem;
+    --zl-leading-text: 1.6;
+    --zl-leading-display: 1.05;
+
+    --zl-space-1: 0.25rem;
+    --zl-space-2: 0.5rem;
+    --zl-space-3: 0.75rem;
+    --zl-space-4: 1rem;
+    --zl-space-6: 1.5rem;
+    --zl-space-8: 2rem;
+    --zl-space-12: 3rem;
+    --zl-space-16: 4rem;
+    --zl-rule: 2px;
+    --zl-radius: 0;
+
+    --zl-code-bg: var(--zl-basalt-950);
+    --zl-code-text: var(--zl-basalt-100);
+    --zl-code-keyword: var(--zl-lichen-300);
+    --zl-code-string: var(--zl-basalt-300);
+    --zl-code-comment: var(--zl-basalt-400);
+
+    color-scheme: dark;
+    --zl-bg: var(--zl-basalt-950);
+    --zl-surface: var(--zl-basalt-900);
+    --zl-line: var(--zl-basalt-800);
+    --zl-control-line: var(--zl-basalt-500);
+    --zl-text: var(--zl-basalt-100);
+    --zl-text-muted: var(--zl-basalt-400);
+    --zl-accent: var(--zl-lichen-300);
+    --zl-on-accent: var(--zl-basalt-950);
+    --zl-accent-text: var(--zl-lichen-300);
+    --zl-focus: var(--zl-lichen-300);
+    --zl-danger: #FF7B72;
+    --zl-warning: #E8C547;
+    --zl-hint: #7CB3FF;
+    --zl-success: var(--zl-text);
+}
+
+@media (prefers-color-scheme: light)
+{
+    :root:not([data-theme="dark"])
+    {
+        color-scheme: light;
+        --zl-bg: var(--zl-basalt-50);
+        --zl-surface: #FFFFFF;
+        --zl-line: var(--zl-basalt-200);
+        --zl-text: var(--zl-basalt-950);
+        --zl-text-muted: var(--zl-basalt-600);
+        --zl-accent-text: var(--zl-lichen-700);
+        --zl-focus: var(--zl-lichen-700);
+        --zl-danger: #C42B2B;
+        --zl-warning: #7A5B00;
+        --zl-hint: #1F5BB8;
+    }
+}
+
+:root[data-theme="light"]
+{
+    color-scheme: light;
+    --zl-bg: var(--zl-basalt-50);
+    --zl-surface: #FFFFFF;
+    --zl-line: var(--zl-basalt-200);
+    --zl-text: var(--zl-basalt-950);
+    --zl-text-muted: var(--zl-basalt-600);
+    --zl-accent-text: var(--zl-lichen-700);
+    --zl-focus: var(--zl-lichen-700);
+    --zl-danger: #C42B2B;
+    --zl-warning: #7A5B00;
+    --zl-hint: #1F5BB8;
+}
