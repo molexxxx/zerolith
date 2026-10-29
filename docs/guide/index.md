@@ -57,4 +57,5 @@ With a bundler, install the packages and import them; the `development` export c
 - [Testing](/guide/testing/): mount with cleanup, settle async work, and check hydration and accessibility in tests.
 - [Accessibility](/guide/accessibility/): focus trap, roving tabindex, live announcer, focus origin, hidden text, and preference signals.
 - [Custom elements](/guide/elements/): mount a view inside a tree another framework owns, with attributes and properties as signals.
+- [Internationalization](/guide/i18n/): locale negotiation and state on Intl, formatters that follow the locale, and compiled MessageFormat 2 catalogs.
 - [Reference](/reference/zerolith/): every export, generated from the source.
