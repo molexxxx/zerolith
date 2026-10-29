@@ -2,7 +2,7 @@
 
 A standalone frontend framework: fine-grained signals, HTML templates that need no compiler, typed routing, and tooling that works wherever the app is served. It runs from an import map or a bundle with no second-class path, talks to any backend over plain HTTP, and keeps its documentation honest by executing every example in CI.
 
-Status: pre-alpha, nothing published. This repository holds the runtime, the first-party packages, the policies the project commits to before its first release, and the research the design is based on. Integration with specific servers, zero-server included, is optional and separate; see `docs/decisions/0002-standalone-framework.md`.
+Status: pre-alpha, nothing published. This repository holds the runtime, the first-party packages, the policies the project commits to before its first release, and the research the design is based on. It works with any backend over plain HTTP, and nothing in it assumes a particular server; the typed client reads an OpenAPI document, forms and the client speak RFC 9457 problem details, and server rendering runs wherever `Request` and `Response` exist. See `docs/decisions/0002-standalone-framework.md`.
 
 ## Layout
 

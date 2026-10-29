@@ -9,7 +9,7 @@ The public API of a package is:
 - Every export reachable from the package's `exports` map that is documented in the generated API reference.
 - The behavior those exports have as described in the reference and in the executed examples.
 - The diagnostic codes the package emits (their identifiers and meaning, not their message text).
-- The shape of files the package generates for users (for example `routes.ts`) and the data formats it exchanges with zero-server.
+- The shape of files the packages generate for users (for example the contract module from an OpenAPI document and compiled message modules) and the wire formats they exchange with any server: problem details, the embedded route state, and the message port protocol.
 
 The following are not public API and may change in a minor or patch release:
 

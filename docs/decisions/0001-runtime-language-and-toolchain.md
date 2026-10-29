@@ -1,17 +1,17 @@
 # 0001: Runtime language, signal API, name, and toolchain
 
-Date: 2026-10-28. Status: accepted.
+Date: 2026-10-28. Status: accepted; amended 2026-10-29 to remove the pairing with a specific server, which ADR 0002 rules out.
 
 ## Context
 
-The project replaces zero-query with a ground-up framework designed as a pair with zero-server (Rust). The design research in `docs/research/2026-10-28-framework-design.md` compared a full Rust/WASM front end, a JavaScript/TypeScript runtime with a Rust toolchain, and a hybrid, and left four decisions to the project lead.
+The project replaces zero-query with a ground-up, standalone framework that works with any backend over plain HTTP. The design research in `docs/research/2026-10-28-framework-design.md` compared a full Rust/WASM front end, a JavaScript/TypeScript runtime with a Rust toolchain, and a hybrid, and left four decisions to the project lead.
 
 ## Decisions
 
-1. The browser runtime is written in TypeScript under `erasableSyntaxOnly` and `verbatimModuleSyntax`, compiled by `tsc` to standards-only `.js` plus `.d.ts`. Rust is used for the server, the optional compiler, the dev server, and type generation; it is not used in the browser except through opt-in WASM modules. Reasons: the benchmark evidence in the research (Rust frameworks at 44 to 115 KB compressed and 215 to 537 ms first paint versus 4.5 KB and 53.5 ms for the best signal runtime), the pre-1.0 status of every Rust front-end framework, the Chrome-only debugging story, and the hiring pool.
+1. The browser runtime is written in TypeScript under `erasableSyntaxOnly` and `verbatimModuleSyntax`, compiled by `tsc` to standards-only `.js` plus `.d.ts`. Rust is used for the toolchain, the command line, the optional compiler, and type generation; it is not used in the browser except through opt-in WASM modules, and the framework does not depend on any server being written in it. Reasons: the benchmark evidence in the research (Rust frameworks at 44 to 115 KB compressed and 215 to 537 ms first paint versus 4.5 KB and 53.5 ms for the best signal runtime), the pre-1.0 status of every Rust front-end framework, the Chrome-only debugging story, and the hiring pool.
 2. Signals expose `.get()` and `.set()`, matching the TC39 Signals proposal's `Signal.State` and `Signal.Computed` shape, so a native implementation can be substituted if the proposal ships.
 3. The name is `zerolith`, with the core package `zerolith` and first-party packages under `@zerolith/*`. It keeps the zero family visible without the bare word (which is Rocicorp's in mindshare) or a hyphenated compound (squat-prone). npm, crates.io, GitHub, and `.dev` availability were verified on 2026-10-28; trademark status is unverified.
-4. The license is Apache-2.0, matching zero-server, so the pair ships under one license.
+4. The license is Apache-2.0, for its explicit patent grant and its acceptance in enterprise review, and because the projects this one is most likely to be used alongside ship under it.
 
 ## Toolchain pins and the reasons for them
 
