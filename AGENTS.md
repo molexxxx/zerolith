@@ -4,7 +4,7 @@ This file is the always-on index for agents working in this repository. Keep it 
 
 ## What this is
 
-A standalone frontend framework monorepo. `packages/zerolith` is the browser runtime (signals, `html` and `css` tagged templates, fine-grained DOM rendering, hydration, diagnostics). Other `packages/*` are first-party `@zerolith/*` packages. Rust code lives under `crates/` when the optional compiler and type generator are added. The framework is backend-agnostic: it talks to any server over plain HTTP, and no runtime package may reference a specific server (zero-server integration, if built, is an optional separate package). The design rationale is in `docs/research/` (read it as history, superseded where `docs/decisions/` says so), decisions in `docs/decisions/`, and the rules the project has promised its users in `docs/policy/`.
+A standalone frontend framework monorepo. `packages/zerolith` is the browser runtime (signals, `html` and `css` tagged templates, fine-grained DOM rendering, hydration, diagnostics). Other `packages/*` are first-party `@zerolith/*` packages. Rust code lives under `crates/` when the optional compiler and type generator are added. The framework is backend-agnostic: it talks to any server over plain HTTP, and no runtime package may reference a specific server (zero-server integration, if built, is an optional separate package). The direction is in `docs/ROADMAP.md`, decisions in `docs/decisions/`, and the rules the project has promised its users in `docs/policy/`.
 
 ## Commands
 
@@ -42,3 +42,4 @@ Never write a version number from memory. Read it from `https://registry.npmjs.o
 | A new public API | An RFC in `docs/rfcs/` first |
 | A policy change | `docs/policy/*.md`, by RFC |
 | A decision with lasting consequences | `docs/decisions/NNNN-title.md` |
+| Brand assets, tokens, and visual rules | `brand/`; the rules are in `brand/README.md`, SVGs are the sources, and `npm run brand` renders the rasters |

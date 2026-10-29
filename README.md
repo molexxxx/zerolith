@@ -1,52 +1,94 @@
-# zerolith
+<h1>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="brand/github/readme-header-dark.svg">
+  <img alt="zerolith: Full framework. Zero guesswork." src="brand/github/readme-header-light.svg">
+</picture>
+</h1>
 
-A standalone frontend framework: fine-grained signals, HTML templates that need no compiler, typed routing, and tooling that works wherever the app is served. It runs from an import map or a bundle with no second-class path, talks to any backend over plain HTTP, and keeps its documentation honest by executing every example in CI.
+Routing, forms, rendering, and i18n, with clear patterns for you and your agent.
 
-Status: pre-alpha, nothing published. This repository holds the runtime, the first-party packages, the policies the project commits to before its first release, and the research the design is based on. It works with any backend over plain HTTP, and nothing in it assumes a particular server; the typed client reads an OpenAPI document, forms and the client speak RFC 9457 problem details, and server rendering runs wherever `Request` and `Response` exist. See `docs/decisions/0002-standalone-framework.md`.
+> **Pre-alpha.** Nothing is published to npm yet and the API is still settling. Watch the repository or join the [discussions](https://github.com/molexxxx/zerolith/discussions) to follow along.
 
-## Layout
+zerolith is a standalone frontend framework: fine-grained signals, HTML templates that need no compiler, a typed router, server rendering with hydration, and tooling that works wherever the app is served. It talks to any backend over plain HTTP.
 
-| Path | Contents |
-| --- | --- |
-| `packages/zerolith` | The core runtime: signals, `html` and `css` tags, rendering, hydration, diagnostics |
-| `packages/*` | First-party packages under the `@zerolith/*` scope: router, forms, client, test, a11y, devtools, vite |
-| `crates/zerolith` | The Rust command line: `dev` and `serve` for the buildless path, `importmap` with integrity hashes, `doctor` |
-| `docs/policy` | Support window, release channels, versioning and deprecation rules |
-| `docs/decisions` | Architecture decision records |
-| `docs/research` | The design research the project started from |
-| `examples/` | Applications built on the packages with no build step; `npm run serve` hosts them, and their tests run in `npm run check` |
-| `docs/guide` | The guides; `npm run docs` builds the site into `site/` with the reference generated from the source and every example pulled from a test |
+```ts
+import { computed, html, render, signal } from "zerolith";
 
-## Commands
+function Counter({ start = 0 }: { start?: number })
+{
+    const count = signal(start);
+    const doubled = computed(() => count.get() * 2);
+    return html`
+        <p>Count: ${count}, doubled: ${doubled}</p>
+        <button @click=${() => count.set(count.get() + 1)}>Add one</button>`;
+}
 
-Requires Node 24 or newer and npm 11.
+render(Counter({ start: 1 }), document.getElementById("app")!);
+```
 
-| Command | What it does |
-| --- | --- |
-| `npm ci` | Install the dev toolchain (the runtime itself has no dependencies) |
-| `npm run build` | Compile every package to `dist/` with `tsc` |
-| `npm run typecheck` | Type-check sources, tests, and configs without emitting |
-| `npm run lint` | Lint with oxlint |
-| `npm test` | Run the Node test project |
-| `npm run test:browser` | Run the browser test project in headless Chromium (first run: `npx playwright install chromium`) |
-| `npm run check` | Build, typecheck, lint, run both test projects, check the size budget, and build the docs; this is what CI runs |
-| `npm run sbom` | Emit a CycloneDX SBOM of the runtime dependency graph |
-| `npm run docs` | Build the documentation site into `site/`; fails on an undocumented export, a missing example, or a broken link |
-| `npm run serve` | Serve the repository on port 8080 for the examples (build first) |
-| `npm run docs:serve` | Serve the built documentation site on port 8081 (run `npm run docs` first) |
-| `npm run bench` | Run the keyed-table benchmark against a vanilla DOM baseline |
+Bind the signal, not its value: `${count}` stays live, while `${count.get()}` reads once.
 
-## Rust
+## Why zerolith
 
-`cargo build --release` produces `target/release/zerolith`; `cargo test` runs the crate's tests. See `crates/zerolith/README.md`.
+- **Clear patterns, coded diagnostics.** Each concept has one documented form, and every runtime error carries a stable code, its cause, and the fix, with a page per code. See [diagnostics](docs/guide/diagnostics.md).
+- **Buildless or bundled, same files.** Plain JavaScript and `html` templates run from an import map or through Vite. The bundler and the Rust command line optimize; neither is required. See the [command line](docs/guide/command-line.md) and [Vite](docs/guide/vite.md) guides.
+- **Docs that cannot drift.** Every example in the guides is a test that runs in CI, and the API reference is generated from the source.
+- **Ready for coding agents.** An always-on [AGENTS.md](AGENTS.md), a Markdown twin of every docs page indexed by `llms.txt`, and a Vite plugin that flags mistakes such as frozen reads at transform time.
+- **Dev tools wherever it runs.** The inspector is a plain module, so it works under Vite, a static server, electron-vite, or `file://`, with no browser extension. See [dev tools](docs/guide/dev-tools.md).
 
-## Policies
+## What works today
 
-- [Support window and channels](docs/policy/support.md)
-- [Release process](docs/policy/releases.md)
-- [Versioning and deprecation](docs/policy/versioning.md)
-- [Governance](GOVERNANCE.md), [Security](SECURITY.md), [Contributing](CONTRIBUTING.md), [Code of conduct](CODE_OF_CONDUCT.md)
+Everything below runs and is tested in this repository. None of it is published yet.
+
+| Area | Package | What it does |
+| --- | --- | --- |
+| Core | `zerolith` | Signals, `html` and `css` templates with keyed lists and conditions, rendering, hydration, server rendering, custom elements, JSX types, coded diagnostics |
+| Routing | `@zerolith/router` | A typed route table, plain anchors, route data, head tags, and server rendering with embedded route state |
+| Forms | `@zerolith/forms` | Native forms enhanced with fetch, pending state, Standard Schema validation, and field errors as RFC 9457 problem details |
+| Data | `@zerolith/client` | Types and a route table generated from OpenAPI 3.x, checked calls, problems for failures, and a MessagePort transport |
+| i18n | `@zerolith/i18n` | Locale negotiation, direction, formatters, and MessageFormat 2 catalogs compiled to typed per-locale modules |
+| Accessibility | `@zerolith/a11y` | Focus trap, roving tabindex, live announcer, focus origin, visually hidden text, and preference signals |
+| Testing | `@zerolith/test` | `mount`, `cleanup`, `settle`, and hydration and accessibility checks |
+| Dev tools | `@zerolith/devtools` | The in-page inspector, named signals, and Performance panel tracks |
+| Observability | `@zerolith/otel` | OpenTelemetry spans for navigation, hydration, and requests |
+| Build | `@zerolith/vite` | Hot replacement that keeps named state, JSX lowering, transform-time warnings, and a production build check |
+| Command line | `zerolith` (Rust) | `new`, `dev`, `serve`, `build`, `importmap` with integrity hashes, and `doctor` |
+
+Two example applications show it end to end: [notes](examples/notes) with no build step, and [tasks](examples/tasks) on Vite with a typed client and compiled messages.
+
+## Getting started
+
+Until the first release, work from a clone. Node 24 or newer is required.
+
+```sh
+git clone https://github.com/molexxxx/zerolith.git
+cd zerolith
+npm ci
+npx playwright install chromium
+npm run build
+npm run serve
+```
+
+Then open http://127.0.0.1:8080/examples/notes/. To scaffold your own application, build the command line with `cargo build --release` and run `zerolith new my-app`.
+
+## Where it's going
+
+Next is a frozen API for the core, templates, and router, followed by the first canary release with npm provenance. After that come signals the server can push, agent tooling with MCP servers and a public eval suite, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
+
+## Documentation
+
+- [Guides](docs/guide/index.md), from [application structure](docs/guide/structure.md) to [testing](docs/guide/testing.md). `npm run docs` builds them into a site with the generated reference.
+- [Architecture decisions](docs/decisions) and [RFCs](docs/rfcs).
+- [Support window and channels](docs/policy/support.md), [releases](docs/policy/releases.md), and [versioning](docs/policy/versioning.md).
+- [Brand](brand/README.md): the mark, colors, type, and icons.
+
+## Community
+
+- Questions and ideas go to [GitHub Discussions](https://github.com/molexxxx/zerolith/discussions); see [SUPPORT.md](SUPPORT.md).
+- Bugs go to [issues](https://github.com/molexxxx/zerolith/issues/new/choose). Report vulnerabilities privately, as [SECURITY.md](SECURITY.md) describes.
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Changes to the public API start as an RFC under [GOVERNANCE.md](GOVERNANCE.md).
+- Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
-Apache-2.0. See `LICENSE`.
+[Apache-2.0](LICENSE).

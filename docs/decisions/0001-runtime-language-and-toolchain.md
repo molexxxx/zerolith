@@ -4,7 +4,7 @@ Date: 2026-10-28. Status: accepted; amended 2026-10-29 to remove the pairing wit
 
 ## Context
 
-The project replaces zero-query with a ground-up, standalone framework that works with any backend over plain HTTP. The design research in `docs/research/2026-10-28-framework-design.md` compared a full Rust/WASM front end, a JavaScript/TypeScript runtime with a Rust toolchain, and a hybrid, and left four decisions to the project lead.
+The project replaces zero-query with a ground-up, standalone framework that works with any backend over plain HTTP. The founding design research of 2026-10-28 (not published; see `docs/ROADMAP.md`) compared a full Rust/WASM front end, a JavaScript/TypeScript runtime with a Rust toolchain, and a hybrid, and left four decisions to the project lead.
 
 ## Decisions
 
