@@ -4,11 +4,14 @@
  * markup, escaping, and URL rules cannot differ between the two. Signals
  * are read once; `each` and `when` render their current state; property,
  * event, and ref bindings are client-only and render nothing.
+ *
+ * Every child part's content is wrapped in comment markers so `hydrate()`
+ * can bind the same view to the rendered nodes.
  */
 import { URL_ATTRIBUTES, describe, isNothing, isText, join, safeUrl } from "./binding.js";
 import { styleSheets } from "./css.js";
 import { diagnostic, fail, report } from "./diagnostics.js";
-import { type TemplateView, isDirective, isRawHtml, isTemplate, resolveDirective } from "./render.js";
+import { PART_END, PART_START, type TemplateView, directiveWrapsBranch, isDirective, isRawHtml, isTemplate, resolveDirective } from "./render.js";
 import { isSignal, scope } from "./signals.js";
 import { ATTRIBUTE, BOOLEAN, CHILD, type PartSpec, scan } from "./template.js";
 
@@ -31,6 +34,12 @@ export function escapeAttribute(text: string): string
 function read(value: unknown): unknown
 {
     return isSignal(value) ? value.get() : value;
+}
+
+/** Wraps a child part's rendered content in the markers hydration looks for. */
+function part(content: string): string
+{
+    return `<!--${PART_START}-->${content}<!--${PART_END}-->`;
 }
 
 function renderAttribute(spec: PartSpec, values: readonly unknown[]): string
@@ -58,6 +67,7 @@ function renderAttribute(spec: PartSpec, values: readonly unknown[]): string
     return "";
 }
 
+/** Renders a value without its own markers; the caller decides whether it is a part. */
 function renderValue(value: unknown): string
 {
     const resolved = read(value);
@@ -75,7 +85,8 @@ function renderValue(value: unknown): string
     }
     if (isDirective(resolved))
     {
-        return renderValue(resolveDirective(resolved));
+        const inner = renderValue(resolveDirective(resolved));
+        return directiveWrapsBranch(resolved) ? part(inner) : inner;
     }
     if (isRawHtml(resolved))
     {
@@ -90,7 +101,7 @@ function renderValue(value: unknown): string
         let out = "";
         for (const item of resolved as Iterable<unknown>)
         {
-            out += renderValue(item);
+            out += part(renderValue(item));
         }
         return out;
     }
@@ -127,19 +138,20 @@ function renderTemplate(view: TemplateView): string
         }
         const slot = slots[child];
         child++;
-        return slot === undefined ? "" : renderValue(slot.values[0]);
+        return slot === undefined ? "" : part(renderValue(slot.values[0]));
     });
 }
 
 /**
- * Renders a view to HTML. Effects created while rendering (inside `each`
- * rows, `when` branches, and computed values) are disposed before it
- * returns. A component called before `renderToString` runs outside that
- * scope, exactly as in the browser, and owns its own effects.
+ * Renders a view to HTML, with the markers `hydrate()` needs. Effects
+ * created while rendering (inside `each` rows, `when` branches, and
+ * computed values) are disposed before it returns. A component called
+ * before `renderToString` runs outside that scope, exactly as in the
+ * browser, and owns its own effects.
  */
 export function renderToString(view: unknown): string
 {
-    const handle = scope(() => renderValue(view));
+    const handle = scope(() => part(renderValue(view)));
     handle.dispose();
     return handle.value;
 }

@@ -108,5 +108,10 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
     {
         cause: "A ref binding received something other than a writable signal or a function.",
         fix: "Pass a signal created with signal<Element | undefined>(undefined) or a callback that receives the element."
+    },
+    hydration_mismatch:
+    {
+        cause: "The server-rendered markup did not match the view, and the differing part was rendered again on the client.",
+        fix: "Render the same view with the same data on the server and the client; check the mismatches returned by hydrate()."
     }
 };

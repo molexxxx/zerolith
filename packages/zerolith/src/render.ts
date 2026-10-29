@@ -3,6 +3,10 @@
  * cloned once and each expression binds to one node; a signal in a part
  * subscribes that part alone, so an update touches one text node or
  * attribute and the component function never runs again.
+ *
+ * Hydration binds the same parts to markup the server rendered instead of
+ * cloning: the server wraps every child part's content in comment markers,
+ * and the client walks the existing nodes with the template's part indices.
  */
 import { URL_ATTRIBUTES, describe, isNothing, isText, join, safeUrl } from "./binding.js";
 import { diagnostic, fail, report } from "./diagnostics.js";
@@ -24,6 +28,29 @@ export interface Root
     /** Removes everything rendered and disposes every effect it created. */
     dispose(): void;
 }
+
+/** One place where the server-rendered markup and the view disagreed. */
+export interface HydrationMismatch
+{
+    /** `text`: a text node differed; `missing`: expected nodes were absent; `extra`: unexpected nodes were present; `structure`: a template's nodes did not line up; `root`: no server-rendered part was found. */
+    kind: "text" | "missing" | "extra" | "structure" | "root";
+    /** What was expected, when known. */
+    expected?: string;
+    /** What was found, when known. */
+    found?: string;
+}
+
+/** The handle returned by `hydrate()`. */
+export interface HydrateResult extends Root
+{
+    /** Every disagreement found; each one was repaired by rendering on the client. */
+    readonly mismatches: readonly HydrationMismatch[];
+}
+
+/** Comment data that opens a server-rendered child part. */
+export const PART_START: string = "zl:p";
+/** Comment data that closes a server-rendered child part. */
+export const PART_END: string = "/zl:p";
 
 interface Controller
 {
@@ -60,8 +87,10 @@ class TemplateResult implements TemplateView
 abstract class Directive implements View
 {
     readonly [VIEW]: true = true;
-    abstract mount(part: ChildPart): Controller;
+    abstract mount(part: ChildPart, cursor?: ChildNode): Controller;
     abstract resolve(): unknown;
+    /** True when the server wraps the resolved view in its own part markers (a branch), false when it renders rows directly. */
+    abstract readonly wrapsBranch: boolean;
 }
 
 /** Markup that is inserted as is, as the server renderer sees it. */
@@ -115,6 +144,12 @@ export function resolveDirective(view: View): unknown
     return (view as Directive).resolve();
 }
 
+/** True when the server must wrap a directive's resolved view in its own part markers. */
+export function directiveWrapsBranch(view: View): boolean
+{
+    return (view as Directive).wrapsBranch;
+}
+
 /** Describes markup with live bindings. Values are bound as content or inside attribute values. */
 export function html(strings: TemplateStringsArray, ...values: unknown[]): View
 {
@@ -128,18 +163,88 @@ function anchorBefore(node: Node): Comment
     return comment;
 }
 
+let mismatches: HydrationMismatch[] | undefined;
+
+function mismatch(kind: HydrationMismatch["kind"], expected?: string, found?: string): void
+{
+    const record: HydrationMismatch = { kind };
+    if (expected !== undefined)
+    {
+        record.expected = expected;
+    }
+    if (found !== undefined)
+    {
+        record.found = found;
+    }
+    mismatches?.push(record);
+    report(diagnostic("hydration_mismatch", "warning", { kind, expected: expected ?? "", found: found ?? "" }));
+}
+
+function isStart(node: Node | null): node is Comment
+{
+    return node !== null && node.nodeType === 8 && (node as Comment).data === PART_START;
+}
+
+function isEnd(node: Node | null): node is Comment
+{
+    return node !== null && node.nodeType === 8 && (node as Comment).data === PART_END;
+}
+
+/** The closing marker that matches an opening one, skipping nested pairs. */
+function matchingEnd(start: Comment): Comment | undefined
+{
+    let depth = 1;
+    for (let node = start.nextSibling; node !== null; node = node.nextSibling)
+    {
+        if (isStart(node))
+        {
+            depth++;
+        }
+        else if (isEnd(node))
+        {
+            depth--;
+            if (depth === 0)
+            {
+                return node;
+            }
+        }
+    }
+    return undefined;
+}
+
+function removeUntil(from: ChildNode, until: Node): void
+{
+    let node: ChildNode | null = from;
+    while (node !== null && node !== until)
+    {
+        const next: ChildNode | null = node.nextSibling;
+        node.remove();
+        node = next;
+    }
+}
+
 class Instance
 {
     readonly strings: TemplateStringsArray;
-    readonly fragment: DocumentFragment;
+    readonly fragment: DocumentFragment | undefined;
     readonly nodes: readonly ChildNode[];
     private readonly parts: readonly BoundPart[];
+    private readonly cursors: ReadonlyMap<BoundPart, ChildNode> | undefined;
 
-    constructor(strings: TemplateStringsArray, prepared: Prepared)
+    constructor(strings: TemplateStringsArray, parts: readonly BoundPart[], nodes: readonly ChildNode[], fragment: DocumentFragment | undefined, cursors: ReadonlyMap<BoundPart, ChildNode> | undefined)
     {
         this.strings = strings;
-        this.fragment = document.importNode(prepared.content, true);
-        const walk = walker(this.fragment);
+        this.parts = parts;
+        this.nodes = nodes;
+        this.fragment = fragment;
+        this.cursors = cursors;
+    }
+
+    /** Clones the template and binds its parts. */
+    static create(strings: TemplateStringsArray, prepared: Prepared): Instance
+    {
+        const fragment = document.importNode(prepared.content, true);
+        const walk = walker(fragment);
         const parts: BoundPart[] = [];
         let index = 0;
         let next = 0;
@@ -156,8 +261,99 @@ class Instance
             node = walk.nextNode();
             index++;
         }
-        this.parts = parts;
-        this.nodes = Array.from(this.fragment.childNodes);
+        return new Instance(strings, parts, Array.from(fragment.childNodes), fragment, undefined);
+    }
+
+    /** Binds the template's parts to server-rendered nodes between `cursor` and `anchor`, or returns undefined when they do not line up. */
+    static adopt(strings: TemplateStringsArray, prepared: Prepared, cursor: ChildNode, anchor: Node): Instance | undefined
+    {
+        const nodes: ChildNode[] = [];
+        for (let node: ChildNode | null = cursor; node !== anchor; node = node.nextSibling)
+        {
+            if (node === null)
+            {
+                return undefined;
+            }
+            nodes.push(node);
+        }
+        const parts: BoundPart[] = [];
+        const cursors = new Map<BoundPart, ChildNode>();
+        const expected = walker(prepared.content);
+        let index = 0;
+        let next = 0;
+        let broken = false;
+
+        /** Advances through the template's own nodes in lockstep and checks the served node has the same shape. */
+        const matches = (node: Node): boolean =>
+        {
+            const model = expected.nextNode();
+            if (model === null || model.nodeType !== node.nodeType)
+            {
+                return false;
+            }
+            if (node.nodeType === 1)
+            {
+                return (model as Element).localName === (node as Element).localName;
+            }
+            const data = (node as Comment).data;
+            return isStart(node) ? (model as Comment).data === "zl$" : (model as Comment).data === data;
+        };
+
+        const visit = (first: ChildNode | null, last: Node | null): void =>
+        {
+            for (let node = first; node !== null && node !== last && !broken; node = node.nextSibling)
+            {
+                if (node.nodeType !== 1 && node.nodeType !== 8)
+                {
+                    continue;
+                }
+                if (!matches(node))
+                {
+                    broken = true;
+                    return;
+                }
+                if (node.nodeType === 8)
+                {
+                    if (isStart(node))
+                    {
+                        const spec = prepared.parts[next];
+                        const end = matchingEnd(node);
+                        if (spec === undefined || spec.kind !== CHILD || spec.index !== index || end === undefined)
+                        {
+                            broken = true;
+                            return;
+                        }
+                        const part = new ChildPart(end);
+                        parts.push(part);
+                        cursors.set(part, node.nextSibling ?? end);
+                        next++;
+                        index++;
+                        node = end;
+                        continue;
+                    }
+                    index++;
+                    continue;
+                }
+                for (let spec = prepared.parts[next]; spec !== undefined && spec.index === index; spec = prepared.parts[next])
+                {
+                    if (spec.kind === CHILD)
+                    {
+                        broken = true;
+                        return;
+                    }
+                    parts.push(new AttributePart(node as Element, spec));
+                    next++;
+                }
+                index++;
+                visit(node.firstChild, null);
+            }
+        };
+        visit(cursor, anchor);
+        if (broken || next !== prepared.parts.length || expected.nextNode() !== null)
+        {
+            return undefined;
+        }
+        return new Instance(strings, parts, nodes, undefined, cursors);
     }
 
     update(values: readonly unknown[]): void
@@ -165,7 +361,16 @@ class Instance
         let offset = 0;
         for (const part of this.parts)
         {
-            part.bind(values.slice(offset, offset + part.count));
+            const slice = values.slice(offset, offset + part.count);
+            const cursor = this.cursors?.get(part);
+            if (cursor !== undefined && part instanceof ChildPart)
+            {
+                part.set(slice[0], cursor);
+            }
+            else
+            {
+                part.bind(slice);
+            }
             offset += part.count;
         }
     }
@@ -202,8 +407,8 @@ class ChildPart implements BoundPart
         this.set(values[0]);
     }
 
-    /** Replaces the displayed value, disposing whatever the previous value created. */
-    set(value: unknown): void
+    /** Replaces the displayed value, disposing whatever the previous value created. With `cursor`, adopts the server-rendered nodes starting there instead of creating new ones. */
+    set(value: unknown, cursor?: ChildNode): void
     {
         this.owner?.dispose();
         this.owner = createOwner();
@@ -211,10 +416,25 @@ class ChildPart implements BoundPart
         {
             if (isSignal(value))
             {
+                let adopt = cursor;
                 effect(() =>
                 {
-                    this.apply(value.get());
+                    const current = value.get();
+                    if (adopt !== undefined)
+                    {
+                        const start = adopt;
+                        adopt = undefined;
+                        this.adopt(current, start);
+                    }
+                    else
+                    {
+                        this.apply(current);
+                    }
                 });
+            }
+            else if (cursor !== undefined)
+            {
+                this.adopt(value, cursor);
             }
             else
             {
@@ -274,6 +494,116 @@ class ChildPart implements BoundPart
         this.anchor.remove();
     }
 
+    /** Takes over the server-rendered nodes from `cursor` to the anchor for `value`, repairing any disagreement. */
+    private adopt(value: unknown, cursor: ChildNode): void
+    {
+        const { anchor } = this;
+        if (isNothing(value))
+        {
+            if (cursor !== anchor)
+            {
+                mismatch("extra", "", cursor.nodeName);
+                removeUntil(cursor, anchor);
+            }
+            return;
+        }
+        if (isText(value))
+        {
+            const text = String(value);
+            if (cursor.nodeType === 3 && cursor.nextSibling === anchor)
+            {
+                const node = cursor as Text;
+                if (node.data !== text)
+                {
+                    mismatch("text", text, node.data);
+                    node.data = text;
+                }
+                this.text = node;
+                return;
+            }
+            mismatch("missing", text, cursor === anchor ? "" : cursor.nodeName);
+            removeUntil(cursor, anchor);
+            this.apply(value);
+            return;
+        }
+        if (value instanceof TemplateResult)
+        {
+            const instance = Instance.adopt(value.strings, prepare(value.strings), cursor, anchor);
+            if (instance !== undefined)
+            {
+                this.instance = instance;
+                instance.update(value.values);
+                return;
+            }
+            mismatch("structure", "template", cursor === anchor ? "" : cursor.nodeName);
+            removeUntil(cursor, anchor);
+            this.apply(value);
+            return;
+        }
+        if (value instanceof Directive)
+        {
+            this.controller = value.mount(this, cursor);
+            return;
+        }
+        if (value instanceof RawHtml)
+        {
+            const nodes: ChildNode[] = [];
+            for (let node: ChildNode | null = cursor; node !== null && node !== anchor; node = node.nextSibling)
+            {
+                nodes.push(node);
+            }
+            this.raw = nodes;
+            return;
+        }
+        if (isSignal(value))
+        {
+            let first = true;
+            effect(() =>
+            {
+                const current = value.get();
+                if (first)
+                {
+                    first = false;
+                    this.adopt(current, cursor);
+                }
+                else
+                {
+                    this.apply(current);
+                }
+            });
+            return;
+        }
+        if (typeof value === "object" && Symbol.iterator in value)
+        {
+            const items: ChildPart[] = [];
+            let node: ChildNode = cursor;
+            for (const item of value as Iterable<unknown>)
+            {
+                const end = isStart(node) ? matchingEnd(node) : undefined;
+                if (end === undefined)
+                {
+                    mismatch("missing", "item", node === anchor ? "" : node.nodeName);
+                    const part = new ChildPart(anchorBefore(anchor));
+                    items.push(part);
+                    part.set(item);
+                    continue;
+                }
+                const part = new ChildPart(end);
+                items.push(part);
+                part.set(item, node.nextSibling ?? end);
+                node = end.nextSibling ?? anchor;
+            }
+            if (node !== anchor)
+            {
+                mismatch("extra", "", node.nodeName);
+                removeUntil(node, anchor);
+            }
+            this.items = items;
+            return;
+        }
+        throw fail("unrenderable_value", { type: describe(value) });
+    }
+
     private apply(value: unknown): void
     {
         if (isNothing(value))
@@ -302,9 +632,12 @@ class ChildPart implements BoundPart
                 return;
             }
             this.clear();
-            const instance = new Instance(value.strings, prepare(value.strings));
+            const instance = Instance.create(value.strings, prepare(value.strings));
             instance.update(value.values);
-            this.anchor.parentNode?.insertBefore(instance.fragment, this.anchor);
+            if (instance.fragment !== undefined)
+            {
+                this.anchor.parentNode?.insertBefore(instance.fragment, this.anchor);
+            }
             this.instance = instance;
             return;
         }
@@ -546,6 +879,68 @@ export function render(view: unknown, container: Element | DocumentFragment): Ro
     };
 }
 
+/**
+ * Attaches a view to markup the server rendered into `container` with
+ * `renderToString`, reusing the nodes and binding signals, listeners,
+ * properties, and refs. Any disagreement is repaired on the client and
+ * returned in `mismatches`. Without server-rendered markup it falls back
+ * to `render`.
+ */
+export function hydrate(view: unknown, container: Element | DocumentFragment): HydrateResult
+{
+    const found: HydrationMismatch[] = [];
+    let start: Comment | undefined;
+    for (let node = container.firstChild; node !== null; node = node.nextSibling)
+    {
+        if (isStart(node))
+        {
+            start = node;
+            break;
+        }
+    }
+    const end = start === undefined ? undefined : matchingEnd(start);
+    const owner = createOwner();
+    let part: ChildPart;
+    const previous = mismatches;
+    mismatches = found;
+    try
+    {
+        if (start === undefined || end === undefined)
+        {
+            mismatch("root", "server-rendered markup", "");
+            const anchor = document.createComment("");
+            container.append(anchor);
+            part = new ChildPart(anchor);
+            owner.run(() =>
+            {
+                part.set(view);
+            });
+        }
+        else
+        {
+            const cursor = start.nextSibling ?? end;
+            part = new ChildPart(end);
+            owner.run(() =>
+            {
+                part.set(view, cursor);
+            });
+        }
+    }
+    finally
+    {
+        mismatches = previous;
+    }
+    return {
+        mismatches: found,
+        dispose(): void
+        {
+            owner.dispose();
+            part.destroy();
+            start?.remove();
+        }
+    };
+}
+
 /** Reads a signal or returns a plain value unchanged. */
 function read<T>(value: ReadableSignal<T> | T): T
 {
@@ -627,6 +1022,7 @@ function moveRow(row: Row<unknown>, before: Node): void
 
 class Keyed<T> extends Directive
 {
+    readonly wrapsBranch: boolean = false;
     private readonly items: ReadableSignal<readonly T[]> | readonly T[];
     private readonly key: KeyOf<T>;
     private readonly row: RowOf<T>;
@@ -639,21 +1035,36 @@ class Keyed<T> extends Directive
         this.row = row;
     }
 
-    override mount(part: ChildPart): Controller
+    private keyOf(value: T, index: number, keys: Set<unknown>): unknown
+    {
+        const key = this.key(value, index);
+        if (key === undefined)
+        {
+            throw fail("each_key_undefined", { index });
+        }
+        if (keys.has(key))
+        {
+            throw fail("each_key_duplicate", { key: String(key), index });
+        }
+        keys.add(key);
+        return key;
+    }
+
+    override mount(part: ChildPart, cursor?: ChildNode): Controller
     {
         const owner = createOwner();
         const rows = new Map<unknown, Row<T>>();
         let order: Row<T>[] = [];
         const end = part.anchor;
 
-        const create = (key: unknown, value: T, index: number): Row<T> =>
+        const create = (key: unknown, value: T, index: number, adopt?: { start: Comment; end: Comment }): Row<T> =>
         {
-            const start = anchorBefore(end);
-            const rowPart = new ChildPart(anchorBefore(end));
+            const start = adopt?.start ?? anchorBefore(end);
+            const rowPart = new ChildPart(adopt?.end ?? anchorBefore(end));
             const row: Row<T> = { start, part: rowPart, item: signal(value), index: signal(index), owner: createOwner() };
             row.owner.run(() =>
             {
-                rowPart.set(this.row(row.item, row.index));
+                rowPart.set(this.row(row.item, row.index), adopt === undefined ? undefined : adopt.start.nextSibling ?? adopt.end);
             });
             rows.set(key, row);
             return row;
@@ -666,16 +1077,7 @@ class Keyed<T> extends Directive
             for (let i = 0; i < list.length; i++)
             {
                 const value = list[i] as T;
-                const key = this.key(value, i);
-                if (key === undefined)
-                {
-                    throw fail("each_key_undefined", { index: i });
-                }
-                if (keys.has(key))
-                {
-                    throw fail("each_key_duplicate", { key: String(key), index: i });
-                }
-                keys.add(key);
+                const key = this.keyOf(value, i, keys);
                 const existing = rows.get(key);
                 if (existing !== undefined)
                 {
@@ -718,11 +1120,49 @@ class Keyed<T> extends Directive
             order = next;
         };
 
+        if (cursor !== undefined)
+        {
+            owner.run(() =>
+            {
+                const list = untracked(() => read(this.items));
+                const keys = new Set<unknown>();
+                let node: ChildNode = cursor;
+                const adopted: Row<T>[] = [];
+                for (let i = 0; i < list.length; i++)
+                {
+                    const value = list[i] as T;
+                    const key = this.keyOf(value, i, keys);
+                    const rowStart = isStart(node) ? node : undefined;
+                    const rowEnd = rowStart === undefined ? undefined : matchingEnd(rowStart);
+                    if (rowStart === undefined || rowEnd === undefined)
+                    {
+                        mismatch("missing", "row", node === end ? "" : node.nodeName);
+                        adopted.push(create(key, value, i));
+                        continue;
+                    }
+                    adopted.push(create(key, value, i, { start: rowStart, end: rowEnd }));
+                    node = rowEnd.nextSibling ?? end;
+                }
+                if (node !== end)
+                {
+                    mismatch("extra", "", node.nodeName);
+                    removeUntil(node, end);
+                }
+                order = adopted;
+            });
+        }
+
+        let initial = cursor !== undefined;
         owner.run(() =>
         {
             effect(() =>
             {
                 const list = read(this.items);
+                if (initial)
+                {
+                    initial = false;
+                    return;
+                }
                 owner.run(() =>
                 {
                     reconcile(list);
@@ -751,16 +1191,7 @@ class Keyed<T> extends Directive
         const keys = new Set<unknown>();
         return list.map((value, index) =>
         {
-            const key = this.key(value, index);
-            if (key === undefined)
-            {
-                throw fail("each_key_undefined", { index });
-            }
-            if (keys.has(key))
-            {
-                throw fail("each_key_duplicate", { key: String(key), index });
-            }
-            keys.add(key);
+            this.keyOf(value, index, keys);
             return this.row(signal(value), signal(index));
         });
     }
@@ -777,6 +1208,7 @@ export function each<T>(items: ReadableSignal<readonly T[]> | readonly T[], key:
 
 class Conditional extends Directive
 {
+    readonly wrapsBranch: boolean = true;
     private readonly condition: unknown;
     private readonly whenTrue: () => unknown;
     private readonly whenFalse: (() => unknown) | undefined;
@@ -789,12 +1221,40 @@ class Conditional extends Directive
         this.whenFalse = whenFalse;
     }
 
-    override mount(part: ChildPart): Controller
+    override mount(part: ChildPart, cursor?: ChildNode): Controller
     {
         const owner = createOwner();
-        const inner = new ChildPart(anchorBefore(part.anchor));
+        let inner: ChildPart;
         let shown: boolean | undefined;
         let branch: Owner | undefined;
+        const innerEnd = cursor !== undefined && isStart(cursor) ? matchingEnd(cursor) : undefined;
+        if (cursor !== undefined && innerEnd !== undefined)
+        {
+            inner = new ChildPart(innerEnd);
+            owner.run(() =>
+            {
+                shown = Boolean(untracked(() => read(this.condition)));
+                branch = createOwner();
+                branch.run(() =>
+                {
+                    inner.set(shown ? this.whenTrue() : this.whenFalse?.(), cursor.nextSibling ?? innerEnd);
+                });
+            });
+            if (innerEnd.nextSibling !== part.anchor)
+            {
+                mismatch("extra", "", innerEnd.nextSibling?.nodeName ?? "");
+                removeUntil(innerEnd.nextSibling as ChildNode, part.anchor);
+            }
+        }
+        else
+        {
+            if (cursor !== undefined)
+            {
+                mismatch("missing", "branch", cursor === part.anchor ? "" : cursor.nodeName);
+                removeUntil(cursor, part.anchor);
+            }
+            inner = new ChildPart(anchorBefore(part.anchor));
+        }
         owner.run(() =>
         {
             effect(() =>

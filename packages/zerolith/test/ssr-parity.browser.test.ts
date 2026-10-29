@@ -35,7 +35,7 @@ describe("server and browser renderers agree", () =>
                 ${when(on, () => html`<p>on &amp; <b>${"<i>"}</b></p>`)}
                 <a href=${"/x?a=1&b=2"}>link</a>
             </section>`;
-        const server = renderToString(view());
+        const server = renderToString(view()).replace(/<!--[^>]*-->/g, "");
         const browser = browserMarkup(view());
         expect(server.replace(/\s+/g, " ")).toBe(browser.replace(/\s+/g, " "));
     });

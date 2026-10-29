@@ -11,7 +11,9 @@ describe("server rendering guide", () =>
         const items = signal(["a", "b"]);
         const view = html`<ul>${each(items, (item) => item, (item) => html`<li>${item}</li>`)}</ul>`;
 
-        expect(renderToString(view)).toBe("<ul><li>a</li><li>b</li></ul>");
+        const markup = renderToString(view);
+        expect(markup.replace(/<!--\/?zl:p-->/g, "")).toBe("<ul><li>a</li><li>b</li></ul>");
+        // The comment markers left in place let hydrate() bind the same view to these nodes.
         // #endregion render
     });
 
@@ -21,7 +23,7 @@ describe("server rendering guide", () =>
         const badge = css`:scope { font-weight: 700; }`;
         const markup = renderToString(html`<span class=${badge}>new</span>`);
 
-        expect(markup).toBe(`<span class="zl-s ${badge.scope}">new</span>`);
+        expect(markup).toContain(`<span class="zl-s ${badge.scope}">new</span>`);
         expect(renderStyles()).toContain(`@scope (.${badge.scope})`);
         // #endregion styles
     });

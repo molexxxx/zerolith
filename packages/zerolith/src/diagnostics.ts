@@ -89,7 +89,8 @@ export type DiagnosticCode =
     | "each_key_undefined"
     | "each_key_duplicate"
     | "css_value_not_allowed"
-    | "ref_not_assignable";
+    | "ref_not_assignable"
+    | "hydration_mismatch";
 
 /** Builds the full diagnostic record for a catalog code. */
 export function diagnostic(code: DiagnosticCode, severity: DiagnosticSeverity, args?: DiagnosticArgs, location?: DiagnosticLocation): Diagnostic
