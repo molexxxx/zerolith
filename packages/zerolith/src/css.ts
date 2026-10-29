@@ -56,6 +56,12 @@ function hash(text: string): string
 
 const sheets: Map<string, ScopedStyles> = new Map();
 
+/** Every stylesheet created so far, in creation order, for server rendering. */
+export function styleSheets(): readonly Styles[]
+{
+    return [...sheets.values()];
+}
+
 function adopt(text: string): void
 {
     if (typeof document === "undefined" || typeof CSSStyleSheet === "undefined")

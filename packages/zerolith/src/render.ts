@@ -4,6 +4,7 @@
  * subscribes that part alone, so an update touches one text node or
  * attribute and the component function never runs again.
  */
+import { URL_ATTRIBUTES, describe, isNothing, isText, join, safeUrl } from "./binding.js";
 import { diagnostic, fail, report } from "./diagnostics.js";
 import { type Owner, type ReadableSignal, type Signal, createOwner, effect, isSignal, onDispose, signal, untracked } from "./signals.js";
 import { ATTRIBUTE, BOOLEAN, CHILD, EVENT, type PartSpec, type Prepared, REF, prepare, walker } from "./template.js";
@@ -35,7 +36,14 @@ interface BoundPart
     bind(values: readonly unknown[]): void;
 }
 
-class TemplateResult implements View
+/** The result of an `html` literal as the server renderer sees it. */
+export interface TemplateView extends View
+{
+    readonly strings: TemplateStringsArray;
+    readonly values: readonly unknown[];
+}
+
+class TemplateResult implements TemplateView
 {
     readonly [VIEW]: true = true;
     readonly strings: TemplateStringsArray;
@@ -48,10 +56,30 @@ class TemplateResult implements View
     }
 }
 
+/** A view that controls its own part. `resolve` gives the server renderer the view to draw for the current state. */
 abstract class Directive implements View
 {
     readonly [VIEW]: true = true;
     abstract mount(part: ChildPart): Controller;
+    abstract resolve(): unknown;
+}
+
+/** True for the result of an `html` literal. */
+export function isTemplate(value: unknown): value is TemplateView
+{
+    return value instanceof TemplateResult;
+}
+
+/** True for the views produced by `each` and `when`. */
+export function isDirective(value: unknown): value is View
+{
+    return value instanceof Directive;
+}
+
+/** The view a directive would show for the current state, for renderers without a DOM. */
+export function resolveDirective(view: View): unknown
+{
+    return (view as Directive).resolve();
 }
 
 /** Describes markup with live bindings. Values are bound as content or inside attribute values. */
@@ -65,23 +93,6 @@ function anchorBefore(node: Node): Comment
     const comment = document.createComment("");
     node.parentNode?.insertBefore(comment, node);
     return comment;
-}
-
-function describe(value: unknown): string
-{
-    if (typeof value === "function")
-    {
-        return "function";
-    }
-    if (value === null)
-    {
-        return "null";
-    }
-    if (typeof value === "object")
-    {
-        return value.constructor?.name ?? "object";
-    }
-    return typeof value;
 }
 
 class Instance
@@ -223,12 +234,12 @@ class ChildPart implements BoundPart
 
     private apply(value: unknown): void
     {
-        if (value === null || value === undefined || typeof value === "boolean")
+        if (isNothing(value))
         {
             this.clear();
             return;
         }
-        if (typeof value === "string" || typeof value === "number" || typeof value === "bigint")
+        if (isText(value))
         {
             const text = String(value);
             if (this.text !== undefined)
@@ -291,42 +302,6 @@ class ChildPart implements BoundPart
         }
         throw fail("unrenderable_value", { type: describe(value) });
     }
-}
-
-const URL_ATTRIBUTES: ReadonlySet<string> = new Set(["href", "src", "action", "formaction", "xlink:href", "poster"]);
-
-/** True when a URL may be assigned to a navigating or loading attribute. */
-function safeUrl(value: string): boolean
-{
-    let scheme = "";
-    for (const character of value)
-    {
-        if (character > " ")
-        {
-            scheme += character;
-        }
-    }
-    scheme = scheme.toLowerCase();
-    if (scheme.startsWith("javascript:") || scheme.startsWith("vbscript:"))
-    {
-        return false;
-    }
-    if (scheme.startsWith("data:"))
-    {
-        return /^data:image\/(?:png|gif|jpeg|jpg|webp|avif|bmp|x-icon)[;,]/.test(scheme);
-    }
-    return true;
-}
-
-function join(strings: readonly string[], values: readonly unknown[]): string
-{
-    let text = strings[0] ?? "";
-    for (let i = 0; i < values.length; i++)
-    {
-        const value = values[i];
-        text += (value === null || value === undefined ? "" : String(value)) + (strings[i + 1] ?? "");
-    }
-    return text;
 }
 
 interface HandlerObject
@@ -520,7 +495,7 @@ export function render(view: unknown, container: Element | DocumentFragment): Ro
 }
 
 /** Reads a signal or returns a plain value unchanged. */
-function resolve<T>(value: ReadableSignal<T> | T): T
+function read<T>(value: ReadableSignal<T> | T): T
 {
     return isSignal(value) ? (value.get() as T) : (value as T);
 }
@@ -695,7 +670,7 @@ class Keyed<T> extends Directive
         {
             effect(() =>
             {
-                const list = resolve(this.items);
+                const list = read(this.items);
                 owner.run(() =>
                 {
                     reconcile(list);
@@ -716,6 +691,26 @@ class Keyed<T> extends Directive
                 order = [];
             }
         };
+    }
+
+    override resolve(): unknown
+    {
+        const list = read(this.items);
+        const keys = new Set<unknown>();
+        return list.map((value, index) =>
+        {
+            const key = this.key(value, index);
+            if (key === undefined)
+            {
+                throw fail("each_key_undefined", { index });
+            }
+            if (keys.has(key))
+            {
+                throw fail("each_key_duplicate", { key: String(key), index });
+            }
+            keys.add(key);
+            return this.row(signal(value), signal(index));
+        });
     }
 }
 
@@ -752,7 +747,7 @@ class Conditional extends Directive
         {
             effect(() =>
             {
-                const next = Boolean(resolve(this.condition));
+                const next = Boolean(read(this.condition));
                 if (next === shown)
                 {
                     return;
@@ -776,6 +771,11 @@ class Conditional extends Directive
                 inner.destroy();
             }
         };
+    }
+
+    override resolve(): unknown
+    {
+        return read(this.condition) ? this.whenTrue() : this.whenFalse?.();
     }
 }
 

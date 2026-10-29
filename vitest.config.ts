@@ -9,6 +9,7 @@ export default defineConfig({
     resolve: {
         alias: {
             "@zerolith/router": routerEntry,
+            "zerolith/ssr": fileURLToPath(new URL("./packages/zerolith/src/ssr.ts", import.meta.url)),
             zerolith: coreEntry
         }
     },

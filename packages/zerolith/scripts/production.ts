@@ -22,3 +22,4 @@ async function copyModule(name: string): Promise<void>
 const names = (await readdir(dist)).filter((name) => name.endsWith(".js") && name !== "catalog.production.js");
 await Promise.all(names.map(copyModule));
 await copyFile(dist + "index.d.ts", production + "index.d.ts");
+await copyFile(dist + "ssr.d.ts", production + "ssr.d.ts");

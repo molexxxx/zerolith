@@ -33,6 +33,11 @@
             "development": "./dist/index.js",
             "default": "./dist/production/index.js"
         },
+        "./ssr": {
+            "types": "./dist/ssr.d.ts",
+            "development": "./dist/ssr.js",
+            "default": "./dist/production/ssr.js"
+        },
         "./package.json": "./package.json"
     },
     "files": [
