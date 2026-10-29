@@ -3,7 +3,7 @@
  * browser entry so an import map never has to resolve the server renderer.
  */
 import { escapeAttribute, escapeText } from "zerolith/ssr";
-import type { Head } from "./router.js";
+import type { EmbeddedRouteState, Head, RouteTable, Router } from "./router.js";
 
 /** Renders head metadata as the `<title>` and `<meta name="description">` elements of a server-rendered document. */
 export function renderHead(head: Head): string
@@ -18,4 +18,22 @@ export function renderHead(head: Head): string
         parts.push(`<meta name="description" content="${escapeAttribute(head.description)}">`);
     }
     return parts.join("");
+}
+
+/**
+ * Renders the `<script>` that hands the current route's loaded data to the
+ * browser, where the router reuses it for the initial navigation instead of
+ * running the loader again, as long as the route and URL still match.
+ * Empty when nothing matched or the route produced no data. The data goes
+ * through JSON, so anything JSON cannot carry needs the loader to run.
+ */
+export function renderRouteState(router: Router<RouteTable>): string
+{
+    const match = router.current.get();
+    if (match === undefined || match.data === undefined)
+    {
+        return "";
+    }
+    const state: EmbeddedRouteState = { name: match.name, href: match.url.pathname + match.url.search, data: match.data };
+    return `<script type="application/json" data-zerolith-route>${JSON.stringify(state).replace(/</g, "\\u003c")}</script>`;
 }

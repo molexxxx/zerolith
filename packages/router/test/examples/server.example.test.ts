@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { html } from "zerolith";
 import { renderStyles, renderToString } from "zerolith/ssr";
 import { type RouteTable, type Router, createRouter, defineRoutes, route } from "@zerolith/router";
-import { renderHead } from "@zerolith/router/server";
+import { renderHead, renderRouteState } from "@zerolith/router/server";
 
 const notes = new Map([["1", { title: "Routing" }], ["2", { title: "Forms" }]]);
 
@@ -37,7 +37,7 @@ async function handle(request: Request): Promise<Response>
     const document = `<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8">${renderHead(router.head.get())}${renderStyles()}</head>
-<body><div id="app">${body}</div><script type="module" src="/app.js"></script></body>
+<body><div id="app">${body}</div>${renderRouteState(router)}<script type="module" src="/app.js"></script></body>
 </html>`;
     router.dispose();
     return new Response(document, {
@@ -56,6 +56,7 @@ describe("server rendering guide: routed application", () =>
         const markup = await found.text();
         expect(markup).toContain("<title>Routing | Notes</title>");
         expect(markup.replace(/<!--\/?zl:p-->/g, "")).toContain("<main><h1>Routing</h1></main>");
+        expect(markup).toContain("<script type=\"application/json\" data-zerolith-route>{\"name\":\"note\",\"href\":\"/notes/1\",\"data\":{\"title\":\"Routing\"}}</script>");
 
         const missing = await handle(new Request("https://notes.example/nowhere"));
         expect(missing.status).toBe(404);

@@ -16,4 +16,6 @@ export type {
     Router,
     RouterOptions
 } from "./router.js";
+export type { EmbeddedRouteState } from "./router.js";
+export { ROUTE_STATE_SELECTOR } from "./router.js";
 export { createRouter, defineRoutes, lazy, route } from "./router.js";

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { html } from "zerolith";
 import { renderToString } from "zerolith/ssr";
 import { createRouter, defineRoutes, route } from "@zerolith/router";
-import { renderHead } from "@zerolith/router/server";
+import { renderHead, renderRouteState } from "@zerolith/router/server";
 
 const routes = defineRoutes({
     home: route({ path: "/", view: () => html`<h1>Home</h1>`, head: { title: "Home", description: "The <start> & more" } }),
@@ -11,6 +11,11 @@ const routes = defineRoutes({
         load: ({ params }) => Promise.resolve({ title: `Note ${params.id}` }),
         view: ({ data }) => html`<article>${data.title}</article>`,
         head: ({ data }) => ({ title: data.title })
+    }),
+    raw: route({
+        path: "/raw",
+        load: () => Promise.resolve({ markup: "</script><b>&amp;" }),
+        view: ({ data }) => html`<pre>${data.markup}</pre>`
     })
 });
 
@@ -43,6 +48,30 @@ describe("the router without a window", () =>
         expect(renderHead(router.head.get())).toBe("<title>Home</title><meta name=\"description\" content=\"The &lt;start&gt; &amp; more\">");
         expect(renderHead({})).toBe("");
         expect(renderHead({ title: "A <b>" })).toBe("<title>A &lt;b&gt;</title>");
+        router.dispose();
+    });
+});
+
+describe("renderRouteState", () =>
+{
+    it("embeds the current route's data with its name and URL, escaped against script injection", async () =>
+    {
+        const router = createRouter(routes);
+        await router.navigate("/raw?q=1");
+        const script = renderRouteState(router);
+        expect(script.startsWith("<script type=\"application/json\" data-zerolith-route>")).toBe(true);
+        expect(script).not.toContain("</script><b>");
+        const json = script.slice(script.indexOf(">") + 1, script.lastIndexOf("</script>"));
+        expect(JSON.parse(json)).toEqual({ name: "raw", href: "/raw?q=1", data: { markup: "</script><b>&amp;" } });
+        router.dispose();
+    });
+
+    it("is empty without a match or without data", async () =>
+    {
+        const router = createRouter(routes);
+        expect(renderRouteState(router)).toBe("");
+        await router.navigate("/");
+        expect(renderRouteState(router)).toBe("");
         router.dispose();
     });
 });

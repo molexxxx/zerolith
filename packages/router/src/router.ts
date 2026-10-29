@@ -99,8 +99,8 @@ export interface RouterOptions
     onError?: (error: unknown, url: URL) => void;
     /** Set false to leave scrolling to the application. Defaults to true. */
     scroll?: boolean;
-    /** The window to attach to. Defaults to the global window. */
-    window?: Window;
+    /** The window to attach to. Defaults to the global window; `null` attaches to none, as on the server, even where a window exists. */
+    window?: Window | null;
 }
 
 /** The router returned by `createRouter`, typed by its route table. */
@@ -148,6 +148,37 @@ function isLazy(view: unknown): view is LazyView<unknown, unknown>
     return typeof view === "object" && view !== null && "lazy" in view;
 }
 
+/** What `renderRouteState` embeds: the route the server rendered, its URL, and the data its loader produced. */
+export interface EmbeddedRouteState
+{
+    readonly name: string;
+    readonly href: string;
+    readonly data: unknown;
+}
+
+/** The selector of the script `renderRouteState` writes. */
+export const ROUTE_STATE_SELECTOR: string = "script[type=\"application/json\"][data-zerolith-route]";
+
+/** Reads and removes the embedded route state, if the server left one; used once, for the initial navigation. */
+function readEmbeddedState(doc: Document): EmbeddedRouteState | undefined
+{
+    const script = doc.querySelector(ROUTE_STATE_SELECTOR);
+    if (script === null)
+    {
+        return undefined;
+    }
+    script.remove();
+    try
+    {
+        const parsed = JSON.parse(script.textContent ?? "") as Partial<EmbeddedRouteState>;
+        return typeof parsed.name === "string" && typeof parsed.href === "string" ? { name: parsed.name, href: parsed.href, data: parsed.data } : undefined;
+    }
+    catch
+    {
+        return undefined;
+    }
+}
+
 function headOf(resolved: Resolved): Head
 {
     if (resolved.compiled === undefined || resolved.match === undefined)
@@ -165,7 +196,8 @@ function headOf(resolved: Resolved): Head
 /** Creates a router over the given table and attaches it to the window when one exists. */
 export function createRouter<const T extends RouteTable>(routes: T, options: RouterOptions = {}): Router<T>
 {
-    const win = options.window ?? (typeof window === "undefined" ? undefined : window);
+    const win = options.window === null ? undefined : (options.window ?? (typeof window === "undefined" ? undefined : window));
+    let embedded = win === undefined ? undefined : readEmbeddedState(win.document);
     const compiledRoutes: Compiled[] = Object.entries(routes as unknown as Record<string, RouteDefinition<string, unknown>>).map(([name, definition]) => ({
         name,
         pattern: compile(definition.path),
@@ -214,7 +246,17 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             view = await (compiled.route.view as LazyView<unknown, unknown>).lazy();
             views.set(compiled.name, view);
         }
-        const data = compiled.route.load === undefined ? undefined : await compiled.route.load({ params, url: target, abort: abort.signal });
+        const reusable = embedded;
+        embedded = undefined;
+        let data: unknown;
+        if (reusable !== undefined && reusable.name === compiled.name && reusable.href === target.pathname + target.search)
+        {
+            data = reusable.data;
+        }
+        else
+        {
+            data = compiled.route.load === undefined ? undefined : await compiled.route.load({ params, url: target, abort: abort.signal });
+        }
         return { match: { name: compiled.name, params, url: target, data }, view, compiled };
     };
 
