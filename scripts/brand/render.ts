@@ -1,15 +1,18 @@
 /**
  * Renders the raster brand assets from their SVG sources in `brand/`: the
  * web app icons, the Apple touch icon, the maskable icon, `favicon.ico`, and
- * the GitHub social card. The SVGs are the sources of truth; rerun this after
- * changing one of them.
+ * the GitHub social card. It also copies the app icon to `.github/assets/icon.svg`,
+ * where tools that show a repository's icon look for it. The SVGs are the
+ * sources of truth; rerun this after changing one of them.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { crc32 } from "node:zlib";
 import { chromium, type Browser } from "playwright";
 
 const root = fileURLToPath(new URL("../../brand/", import.meta.url));
+const repositoryIcon = fileURLToPath(new URL("../../.github/assets/icon.svg", import.meta.url));
 
 interface Raster
 {
@@ -79,6 +82,10 @@ function ico(images: { size: number; png: Buffer }[]): Buffer
     }
     return Buffer.concat([header, ...entries, ...images.map((image) => image.png)]);
 }
+
+mkdirSync(dirname(repositoryIcon), { recursive: true });
+copyFileSync(root + "app-icon/app-icon.svg", repositoryIcon);
+console.log(".github/assets/icon.svg");
 
 const browser = await chromium.launch();
 try

@@ -29,6 +29,7 @@ A chartreuse tile with the stele in basalt.
 | `app-icon/app-icon.svg`, `icon-192.png`, `icon-512.png` | Web app manifests and avatars |
 | `app-icon/app-icon-square.svg`, `apple-touch-icon.png` | Platforms that round the corners themselves |
 | `app-icon/app-icon-maskable.svg`, `icon-maskable-512.png` | Maskable icons; the stele sits inside the safe zone |
+| `.github/assets/icon.svg` (repository root) | A copy of `app-icon.svg` for tools that show a repository's icon; `npm run brand` writes it |
 
 ## Color
 
