@@ -1,6 +1,6 @@
 # 0001: JSX as sugar for `html`
 
-Date: 2026-10-29. Status: draft.
+Date: 2026-10-29. Status: accepted on 2026-10-29 by the project lead, who delegated the call with the direction that decisions follow the research plan; shipped on main the same day with the Vite lowering, the Rust lowering to follow.
 
 ## Problem
 

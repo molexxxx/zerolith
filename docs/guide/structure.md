@@ -43,7 +43,7 @@ A JavaScript project has the same layout with `.js` files and JSDoc types; `npm 
 
 ## Conventions the tooling relies on
 
-- A component is a capitalized function that takes one props object and returns a view. Children are the `children` prop.
+- A component is a capitalized function that takes one props object and returns a view. Children are the `children` prop. In a `.tsx` or `.jsx` file the view can be spelled as JSX; it lowers to the same `html` call.
 - State that must survive an edit during development is a named signal: `signal(0, { name: "count" })`. Both `zerolith dev` and the Vite plugin restore named signals; anonymous ones start over.
 - Routes that are not needed on first paint use `lazy()`, and each locale's messages are their own module, so the bundler splits them without configuration.
 - Relative imports carry the file extension, so the same source runs unbundled.

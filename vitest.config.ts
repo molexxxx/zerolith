@@ -1,11 +1,13 @@
 import { fileURLToPath } from "node:url";
 import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
+import { zerolith } from "./packages/vite/src/index.ts";
 
 const coreEntry = fileURLToPath(new URL("./packages/zerolith/src/index.ts", import.meta.url));
 const routerEntry = fileURLToPath(new URL("./packages/router/src/index.ts", import.meta.url));
 
 export default defineConfig({
+    plugins: zerolith().filter((plugin) => plugin.name === "zerolith:jsx"),
     resolve: {
         alias: {
             "@zerolith/vite/runtime": fileURLToPath(new URL("./packages/vite/src/runtime.ts", import.meta.url)),
@@ -33,15 +35,15 @@ export default defineConfig({
                 test: {
                     name: "node",
                     environment: "node",
-                    include: ["packages/*/test/**/*.test.ts", "examples/*/test/**/*.test.ts", "scripts/**/test/**/*.test.ts"],
-                    exclude: ["**/*.browser.test.ts", "**/node_modules/**", "**/dist/**"]
+                    include: ["packages/*/test/**/*.test.{ts,tsx}", "examples/*/test/**/*.test.{ts,tsx}", "scripts/**/test/**/*.test.{ts,tsx}"],
+                    exclude: ["**/*.browser.test.{ts,tsx}", "**/node_modules/**", "**/dist/**"]
                 }
             },
             {
                 extends: true,
                 test: {
                     name: "browser",
-                    include: ["packages/*/test/**/*.browser.test.ts"],
+                    include: ["packages/*/test/**/*.browser.test.{ts,tsx}"],
                     exclude: ["**/node_modules/**", "**/dist/**"],
                     browser: {
                         enabled: true,

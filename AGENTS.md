@@ -19,7 +19,7 @@ A standalone frontend framework monorepo. `packages/zerolith` is the browser run
 - TypeScript is `erasableSyntaxOnly`: no `enum`, `namespace`, parameter properties, or decorators. Use `const` objects and union types.
 - Every public export has an explicit type annotation and a doc comment (`isolatedDeclarations` is on).
 - Relative imports end in `.js` even when the source file is `.ts`.
-- One way to do each thing: do not add an alias, an overload, or a second syntax for an existing concept. Propose an RFC instead (see GOVERNANCE.md).
+- One way to do each thing: do not add an alias, an overload, or a second syntax for an existing concept. Propose an RFC instead (see GOVERNANCE.md). JSX in `.jsx` and `.tsx` files is not a second syntax: RFC 0001 lowers it to the same `html` calls at build time, components stay functions, and `prop:`, `on:`, and `bool:` select the binding forms; the buildless form stays `html`.
 - Signals are `.get()` and `.set()`; there is no `.value`, no deep proxy, and no `setState`.
 - In templates, bind the signal, not its value. `${count}` is a live binding that updates in place; `${count.get()}` reads once when the template is created and never updates, and nothing can warn you. Derived values are `${computed(() => item.get().name)}`, never `${item.get().name}`. The only correct uses of `.get()` inside a component body are inside `computed`, `effect`, `resource.params`, and event handlers.
 

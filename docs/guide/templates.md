@@ -37,6 +37,25 @@ A key must be unique and defined; otherwise the render fails with `each_key_dupl
 
 @include packages/zerolith/test/examples/guide.example.browser.test.ts#conditions
 
+## The same component in JSX
+
+With a build step, the same template can be spelled as JSX in a `.jsx` or `.tsx` file. It is a spelling, not a second runtime: the Vite plugin lowers each JSX expression to the `html` call it stands for before any other transform runs, components stay the functions they are in a `.ts` file, and the rules above hold unchanged, including the one about binding the signal rather than its value.
+
+@include packages/zerolith/test/examples/jsx.example.browser.test.tsx#jsx
+
+| JSX | Template |
+| --- | --- |
+| `class="app"` | `class="app"`, static markup |
+| `id={value}` | `id=${value}` |
+| `prop:value={signal}` | `.value=${signal}` |
+| `on:click={handler}` | `@click=${handler}` |
+| `bool:disabled={flag}` | `?disabled=${flag}` |
+| `ref={target}` | `ref=${target}` |
+| `<Counter start={2}>child</Counter>` | `${Counter({ start: 2, children: "child" })}` |
+| `<>...</>` | a template with no root element |
+
+Lists and conditions are `each` and `when`, called as functions, exactly as in a template; there is no `<For>` or `<Show>`. Spread attributes on an element are refused, because a template cannot express an unknown set of attributes; spread onto a component is plain object spread. A `tsconfig` with `"jsx": "react-jsx"` and `"jsxImportSource": "zerolith"` types the elements and the namespaces. Without a build step, write `html`; JSX never runs in the browser.
+
 ## Raw markup
 
 `unsafeHtml` is the one way to insert markup without escaping, for content you already trust, such as HTML rendered from Markdown you wrote. Never pass user input to it.
