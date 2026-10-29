@@ -1,14 +1,15 @@
 {
     "name": "zerolith-monorepo",
     "private": true,
-    "description": "Monorepo for zerolith, the front end of the zero-server pair",
+    "description": "Monorepo for zerolith, a standalone frontend framework",
     "license": "Apache-2.0",
     "type": "module",
     "engines": {
         "node": ">=24.0.0"
     },
     "workspaces": [
-        "packages/*"
+        "packages/zerolith",
+        "packages/router"
     ],
     "scripts": {
         "build": "npm run build --workspaces --if-present",
