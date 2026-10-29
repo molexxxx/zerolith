@@ -33,7 +33,7 @@ Thank you for considering a contribution. This page covers the mechanics; [GOVER
 
 ## Rust
 
-The command line lives in `crates/zerolith`. `rust-toolchain.toml` pins the compiler for rustup users and CI; the crate also builds on the minimum version in `Cargo.toml`. Rust code follows default `rustfmt` formatting (the layout zero-core uses), `unsafe_code` is forbidden, and CI runs `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, and a release build.
+The command line lives in `crates/zerolith`. `rust-toolchain.toml` pins the compiler for rustup users and CI; the crate also builds on the minimum version in `Cargo.toml`, 1.97, which the oxc crates require. Rust code follows default `rustfmt` formatting (the layout zero-core uses), `unsafe_code` is forbidden, and CI runs `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, and a release build.
 
 ## Commits
 
