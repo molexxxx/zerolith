@@ -112,6 +112,10 @@ export interface Router<T extends RouteTable>
     readonly url: ReadableSignal<URL>;
     /** True while a navigation is loading. */
     readonly pending: ReadableSignal<boolean>;
+    /** The head metadata of the current route, for the server to render and for the browser to apply. */
+    readonly head: ReadableSignal<Head>;
+    /** Settles when the initial navigation from the window's location has committed; already settled without a window. Rejects as `navigate` would. */
+    readonly ready: Promise<void>;
     /** Builds a URL path for a named route. */
     href<N extends keyof T & string>(name: N, ...args: HrefArgs<T[N]["path"]>): string;
     /** Navigates to a path or URL, running the route's loader first. */
@@ -144,6 +148,20 @@ function isLazy(view: unknown): view is LazyView<unknown, unknown>
     return typeof view === "object" && view !== null && "lazy" in view;
 }
 
+function headOf(resolved: Resolved): Head
+{
+    if (resolved.compiled === undefined || resolved.match === undefined)
+    {
+        return {};
+    }
+    const { head: declared } = resolved.compiled.route;
+    if (declared === undefined)
+    {
+        return {};
+    }
+    return typeof declared === "function" ? declared({ params: resolved.match.params, data: resolved.match.data, url: resolved.match.url }) : declared;
+}
+
 /** Creates a router over the given table and attaches it to the window when one exists. */
 export function createRouter<const T extends RouteTable>(routes: T, options: RouterOptions = {}): Router<T>
 {
@@ -160,6 +178,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
     const url = signal<URL>(initial, { equals: (a, b) => a.href === b.href });
     const current = signal<Match | undefined>(undefined);
     const pending = signal(false);
+    const head = signal<Head>({});
     const views = new Map<string, RouteView<unknown, unknown>>();
     let controller: AbortController | undefined;
     let generation = 0;
@@ -199,18 +218,12 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         return { match: { name: compiled.name, params, url: target, data }, view, compiled };
     };
 
-    const applyHead = (resolved: Resolved): void =>
+    const applyHead = (value: Head): void =>
     {
-        if (win === undefined || resolved.compiled === undefined || resolved.match === undefined)
+        if (win === undefined)
         {
             return;
         }
-        const { head } = resolved.compiled.route;
-        if (head === undefined)
-        {
-            return;
-        }
-        const value = typeof head === "function" ? head({ params: resolved.match.params, data: resolved.match.data, url: resolved.match.url }) : head;
         const doc = win.document;
         if (value.title !== undefined)
         {
@@ -257,13 +270,15 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
     const commit = (target: URL, resolved: Resolved, restored: number | undefined): void =>
     {
         matchedView = resolved.view;
+        const value = headOf(resolved);
         batch(() =>
         {
             url.set(target);
             current.set(resolved.match);
+            head.set(value);
             pending.set(false);
         });
-        applyHead(resolved);
+        applyHead(value);
         scrollTo(target, restored);
     };
 
@@ -360,8 +375,8 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         {
             win.history.replaceState({ key: "0" }, "", win.location.href);
         }
-        void go(initial, "replace");
     }
+    const ready = win === undefined ? Promise.resolve() : go(initial, "replace");
 
     const outlet = computed<unknown>(() =>
     {
@@ -380,6 +395,8 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         current,
         url,
         pending,
+        head,
+        ready,
         href(name, ...args)
         {
             const entry = byName.get(name);
@@ -417,3 +434,4 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         }
     };
 }
+

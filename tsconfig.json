@@ -11,6 +11,7 @@
             "zerolith": ["./packages/zerolith/src/index.ts"],
             "zerolith/ssr": ["./packages/zerolith/src/ssr.ts"],
             "@zerolith/router": ["./packages/router/src/index.ts"],
+            "@zerolith/router/server": ["./packages/router/src/server.ts"],
             "@zerolith/devtools": ["./packages/devtools/src/index.ts"],
             "@zerolith/vite": ["./packages/vite/src/index.ts"],
             "@zerolith/vite/runtime": ["./packages/vite/src/runtime.ts"],

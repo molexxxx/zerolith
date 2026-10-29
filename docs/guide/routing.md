@@ -25,3 +25,5 @@ Back and forward restore the scroll position; a new navigation scrolls to the to
 ## Head metadata
 
 `head` sets the document title and description per route, as a static object or as a function of the parameters and loaded data.
+
+The same metadata is `router.head`, a signal the server renders with `renderHead` from `@zerolith/router/server` (see [Server rendering](/guide/server-rendering/)). `router.ready` settles once the initial navigation, loader included, has committed; await it before hydrating.

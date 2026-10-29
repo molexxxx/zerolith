@@ -23,3 +23,17 @@ The rendered markup carries comment markers around every bound value. `hydrate(v
 @include packages/zerolith/test/examples/hydrate.example.browser.test.ts#hydrate
 
 This documentation site is rendered this way: its page shell is a zerolith view, and the build writes the strings to disk.
+
+## A routed application
+
+The router works without a window. Create it on the server with no `window`, navigate to the request's path, and the outlet, the current match, and the head metadata are what the browser would have. Rendering a request is then one function from `Request` to `Response`, on any runtime with those two classes: Node, Deno, Bun, a worker, or a server written around them.
+
+@include packages/router/test/examples/server.example.test.ts#handler
+
+The status follows the match: a URL nothing matched renders the fallback with 404. A loader that throws rejects `navigate`, so the handler can answer with a problem or let the server's error handling take over. `renderHead`, from `@zerolith/router/server` so the browser entry never loads the server renderer, writes the route's `head` as `<title>` and `<meta name="description">`, escaped like every other value.
+
+In the browser, create the router the usual way and wait for `ready` before hydrating, so the initial navigation, including its loader, has committed and the outlet shows the same route the server rendered.
+
+@include packages/router/test/examples/hydrate.example.browser.test.ts#hydrate
+
+The loader runs again in the browser during that initial navigation. Routes whose data is expensive can read it from a `<script type="application/json">` the server embedded instead of fetching it twice; the framework leaves that choice to the application.
