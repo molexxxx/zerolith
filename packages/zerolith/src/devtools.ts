@@ -60,10 +60,41 @@ interface TrackedNode
 }
 
 const DIAGNOSTICS_KEPT = 200;
+const RESTORE_KEY = "zerolith:restore";
+
+/** A state node that can take a value saved before a development reload. */
+interface Restorable
+{
+    restore(value: unknown): void;
+}
+
+/** Values of named signals saved by the dev server's client before it reloaded the page; consumed once. */
+function readRestore(): Record<string, unknown> | undefined
+{
+    try
+    {
+        if (typeof sessionStorage === "undefined")
+        {
+            return undefined;
+        }
+        const raw = sessionStorage.getItem(RESTORE_KEY);
+        if (raw === null)
+        {
+            return undefined;
+        }
+        sessionStorage.removeItem(RESTORE_KEY);
+        return JSON.parse(raw) as Record<string, unknown>;
+    }
+    catch
+    {
+        return undefined;
+    }
+}
 
 let nextId = 1;
 let depth = 0;
 let pruneAt = 256;
+let restored: Record<string, unknown> | undefined = readRestore();
 const nodes: TrackedNode[] = [];
 const roots: Map<object, RootSnapshot> = new Map();
 const diagnostics: Diagnostic[] = [];
@@ -152,7 +183,23 @@ export function trackNode<T extends object>(node: T, kind: NodeSnapshot["kind"],
         prune();
         pruneAt = Math.max(256, nodes.length * 2);
     }
+    if (kind === "state" && name !== undefined && restored !== undefined && Object.hasOwn(restored, name))
+    {
+        (node as unknown as Restorable).restore(restored[name]);
+        delete restored[name];
+        if (Object.keys(restored).length === 0)
+        {
+            restored = undefined;
+        }
+    }
     emit({ type: "node", id });
+}
+
+/** Saves named state for a reload the way the dev server's client does; exposed for tests. */
+export function saveRestore(state: Record<string, unknown>): void
+{
+    sessionStorage.setItem(RESTORE_KEY, JSON.stringify(state));
+    restored = readRestore();
 }
 
 /** Records a mounted root. */

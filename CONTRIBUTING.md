@@ -31,6 +31,10 @@ Thank you for considering a contribution. This page covers the mechanics; [GOVER
 - Relative imports use the `.js` extension so the compiled output runs unbundled.
 - Comments explain non-obvious constraints only. No commented-out code, no planning language.
 
+## Rust
+
+The command line lives in `crates/zerolith`. `rust-toolchain.toml` pins the compiler for rustup users and CI; the crate also builds on the minimum version in `Cargo.toml`. Rust code follows default `rustfmt` formatting (the layout zero-core uses), `unsafe_code` is forbidden, and CI runs `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, and a release build.
+
 ## Commits
 
 - Short imperative subject line, optional body explaining why.

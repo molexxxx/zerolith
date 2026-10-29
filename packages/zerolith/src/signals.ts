@@ -433,6 +433,12 @@ class State<T> implements Signal<T>, Source
     {
         return true;
     }
+
+    /** Takes a value saved before a development reload. */
+    restore(value: unknown): void
+    {
+        this.set(value as T);
+    }
 }
 
 class Computed<T> implements ReadableSignal<T>, Source, Consumer

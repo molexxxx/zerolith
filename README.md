@@ -9,7 +9,8 @@ Status: pre-alpha, nothing published. This repository holds the runtime, the fir
 | Path | Contents |
 | --- | --- |
 | `packages/zerolith` | The core runtime: signals, `html` and `css` tags, rendering, hydration, diagnostics |
-| `packages/*` | First-party packages under the `@zerolith/*` scope as they are added (router, forms, server, devtools, test, vite, cli) |
+| `packages/*` | First-party packages under the `@zerolith/*` scope as they are added (router, devtools, forms, client, test, vite) |
+| `crates/zerolith` | The Rust command line: `dev` and `serve` for the buildless path, `importmap` with integrity hashes, `doctor` |
 | `docs/policy` | Support window, release channels, versioning and deprecation rules |
 | `docs/decisions` | Architecture decision records |
 | `docs/research` | The design research the project started from |
@@ -34,6 +35,10 @@ Requires Node 24 or newer and npm 11.
 | `npm run serve` | Serve the repository on port 8080 for the examples (build first) |
 | `npm run docs:serve` | Serve the built documentation site on port 8081 (run `npm run docs` first) |
 | `npm run bench` | Run the keyed-table benchmark against a vanilla DOM baseline |
+
+## Rust
+
+`cargo build --release` produces `target/release/zerolith`; `cargo test` runs the crate's tests. See `crates/zerolith/README.md`.
 
 ## Policies
 

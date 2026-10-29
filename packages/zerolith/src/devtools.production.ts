@@ -57,6 +57,10 @@ export function trackFlush(_effects: number): void
 {
 }
 
+export function saveRestore(_state: Record<string, unknown>): void
+{
+}
+
 export function internal<T>(fn: () => T): T
 {
     return fn();

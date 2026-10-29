@@ -62,3 +62,29 @@ jobs:
           name: sbom-node${{ matrix.node }}
           path: sbom.cdx.json
           retention-days: 30
+
+  rust:
+    name: Rust
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Toolchain
+        run: rustup show active-toolchain
+
+      - name: Format
+        # Advisory until rustfmt is available on the development machine; see the Rust section of CONTRIBUTING.md.
+        continue-on-error: true
+        run: cargo fmt --all --check
+
+      - name: Lint
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build
+        run: cargo build --release --locked

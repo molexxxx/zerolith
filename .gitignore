@@ -6,6 +6,7 @@ test-results/
 playwright-report/
 sbom.cdx.json
 site/
+target/
 .DS_Store
 Thumbs.db
 docs/research/notes/

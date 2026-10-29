@@ -1,0 +1,6 @@
+# The stable release CI and rustup users build with, named by version so every
+# build compiles with the same compiler. Read from the rust-lang/rust releases
+# on 2026-10-28. Raised deliberately, in its own commit.
+[toolchain]
+channel = "1.99.1"
+components = ["rustfmt", "clippy"]

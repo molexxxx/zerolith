@@ -30,4 +30,4 @@ export type { Styles } from "./css.js";
 export { SCOPE_MARKER, css } from "./css.js";
 
 export type { DevtoolsEvent, DevtoolsHook, NodeSnapshot, RootSnapshot } from "./devtools.js";
-export { internal as devtoolsInternal } from "./devtools.js";
+export { internal as devtoolsInternal, saveRestore as devtoolsSaveRestore } from "./devtools.js";
