@@ -43,6 +43,7 @@ With a bundler, install the packages and import them; the `development` export c
 
 ## Where to go next
 
+- [Application structure](/guide/structure/): the layout every zerolith application uses, what each file owns, and the AGENTS.md that lets an agent work in it.
 - [Signals](/guide/signals/): state, derived values, effects, and async values.
 - [Templates](/guide/templates/): the `html` tag, bindings, lists, conditions, and what the renderer refuses.
 - [Styles](/guide/styles/): scoped component styles with the `css` tag.

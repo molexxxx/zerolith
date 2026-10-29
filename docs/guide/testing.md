@@ -1,7 +1,7 @@
 ---
 title: Testing
 description: Mount views with automatic cleanup, settle async work, check that a component hydrates its own server markup, and catch the accessibility defects a test can see.
-order: 12
+order: 13
 ---
 
 # Testing

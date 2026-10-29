@@ -1,7 +1,7 @@
 ---
 title: Templates
 description: The html tag, the five binding forms, keyed lists, conditions, refs, raw markup, and what the renderer refuses.
-order: 2
+order: 3
 ---
 
 # Templates

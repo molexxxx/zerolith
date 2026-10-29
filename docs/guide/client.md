@@ -1,7 +1,7 @@
 ---
 title: Typed client
 description: Generate a route table and types from an OpenAPI document, call operations with checked inputs, and read failures as problems, against any backend.
-order: 6
+order: 7
 ---
 
 # Typed client

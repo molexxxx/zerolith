@@ -1,6 +1,6 @@
 # zerolith (command line)
 
-The Rust side of zerolith: a dev server for the buildless path, import map generation with integrity hashes, and project checks.
+The Rust side of zerolith: a dev server for the buildless path, import map generation with integrity hashes, project checks, and a scaffold for new applications.
 
 ```
 zerolith dev [root] [--port 8080]       serve with live reload
@@ -14,5 +14,7 @@ zerolith doctor [root] [--json]
 `importmap` copies the installed `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, and `@zerolith/devtools` modules into a vendor folder and writes an import map whose `integrity` entries hold the SRI hash of every module, plus `modulepreload` links; with `--html` it replaces or inserts them in the page.
 
 `doctor` reports coded findings: a missing index or import map, map targets that do not exist, integrity mismatches, a missing module script, and vendored packages older than the installed ones.
+
+`new` writes the standard application layout with a working first page, the scripts, and an `AGENTS.md`: Vite and TypeScript by default, `--js` for JavaScript with JSDoc types, `--buildless` for an import map and no bundler.
 
 Build with `cargo build --release`; the binary is `target/release/zerolith`. Nothing is published to crates.io yet.

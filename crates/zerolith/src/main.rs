@@ -2,12 +2,13 @@
 //!
 //! `dev` and `serve` host a folder for the buildless path, `importmap`
 //! vendors the installed packages and writes an import map with integrity
-//! hashes, and `doctor` checks a project for the mistakes that are easy to
-//! make without a build step.
+//! hashes, `doctor` checks a project for the mistakes that are easy to make
+//! without a build step, and `new` writes the standard application layout.
 
 mod doctor;
 mod importmap;
 mod mime;
+mod new;
 mod server;
 mod watch;
 
@@ -64,6 +65,17 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Write a new application with the standard layout: Vite and TypeScript by default.
+    New {
+        /// The folder to create; its name becomes the application's name.
+        root: PathBuf,
+        /// JavaScript with JSDoc types instead of TypeScript.
+        #[arg(long)]
+        js: bool,
+        /// An import map and no bundler, in JavaScript.
+        #[arg(long)]
+        buildless: bool,
+    },
 }
 
 #[tokio::main]
@@ -93,6 +105,20 @@ async fn main() -> ExitCode {
             html,
         } => importmap::run(&root, &out, development, html.as_deref()),
         Command::Doctor { root, json } => return doctor::run(&root, json),
+        Command::New {
+            root,
+            js,
+            buildless,
+        } => new::run(
+            &root,
+            if buildless {
+                new::Flavor::Buildless
+            } else if js {
+                new::Flavor::ViteJavaScript
+            } else {
+                new::Flavor::ViteTypeScript
+            },
+        ),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

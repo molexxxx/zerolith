@@ -1,7 +1,7 @@
 ---
 title: Command line
 description: The Rust command line: a dev server with live reload for the buildless path, import maps with integrity hashes, and project checks.
-order: 10
+order: 11
 ---
 
 # Command line
@@ -39,3 +39,13 @@ zerolith doctor --json
 ```
 
 Reports coded findings, each with a cause and a fix: `index_missing`, `importmap_missing`, `importmap_invalid`, `importmap_target_missing`, `integrity_mismatch`, `integrity_target_missing`, `module_script_missing`, and `package_outdated`. The exit code is 1 when any finding is an error.
+
+## new
+
+```
+zerolith new my-app
+zerolith new my-app --js
+zerolith new my-app --buildless
+```
+
+Writes the application layout the [structure guide](/guide/structure/) describes, with a working first page, the scripts, and an `AGENTS.md`, pinning the tool versions this repository tests with. The default is Vite and TypeScript; `--js` keeps Vite with JavaScript and JSDoc types; `--buildless` writes an import map instead of a bundler configuration, to be filled by `zerolith importmap` after `npm install`.

@@ -1,7 +1,7 @@
 ---
 title: Dev tools
 description: The in-page inspector, the development hook it reads, named signals, and Performance panel tracks, all independent of how the app is served.
-order: 9
+order: 10
 ---
 
 # Dev tools

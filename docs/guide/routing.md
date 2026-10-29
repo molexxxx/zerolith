@@ -1,7 +1,7 @@
 ---
 title: Routing
 description: The typed route table, plain anchors, loaders, head metadata, and the outlet.
-order: 4
+order: 5
 ---
 
 # Routing
