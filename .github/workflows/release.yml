@@ -1,27 +1,45 @@
 name: Release
 
-# Publishes the package named by the tag (for example zerolith@1.0.0) with npm provenance.
-# Trusted publishing must be configured for this repository and workflow on npmjs.com
-# before the first real publish; until then every run is a dry run.
+# Publishes the npm packages and the crate with provenance. A tag of the
+# form <package>@<version> publishes that package; a manual run publishes
+# the package named in the input, or every package in dependency order
+# with "all". Trusted publishing on npmjs.com (owner molexxxx, repository
+# zerolith, workflow release.yml) is the normal credential; the NPM_TOKEN
+# secret is only read when it exists, for the first publish of a package
+# that has no trusted publisher yet.
 
 on:
   push:
     tags:
       - "zerolith@*"
       - "@zerolith/*@*"
+      - "crate@*"
   workflow_dispatch:
     inputs:
       package:
-        description: Workspace package name to publish
+        description: Workspace package to publish, or "all" for every package in order
         required: true
-        default: zerolith
+        default: all
+      tag:
+        description: npm dist-tag
+        required: true
+        default: alpha
+      crate:
+        description: Publish the Rust command line to crates.io too
+        type: boolean
+        default: false
+      dry_run:
+        description: Run everything but the upload
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
-  publish:
-    name: Publish ${{ github.ref_name }}
+  npm:
+    name: npm ${{ github.event.inputs.package || github.ref_name }}
+    if: github.event_name == 'workflow_dispatch' || !startsWith(github.ref_name, 'crate@')
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -39,21 +57,11 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
-      - name: Resolve package from tag
-        id: pkg
-        env:
-          REF_NAME: ${{ github.ref_name }}
-          INPUT_PACKAGE: ${{ github.event.inputs.package }}
-        run: |
-          if [ -n "$INPUT_PACKAGE" ]; then
-            name="$INPUT_PACKAGE"
-          else
-            name="${REF_NAME%@*}"
-          fi
-          echo "name=$name" >> "$GITHUB_OUTPUT"
-
       - name: Install
         run: npm ci
+
+      - name: Browser
+        run: npx playwright install --with-deps chromium
 
       - name: Full check
         run: npm run check
@@ -61,14 +69,73 @@ jobs:
       - name: SBOM
         run: npm run sbom > sbom.cdx.json
 
-      - name: Publish (dry run)
+      - name: Publish
         env:
-          PACKAGE: ${{ steps.pkg.outputs.name }}
-        run: npm publish --workspace "$PACKAGE" --access public --provenance --dry-run
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          INPUT_PACKAGE: ${{ github.event.inputs.package }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -eu
+          if [ -n "$INPUT_PACKAGE" ]; then
+            selection="$INPUT_PACKAGE"
+          else
+            selection="${REF_NAME%@*}"
+          fi
+          tag="${INPUT_TAG:-alpha}"
+          flags="--access public --provenance --tag $tag"
+          if [ "$DRY_RUN" = "true" ]; then
+            flags="$flags --dry-run"
+          fi
+          if [ "$selection" = "all" ]; then
+            packages="zerolith @zerolith/router @zerolith/forms @zerolith/client @zerolith/test @zerolith/a11y @zerolith/i18n @zerolith/devtools @zerolith/vite @zerolith/otel"
+          else
+            packages="$selection"
+          fi
+          for package in $packages; do
+            echo "publishing $package"
+            # shellcheck disable=SC2086
+            npm publish --workspace "$package" $flags
+          done
 
       - name: Upload SBOM
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: sbom-${{ github.ref_name }}
+          name: sbom-${{ github.run_id }}
           path: sbom.cdx.json
           retention-days: 90
+
+  crate:
+    name: crates.io
+    if: startsWith(github.ref_name, 'crate@') || github.event.inputs.crate == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Toolchain
+        run: rustup show active-toolchain
+
+      - name: Check
+        run: |
+          cargo fmt --all --check
+          cargo clippy --all-targets --locked -- -D warnings
+          cargo test --locked
+
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -eu
+          if [ "$DRY_RUN" = "true" ]; then
+            cargo publish --package zerolith --locked --dry-run
+          else
+            cargo publish --package zerolith --locked
+          fi

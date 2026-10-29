@@ -13,12 +13,13 @@ pub enum Flavor {
     Buildless,
 }
 
-/// The repository's package.json, embedded so the scaffold pins the tool versions CI tests with.
-const ROOT_MANIFEST: &str = include_str!("../../../package.json");
+/// The tool versions the scaffold pins, mirrored from the repository package.json
+/// so the published crate carries them; a test keeps the two in step.
+const TOOL_VERSIONS: &str = include_str!("../versions.json");
 
 fn version_of(name: &str) -> String {
-    let manifest: serde_json::Value = serde_json::from_str(ROOT_MANIFEST).unwrap_or_default();
-    manifest["devDependencies"][name]
+    let versions: serde_json::Value = serde_json::from_str(TOOL_VERSIONS).unwrap_or_default();
+    versions[name]
         .as_str()
         .map(str::to_string)
         .unwrap_or_else(|| "latest".to_string())
@@ -326,8 +327,9 @@ pub fn run(root: &Path, flavor: Flavor) -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Flavor, scaffold};
+    use super::{Flavor, TOOL_VERSIONS, scaffold};
     use std::fs;
+    use std::path::Path;
 
     #[test]
     fn writes_each_flavor_with_the_name_and_pinned_versions() {
@@ -359,5 +361,21 @@ mod tests {
         }
         assert!(scaffold(&base.join("ts-app"), "ts-app", Flavor::ViteTypeScript).is_err());
         let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn tool_versions_match_the_root_manifest() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../package.json");
+        let Ok(source) = fs::read_to_string(root) else {
+            return;
+        };
+        let manifest: serde_json::Value = serde_json::from_str(&source).unwrap();
+        let versions: serde_json::Value = serde_json::from_str(TOOL_VERSIONS).unwrap();
+        for (name, version) in versions.as_object().unwrap() {
+            assert_eq!(
+                &manifest["devDependencies"][name], version,
+                "{name} drifted"
+            );
+        }
     }
 }
