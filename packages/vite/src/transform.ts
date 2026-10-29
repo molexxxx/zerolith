@@ -6,19 +6,15 @@
  * map for the lines it keeps.
  */
 
+import { type AstNode, type Edit, type IdentityMap, applyEdits, identityMap, walk } from "./ast.js";
+
+export type { AstNode } from "./ast.js";
+
 /** The module the rewritten code imports; resolved by Vite from the application's `node_modules`. */
 export const RUNTIME_SPECIFIER: string = "@zerolith/vite/runtime";
 
 const BINDING = "__zl$";
 const FOOTER = `if (import.meta.hot) { import.meta.hot.dispose(${BINDING}.save); import.meta.hot.accept(${BINDING}.accept); }`;
-
-/** What every ESTree node carries. */
-export interface AstNode
-{
-    type: string;
-    start: number;
-    end: number;
-}
 
 /** A parsed module: the program body and any syntax errors the parser reported. */
 export interface ParsedModule
@@ -34,7 +30,7 @@ export type ModuleParser = (filename: string, code: string) => ParsedModule;
 export interface TransformOutput
 {
     code: string;
-    map: { version: 3; sources: string[]; names: string[]; mappings: string };
+    map: IdentityMap;
 }
 
 interface Identifier extends AstNode
@@ -102,13 +98,6 @@ interface CallExpression extends AstNode
     arguments: readonly AstNode[];
 }
 
-interface Edit
-{
-    start: number;
-    end: number;
-    text: string;
-}
-
 function isComponentName(name: string): boolean
 {
     const first = name.charAt(0);
@@ -123,63 +112,6 @@ function isFunctionLike(node: AstNode | null): boolean
 function registration(name: string): string
 {
     return `var ${name} = ${BINDING}.component(import.meta.hot, "${name}", ${name}$);`;
-}
-
-function walk(value: unknown, visit: (node: AstNode) => void): void
-{
-    if (Array.isArray(value))
-    {
-        for (const item of value)
-        {
-            walk(item, visit);
-        }
-        return;
-    }
-    if (value === null || typeof value !== "object")
-    {
-        return;
-    }
-    const record = value as Record<string, unknown>;
-    if (typeof record["type"] === "string")
-    {
-        visit(record as unknown as AstNode);
-    }
-    for (const [key, child] of Object.entries(record))
-    {
-        if (key !== "parent" && key !== "range" && key !== "loc" && typeof child === "object")
-        {
-            walk(child, visit);
-        }
-    }
-}
-
-function applyEdits(code: string, edits: readonly Edit[]): string
-{
-    const ordered = edits.toSorted((a, b) => a.start - b.start || a.end - b.end);
-    let out = "";
-    let cursor = 0;
-    for (const edit of ordered)
-    {
-        if (edit.start < cursor)
-        {
-            throw new Error(`zerolith: overlapping rewrite at ${edit.start}`);
-        }
-        out += code.slice(cursor, edit.start) + edit.text;
-        cursor = edit.end;
-    }
-    return out + code.slice(cursor);
-}
-
-function identityMap(id: string, original: string, output: string): TransformOutput["map"]
-{
-    const originalLines = original.split("\n").length;
-    const outputLines = output.split("\n").length;
-    const segments: string[] = [];
-    for (let line = 0; line < outputLines; line++)
-    {
-        segments.push(line > 0 && line < originalLines ? "AACA" : "AAAA");
-    }
-    return { version: 3, sources: [id], names: [], mappings: segments.join(";") };
 }
 
 /**

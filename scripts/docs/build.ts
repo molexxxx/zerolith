@@ -20,6 +20,7 @@ const entries: Entry[] = [
     { specifier: "zerolith", file: "packages/zerolith/src/index.ts", title: "zerolith" },
     { specifier: "zerolith/ssr", file: "packages/zerolith/src/ssr.ts", title: "zerolith/ssr" },
     { specifier: "zerolith/element", file: "packages/zerolith/src/element.ts", title: "zerolith/element" },
+    { specifier: "zerolith/jsx-runtime", file: "packages/zerolith/src/jsx-runtime.ts", title: "zerolith/jsx-runtime" },
     { specifier: "@zerolith/router", file: "packages/router/src/index.ts", title: "@zerolith/router" },
     { specifier: "@zerolith/router/server", file: "packages/router/src/server.ts", title: "@zerolith/router/server" },
     { specifier: "@zerolith/devtools", file: "packages/devtools/src/index.ts", title: "@zerolith/devtools" },

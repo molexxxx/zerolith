@@ -113,5 +113,10 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
     {
         cause: "The server-rendered markup did not match the view, and the differing part was rendered again on the client.",
         fix: "Render the same view with the same data on the server and the client; check the mismatches returned by hydrate()."
+    },
+    jsx_not_lowered:
+    {
+        cause: "A JSX expression reached the runtime, which means the lowering in @zerolith/vite did not run for this file.",
+        fix: "Add zerolith() to the Vite plugins and keep JSX in .jsx or .tsx files; without a build step write html templates instead."
     }
 };

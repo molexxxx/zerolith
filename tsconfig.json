@@ -2,6 +2,8 @@
     "extends": "./tsconfig.base.json",
     "compilerOptions": {
         "noEmit": true,
+        "jsx": "react-jsx",
+        "jsxImportSource": "zerolith",
         "isolatedDeclarations": false,
         "allowImportingTsExtensions": true,
         "allowJs": true,
@@ -11,6 +13,8 @@
             "zerolith": ["./packages/zerolith/src/index.ts"],
             "zerolith/ssr": ["./packages/zerolith/src/ssr.ts"],
             "zerolith/element": ["./packages/zerolith/src/element.ts"],
+            "zerolith/jsx-runtime": ["./packages/zerolith/src/jsx-runtime.ts"],
+            "zerolith/jsx-dev-runtime": ["./packages/zerolith/src/jsx-runtime.ts"],
             "@zerolith/router": ["./packages/router/src/index.ts"],
             "@zerolith/router/server": ["./packages/router/src/server.ts"],
             "@zerolith/devtools": ["./packages/devtools/src/index.ts"],

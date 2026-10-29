@@ -43,6 +43,16 @@
             "development": "./dist/element.js",
             "default": "./dist/production/element.js"
         },
+        "./jsx-runtime": {
+            "types": "./dist/jsx-runtime.d.ts",
+            "development": "./dist/jsx-runtime.js",
+            "default": "./dist/production/jsx-runtime.js"
+        },
+        "./jsx-dev-runtime": {
+            "types": "./dist/jsx-runtime.d.ts",
+            "development": "./dist/jsx-runtime.js",
+            "default": "./dist/production/jsx-runtime.js"
+        },
         "./package.json": "./package.json"
     },
     "files": [
