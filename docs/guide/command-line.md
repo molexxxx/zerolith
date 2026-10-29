@@ -1,6 +1,6 @@
 ---
 title: Command line
-description: The Rust command line: a dev server with live reload for the buildless path, import maps with integrity hashes, and project checks.
+description: "The Rust command line: a dev server with live reload for the buildless path, import maps with integrity hashes, and project checks."
 order: 11
 ---
 

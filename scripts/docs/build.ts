@@ -71,6 +71,28 @@ interface FrontMatter
     body: string;
 }
 
+/**
+ * Reads one front matter value as YAML does: a double-quoted string with `\"`
+ * and `\\` escapes, or a plain value. A plain value holding `: ` or ` #` is
+ * refused, because YAML, and so GitHub's Markdown view, rejects or truncates it.
+ */
+function scalar(value: string, file: string): string
+{
+    if (value.startsWith("\""))
+    {
+        if (value.length < 2 || !value.endsWith("\"") || value.endsWith("\\\""))
+        {
+            throw new Error(`${file}: unterminated quoted value in front matter: ${value}`);
+        }
+        return value.slice(1, -1).replace(/\\(["\\])/g, "$1");
+    }
+    if (value.includes(": ") || value.includes(" #"))
+    {
+        throw new Error(`${file}: front matter value needs double quotes: ${value}`);
+    }
+    return value;
+}
+
 function frontMatter(source: string, file: string): FrontMatter
 {
     const match = /^---\n([\s\S]*?)\n---\n/.exec(source);
@@ -84,7 +106,7 @@ function frontMatter(source: string, file: string): FrontMatter
         const colon = line.indexOf(":");
         if (colon > 0)
         {
-            fields.set(line.slice(0, colon).trim(), line.slice(colon + 1).trim());
+            fields.set(line.slice(0, colon).trim(), scalar(line.slice(colon + 1).trim(), file));
         }
     }
     const title = fields.get("title");

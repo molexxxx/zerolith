@@ -1,6 +1,6 @@
 ---
 title: Accessibility
-description: The primitives every component library rebuilds, as functions over the DOM: focus trap, roving tabindex, live announcer, focus origin, visually hidden text, and media query signals.
+description: "The primitives every component library rebuilds, as functions over the DOM: focus trap, roving tabindex, live announcer, focus origin, visually hidden text, and media query signals."
 order: 14
 ---
 

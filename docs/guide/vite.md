@@ -1,6 +1,6 @@
 ---
 title: Vite
-description: The Vite plugin: hot module replacement that swaps components in place and keeps named signal state, and the parts of a build it leaves alone.
+description: "The Vite plugin: hot module replacement that swaps components in place and keeps named signal state, and the parts of a build it leaves alone."
 order: 12
 ---
 
