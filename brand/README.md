@@ -60,7 +60,7 @@ Square corners, 2 px rules, and no shadows, glows, or gradients. The primary act
 
 ## GitHub, npm, and the command line
 
-`github/readme-header-dark.svg` and `github/readme-header-light.svg` head the README through a `<picture>` element; npm shows the light version. `github/social-card.png` is the 1280 by 640 card a shared link unfurls into.
+`github/readme-header-dark.svg` and `github/readme-header-light.svg` head the README through a `<picture>` element, each on a transparent background so the page theme shows through and only the ink changes; npm shows the light version. `github/social-card.png` is the 1280 by 640 card a shared link unfurls into.
 
 In the terminal, severities use the basic ANSI colors so each terminal theme tunes them to its own background, and chartreuse appears only as a badge background with basalt text. Output stays plain when `NO_COLOR` is set or output is not a terminal.
 
