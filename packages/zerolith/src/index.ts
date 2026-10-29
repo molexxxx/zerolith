@@ -1,5 +1,5 @@
 /**
- * zerolith: the front end of the zero-server pair.
+ * zerolith: a standalone frontend framework.
  *
  * The public surface is assembled here.
  */

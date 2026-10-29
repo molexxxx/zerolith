@@ -1,7 +1,7 @@
 {
     "name": "zerolith",
     "version": "0.0.0",
-    "description": "The front end of the zero-server pair: a signals runtime that runs from an import map or a bundle with no second-class path",
+    "description": "A standalone frontend framework: fine-grained signals and HTML templates that run from an import map or a bundle with no second-class path",
     "license": "Apache-2.0",
     "author": "molexxxx",
     "homepage": "https://github.com/molexxxx/zerolith#readme",
@@ -15,7 +15,7 @@
     },
     "keywords": [
         "zerolith",
-        "zero-server",
+        "framework",
         "signals",
         "reactive",
         "frontend",

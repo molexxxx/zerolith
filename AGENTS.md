@@ -4,7 +4,7 @@ This file is the always-on index for agents working in this repository. Keep it 
 
 ## What this is
 
-A frontend framework monorepo. `packages/zerolith` is the browser runtime (signals, `html` and `css` tagged templates, fine-grained DOM rendering, hydration, diagnostics). Other `packages/*` are first-party `@zerolith/*` packages. Rust code lives under `crates/` when the optional compiler and type generator are added. The design rationale is in `docs/research/`, decisions in `docs/decisions/`, and the rules the project has promised its users in `docs/policy/`.
+A standalone frontend framework monorepo. `packages/zerolith` is the browser runtime (signals, `html` and `css` tagged templates, fine-grained DOM rendering, hydration, diagnostics). Other `packages/*` are first-party `@zerolith/*` packages. Rust code lives under `crates/` when the optional compiler and type generator are added. The framework is backend-agnostic: it talks to any server over plain HTTP, and no runtime package may reference a specific server (zero-server integration, if built, is an optional separate package). The design rationale is in `docs/research/` (read it as history, superseded where `docs/decisions/` says so), decisions in `docs/decisions/`, and the rules the project has promised its users in `docs/policy/`.
 
 ## Commands
 

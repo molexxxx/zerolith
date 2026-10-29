@@ -1,8 +1,8 @@
 # zerolith
 
-The front end of the zero-server pair: a signals runtime that runs from an import map or a bundle with no second-class path, typed from Rust struct to browser signal, with every documented example executed in CI and every dev tool working wherever the app is served.
+A standalone frontend framework: fine-grained signals, HTML templates that need no compiler, typed routing, and tooling that works wherever the app is served. It runs from an import map or a bundle with no second-class path, talks to any backend over plain HTTP, and keeps its documentation honest by executing every example in CI.
 
-Status: pre-alpha, nothing published. This repository holds the runtime, the first-party packages, the policies the project commits to before its first release, and the research the design is based on.
+Status: pre-alpha, nothing published. This repository holds the runtime, the first-party packages, the policies the project commits to before its first release, and the research the design is based on. Integration with specific servers, zero-server included, is optional and separate; see `docs/decisions/0002-standalone-framework.md`.
 
 ## Layout
 
