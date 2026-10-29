@@ -13,7 +13,8 @@
         "packages/router",
         "packages/devtools",
         "packages/vite",
-        "packages/forms"
+        "packages/forms",
+        "packages/client"
     ],
     "scripts": {
         "build": "npm run build --workspaces --if-present",

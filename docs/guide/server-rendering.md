@@ -1,7 +1,7 @@
 ---
 title: Server rendering
 description: Rendering views to HTML with no DOM, with the same escaping and URL rules as the browser.
-order: 6
+order: 7
 ---
 
 # Server rendering

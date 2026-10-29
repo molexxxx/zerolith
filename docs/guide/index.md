@@ -48,6 +48,7 @@ With a bundler, install the packages and import them; the `development` export c
 - [Styles](/guide/styles/): scoped component styles with the `css` tag.
 - [Routing](/guide/routing/): the typed route table and plain anchors.
 - [Forms](/guide/forms/): native forms, enhanced with fetch, pending state, and field errors that share one wire shape with the server.
+- [Typed client](/guide/client/): a route table and types generated from an OpenAPI document, checked calls, and problems for failures.
 - [Server rendering](/guide/server-rendering/): rendering views to HTML with no DOM.
 - [Diagnostics](/guide/diagnostics/): the error record, stable codes, and production builds.
 - [Dev tools](/guide/dev-tools/): the in-page inspector, named signals, and Performance tracks.

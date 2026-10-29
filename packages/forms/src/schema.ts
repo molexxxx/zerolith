@@ -4,7 +4,7 @@
  * submission in the browser before it is sent and on the server when it
  * arrives, producing the same problem document in both places.
  */
-import type { FieldErrors, Problem } from "./problem.js";
+import type { FieldErrors, Problem } from "zerolith";
 
 /** One segment of an issue path in object form. */
 export interface StandardPathSegment

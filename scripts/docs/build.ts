@@ -23,7 +23,9 @@ const entries: Entry[] = [
     { specifier: "@zerolith/devtools", file: "packages/devtools/src/index.ts", title: "@zerolith/devtools" },
     { specifier: "@zerolith/vite", file: "packages/vite/src/index.ts", title: "@zerolith/vite" },
     { specifier: "@zerolith/vite/runtime", file: "packages/vite/src/runtime.ts", title: "@zerolith/vite/runtime" },
-    { specifier: "@zerolith/forms", file: "packages/forms/src/index.ts", title: "@zerolith/forms" }
+    { specifier: "@zerolith/forms", file: "packages/forms/src/index.ts", title: "@zerolith/forms" },
+    { specifier: "@zerolith/client", file: "packages/client/src/index.ts", title: "@zerolith/client" },
+    { specifier: "@zerolith/client/generate", file: "packages/client/src/generate.ts", title: "@zerolith/client/generate" }
 ];
 
 interface Page

@@ -29,5 +29,8 @@ export { each, html, hydrate, render, unsafeHtml, when } from "./render.js";
 export type { Styles } from "./css.js";
 export { SCOPE_MARKER, css } from "./css.js";
 
+export type { FieldErrors, Problem } from "./problem.js";
+export { PROBLEM_MEDIA_TYPE, isProblem } from "./problem.js";
+
 export type { DevtoolsEvent, DevtoolsHook, NodeSnapshot, RootSnapshot } from "./devtools.js";
 export { internal as devtoolsInternal, saveRestore as devtoolsSaveRestore } from "./devtools.js";

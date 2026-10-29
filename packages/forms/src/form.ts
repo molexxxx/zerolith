@@ -5,8 +5,7 @@
  * outcome as signals: pending state, a parsed result, or a problem whose
  * `fields` feed the inputs that failed.
  */
-import { type ReadableSignal, batch, computed, signal } from "zerolith";
-import { PROBLEM_MEDIA_TYPE, type Problem, isProblem } from "./problem.js";
+import { PROBLEM_MEDIA_TYPE, type Problem, type ReadableSignal, batch, computed, isProblem, signal } from "zerolith";
 import { type StandardSchema, validateForm } from "./schema.js";
 
 /** Where a form is in its current submission. */

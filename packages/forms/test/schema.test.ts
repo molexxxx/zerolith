@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { type StandardSchema, formValues, isProblem, problemFromIssues, problemResponse, validateForm } from "@zerolith/forms";
+import { isProblem } from "zerolith";
+import { type StandardSchema, formValues, problemFromIssues, problemResponse, validateForm } from "@zerolith/forms";
 
 describe("formValues", () =>
 {

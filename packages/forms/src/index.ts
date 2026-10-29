@@ -1,8 +1,8 @@
 /**
  * @zerolith/forms: native forms, enhanced. The public surface is assembled here.
+ * The `Problem` type, `isProblem`, and `PROBLEM_MEDIA_TYPE` come from `zerolith`.
  */
-export type { FieldErrors, Problem } from "./problem.js";
-export { PROBLEM_MEDIA_TYPE, isProblem, problemResponse } from "./problem.js";
+export { problemResponse } from "./problem.js";
 
 export type { FormValues, InferOutput, StandardIssue, StandardPathSegment, StandardResult, StandardSchema, Validation } from "./schema.js";
 export { formValues, problemFromIssues, validateForm } from "./schema.js";

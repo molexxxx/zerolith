@@ -30,7 +30,7 @@ Any server that can read `FormData` and write a `Response` fits. `validateForm` 
 
 @include packages/forms/test/examples/server.example.test.ts#server
 
-The response for a failed submission is the same document the client built for itself, so the handler serves both the no-JavaScript path and the enhanced one. The `fields` member is the RFC 9457 extension this package defines: a map from field name to an array of messages. A server written in another language answers with the same JSON and the form reads it without a client-side schema at all.
+The response for a failed submission is the same document the client built for itself, so the handler serves both the no-JavaScript path and the enhanced one. The `fields` member is the RFC 9457 extension zerolith defines, a map from field name to an array of messages; the `Problem` type and `isProblem` live in the core so the typed client and the forms share them. A server written in another language answers with the same JSON and the form reads it without a client-side schema at all.
 
 ## What the enhancer does with the response
 

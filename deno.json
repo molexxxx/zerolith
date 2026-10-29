@@ -7,6 +7,8 @@
         "@zerolith/devtools": "./packages/devtools/src/index.ts",
         "@zerolith/vite": "./packages/vite/src/index.ts",
         "@zerolith/vite/runtime": "./packages/vite/src/runtime.ts",
-        "@zerolith/forms": "./packages/forms/src/index.ts"
+        "@zerolith/forms": "./packages/forms/src/index.ts",
+        "@zerolith/client": "./packages/client/src/index.ts",
+        "@zerolith/client/generate": "./packages/client/src/generate.ts"
     }
 }

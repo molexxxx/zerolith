@@ -1,0 +1,56 @@
+{
+    "name": "@zerolith/client",
+    "version": "0.0.0",
+    "description": "A typed HTTP client for zerolith over a neutral contract: generate the route table and types from an OpenAPI document, call operations with checked inputs, and read failures as RFC 9457 problems",
+    "license": "Apache-2.0",
+    "author": "molexxxx",
+    "homepage": "https://github.com/molexxxx/zerolith#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/molexxxx/zerolith.git",
+        "directory": "packages/client"
+    },
+    "bugs": {
+        "url": "https://github.com/molexxxx/zerolith/issues"
+    },
+    "keywords": [
+        "zerolith",
+        "openapi",
+        "typed-client",
+        "problem-details"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "engines": {
+        "node": ">=24.0.0"
+    },
+    "bin": {
+        "zerolith-client": "./dist/cli.js"
+    },
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        },
+        "./generate": {
+            "types": "./dist/generate.d.ts",
+            "default": "./dist/generate.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "src",
+        "LICENSE",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json"
+    },
+    "peerDependencies": {
+        "zerolith": "*"
+    },
+    "devDependencies": {
+        "zerolith": "*"
+    }
+}

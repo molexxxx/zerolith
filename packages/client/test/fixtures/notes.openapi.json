@@ -1,0 +1,121 @@
+{
+    "openapi": "3.2.0",
+    "info": { "title": "Notes", "version": "1.0.0" },
+    "paths": {
+        "/notes": {
+            "get": {
+                "operationId": "listNotes",
+                "summary": "Lists notes, newest first.",
+                "parameters": [
+                    { "name": "q", "in": "query", "description": "Matches titles and bodies.", "schema": { "type": "string" } },
+                    { "name": "tag", "in": "query", "schema": { "type": "array", "items": { "type": "string" } } },
+                    { "$ref": "#/components/parameters/Limit" }
+                ],
+                "responses": {
+                    "200": { "description": "A page of notes.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NotePage" } } } }
+                }
+            },
+            "post": {
+                "operationId": "create-note",
+                "requestBody": { "$ref": "#/components/requestBodies/NoteDraft" },
+                "responses": {
+                    "201": { "description": "The created note.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Note" } } } },
+                    "400": { "$ref": "#/components/responses/Problem" }
+                }
+            }
+        },
+        "/notes/{id}": {
+            "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+            "get": {
+                "operationId": "getNote",
+                "responses": {
+                    "200": { "description": "The note.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Note" } } } },
+                    "404": { "$ref": "#/components/responses/Problem" }
+                }
+            },
+            "put": {
+                "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NoteDraft" } } } },
+                "responses": { "200": { "description": "The updated note.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Note" } } } } }
+            },
+            "delete": {
+                "operationId": "deleteNote",
+                "deprecated": true,
+                "responses": { "204": { "description": "Deleted." } }
+            }
+        },
+        "/notes/{id}/attachments": {
+            "post": {
+                "operationId": "attach",
+                "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+                "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object", "properties": { "file": { "type": "string", "format": "binary" } } } } } },
+                "responses": { "202": { "description": "Accepted." }, "200": { "description": "Stored.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Attachment" } } } } }
+            }
+        },
+        "/search": {
+            "get": {
+                "operationId": "search",
+                "parameters": [{ "name": "q", "in": "query", "required": true, "schema": { "type": "string" } }],
+                "responses": { "200": { "description": "Matches.", "content": { "text/plain": { "schema": { "type": "string" } } } } }
+            }
+        }
+    },
+    "components": {
+        "parameters": {
+            "Limit": { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100 } }
+        },
+        "requestBodies": {
+            "NoteDraft": { "description": "A note to create.", "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NoteDraft" } } } }
+        },
+        "responses": {
+            "Problem": { "description": "A problem.", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } } }
+        },
+        "schemas": {
+            "Note": {
+                "description": "A stored note.",
+                "type": "object",
+                "required": ["id", "title", "tags", "visibility"],
+                "properties": {
+                    "id": { "type": "string" },
+                    "title": { "type": "string", "description": "Shown in lists." },
+                    "body": { "type": ["string", "null"] },
+                    "tags": { "type": "array", "items": { "type": "string" } },
+                    "visibility": { "$ref": "#/components/schemas/Visibility" },
+                    "position": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }] },
+                    "meta": { "type": "object", "additionalProperties": { "type": "string" } },
+                    "owner": { "allOf": [{ "$ref": "#/components/schemas/Person" }, { "type": "object", "properties": { "role": { "const": "owner" } } }] }
+                }
+            },
+            "NoteDraft": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {
+                    "title": { "type": "string" },
+                    "body": { "type": "string", "nullable": true },
+                    "tags": { "type": "array", "items": { "type": "string" } }
+                }
+            },
+            "NotePage": {
+                "type": "object",
+                "required": ["items"],
+                "properties": {
+                    "items": { "type": "array", "items": { "$ref": "#/components/schemas/Note" } },
+                    "next": { "oneOf": [{ "type": "string" }, { "type": "null" }] }
+                }
+            },
+            "Visibility": { "type": "string", "enum": ["private", "shared", "public"] },
+            "Person": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" }, "email": { "type": "string", "format": "email" } } },
+            "Attachment": { "type": "object", "required": ["id", "size"], "properties": { "id": { "type": "string" }, "size": { "type": "integer" }, "content-type": { "type": "string" } } },
+            "Problem": {
+                "type": "object",
+                "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "fields": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } }
+                }
+            },
+            "free.form": {}
+        }
+    }
+}
