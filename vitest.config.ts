@@ -12,6 +12,7 @@ export default defineConfig({
             "@zerolith/vite": fileURLToPath(new URL("./packages/vite/src/index.ts", import.meta.url)),
             "@zerolith/client/generate": fileURLToPath(new URL("./packages/client/src/generate.ts", import.meta.url)),
             "@zerolith/client": fileURLToPath(new URL("./packages/client/src/index.ts", import.meta.url)),
+            "@zerolith/test": fileURLToPath(new URL("./packages/test/src/index.ts", import.meta.url)),
             "@zerolith/forms": fileURLToPath(new URL("./packages/forms/src/index.ts", import.meta.url)),
             "@zerolith/devtools": fileURLToPath(new URL("./packages/devtools/src/index.ts", import.meta.url)),
             "@zerolith/router/server": fileURLToPath(new URL("./packages/router/src/server.ts", import.meta.url)),

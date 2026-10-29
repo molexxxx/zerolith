@@ -10,6 +10,7 @@
         "@zerolith/vite/runtime": "./packages/vite/src/runtime.ts",
         "@zerolith/forms": "./packages/forms/src/index.ts",
         "@zerolith/client": "./packages/client/src/index.ts",
-        "@zerolith/client/generate": "./packages/client/src/generate.ts"
+        "@zerolith/client/generate": "./packages/client/src/generate.ts",
+        "@zerolith/test": "./packages/test/src/index.ts"
     }
 }

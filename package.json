@@ -14,7 +14,8 @@
         "packages/devtools",
         "packages/vite",
         "packages/forms",
-        "packages/client"
+        "packages/client",
+        "packages/test"
     ],
     "scripts": {
         "build": "npm run build --workspaces --if-present",
