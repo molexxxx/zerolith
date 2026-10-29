@@ -7,7 +7,7 @@
 import { URL_ATTRIBUTES, describe, isNothing, isText, join, safeUrl } from "./binding.js";
 import { diagnostic, fail, report } from "./diagnostics.js";
 import { type Owner, type ReadableSignal, type Signal, createOwner, effect, isSignal, onDispose, signal, untracked } from "./signals.js";
-import { ATTRIBUTE, BOOLEAN, CHILD, EVENT, type PartSpec, type Prepared, REF, prepare, walker } from "./template.js";
+import { ATTRIBUTE, BOOLEAN, CHILD, EVENT, type PartSpec, type Prepared, REF, prepare, trusted, walker } from "./template.js";
 
 /** Brand carried by every value the renderer accepts as a description of UI. */
 export const VIEW: unique symbol = Symbol("zerolith.view");
@@ -62,6 +62,39 @@ abstract class Directive implements View
     readonly [VIEW]: true = true;
     abstract mount(part: ChildPart): Controller;
     abstract resolve(): unknown;
+}
+
+/** Markup that is inserted as is, as the server renderer sees it. */
+export interface RawView extends View
+{
+    readonly markup: string;
+}
+
+class RawHtml implements RawView
+{
+    readonly [VIEW]: true = true;
+    readonly markup: string;
+
+    constructor(markup: string)
+    {
+        this.markup = markup;
+    }
+}
+
+/**
+ * Marks a string as markup to insert without escaping. This is the one way
+ * to put HTML you already trust into a view, for example content rendered
+ * from Markdown you wrote. Never pass user input.
+ */
+export function unsafeHtml(markup: string): View
+{
+    return new RawHtml(markup);
+}
+
+/** True for the result of `unsafeHtml`. */
+export function isRawHtml(value: unknown): value is RawView
+{
+    return value instanceof RawHtml;
 }
 
 /** True for the result of an `html` literal. */
@@ -155,6 +188,7 @@ class ChildPart implements BoundPart
     private instance: Instance | undefined = undefined;
     private text: Text | undefined = undefined;
     private node: ChildNode | undefined = undefined;
+    private raw: ChildNode[] | undefined = undefined;
     private items: ChildPart[] | undefined = undefined;
     private controller: Controller | undefined = undefined;
 
@@ -216,6 +250,14 @@ class ChildPart implements BoundPart
             this.node.remove();
             this.node = undefined;
         }
+        if (this.raw !== undefined)
+        {
+            for (const node of this.raw)
+            {
+                node.remove();
+            }
+            this.raw = undefined;
+        }
         if (this.text !== undefined)
         {
             this.text.remove();
@@ -270,6 +312,16 @@ class ChildPart implements BoundPart
         {
             this.clear();
             this.controller = value.mount(this);
+            return;
+        }
+        if (value instanceof RawHtml)
+        {
+            this.clear();
+            const template = document.createElement("template");
+            template.innerHTML = trusted(value.markup);
+            const nodes = Array.from(template.content.childNodes);
+            this.anchor.parentNode?.insertBefore(template.content, this.anchor);
+            this.raw = nodes;
             return;
         }
         if (isSignal(value))

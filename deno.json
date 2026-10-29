@@ -1,0 +1,8 @@
+{
+    "unstable": ["sloppy-imports"],
+    "imports": {
+        "zerolith": "./packages/zerolith/src/index.ts",
+        "zerolith/ssr": "./packages/zerolith/src/ssr.ts",
+        "@zerolith/router": "./packages/router/src/index.ts"
+    }
+}

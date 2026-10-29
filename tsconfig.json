@@ -3,6 +3,7 @@
     "compilerOptions": {
         "noEmit": true,
         "isolatedDeclarations": false,
+        "allowImportingTsExtensions": true,
         "allowJs": true,
         "checkJs": true,
         "types": ["node"],
@@ -17,6 +18,7 @@
         "packages/*/test",
         "packages/*/scripts",
         "scripts",
+        "scripts/docs",
         "benchmarks/*.ts",
         "examples/*/*.js",
         "examples/*/test",

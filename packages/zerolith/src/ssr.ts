@@ -8,7 +8,7 @@
 import { URL_ATTRIBUTES, describe, isNothing, isText, join, safeUrl } from "./binding.js";
 import { styleSheets } from "./css.js";
 import { diagnostic, fail, report } from "./diagnostics.js";
-import { type TemplateView, isDirective, isTemplate, resolveDirective } from "./render.js";
+import { type TemplateView, isDirective, isRawHtml, isTemplate, resolveDirective } from "./render.js";
 import { isSignal, scope } from "./signals.js";
 import { ATTRIBUTE, BOOLEAN, CHILD, type PartSpec, scan } from "./template.js";
 
@@ -76,6 +76,10 @@ function renderValue(value: unknown): string
     if (isDirective(resolved))
     {
         return renderValue(resolveDirective(resolved));
+    }
+    if (isRawHtml(resolved))
+    {
+        return resolved.markup;
     }
     if (isSignal(resolved))
     {

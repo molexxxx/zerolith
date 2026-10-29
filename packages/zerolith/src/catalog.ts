@@ -1,11 +1,13 @@
+// The production build replaces this module with an empty catalog; codes
+// and URLs remain.
+import type { DiagnosticCode, DiagnosticText } from "./diagnostics.js";
+
 /**
  * The message text for every diagnostic code. The documentation pages for
  * the codes are generated from this table, so an entry here is the single
- * source of truth for both the message and the docs. The production build
- * replaces this module with an empty catalog; codes and URLs remain.
+ * source of truth for both the message and the docs. Production builds
+ * ship an empty catalog, so look entries up with `?.`.
  */
-import type { DiagnosticCode, DiagnosticText } from "./diagnostics.js";
-
 export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, DiagnosticText>>> = {
     signal_written_inside_computed:
     {

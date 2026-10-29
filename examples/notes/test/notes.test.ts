@@ -1,7 +1,7 @@
 import { type Server } from "node:http";
 import { type Browser, type Page, chromium } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createStaticServer, listen } from "../../../scripts/static.js";
+import { createStaticServer, listen } from "../../../scripts/static.ts";
 
 /**
  * Drives the notes example in headless Chromium over the static server:

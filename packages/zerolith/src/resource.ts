@@ -17,6 +17,7 @@ export interface LoaderContext<P>
     abort: AbortSignal;
 }
 
+/** What `resource()` takes: a tracked params function and an untracked loader. */
 export interface ResourceOptions<P, T>
 {
     /** Tracked: the signals it reads decide when the loader re-runs. Returning undefined puts the resource in the idle state. */

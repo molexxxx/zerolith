@@ -46,10 +46,15 @@ export function createStaticServer(): Server
     return createServer(async (request, response) =>
     {
         const url = new URL(request.url ?? "/", "http://localhost");
-        const file = resolvePath(url.pathname);
+        let file = resolvePath(url.pathname);
         try
         {
-            const info = await stat(file);
+            let info = await stat(file);
+            if (info.isDirectory())
+            {
+                file = join(file, "index.html");
+                info = await stat(file);
+            }
             if (!info.isFile())
             {
                 throw new Error("not a file");

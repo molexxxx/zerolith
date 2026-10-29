@@ -90,6 +90,7 @@ export interface Match
 /** The arguments `href()` takes for a path: none when it has no parameters. */
 export type HrefArgs<Path extends string> = Record<string, never> extends ParamsOf<Path> ? [] : [params: ParamsOf<Path>];
 
+/** Options for `createRouter`. */
 export interface RouterOptions
 {
     /** Renders when no route matches. */
@@ -102,6 +103,7 @@ export interface RouterOptions
     window?: Window;
 }
 
+/** The router returned by `createRouter`, typed by its route table. */
 export interface Router<T extends RouteTable>
 {
     /** The current match, or undefined when nothing matched (the fallback renders). */

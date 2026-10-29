@@ -352,7 +352,7 @@ interface PolicyFactory
 let policy: Policy | undefined;
 
 /** Passes template markup through the `zerolith` Trusted Types policy when the browser enforces one. */
-function trusted(markup: string): string
+export function trusted(markup: string): string
 {
     if (policy === undefined)
     {

@@ -6,8 +6,6 @@
  */
 import { diagnosticCatalog } from "./catalog.js";
 
-export { diagnosticCatalog };
-
 /**
  * How safely a suggestion can be applied without a human reading it,
  * following the grades rustc uses for its own suggestions.

@@ -14,7 +14,8 @@ export type {
     DiagnosticSuggestion,
     DiagnosticText
 } from "./diagnostics.js";
-export { DIAGNOSTIC_URL, ZerolithError, diagnosticCatalog, onDiagnostic } from "./diagnostics.js";
+export { DIAGNOSTIC_URL, ZerolithError, onDiagnostic } from "./diagnostics.js";
+export { diagnosticCatalog } from "./catalog.js";
 
 export type { EffectFunction, Equals, ReadableSignal, Scope, Signal, SignalOptions } from "./signals.js";
 export { batch, computed, effect, onDispose, scope, signal, untracked } from "./signals.js";
@@ -23,7 +24,7 @@ export type { LoaderContext, Resource, ResourceOptions, ResourceStatus } from ".
 export { resource } from "./resource.js";
 
 export type { KeyOf, Root, RowOf, View } from "./render.js";
-export { each, html, render, when } from "./render.js";
+export { each, html, render, unsafeHtml, when } from "./render.js";
 
 export type { Styles } from "./css.js";
 export { SCOPE_MARKER, css } from "./css.js";
