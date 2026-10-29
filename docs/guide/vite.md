@@ -55,3 +55,7 @@ The plugin also keeps `zerolith`, `@zerolith/router`, `@zerolith/devtools`, and 
 ## Compared with the buildless dev server
 
 `zerolith dev` has no module graph to patch, so it reloads the page on any change and restores named signals afterwards. The plugin does the same restore without the reload. Both read the same `name` option, so an application moves between the two without changing how it keeps state.
+
+## In a production build
+
+The plugin does not rewrite anything for `vite build`. It checks the output instead: a module of the development build of the core, anything under `zerolith/dist/` that is not under `production/`, that reaches a build in production mode fails the build with the module that leaked, because it means the `production` export condition did not apply, through a `resolve.conditions` override or an alias. The size of this repository's tasks example, built for production, is measured in CI next to the core's budget, so the built path is held to a number the same way the runtime is. The remaining passes the build path will carry are listed in the project's decision records.
