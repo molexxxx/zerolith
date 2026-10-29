@@ -4,6 +4,7 @@
  */
 import { css, html, unsafeHtml } from "zerolith";
 import { renderStyles, renderToString } from "zerolith/ssr";
+import { Search } from "./search.js";
 
 export interface NavSection
 {
@@ -45,6 +46,7 @@ function Shell(page: PageData)
         <div class=${shell}>
             <nav aria-label="Documentation">
                 <a class="brand" href="/">zerolith</a>
+                <div data-island="search">${Search()}</div>
                 ${page.nav.map((section) => html`
                     <h2>${section.title}</h2>
                     <ul>${section.pages.map((item) => html`<li><a href=${item.href} aria-current=${item.href === page.path ? "page" : null}>${item.title}</a></li>`)}</ul>`)}
@@ -80,6 +82,8 @@ export function renderPage(page: PageData): string
 <link rel="stylesheet" href="/styles.css">
 <link rel="alternate" type="text/markdown" href="${markdownTwin(page.path)}">
 ${renderStyles()}
+<script type="importmap">{"imports":{"zerolith":"/zerolith/index.js"}}</script>
+<script type="module" src="/island.js"></script>
 </head>
 <body>
 ${body}

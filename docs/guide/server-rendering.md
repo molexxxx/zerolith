@@ -22,7 +22,7 @@ The rendered markup carries comment markers around every bound value. `hydrate(v
 
 @include packages/zerolith/test/examples/hydrate.example.browser.test.ts#hydrate
 
-This documentation site is rendered this way: its page shell is a zerolith view, and the build writes the strings to disk.
+This documentation site is rendered this way: its page shell is a zerolith view, the build writes the strings to disk, and the search box in the navigation is an island hydrated in the browser from the production build through an import map, with no bundler anywhere in the site.
 
 ## A routed application
 

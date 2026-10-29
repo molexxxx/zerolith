@@ -5,7 +5,7 @@
  * own catalog. Every page gets a Markdown twin, llms.txt indexes them, and
  * a broken internal link or a missing example fails the build.
  */
-import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { marked } from "marked";
@@ -202,6 +202,10 @@ function checkLinks(pages: Page[], rendered: Map<string, string>): void
     known.add("/llms.txt");
     known.add("/llms-full.txt");
     known.add("/api.json");
+    known.add("/search.json");
+    known.add("/search.js");
+    known.add("/island.js");
+    known.add("/zerolith/index.js");
     const broken: string[] = [];
     for (const [path, html] of rendered)
     {
@@ -223,6 +227,78 @@ function checkLinks(pages: Page[], rendered: Map<string, string>): void
     {
         throw new Error(`broken internal links:\n${broken.join("\n")}`);
     }
+}
+
+interface SearchEntry
+{
+    path: string;
+    title: string;
+    section: string;
+    heading: string;
+    anchor: string;
+    text: string;
+}
+
+/** Markdown reduced to the words a search should see: no code blocks, links, tags, or markup characters. */
+function plainText(markdown: string): string
+{
+    return markdown
+        .replace(/```[\s\S]*?```/g, " ")
+        .replace(/^@include .*$/gm, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+        .replace(/[`*_>|#]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+/** One entry per page section, so a hit lands on the heading that holds the answer. */
+function searchIndex(pages: Page[]): SearchEntry[]
+{
+    const found: SearchEntry[] = [];
+    for (const page of pages)
+    {
+        const chunks = page.markdown.split(/^#{2,3} /m);
+        for (const [index, chunk] of chunks.entries())
+        {
+            let heading = page.title;
+            let body = chunk.replace(/^# .*$/m, "");
+            if (index > 0)
+            {
+                const newline = chunk.indexOf("\n");
+                heading = plainText(newline === -1 ? chunk : chunk.slice(0, newline));
+                body = newline === -1 ? "" : chunk.slice(newline + 1);
+            }
+            const text = plainText(body).slice(0, 3000);
+            if (text === "" && index > 0)
+            {
+                continue;
+            }
+            found.push({ path: page.path, title: page.title, section: page.section, heading, anchor: index === 0 ? "" : slug(heading), text });
+        }
+    }
+    return found;
+}
+
+/** Copies the search island and the production build it hydrates from into the site. */
+async function copyIsland(): Promise<void>
+{
+    const production = join(root, "packages", "zerolith", "dist", "production");
+    let modules: string[];
+    try
+    {
+        modules = (await readdir(production)).filter((name) => name.endsWith(".js"));
+    }
+    catch
+    {
+        throw new Error("packages/zerolith/dist/production is missing; run `npm run build` before `npm run docs`");
+    }
+    await mkdir(join(out, "zerolith"), { recursive: true });
+    await Promise.all([
+        ...modules.map((name) => copyFile(join(production, name), join(out, "zerolith", name))),
+        copyFile(join(root, "scripts", "docs", "search.js"), join(out, "search.js")),
+        copyFile(join(root, "scripts", "docs", "island.js"), join(out, "island.js"))
+    ]);
 }
 
 async function write(path: string, content: string): Promise<void>
@@ -255,6 +331,8 @@ checkLinks(pages, rendered);
 
 await write("styles.css", globalStyles);
 await write("api.json", JSON.stringify({ generated: new Date().toISOString(), symbols: manifest }, null, 2) + "\n");
+await write("search.json", JSON.stringify(searchIndex(pages)));
+await copyIsland();
 
 const llms = ["# zerolith", "", "> A standalone frontend framework: fine-grained signals, HTML templates that need no compiler, typed routing, and tooling that works wherever the app is served.", ""];
 for (const section of ["Guide", "Reference", "Diagnostics"] as const)
