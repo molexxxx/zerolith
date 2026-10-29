@@ -706,15 +706,26 @@ function adopt(dispose: () => void): void
 export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T>
 {
     const node = new State(initial, options?.equals ?? Object.is);
-    trackNode(node, "state", options?.name, () => ({ value: untracked(() => node.get()), observers: countTargets(node) }));
+    trackNode(node, "state", options?.name, inspectSource);
     return node;
+}
+
+/** Reads a source's value and observer count for the dev tools without holding the source. */
+function inspectSource(node: Source & ReadableSignal<unknown>): { value: unknown; observers: number }
+{
+    return { value: untracked(() => node.get()), observers: countTargets(node) };
+}
+
+function inspectEffect(): { observers: number }
+{
+    return { observers: 0 };
 }
 
 /** Creates a lazily evaluated, memoized value derived from other signals. The function must not write signals. */
 export function computed<T>(fn: () => T, options?: SignalOptions<T>): ReadableSignal<T>
 {
     const node = new Computed(fn, options?.equals ?? Object.is);
-    trackNode(node, "computed", options?.name ?? (fn.name === "" ? undefined : fn.name), () => ({ value: untracked(() => node.get()), observers: countTargets(node) }));
+    trackNode(node, "computed", options?.name ?? (fn.name === "" ? undefined : fn.name), inspectSource);
     return node;
 }
 
@@ -727,7 +738,7 @@ export function computed<T>(fn: () => T, options?: SignalOptions<T>): ReadableSi
 export function effect(fn: EffectFunction): () => void
 {
     const node = new Effect(fn);
-    trackNode(node, "effect", fn.name === "" ? undefined : fn.name, () => ({ observers: 0 }));
+    trackNode(node, "effect", fn.name === "" ? undefined : fn.name, inspectEffect);
     try
     {
         measure("Signals", "effect", () =>

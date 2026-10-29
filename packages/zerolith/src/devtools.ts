@@ -46,6 +46,9 @@ export interface DevtoolsHook
     subscribe(listener: (event: DevtoolsEvent) => void): () => void;
 }
 
+/** Reads a node's state when the inspector asks. It receives the node so it never has to hold it. */
+export type Inspect<T extends object> = (node: T) => { value?: unknown; observers: number };
+
 interface TrackedNode
 {
     id: number;
@@ -53,13 +56,14 @@ interface TrackedNode
     name: string | undefined;
     internal: boolean;
     ref: WeakRef<object>;
-    inspect: () => { value?: unknown; observers: number };
+    inspect: Inspect<object>;
 }
 
 const DIAGNOSTICS_KEPT = 200;
 
 let nextId = 1;
 let depth = 0;
+let pruneAt = 256;
 const nodes: TrackedNode[] = [];
 const roots: Map<object, RootSnapshot> = new Map();
 const diagnostics: Diagnostic[] = [];
@@ -92,9 +96,14 @@ const hook: DevtoolsHook = {
         return nodes.map((node) =>
         {
             const snapshot: NodeSnapshot = { id: node.id, kind: node.kind, name: node.name, observers: 0, internal: node.internal };
+            const target = node.ref.deref();
+            if (target === undefined)
+            {
+                return snapshot;
+            }
             try
             {
-                const state = node.inspect();
+                const state = node.inspect(target);
                 snapshot.observers = state.observers;
                 if ("value" in state)
                 {
@@ -128,11 +137,21 @@ const hook: DevtoolsHook = {
 
 (globalThis as { __ZEROLITH_DEVTOOLS__?: DevtoolsHook }).__ZEROLITH_DEVTOOLS__ = hook;
 
-/** Records a reactive node. `inspect` reads its state untracked when the inspector asks. */
-export function trackNode(node: object, kind: NodeSnapshot["kind"], name: string | undefined, inspect: () => { value?: unknown; observers: number }): void
+/**
+ * Records a reactive node, held weakly so discarded state can be collected.
+ * `inspect` receives the node and reads its state untracked when the
+ * inspector asks; it must not capture the node itself. The registry is
+ * pruned of collected nodes each time it doubles.
+ */
+export function trackNode<T extends object>(node: T, kind: NodeSnapshot["kind"], name: string | undefined, inspect: Inspect<T>): void
 {
     const id = nextId++;
-    nodes.push({ id, kind, name, internal: depth > 0, ref: new WeakRef(node), inspect });
+    nodes.push({ id, kind, name, internal: depth > 0, ref: new WeakRef(node), inspect: inspect as Inspect<object> });
+    if (nodes.length >= pruneAt)
+    {
+        prune();
+        pruneAt = Math.max(256, nodes.length * 2);
+    }
     emit({ type: "node", id });
 }
 

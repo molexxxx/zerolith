@@ -35,7 +35,9 @@ export interface DevtoolsHook
     subscribe(listener: (event: DevtoolsEvent) => void): () => void;
 }
 
-export function trackNode(_node: object, _kind: NodeSnapshot["kind"], _name: string | undefined, _inspect: () => { value?: unknown; observers: number }): void
+export type Inspect<T extends object> = (node: T) => { value?: unknown; observers: number };
+
+export function trackNode<T extends object>(_node: T, _kind: NodeSnapshot["kind"], _name: string | undefined, _inspect: Inspect<T>): void
 {
 }
 
