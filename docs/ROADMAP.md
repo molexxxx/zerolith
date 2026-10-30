@@ -1,8 +1,6 @@
 # Roadmap
 
-Where zerolith stands, what remains before 1.0, and what follows it. There are no dates: items move when they are ready, and anything that changes the public API goes through an [RFC](rfcs/0000-template.md) first. A checked item is on `main` and tested; an unchecked item is planned. The [changelog](../CHANGELOG.md) records what each release contains.
-
-The plan behind this page comes from a design research pass on 2026-10-28. That report is not published; its conclusions are recorded here and in the [architecture decisions](decisions/). Where an ADR or RFC mentions "the research report", it means that document.
+Where zerolith stands, what remains before 1.0, and what follows it. There are no dates: items move when they are ready, and anything that changes the public API goes through an RFC first, as [GOVERNANCE.md](../GOVERNANCE.md) describes. A checked item is on `main` and tested; an unchecked item is planned. The [changelog](../CHANGELOG.md) records what each release contains.
 
 ## Where it stands
 
@@ -52,7 +50,7 @@ In order:
 - [x] Server rendering to strings and hydration with mismatch repair and reporting.
 - [x] Coded diagnostics with a cause, a fix, and a page per code.
 - [x] Custom elements with attributes and properties as signals (`zerolith/element`).
-- [x] JSX as an alternative spelling of `html` ([RFC 0001](rfcs/0001-jsx-authoring.md)).
+- [x] JSX as an alternative spelling of `html`.
 - [x] Mounting by element or CSS selector.
 - [x] Templates prepared ahead of time by a build tool, with the scanner left out of the bundle.
 - [ ] Streaming server rendering.
@@ -78,7 +76,7 @@ In order:
 
 ## Build path
 
-See [ADR 0005](decisions/0005-build-path.md).
+See the [Vite guide](guide/vite.md).
 
 - [x] `@zerolith/vite`: JSX lowering, hot replacement that keeps named signals, development warnings, and a production check against development modules.
 - [x] The template prepare pass in `vite build` and in `zerolith build`, held to one output by a shared fixture.
@@ -89,7 +87,7 @@ See [ADR 0005](decisions/0005-build-path.md).
 
 ## Command line
 
-See [ADR 0006](decisions/0006-command-line-distribution.md).
+See the [command line guide](guide/command-line.md).
 
 - [x] `new`, `dev`, `serve`, `build`, `importmap`, and `doctor`.
 - [x] `dev` and `build` serve and write TypeScript and JSX through oxc with no other tool.
@@ -142,7 +140,7 @@ See [ADR 0006](decisions/0006-command-line-distribution.md).
 - [ ] The first production site moves onto zerolith, served buildless.
 - [ ] An Electron desktop application adopts zerolith view by view: custom elements inside its existing React tree, the typed client over its IPC bridge, and state bridged to signals.
 - [ ] A showcase of applications built with zerolith, and named design partners.
-- [ ] zero-query, the predecessor, moves to maintenance and later retires as [ADR 0004](decisions/0004-zero-query-maintenance-and-retirement.md) describes.
+- [ ] zero-query, the predecessor, moves to maintenance and later retires.
 
 ## Project and supply chain
 
@@ -167,4 +165,4 @@ See [ADR 0006](decisions/0006-command-line-distribution.md).
 
 - **A required compiler.** The bundler and the command line optimize; plain files always run.
 - **WebRTC in the core.** A separate package may follow later.
-- **Coupling to a particular backend.** zerolith talks to servers over plain HTTP ([ADR 0002](decisions/0002-standalone-framework.md)).
+- **Coupling to a particular backend.** zerolith talks to servers over plain HTTP.
