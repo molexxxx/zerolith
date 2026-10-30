@@ -2,6 +2,10 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
+## Unreleased
+
+- `@zerolith/vite`, `@zerolith/cli`, and the `zerolith` crate: the prepare pass creates a template with no bindings once, at module scope, and every render reuses that view instead of allocating a new one.
+
 ## 0.1.0-alpha.2 (2026-10-30)
 
 Templates are prepared at build time by the Vite plugin and the command line, views mount by CSS selector, and every diagnostic links to a page that exists: the docs site is published to GitHub Pages with each release.

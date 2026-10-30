@@ -16,7 +16,7 @@ export { JsxError, lowerJsx } from "./jsx.js";
 export type { Finding, LintCode } from "./lint.js";
 export { lintModule, position } from "./lint.js";
 export type { PrepareOutput, ScannedPart, TemplateScanner } from "./prepare.js";
-export { PREPARED_BINDING, PrepareError, TEMPLATE_BINDING, prepareModule } from "./prepare.js";
+export { PREPARED_BINDING, PrepareError, TEMPLATE_BINDING, VIEW_BINDING, prepareModule } from "./prepare.js";
 export type { ModuleParser, ParsedModule, TransformOutput } from "./transform.js";
 export { transformModule } from "./transform.js";
 

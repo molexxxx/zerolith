@@ -30,6 +30,8 @@ export type TemplateScanner = (strings: readonly string[]) => { markup: string; 
 export const PREPARED_BINDING: string = "__zl_prepared";
 /** The prefix of the hoisted template bindings, numbered per module. */
 export const TEMPLATE_BINDING: string = "__zl_t";
+/** The prefix of the module-scope views of templates with no bindings, numbered like their templates. */
+export const VIEW_BINDING: string = "__zl_v";
 
 const SPECIFIER = "zerolith";
 const HEAD = `import { prepared as ${PREPARED_BINDING} } from "${SPECIFIER}";`;
@@ -279,7 +281,9 @@ export function prepareModule(code: string, id: string, parse: ModuleParser, sca
         const first = expressions[0];
         if (first === undefined)
         {
-            edits.push({ start: template.start, end: template.end, text: `${tag}(${name}${newlines(code.slice(template.start, template.end))})` });
+            const view = `${VIEW_BINDING}${index}`;
+            hoisted += `const ${view} = ${tag}(${name});`;
+            edits.push({ start: template.start, end: template.end, text: `(${view}${newlines(code.slice(template.start, template.end))})` });
             continue;
         }
         edits.push({ start: template.start, end: first.start, text: `${tag}(${name},${newlines(code.slice(template.start, first.start))} ` });

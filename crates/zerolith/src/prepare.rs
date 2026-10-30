@@ -23,6 +23,8 @@ use crate::transform::{Edit, TransformError, apply_edits, fail, json, parse_erro
 pub const PREPARED_BINDING: &str = "__zl_prepared";
 /// The prefix of the hoisted template bindings, numbered per module.
 pub const TEMPLATE_BINDING: &str = "__zl_t";
+/// The prefix of the module-scope views of templates with no bindings, numbered like their templates.
+pub const VIEW_BINDING: &str = "__zl_v";
 
 const SPECIFIER: &str = "zerolith";
 
@@ -279,10 +281,12 @@ pub fn prepare(source: &str) -> Result<String, TransformError> {
         let slice = |span: Span| &source[span.start as usize..span.end as usize];
         let tag = slice(template.tag);
         let Some(first) = template.expressions.first() else {
+            let view = format!("{VIEW_BINDING}{index}");
+            hoisted.push_str(&format!("const {view} = {tag}({name});"));
             edits.push(Edit {
                 start: template.span.start,
                 end: template.span.end,
-                text: format!("{tag}({name}{})", newlines(slice(template.span))),
+                text: format!("({view}{})", newlines(slice(template.span))),
             });
             continue;
         };
@@ -349,12 +353,12 @@ mod tests {
         assert!(
             prepare("import { html as h } from \"zerolith\";\nexport const v = h`<p></p>`;\n")
                 .unwrap()
-                .contains("export const v = h(__zl_t0);")
+                .contains("const __zl_v0 = h(__zl_t0);")
         );
         assert!(
             prepare("import * as z from \"zerolith\";\nexport const v = z.html`<p></p>`;\n")
                 .unwrap()
-                .contains("export const v = z.html(__zl_t0);")
+                .contains("const __zl_v0 = z.html(__zl_t0);export const v = (__zl_v0);")
         );
         let top = prepare(
             "import { html, render } from \"zerolith\";\nrender(html`<p></p>`, \"#app\");\n",
@@ -363,7 +367,7 @@ mod tests {
         assert_eq!(
             top.lines().nth(1),
             Some(
-                "const __zl_t0 = __zl_prepared([\"<p></p>\"], \"<p></p>\", []);render(html(__zl_t0), \"#app\");"
+                "const __zl_t0 = __zl_prepared([\"<p></p>\"], \"<p></p>\", []);const __zl_v0 = html(__zl_t0);render((__zl_v0), \"#app\");"
             )
         );
         assert_eq!(

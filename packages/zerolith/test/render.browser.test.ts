@@ -38,6 +38,14 @@ describe("html and render", () =>
         expect(() => render(html`<p></p>`, "#nowhere")).toThrow(/mount_target_missing/);
     });
 
+    it("renders one view object in several places at once, as hoisted static views are", () =>
+    {
+        const icon = html`<b>static</b>`;
+        const el = mount(html`<p>${icon}${icon}</p>${[icon, icon]}`);
+        expect(el.querySelectorAll("b")).toHaveLength(4);
+        expect(el.querySelector("p")?.textContent).toBe("staticstatic");
+    });
+
     it("renders a template prepared ahead of time as it renders a scanned one", () =>
     {
         const strings = ["<p class=\"", "\">", "</p>"];
