@@ -15,9 +15,9 @@ Install it from npm as `@zerolith/cli`, which carries a prebuilt binary for Linu
 
 `dev` serves files under the root with directory indexes and a nearest-index fallback for client-side routes, injects a small client into HTML pages, and announces file changes over server-sent events. A changed stylesheet is swapped in place; any other change reloads the page after the client saves the values of named signals, which the development build of zerolith restores on the next load. It also serves Chrome's automatic-workspace file on loopback so DevTools can edit sources in place.
 
-`importmap` copies the installed `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, and `@zerolith/devtools` modules into a vendor folder and writes an import map whose `integrity` entries hold the SRI hash of every module, plus `modulepreload` links; with `--html` it replaces or inserts them in the page.
+`importmap` copies the installed `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, and `@zerolith/devtools` modules into a vendor folder and writes an import map whose `integrity` entries hold the SRI hash of every module, plus `modulepreload` links that carry the same hashes; with `--html` it replaces or inserts them in the page.
 
-`doctor` reports coded findings: a missing index or import map, map targets that do not exist, integrity mismatches, a missing module script, and vendored packages older than the installed ones.
+`doctor` reports coded findings: a missing index or import map, map targets that do not exist, integrity mismatches, preload links without their module's hash, a missing module script, and vendored packages older than the installed ones.
 
 `build` writes a buildless project's production output for any static host: sources transformed to JavaScript, relative specifiers and module scripts rewritten, every module run through the template prepare pass so the browser never scans a template, and the installed packages vendored with an import map and integrity hashes. `--no-prepare` keeps the scanner.
 

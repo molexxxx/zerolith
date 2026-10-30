@@ -31,14 +31,14 @@ fn framework_version() -> &'static str {
 
 fn package_json(name: &str, flavor: Flavor) -> String {
     let framework = framework_version();
-    let mut dependencies = vec![
+    let mut dependencies = [
         format!("        \"zerolith\": \"{framework}\""),
         format!("        \"@zerolith/router\": \"{framework}\""),
         format!("        \"@zerolith/devtools\": \"{framework}\""),
-        format!("        \"@zerolith/test\": \"{framework}\""),
     ];
     let mut dev = vec![
         format!("        \"@zerolith/cli\": \"{framework}\""),
+        format!("        \"@zerolith/test\": \"{framework}\""),
         format!(
             "        \"@vitest/browser-playwright\": \"{}\"",
             version_of("@vitest/browser-playwright")
@@ -65,7 +65,7 @@ fn package_json(name: &str, flavor: Flavor) -> String {
             ]
         }
         _ => {
-            dependencies.push(format!("        \"@zerolith/vite\": \"{framework}\""));
+            dev.push(format!("        \"@zerolith/vite\": \"{framework}\""));
             dev.push(format!("        \"vite\": \"{}\"", version_of("vite")));
             vec![
                 "        \"dev\": \"vite\"",
@@ -345,6 +345,15 @@ mod tests {
             let manifest = fs::read_to_string(root.join("package.json")).unwrap();
             assert!(manifest.contains(&format!("\"name\": \"{folder}\"")));
             assert!(manifest.contains("\"vitest\": \""));
+            let parsed: serde_json::Value = serde_json::from_str(&manifest).unwrap();
+            assert!(parsed["dependencies"]["zerolith"].is_string());
+            assert!(parsed["devDependencies"]["@zerolith/test"].is_string());
+            assert!(parsed["dependencies"]["@zerolith/test"].is_null());
+            assert_eq!(
+                parsed["devDependencies"]["@zerolith/vite"].is_string(),
+                flavor != Flavor::Buildless
+            );
+            assert!(parsed["dependencies"]["@zerolith/vite"].is_null());
             assert!(!manifest.contains("latest"));
             let agents = fs::read_to_string(root.join("AGENTS.md")).unwrap();
             assert!(agents.contains(&format!("# {folder}: guide for coding agents")));
