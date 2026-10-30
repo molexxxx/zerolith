@@ -130,11 +130,13 @@ fn resolve_export(entry: &serde_json::Value, development: bool) -> Option<String
     }
 }
 
+/// Copies a package's modules, and with `prepare` runs the template prepare pass over each one and puts the scanner's stand-in in the scanner's place.
 fn copy_tree(
     from: &Path,
     to: &Path,
     prefix: &str,
     files: &mut BTreeMap<String, Vec<u8>>,
+    prepare: bool,
 ) -> io::Result<()> {
     fs::create_dir_all(to)?;
     for entry in fs::read_dir(from)? {
@@ -142,13 +144,28 @@ fn copy_tree(
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().into_owned();
         if path.is_dir() {
-            copy_tree(&path, &to.join(&name), &format!("{prefix}/{name}"), files)?;
+            copy_tree(
+                &path,
+                &to.join(&name),
+                &format!("{prefix}/{name}"),
+                files,
+                prepare,
+            )?;
             continue;
         }
         if !name.ends_with(".js") && !name.ends_with(".d.ts") {
             continue;
         }
-        let bytes = fs::read(&path)?;
+        let bytes = if prepare && name == "scan.js" && from.join("scan.unprepared.js").is_file() {
+            fs::read(from.join("scan.unprepared.js"))?
+        } else if prepare && name.ends_with(".js") {
+            let text = fs::read_to_string(&path)?;
+            crate::prepare::prepare(&text)
+                .map_err(|error| io::Error::other(format!("{}: {error}", path.display())))?
+                .into_bytes()
+        } else {
+            fs::read(&path)?
+        };
         fs::write(to.join(&name), &bytes)?;
         if name.ends_with(".js") {
             files.insert(format!("{prefix}/{name}"), bytes);
@@ -159,15 +176,16 @@ fn copy_tree(
 
 /// Copies each installed package's published modules into `out` under the project root and returns the import map.
 pub fn vendor(root: &Path, out: &Path, development: bool) -> io::Result<Vendored> {
-    vendor_from(&root.join("node_modules"), root, out, development)
+    vendor_from(&root.join("node_modules"), root, out, development, false)
 }
 
-/// Like `vendor`, reading the packages from `packages` (a node_modules folder) and writing under `root/out`, so a build can vendor into its output folder.
+/// Like `vendor`, reading the packages from `packages` (a node_modules folder) and writing under `root/out`, so a build can vendor into its output folder; with `prepare`, every vendored module goes through the template prepare pass and the core's scanner is replaced by its stand-in.
 pub fn vendor_from(
     packages: &Path,
     root: &Path,
     out: &Path,
     development: bool,
+    prepare: bool,
 ) -> io::Result<Vendored> {
     let mut vendored = Vendored::default();
     let mut files: BTreeMap<String, Vec<u8>> = BTreeMap::new();
@@ -214,6 +232,7 @@ pub fn vendor_from(
                         &target.join("dist"),
                         &format!("{prefix}/dist"),
                         &mut files,
+                        prepare,
                     )?;
                     copied_dist = true;
                 }

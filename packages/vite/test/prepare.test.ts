@@ -89,3 +89,15 @@ describe("prepareModule", () =>
         expect(offsetOf(code)).toBe(code.indexOf("html`"));
     });
 });
+
+describe("the shared fixture", () =>
+{
+    it("lowers to the committed output the Rust command line is held to", async () =>
+    {
+        const { readFile } = await import("node:fs/promises");
+        const folder = new URL("./fixture-prepare/", import.meta.url);
+        const input = await readFile(new URL("input.js", folder), "utf8");
+        const output = await readFile(new URL("output.js", folder), "utf8");
+        expect(prepare(input, "/src/input.js")).toBe(output);
+    });
+});

@@ -11,6 +11,8 @@ mod doctor;
 mod importmap;
 mod mime;
 mod new;
+mod prepare;
+mod scan;
 mod server;
 mod transform;
 mod watch;

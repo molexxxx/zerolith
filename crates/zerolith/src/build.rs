@@ -11,6 +11,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::importmap::{html_tags, update_html, vendor_from};
+use crate::prepare;
 use crate::transform;
 
 /// Folders never copied into the output.
@@ -101,12 +102,14 @@ fn walk(root: &Path, folder: &Path, out: &Path, built: &mut Built) -> io::Result
             let source = fs::read_to_string(&path)?;
             let code = transform::transform(&path, &source)
                 .and_then(|code| transform::rewrite_specifiers(&code))
+                .and_then(|code| prepare::prepare(&code))
                 .map_err(|error| io::Error::other(format!("{}: {error}", relative.display())))?;
             fs::write(target.with_extension("js"), code)?;
             built.transformed += 1;
         } else if extension == "js" || extension == "mjs" {
             let source = fs::read_to_string(&path)?;
             let code = transform::rewrite_specifiers(&source)
+                .and_then(|code| prepare::prepare(&code))
                 .map_err(|error| io::Error::other(format!("{}: {error}", relative.display())))?;
             fs::write(&target, code)?;
             built.copied += 1;
@@ -138,7 +141,7 @@ pub fn build(root: &Path, out: &Path) -> io::Result<(PathBuf, Built)> {
     walk(&root, &root, &out_dir, &mut built)?;
     let packages = root.join("node_modules");
     if packages.join("zerolith").is_dir() {
-        let vendored = vendor_from(&packages, &out_dir, Path::new("vendor"), false)?;
+        let vendored = vendor_from(&packages, &out_dir, Path::new("vendor"), false, true)?;
         let tags = html_tags(&vendored);
         for entry in fs::read_dir(&out_dir)? {
             let path = entry?.path();
@@ -195,13 +198,23 @@ mod tests {
         )
         .unwrap();
         fs::write(
+            root.join("node_modules/zerolith/dist/scan.js"),
+            "export const scanner = 1;",
+        )
+        .unwrap();
+        fs::write(
+            root.join("node_modules/zerolith/dist/scan.unprepared.js"),
+            "export const stub = 1;",
+        )
+        .unwrap();
+        fs::write(
             root.join("index.html"),
             "<!doctype html><script type=\"module\" src=\"/src/main.ts\"></script>",
         )
         .unwrap();
         fs::write(
             root.join("src/main.ts"),
-            "import { App } from \"./app.tsx\";\nexport const n: number = 1;\n",
+            "import { html } from \"zerolith\";\nimport { App } from \"./app.tsx\";\nexport const n: number = 1;\nexport const v = html`<p>${n}</p>`;\n",
         )
         .unwrap();
         fs::write(
@@ -226,7 +239,16 @@ mod tests {
         assert!(
             fs::read_to_string(out.join("src/app.js"))
                 .unwrap()
-                .contains("__zl_html`<p>${1}</p>`")
+                .contains("__zl_html(__zl_t0, 1)")
+        );
+        assert!(
+            fs::read_to_string(out.join("src/main.js"))
+                .unwrap()
+                .contains("html(__zl_t0, n)")
+        );
+        assert_eq!(
+            fs::read_to_string(out.join("vendor/zerolith/dist/scan.js")).unwrap(),
+            "export const stub = 1;"
         );
         assert!(
             fs::read_to_string(out.join("src/plain.js"))

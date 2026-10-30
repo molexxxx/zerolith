@@ -8,7 +8,7 @@ Everything here runs and is tested in this repository, and the first alpha is pu
 
 - **Runtime.** Signals (`signal`, `computed`, `effect`, `batch`, `resource`), `html` and `css` tagged templates with keyed lists and conditions, fine-grained rendering, hydration, server rendering, custom elements with attributes and properties as signals, JSX as an alternative spelling of `html`, and coded diagnostics with a page per code. The runtime has no dependencies and runs under a strict Content Security Policy and Trusted Types.
 - **Packages.** Router, forms, typed client generated from OpenAPI, i18n with compiled MessageFormat 2 catalogs, accessibility primitives, test helpers, dev tools, OpenTelemetry spans, and the Vite plugin.
-- **Tooling.** The Rust command line (`new`, `dev`, `serve`, `build`, `importmap`, `doctor`), published on npm as `@zerolith/cli` with a prebuilt binary per platform and on crates.io, the template prepare pass and transform-time warnings in the Vite plugin, a size budget and a benchmark harness enforced in CI, and a CycloneDX SBOM.
+- **Tooling.** The Rust command line (`new`, `dev`, `serve`, `build`, `importmap`, `doctor`), published on npm as `@zerolith/cli` with a prebuilt binary per platform and on crates.io, the template prepare pass in the Vite plugin and in `zerolith build` (held to one output by a shared fixture), transform-time warnings in the Vite plugin, a size budget and a benchmark harness enforced in CI, and a CycloneDX SBOM.
 - **Docs.** Guides whose examples are tests, a reference generated from the source, search, and a Markdown twin of every page indexed by `llms.txt` and `llms-full.txt`.
 - **Project.** Governance, a security policy, the support window and release channels, the RFC process, OpenSSF Scorecard, SHA-pinned workflows, and the brand system.
 
@@ -16,7 +16,6 @@ Everything here runs and is tested in this repository, and the first alpha is pu
 
 - Freeze the API of the core, templates, and router for 1.0.
 - Trusted publishing for every package and the crate, then the canary channel.
-- The template prepare pass in the Rust command line, so `zerolith build` emits the same modules the Vite plugin does.
 - Run the template lint from the Rust command line, so `zerolith doctor` reports the same warnings as the Vite plugin.
 
 ## Planned

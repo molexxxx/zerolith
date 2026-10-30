@@ -36,7 +36,7 @@ impl fmt::Display for TransformError {
 
 impl std::error::Error for TransformError {}
 
-fn fail(message: impl Into<String>) -> TransformError {
+pub(crate) fn fail(message: impl Into<String>) -> TransformError {
     TransformError {
         message: message.into(),
     }
@@ -64,7 +64,10 @@ pub fn transform(path: &Path, source: &str) -> Result<String, TransformError> {
     }
 }
 
-fn parse_errors(diagnostics: oxc_diagnostics::Diagnostics, source: &str) -> Option<TransformError> {
+pub(crate) fn parse_errors(
+    diagnostics: oxc_diagnostics::Diagnostics,
+    source: &str,
+) -> Option<TransformError> {
     diagnostics
         .into_vec()
         .into_iter()
@@ -98,13 +101,13 @@ pub fn strip_types(path: &Path, source: &str) -> Result<String, TransformError> 
         .code)
 }
 
-struct Edit {
-    start: u32,
-    end: u32,
-    text: String,
+pub(crate) struct Edit {
+    pub(crate) start: u32,
+    pub(crate) end: u32,
+    pub(crate) text: String,
 }
 
-fn apply_edits(text: &str, mut edits: Vec<Edit>) -> String {
+pub(crate) fn apply_edits(text: &str, mut edits: Vec<Edit>) -> String {
     edits.sort_by(|a, b| a.start.cmp(&b.start).then(a.end.cmp(&b.end)));
     let mut out = String::with_capacity(text.len());
     let mut cursor = 0usize;
@@ -210,7 +213,7 @@ fn is_identifier(text: &str) -> bool {
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
 }
 
-fn json(text: &str) -> String {
+pub(crate) fn json(text: &str) -> String {
     serde_json::to_string(text).unwrap_or_else(|_| "\"\"".to_string())
 }
 

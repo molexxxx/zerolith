@@ -45,5 +45,5 @@
             }
         }
     ],
-    "ignorePatterns": ["dist", "coverage", "node_modules", "docs/research"]
+    "ignorePatterns": ["dist", "coverage", "node_modules", "docs/research", "packages/vite/test/fixture-prepare"]
 }
