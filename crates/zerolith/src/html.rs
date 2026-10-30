@@ -22,9 +22,19 @@ pub struct Page {
     pub styles: Vec<Reference>,
     /// Other local files the page loads: icons, manifests, and preloads in `<link>`, media sources, and classic scripts.
     pub assets: Vec<Reference>,
-    /// Whole elements the bundled output drops: import maps, and the preload links `zerolith importmap` wrote for vendored packages.
+    /// Whole elements the bundled output drops: import maps, and module preload links to local files, which name source modules the bundle replaces with its own preloads.
     pub dropped: Vec<(usize, usize)>,
 }
+
+/// The link relations whose `href` names a file the page loads; others, such as `canonical` and `alternate`, name pages.
+const RESOURCE_LINKS: [&str; 6] = [
+    "icon",
+    "apple-touch-icon",
+    "apple-touch-icon-precomposed",
+    "mask-icon",
+    "manifest",
+    "preload",
+];
 
 /// True for a URL that names a file of the project: not absolute, protocol-relative, a data URL, or a fragment.
 pub fn is_local(url: &str) -> bool {
@@ -190,15 +200,13 @@ pub fn scan(html: &str) -> Page {
                 .map(|(value, _)| value.to_ascii_lowercase())
                 .unwrap_or_default();
             let tokens: Vec<&str> = rel.split_ascii_whitespace().collect();
-            if tokens.contains(&"modulepreload")
-                && attributes
-                    .iter()
-                    .any(|attribute| attribute.name == "data-zerolith-preload")
-            {
-                page.dropped.push(tag);
+            if tokens.contains(&"modulepreload") {
+                if local(html, &attributes, "href", tag).is_some() {
+                    page.dropped.push(tag);
+                }
             } else if tokens.contains(&"stylesheet") {
                 page.styles.extend(local(html, &attributes, "href", tag));
-            } else {
+            } else if tokens.iter().any(|token| RESOURCE_LINKS.contains(token)) {
                 page.assets.extend(local(html, &attributes, "href", tag));
             }
         } else {
@@ -298,7 +306,7 @@ pub fn rewrite(html: &str, page: &Page, output: &Output) -> String {
 mod tests {
     use super::{Output, is_local, rewrite, scan};
 
-    const PAGE: &str = "<!doctype html>\n<html lang=\"en\">\n<head>\n    <link rel=\"stylesheet\" href=\"/src/styles.css\">\n    <link rel=\"icon\" href=\"/favicon.svg\">\n    <!-- <script type=\"module\" src=\"/commented.ts\"></script> -->\n    <script type=\"importmap\">{\"imports\":{\"zerolith\":\"/vendor/zerolith/dist/index.js\"}}</script>\n    <link rel=\"modulepreload\" href=\"/vendor/zerolith/dist/index.js\" data-zerolith-preload>\n    <link rel=stylesheet href='theme.css'>\n    <link rel=\"stylesheet\" href=\"https://fonts.example/a.css\">\n</head>\n<body>\n    <div id=\"app\"><img src=\"src/logo.png\" alt=\"\"><img src=\"https://cdn.example/x.png\" alt=\"\"></div>\n    <script type=\"module\" src=\"/src/main.ts\"></script>\n    <script src=\"/legacy.js\"></script>\n</body>\n</html>\n";
+    const PAGE: &str = "<!doctype html>\n<html lang=\"en\">\n<head>\n    <link rel=\"stylesheet\" href=\"/src/styles.css\">\n    <link rel=\"icon\" href=\"/favicon.svg\">\n    <link rel=\"canonical\" href=\"/about\">\n    <link rel=\"modulepreload\" href=\"/src/app.ts\">\n    <link rel=\"modulepreload\" href=\"https://cdn.example/lib.js\">\n    <!-- <script type=\"module\" src=\"/commented.ts\"></script> -->\n    <script type=\"importmap\">{\"imports\":{\"zerolith\":\"/vendor/zerolith/dist/index.js\"}}</script>\n    <link rel=\"modulepreload\" href=\"/vendor/zerolith/dist/index.js\" data-zerolith-preload>\n    <link rel=stylesheet href='theme.css'>\n    <link rel=\"stylesheet\" href=\"https://fonts.example/a.css\">\n</head>\n<body>\n    <div id=\"app\"><img src=\"src/logo.png\" alt=\"\"><img src=\"https://cdn.example/x.png\" alt=\"\"></div>\n    <script type=\"module\" src=\"/src/main.ts\"></script>\n    <script src=\"/legacy.js\"></script>\n</body>\n</html>\n";
 
     #[test]
     fn reads_entries_stylesheets_assets_and_what_the_bundle_drops() {
@@ -315,7 +323,7 @@ mod tests {
             urls(&page.assets),
             ["/favicon.svg", "src/logo.png", "/legacy.js"]
         );
-        assert_eq!(page.dropped.len(), 2);
+        assert_eq!(page.dropped.len(), 3);
         assert!(
             is_local("/src/a.ts")
                 && is_local("a.css")
