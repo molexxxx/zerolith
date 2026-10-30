@@ -4,7 +4,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 
 ## Where it stands
 
-`0.1.0-alpha.1` was published on 2026-10-29: the core, ten first-party packages, and the command line, on npm under the `alpha` dist-tag with provenance and on crates.io. The API is not frozen, and minor versions may change it until 1.0.
+`0.1.0-alpha.2` was published on 2026-10-30, after `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, on npm under the `alpha` dist-tag with provenance, on crates.io, and as a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://molexxxx.github.io/zerolith/) is published from the same commit. The API is not frozen, and minor versions may change it until 1.0.
 
 | Area | State |
 | --- | --- |
@@ -14,17 +14,17 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 | Command line | Published with prebuilt binaries for six targets |
 | Dev tools and testing | Shipped; the browser extension adapter remains |
 | Accessibility, i18n, observability | Shipped; the conformance report and the MessageFormat 1 import remain |
-| Docs | Built and tested in CI; deployed to GitHub Pages by each release from the next one on |
+| Docs | Published to GitHub Pages by each release; the project domain is not registered yet |
 | Coding agents | In-repo context shipped; MCP servers, Skills, and evals remain |
 | Adoption | No production application yet; the first migration is next |
-| Project and supply chain | Policies and provenance shipped; trusted publishing and canaries remain |
+| Project and supply chain | Policies, provenance, GitHub releases, and npm trusted publishers in place; the crate's trusted publishing and canaries remain |
 
 ## Next
 
 In order:
 
 1. Register the project domain and move the docs there from GitHub Pages. Every diagnostic links to its page on the docs site, so the address has to be permanent before 1.0.
-2. Move every package and the crate to trusted publishing, then start the canary channel.
+2. Publish the next release through trusted publishing alone, which every npm package now has, and move the crate to crates.io trusted publishing; then start the canary channel.
 3. Finish the build path: static hoisting and the lazy-route split check, and the template lint in `zerolith doctor`.
 4. Migrate the first production site onto zerolith.
 5. Review the core, templates, and router API through an RFC and freeze it for 1.0.
@@ -120,7 +120,7 @@ See the [command line guide](guide/command-line.md).
 - [x] Guides whose examples are tests, a reference generated from the source, and search built with zerolith.
 - [x] A Markdown twin of every page, indexed by `llms.txt` and `llms-full.txt`.
 - [x] A page for every diagnostic code.
-- [ ] The site on [GitHub Pages](https://molexxxx.github.io/zerolith/), deployed by each release from the commit it published.
+- [x] The site on [GitHub Pages](https://molexxxx.github.io/zerolith/), deployed by each release from the commit it published.
 - [ ] The site at the project's own domain.
 - [ ] A versioned API manifest that feeds the agent index and editor tooling.
 - [ ] Type-checked code samples on every page.
@@ -148,9 +148,10 @@ See the [command line guide](guide/command-line.md).
 - [x] A code of conduct, a contributing guide, issue forms, a pull request template, and code owners.
 - [x] SHA-pinned workflows, OpenSSF Scorecard, a CycloneDX SBOM, and provenance on every published package.
 - [x] Private vulnerability reporting and secret scanning with push protection.
-- [ ] Trusted publishing for every npm package and the crate, with no publish token left anywhere.
+- [x] One version across every package and the crate, set by a script and checked by a test, and a dry run of the release workflow before each publish.
+- [x] GitHub releases created by the release workflow, with the version's changelog section and the SBOM attached.
+- [ ] Trusted publishing for every npm package and the crate, with no publish token left anywhere. Every npm package has a trusted publisher allowed to publish and move dist-tags, and the next release is the first to use it; the crate still publishes with a token.
 - [ ] Canary releases on every merge under the `canary` dist-tag.
-- [ ] GitHub releases created by the release workflow, with the SBOM attached.
 - [ ] The OpenSSF Best Practices badge, passing and then silver.
 - [ ] A trademark search for the name.
 

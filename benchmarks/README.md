@@ -4,6 +4,25 @@
 
 This is a regression and architecture check, not a substitute for the public benchmark: the vanilla baseline here is written for this harness, and js-framework-benchmark measures through tracing to paint with CPU throttling. An entry there is on the [roadmap](../docs/ROADMAP.md).
 
+## 2026-10-30, 0.1.0-alpha.2
+
+Windows 11, Chrome Headless Shell 156, 11 iterations, production entry at 8,116 B gzip.
+
+| Operation | Vanilla (ms) | zerolith (ms) | Ratio |
+| --- | --- | --- | --- |
+| create 1,000 rows | 21.6 | 29.9 | 1.38 |
+| replace all rows | 20.0 | 27.9 | 1.40 |
+| update every 10th row | 4.9 | 5.7 | 1.16 |
+| select a row | 0.0 | 0.2 | n/a |
+| swap two rows | 2.0 | 2.3 | 1.15 |
+| remove a row | 1.6 | 2.4 | 1.50 |
+| create 10,000 rows | 231.2 | 341.9 | 1.48 |
+| append 1,000 rows | 27.3 | 27.8 | 1.02 |
+| clear rows | 2.3 | 3.9 | 1.70 |
+| geometric mean | | | 1.29 |
+
+Since the first run the core grew from 6,248 to 8,116 B gzip with hydration, custom elements, and the diagnostics added since, and the geometric mean moved from 1.26 to 1.29. The page loads the production entry unbundled, so the template prepare pass of the build tools does not apply here.
+
 ## 2026-10-28, first run after the template layer
 
 Windows 11, Chrome Headless Shell 156, 11 iterations, production entry at 6,248 B gzip.

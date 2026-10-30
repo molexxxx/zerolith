@@ -4,6 +4,25 @@ A standalone frontend framework: fine-grained signals, HTML templates that need 
 
 Status: alpha. Install with `npm install zerolith@alpha`; the API may change before 1.0. The guides, the API reference, and a page for every diagnostic code are on the [docs site](https://molexxxx.github.io/zerolith/), and the direction is in the [roadmap](https://github.com/molexxxx/zerolith/blob/main/docs/ROADMAP.md).
 
+## A first component
+
+```ts
+import { computed, html, render, signal } from "zerolith";
+
+function Counter({ start = 0 }: { start?: number })
+{
+    const count = signal(start);
+    const doubled = computed(() => count.get() * 2);
+    return html`
+        <p>Count: ${count}, doubled: ${doubled}</p>
+        <button @click=${() => count.set(count.get() + 1)}>Add one</button>`;
+}
+
+render(Counter({ start: 1 }), "#app");
+```
+
+`render` mounts a view into an element, named by a CSS selector or passed as the element itself, and returns a root whose `dispose()` takes it down again.
+
 ## The one rule to learn first
 
 Bind the signal, not its value.

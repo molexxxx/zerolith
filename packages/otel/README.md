@@ -7,8 +7,8 @@ import { trace } from "@opentelemetry/api";
 import { navigationObserver, tracedHydrate, tracedTransport } from "@zerolith/otel";
 
 const tracer = trace.getTracer("my-app");
-const router = createRouter(routes, { observe: navigationObserver(tracer) });
-const api = createClient<Api>(routes, { transport: tracedTransport(undefined, tracer) });
+const router = createRouter(appRoutes, { observe: navigationObserver(tracer) });
+const api = createClient<Api>(apiRoutes, { transport: tracedTransport(undefined, tracer) });
 tracedHydrate(App(router), "#app", tracer);
 ```
 

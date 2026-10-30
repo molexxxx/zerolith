@@ -89,7 +89,7 @@ Next come a permanent domain for the docs, trusted publishing with a canary chan
 
 - The [docs site](https://molexxxx.github.io/zerolith/), rebuilt with every release: the guides, the API reference generated from the source, and a page for every diagnostic code.
 - [Guides](docs/guide/index.md), from [application structure](docs/guide/structure.md) to [testing](docs/guide/testing.md). `npm run docs` builds them into a site with the generated reference.
-- The [roadmap](docs/ROADMAP.md) and the [changelog](CHANGELOG.md).
+- The [roadmap](docs/ROADMAP.md), the [changelog](CHANGELOG.md), and the [releases](https://github.com/molexxxx/zerolith/releases) with their SBOMs.
 - [Support window and channels](docs/policy/support.md), [releases](docs/policy/releases.md), and [versioning](docs/policy/versioning.md).
 - [Brand](brand/README.md): the mark, colors, type, and icons.
 

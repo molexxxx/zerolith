@@ -34,7 +34,7 @@ No step publishes from a developer machine. Publishing credentials do not exist 
 
 ## Credentials
 
-The release workflow publishes to npm with provenance and to crates.io, and the credentials for both exist only as secrets of this repository. npm trusted publishing (repository `zerolith`, workflow `release.yml`) replaces the npm token package by package, since a package has to exist on the registry before it can have a trusted publisher; the crate moves to crates.io trusted publishing the same way. Each npm trusted publisher must also allow dist-tag operations, which npm leaves off by default, because the workflow moves `latest` while no stable version exists; the workflow pins npm 11.21.1, since dist-tags through trusted publishing need npm 11.21.0 or later.
+The release workflow publishes to npm with provenance and to crates.io, and no credential for either exists outside this repository. Every npm package publishes through trusted publishing: its trusted publisher on npmjs.com names the owner `molexxxx`, the repository `zerolith`, and the workflow `release.yml`, with no environment, and allows `npm publish` and dist-tag operations, both of which npm leaves off by default. The workflow moves `latest` while no stable version exists, and it pins npm 11.21.1, since dist-tags through trusted publishing need npm 11.21.0 or later. A package has to exist on the registry before it can have a trusted publisher, so a new package's first publish reads a short-lived granular token from the `NPM_TOKEN` secret, which is deleted once its trusted publisher is set; without that secret the workflow holds no npm token at all. The crate publishes with the `CRATES_IO_TOKEN` secret until crates.io trusted publishing is configured for it.
 
 ## Canary releases
 
