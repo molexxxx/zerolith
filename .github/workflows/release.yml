@@ -9,7 +9,10 @@ name: Release
 # that has no trusted publisher yet.
 #
 # A release that publishes the core also rebuilds the documentation site
-# from the same commit and deploys it to GitHub Pages.
+# from the same commit and deploys it to GitHub Pages, and a release of
+# every package creates a GitHub release tagged zerolith@<version> with the
+# version's changelog section and the SBOM. Until a stable version exists,
+# each prerelease moves the latest dist-tag as well as its own.
 #
 # @zerolith/cli carries no binary: one platform package per target does,
 # built here on the matching runner. Linux builds on Ubuntu 22.04 so the
@@ -151,6 +154,28 @@ jobs:
             @zerolith/cli) packages="$platforms @zerolith/cli" ;;
             *) packages="$selection" ;;
           esac
+          version="$(node -p "require('./package.json').version")"
+          # npm gives a package a latest tag with its first publish, so until a
+          # stable version exists latest follows the newest prerelease; after
+          # that, a prerelease moves only its own tag.
+          move_latest()
+          {
+            if ! current="$(npm view "$1" dist-tags.latest 2>/dev/null)"; then
+              echo "::warning::could not read the latest tag of $1, so it was left as it is"
+              return 0
+            fi
+            case "$current" in
+              *-*)
+                for _ in 1 2 3 4 5; do
+                  if npm dist-tag add "$1@$version" latest; then
+                    return 0
+                  fi
+                  sleep 15
+                done
+                return 1
+                ;;
+            esac
+          }
           for package in $packages; do
             echo "publishing $package"
             case "$package" in
@@ -170,6 +195,9 @@ jobs:
                 npm publish --workspace "$package" $flags
                 ;;
             esac
+            if [ "$DRY_RUN" != "true" ] && [ "$tag" != "latest" ]; then
+              move_latest "$package"
+            fi
           done
 
       - name: Upload SBOM
@@ -190,6 +218,44 @@ jobs:
     uses: ./.github/workflows/docs.yml
     with:
       ref: ${{ github.sha }}
+
+  github-release:
+    name: GitHub release
+    needs: [npm, crate]
+    if: ${{ !cancelled() && needs.npm.result == 'success' && (needs.crate.result == 'success' || needs.crate.result == 'skipped') && github.event_name == 'workflow_dispatch' && github.event.inputs.package == 'all' && github.event.inputs.dry_run != 'true' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+
+      - name: SBOM
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sbom-${{ github.run_id }}
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          version="$(node -p "require('./package.json').version")"
+          node scripts/release-notes.ts "$version" > release-notes.md
+          prerelease=""
+          case "$version" in
+            *-*) prerelease="--prerelease" ;;
+          esac
+          # shellcheck disable=SC2086
+          gh release create "zerolith@$version" sbom.cdx.json --target "$GITHUB_SHA" --title "$version" --notes-file release-notes.md $prerelease
 
   crate:
     name: crates.io
