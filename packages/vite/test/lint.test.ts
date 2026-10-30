@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { parseSync } from "vite";
 import { describe, expect, it } from "vitest";
 import { type ModuleParser, lintModule, position } from "@zerolith/vite";
@@ -11,6 +12,19 @@ function codes(code: string): string[]
 
 describe("lintModule", () =>
 {
+    it("reports the findings of the shared fixture the command line is held to", async () =>
+    {
+        const folder = new URL("./fixture-lint/", import.meta.url);
+        const input = await readFile(new URL("input.js", folder), "utf8");
+        const expected: unknown = JSON.parse(await readFile(new URL("expected.json", folder), "utf8"));
+        const found = lintModule(input, "/src/input.js", parse).map((finding) =>
+        {
+            const { line, column } = position(input, finding.offset);
+            return { code: finding.code, line, column, message: finding.message };
+        });
+        expect(found).toEqual(expected);
+    });
+
     it("flags a .get() read bound in a template and leaves live bindings alone", () =>
     {
         expect(codes("const v = html`<p>${count.get()}</p>`;")).toEqual(["template_frozen_read"]);

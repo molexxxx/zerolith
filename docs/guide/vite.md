@@ -75,4 +75,6 @@ The runtime cannot tell a frozen read from a deliberate one, and it does not rea
 - `template_frozen_read`: a `.get()` read is bound in a template, which the rule on the first page of this guide calls out as the mistake nothing else can catch. Bind the signal, or `computed(() => ...)`.
 - `image_without_alt`, `button_without_name`, `frame_without_title`: the accessibility defects visible in the template's static markup, the same codes `@zerolith/test` reports at run time.
 
+A project without Vite gets the same warnings from `zerolith doctor`, which runs the same checks over its sources; see [Command line](/guide/command-line/).
+
 They are warnings, not errors, because a template may read a value once on purpose. Pass `lint: false` to turn them off.

@@ -355,6 +355,10 @@ mod tests {
             );
             assert!(parsed["dependencies"]["@zerolith/vite"].is_null());
             assert!(!manifest.contains("latest"));
+            assert!(
+                crate::doctor::lint_sources(&root).is_empty(),
+                "{folder} has template findings"
+            );
             let agents = fs::read_to_string(root.join("AGENTS.md")).unwrap();
             assert!(agents.contains(&format!("# {folder}: guide for coding agents")));
             let html = fs::read_to_string(root.join("index.html")).unwrap();

@@ -2,12 +2,18 @@
 //! a one-line cause, and a one-line fix, like the runtime's diagnostics.
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use oxc_span::SourceType;
 use serde::Serialize;
 
 use crate::importmap::{ImportMap, PACKAGES, integrity};
+use crate::scan::DIAGNOSTIC_URL;
+use crate::{lint, transform};
+
+/// Folders the template lint does not enter, besides hidden ones.
+const SKIPPED: [&str; 6] = ["node_modules", "vendor", "dist", "target", "test", "tests"];
 
 /// One finding.
 #[derive(Debug, Serialize)]
@@ -15,25 +21,100 @@ pub struct Finding {
     pub code: &'static str,
     pub severity: &'static str,
     pub cause: String,
-    pub fix: &'static str,
+    pub fix: String,
 }
 
-fn error(code: &'static str, cause: String, fix: &'static str) -> Finding {
+fn error(code: &'static str, cause: String, fix: impl Into<String>) -> Finding {
     Finding {
         code,
         severity: "error",
         cause,
-        fix,
+        fix: fix.into(),
     }
 }
 
-fn warning(code: &'static str, cause: String, fix: &'static str) -> Finding {
+fn warning(code: &'static str, cause: String, fix: impl Into<String>) -> Finding {
     Finding {
         code,
         severity: "warning",
         cause,
-        fix,
+        fix: fix.into(),
     }
+}
+
+/// Collects the JavaScript and TypeScript sources under `folder`, in path order, skipping dependencies, output, tests, and hidden folders.
+fn sources(folder: &Path, found: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return;
+    };
+    let mut entries: Vec<_> = entries.flatten().collect();
+    entries.sort_by_key(|entry| entry.file_name());
+    for entry in entries {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with('.') {
+            continue;
+        }
+        if path.is_dir() {
+            if !SKIPPED.contains(&name.as_str()) {
+                sources(&path, found);
+            }
+            continue;
+        }
+        let extension = path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .unwrap_or("");
+        let declaration = name.ends_with(".d.ts") || name.ends_with(".d.mts");
+        if !declaration && matches!(extension, "js" | "mjs" | "jsx" | "ts" | "mts" | "tsx") {
+            found.push(path);
+        }
+    }
+}
+
+/// The template lint of the Vite plugin over a project's sources, as warnings that name the file, line, and column. JSX is lowered first, keeping its lines, so the findings point into the source.
+pub(crate) fn lint_sources(root: &Path) -> Vec<Finding> {
+    let mut files = Vec::new();
+    sources(root, &mut files);
+    let mut findings = Vec::new();
+    for file in files {
+        let Ok(source) = fs::read_to_string(&file) else {
+            continue;
+        };
+        let extension = file
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .unwrap_or("");
+        let (code, source_type) = match extension {
+            "tsx" | "jsx" => {
+                let source_type = if extension == "tsx" {
+                    SourceType::tsx()
+                } else {
+                    SourceType::jsx()
+                };
+                match transform::lower_jsx(&source, source_type) {
+                    Ok(code) => (code, source_type),
+                    Err(_) => continue,
+                }
+            }
+            "ts" | "mts" => (source, SourceType::ts()),
+            _ => (source, SourceType::mjs()),
+        };
+        let shown = file
+            .strip_prefix(root)
+            .unwrap_or(&file)
+            .to_string_lossy()
+            .replace('\\', "/");
+        for finding in lint::lint(&code, source_type) {
+            let (line, column) = lint::position(&code, finding.offset);
+            findings.push(warning(
+                finding.code,
+                format!("{shown}:{line}:{column}: {}", finding.message),
+                format!("See {DIAGNOSTIC_URL}{}", finding.code),
+            ));
+        }
+    }
+    findings
 }
 
 /// Extracts the inline import map from an HTML document.
@@ -68,8 +149,15 @@ fn preload_links(html: &str) -> Vec<&str> {
     links
 }
 
-/// Runs every check against `root`.
+/// Runs every check against `root`: the page and its import map, then the template lint over the sources.
 pub fn check(root: &Path) -> Vec<Finding> {
+    let mut findings = page_checks(root);
+    findings.extend(lint_sources(root));
+    findings
+}
+
+/// The checks of `index.html`, its import map, the files the map points at, and the vendored packages.
+fn page_checks(root: &Path) -> Vec<Finding> {
     let mut findings = Vec::new();
     let index = root.join("index.html");
     let Ok(html) = fs::read_to_string(&index) else {
@@ -214,6 +302,52 @@ pub fn run(root: &Path, json: bool) -> ExitCode {
 mod tests {
     use super::{check, import_map_of};
     use std::fs;
+
+    #[test]
+    fn lints_templates_in_sources_and_skips_dependencies_and_tests() {
+        let root =
+            std::env::temp_dir().join(format!("zerolith-doctor-lint-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        for folder in ["src", "node_modules/dep", "test", ".cache"] {
+            fs::create_dir_all(root.join(folder)).unwrap();
+        }
+        let frozen = "import { html, signal } from \"zerolith\";
+const count = signal<number>(0);
+export const view = html`<p>${count.get()}</p>`;
+";
+        fs::write(root.join("src/app.ts"), frozen).unwrap();
+        fs::write(
+            root.join("src/view.tsx"),
+            "export const View = (): unknown => (
+    <main>
+        <img src=\"/a.png\" />
+    </main>
+);
+",
+        )
+        .unwrap();
+        fs::write(root.join("src/types.d.ts"), frozen).unwrap();
+        fs::write(root.join("node_modules/dep/index.js"), frozen).unwrap();
+        fs::write(root.join("test/app.test.ts"), frozen).unwrap();
+        fs::write(root.join(".cache/app.js"), frozen).unwrap();
+        let findings = super::lint_sources(&root);
+        let shown: Vec<String> = findings
+            .iter()
+            .map(|finding| {
+                let at = finding.cause.split(": ").next().unwrap_or("");
+                format!("{} {at}", finding.code)
+            })
+            .collect();
+        assert_eq!(shown.len(), 2, "{shown:?}");
+        assert_eq!(shown[0], "template_frozen_read src/app.ts:3:31");
+        assert!(
+            shown[1].starts_with("image_without_alt src/view.tsx:2:"),
+            "{shown:?}"
+        );
+        assert!(findings.iter().all(|finding| finding.severity == "warning"));
+        assert!(findings[0].fix.ends_with("/e/template_frozen_read"));
+        let _ = fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn reports_missing_targets_and_bad_hashes() {

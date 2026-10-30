@@ -9,6 +9,7 @@
 mod build;
 mod doctor;
 mod importmap;
+mod lint;
 mod mime;
 mod new;
 mod prepare;
@@ -62,7 +63,7 @@ enum Command {
         #[arg(long)]
         html: Option<PathBuf>,
     },
-    /// Check a project: index.html, its import map, the files it points at, and their integrity.
+    /// Check a project: index.html, its import map, the files it points at, and their integrity, then the templates in its sources.
     Doctor {
         #[arg(default_value = ".")]
         root: PathBuf,

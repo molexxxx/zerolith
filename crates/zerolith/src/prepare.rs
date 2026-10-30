@@ -16,6 +16,7 @@ use oxc_ast_visit::{Visit, walk};
 use oxc_parser::Parser;
 use oxc_span::{GetSpan, SourceType, Span};
 
+use crate::lint::position;
 use crate::scan::scan;
 use crate::transform::{Edit, TransformError, apply_edits, fail, json, parse_errors};
 
@@ -45,16 +46,6 @@ struct Finder<'s> {
     allowed: BTreeSet<u32>,
     templates: Vec<Template>,
     error: Option<TransformError>,
-}
-
-fn position(source: &str, offset: u32) -> (usize, usize) {
-    let head = &source[..(offset as usize).min(source.len())];
-    let line = head.matches('\n').count() + 1;
-    let column = head
-        .rfind('\n')
-        .map_or(head.len(), |index| head.len() - index - 1)
-        + 1;
-    (line, column)
 }
 
 fn newlines(text: &str) -> String {

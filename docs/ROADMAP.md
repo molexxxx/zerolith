@@ -92,7 +92,7 @@ See the [command line guide](guide/command-line.md).
 - [x] `new`, `dev`, `serve`, `build`, `importmap`, and `doctor`.
 - [x] `dev` and `build` serve and write TypeScript and JSX through oxc with no other tool.
 - [x] `@zerolith/cli` on npm with prebuilt binaries for Linux, macOS, and Windows on x64 and arm64, and the crate on crates.io.
-- [ ] `doctor` reports the same template warnings as the Vite plugin.
+- [x] `doctor` reports the same template warnings as the Vite plugin.
 - [ ] `zerolith migrate`, with codemods between versions.
 - [ ] A musl binary and a WebAssembly fallback for platforms without one.
 

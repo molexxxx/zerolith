@@ -17,7 +17,7 @@ Install it from npm as `@zerolith/cli`, which carries a prebuilt binary for Linu
 
 `importmap` copies the installed `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, and `@zerolith/devtools` modules into a vendor folder and writes an import map whose `integrity` entries hold the SRI hash of every module, plus `modulepreload` links that carry the same hashes; with `--html` it replaces or inserts them in the page.
 
-`doctor` reports coded findings: a missing index or import map, map targets that do not exist, integrity mismatches, preload links without their module's hash, a missing module script, and vendored packages older than the installed ones.
+`doctor` reports coded findings: a missing index or import map, map targets that do not exist, integrity mismatches, preload links without their module's hash, a missing module script, and vendored packages older than the installed ones. It then runs the Vite plugin's template lint over the project's sources and reports the same warnings, with the file, line, and column.
 
 `build` writes a buildless project's production output for any static host: sources transformed to JavaScript, relative specifiers and module scripts rewritten, every module run through the template prepare pass so the browser never scans a template, and the installed packages vendored with an import map and integrity hashes. `--no-prepare` keeps the scanner.
 

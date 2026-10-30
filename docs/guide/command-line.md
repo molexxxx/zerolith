@@ -40,6 +40,8 @@ zerolith doctor --json
 
 Reports coded findings, each with a cause and a fix: `index_missing`, `importmap_missing`, `importmap_invalid`, `importmap_target_missing`, `integrity_mismatch`, `integrity_target_missing`, `preload_integrity_mismatch`, `module_script_missing`, and `package_outdated`. The exit code is 1 when any finding is an error.
 
+It then runs the template lint of the [Vite plugin](/guide/vite/) over the project's `.js`, `.ts`, `.jsx`, and `.tsx` sources, outside `node_modules`, `vendor`, `dist`, `target`, test folders, and hidden folders, and reports the same warnings with the file, line, and column: `template_frozen_read`, `image_without_alt`, `button_without_name`, and `frame_without_title`. JSX is lowered first, keeping its lines, so a finding in a `.tsx` file points at the line its element starts on. A shared fixture holds the two implementations to the same findings.
+
 ## new
 
 ```

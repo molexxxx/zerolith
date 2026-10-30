@@ -1,0 +1,68 @@
+[
+    {
+        "code": "template_frozen_read",
+        "line": 9,
+        "column": 39,
+        "message": "A .get() read is bound in a template, so the value is read once when the template is created and never updates. Bind the signal itself, or computed(() => ...) for a derived value."
+    },
+    {
+        "code": "template_frozen_read",
+        "line": 9,
+        "column": 54,
+        "message": "A .get() read is bound in a template, so the value is read once when the template is created and never updates. Bind the signal itself, or computed(() => ...) for a derived value."
+    },
+    {
+        "code": "template_frozen_read",
+        "line": 13,
+        "column": 46,
+        "message": "A .get() read is bound in a template, so the value is read once when the template is created and never updates. Bind the signal itself, or computed(() => ...) for a derived value."
+    },
+    {
+        "code": "template_frozen_read",
+        "line": 15,
+        "column": 73,
+        "message": "A .get() read is bound in a template, so the value is read once when the template is created and never updates. Bind the signal itself, or computed(() => ...) for a derived value."
+    },
+    {
+        "code": "image_without_alt",
+        "line": 18,
+        "column": 5,
+        "message": "<img> has no alt attribute; give it alternative text or alt=\"\" when it is decorative."
+    },
+    {
+        "code": "image_without_alt",
+        "line": 21,
+        "column": 5,
+        "message": "<img> has no alt attribute; give it alternative text or alt=\"\" when it is decorative."
+    },
+    {
+        "code": "button_without_name",
+        "line": 25,
+        "column": 5,
+        "message": "<button> has no content and no aria-label; a button needs an accessible name."
+    },
+    {
+        "code": "button_without_name",
+        "line": 26,
+        "column": 5,
+        "message": "<button> has no content and no aria-label; a button needs an accessible name."
+    },
+    {
+        "code": "button_without_name",
+        "line": 32,
+        "column": 5,
+        "message": "<button> has no content and no aria-label; a button needs an accessible name."
+    },
+    {
+        "code": "frame_without_title",
+        "line": 34,
+        "column": 28,
+        "message": "<iframe> has no title attribute; name what it embeds."
+    },
+    {
+        "code": "image_without_alt",
+        "line": 35,
+        "column": 43,
+        "message": "<img> has no alt attribute; give it alternative text or alt=\"\" when it is decorative."
+    }
+]
