@@ -16,7 +16,7 @@ npx zerolith-client openapi.json --out src/api.ts
 
 The command reads the document as JSON (convert YAML first) and writes three things: a type for every schema under `components.schemas`, an `Api` interface with one entry per operation, and a `routes` table with the method and path of each. Operations are named by their `operationId`, or by their method and path when there is none. One entry looks like this:
 
-@include packages/client/test/examples/client.example.test.ts#generated
+@include packages/client/test/examples/client.example.test.ts#generated excerpt
 
 Path parameters become `params`, query parameters become `query` (optional unless one of them is required, and an optional parameter accepts `undefined`, which is not sent), a JSON request body becomes `body` (a `multipart/form-data` body is `FormData`), and the JSON content of the 2xx responses becomes `output`, with `undefined` for a response without content. Header and cookie parameters, security schemes, and references outside the document are left out; headers travel through the client's options instead. The generator is also a function, `generateClient` from `@zerolith/client/generate`, for build scripts.
 

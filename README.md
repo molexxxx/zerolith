@@ -79,7 +79,7 @@ To add zerolith to an existing project, install `zerolith@alpha` and the `@zerol
 
 - **Clear patterns, coded diagnostics.** Each concept has one documented form, and every runtime error carries a stable code, its cause, and the fix, with a page per code. See [diagnostics](docs/guide/diagnostics.md).
 - **Buildless or bundled, same files.** Plain JavaScript and `html` templates run from an import map with no build step, and `zerolith build` bundles the same files into minified, hashed chunks with the Rust command line alone. See the [command line guide](docs/guide/command-line.md).
-- **Docs that cannot drift.** Every example in the guides is a test that runs in CI, and the API reference is generated from the source.
+- **Docs that cannot drift.** Every example in the guides is application code that runs as a test in CI, and the API reference is generated from the source.
 - **Ready for coding agents.** An always-on [AGENTS.md](AGENTS.md), a Markdown twin of every docs page indexed by `llms.txt`, and template checks in `zerolith doctor` that flag mistakes such as frozen reads before the code runs.
 - **Dev tools wherever it runs.** The inspector is a plain module, so it works under any dev server, a static server, electron-vite, or `file://`, with no browser extension. See [dev tools](docs/guide/dev-tools.md).
 

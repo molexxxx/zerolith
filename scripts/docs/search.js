@@ -24,13 +24,17 @@ import { computed, css, each, html, resource, signal, when } from "zerolith";
  */
 
 const styles = css`
-    :scope { position: relative; margin: 12px 0 4px; }
-    input { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; }
-    ul { position: absolute; left: 0; right: 0; z-index: 2; margin: 4px 0 0; padding: 4px; list-style: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; max-height: 60vh; overflow: auto; box-shadow: 0 8px 24px rgb(0 0 0 / 0.4); }
-    li a { display: block; padding: 6px 8px; border-radius: 6px; text-decoration: none; color: var(--text); }
-    li a:hover, li a:focus { background: var(--bg); }
-    .where { display: block; font-size: 0.75rem; color: var(--muted); }
-    .snippet { display: block; font-size: 0.8rem; color: var(--muted); }
+    :scope { position: relative; }
+    input { width: 100%; height: 48px; margin: 0; padding: 0 var(--zl-space-4); border: var(--zl-rule) solid var(--zl-control-line); border-radius: 0; background: var(--zl-bg); color: var(--zl-text); font-family: var(--zl-font-mono); font-size: 0.875rem; appearance: none; }
+    input::placeholder { color: var(--zl-text-muted); opacity: 1; }
+    input::-webkit-search-cancel-button { display: none; }
+    input:focus { outline: none; border-color: var(--zl-focus); box-shadow: inset 0 0 0 1px var(--zl-focus); }
+    ul { position: absolute; top: calc(100% + var(--zl-space-2)); left: 0; z-index: 20; width: min(480px, calc(100vw - 2 * var(--zl-space-4))); max-height: 60vh; margin: 0; padding: 0; overflow: auto; list-style: none; background: var(--zl-bg); border: var(--zl-rule) solid var(--zl-line); }
+    li + li { border-top: var(--zl-rule) solid var(--zl-line); }
+    li a { display: block; padding: var(--zl-space-3) var(--zl-space-4); color: var(--zl-text); text-decoration: none; }
+    li a:hover, li a:focus-visible { background: var(--zl-surface); outline-offset: calc(-1 * var(--zl-rule)); }
+    .where { display: block; margin-top: var(--zl-space-1); color: var(--zl-text-muted); font-family: var(--zl-font-mono); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .snippet { display: block; margin-top: var(--zl-space-1); color: var(--zl-text-muted); font-size: 0.8125rem; }
 `;
 
 /**

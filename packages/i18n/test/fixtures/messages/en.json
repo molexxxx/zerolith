@@ -1,0 +1,5 @@
+{
+    "notes-count": ".input {$count :number}\n.match $count\n0 {{No notes yet}}\none {{One note}}\n* {{{$count} notes}}",
+    "saved-at": "Saved {$when :datetime dateLength=medium timePrecision=minute hour12=false timeZone=UTC}",
+    "welcome": "Welcome back, {$name}!"
+}

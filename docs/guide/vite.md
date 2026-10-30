@@ -30,11 +30,11 @@ Vite can only apply an update in place when some module on the way to the entry 
 
 A component module goes in like this:
 
-@include packages/vite/test/examples/vite.example.test.ts#before
+@include packages/vite/test/examples/vite.example.test.ts#before excerpt js
 
 and comes out like this in development:
 
-@include packages/vite/test/examples/vite.example.test.ts#after
+@include packages/vite/test/examples/vite.example.test.ts#after excerpt js
 
 The function declaration keeps its hoisting because the registration runs first and the renamed function is already defined, and no line moves, so stack traces still point at the file you wrote.
 

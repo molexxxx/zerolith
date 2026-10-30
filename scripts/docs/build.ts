@@ -11,13 +11,28 @@ import { fileURLToPath } from "node:url";
 import { marked } from "marked";
 import { diagnosticCatalog } from "zerolith";
 import { normalizeBase, rebaseHtml, rebaseMarkdown, rebasePath } from "./base.ts";
-import { type NavSection, type PageData, globalStyles, markdownTwin, renderPage } from "./layout.ts";
+import { includeExamples } from "./examples.ts";
+import { highlight } from "./highlight.ts";
+import { type NavSection, type PageData, icon, markdownTwin, renderPage, siteStyles } from "./layout.ts";
 import { type Entry, type ManifestSymbol, extract, referencePage, symbolsOf } from "./reference.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const out = join(root, "site");
 /** Where the site is served: `ZEROLITH_DOCS_BASE`, `/` by default, `/zerolith/` on GitHub Pages. */
 const base = normalizeBase(process.env["ZEROLITH_DOCS_BASE"]);
+/** The version the site describes, shown in its header. */
+const version = (JSON.parse(await readFile(join(root, "packages", "zerolith", "package.json"), "utf8")) as { version: string }).version;
+const copyIcon = icon("copy");
+const doneIcon = icon("check");
+/** Files the site serves from brand/, by their path in the site. */
+const brandAssets: Record<string, string> = {
+    "favicon.svg": "app-icon/favicon.svg",
+    "favicon.ico": "app-icon/favicon.ico",
+    "apple-touch-icon.png": "app-icon/apple-touch-icon.png",
+    "fonts/unbounded-latin.woff2": "fonts/unbounded-latin.woff2",
+    "fonts/onest-latin.woff2": "fonts/onest-latin.woff2",
+    "fonts/martian-mono-latin.woff2": "fonts/martian-mono-latin.woff2"
+};
 
 const entries: Entry[] = [
     { specifier: "zerolith", file: "packages/zerolith/src/index.ts", title: "zerolith" },
@@ -48,6 +63,8 @@ interface Page
     markdown: string;
     section: "Guide" | "Reference" | "Diagnostics";
     order: number;
+    /** The repository path of a hand-written page's Markdown. */
+    source?: string;
 }
 
 function slug(text: string): string
@@ -62,6 +79,19 @@ marked.use({
         {
             const text = this.parser.parseInline(tokens);
             return `<h${depth} id="${slug(text.replace(/<[^>]+>/g, ""))}">${text}</h${depth}>\n`;
+        },
+        code({ text, lang })
+        {
+            const language = (lang ?? "").split(/\s/)[0] ?? "";
+            const label = language === "" ? "" : ` data-language="${language}"`;
+            const copy = `<button class="copy" type="button" aria-label="Copy code"><span class="idle">${copyIcon}</span><span class="done">${doneIcon}</span></button>`;
+            return `<div class="code"${label}>${copy}<pre><code>${highlight(text, language)}</code></pre></div>\n`;
+        }
+    },
+    hooks: {
+        postprocess(html)
+        {
+            return html.replace(/<table>/g, "<div class=\"table\"><table>").replace(/<\/table>/g, "</table></div>");
         }
     }
 });
@@ -121,33 +151,6 @@ function frontMatter(source: string, file: string): FrontMatter
     return { title, description, order: Number(fields.get("order") ?? 100), body: source.slice(match[0].length) };
 }
 
-/** Replaces `@include path#region` lines with the region's code from the file, dedented, as a fenced block. */
-async function includeExample(path: string, region: string, file: string): Promise<string>
-{
-    const source = await readFile(join(root, path), "utf8");
-    const start = source.indexOf(`// #region ${region}`);
-    const end = source.indexOf(`// #endregion ${region}`);
-    if (start === -1 || end === -1 || end < start)
-    {
-        throw new Error(`${file}: region ${region} not found in ${path}`);
-    }
-    const body = source.slice(source.indexOf("\n", start) + 1, end).replace(/\n\s*$/, "");
-    const indent = Math.min(...body.split("\n").filter((text) => text.trim() !== "").map((text) => /^\s*/.exec(text)?.[0].length ?? 0));
-    const code = body.split("\n").map((text) => text.slice(indent)).join("\n");
-    const language = path.endsWith(".js") ? "js" : "ts";
-    return "```" + language + "\n" + code + "\n```";
-}
-
-async function includeExamples(markdown: string, file: string): Promise<string>
-{
-    const lines = await Promise.all(markdown.split("\n").map((line) =>
-    {
-        const match = /^@include\s+(\S+)#(\S+)\s*$/.exec(line);
-        return match === null ? Promise.resolve(line) : includeExample(match[1] ?? "", match[2] ?? "", file);
-    }));
-    return lines.join("\n");
-}
-
 async function guides(): Promise<Page[]>
 {
     const folder = join(root, "docs", "guide");
@@ -156,7 +159,7 @@ async function guides(): Promise<Page[]>
     {
         const { title, description, order, body } = frontMatter(await readFile(join(folder, name), "utf8"), `docs/guide/${name}`);
         const path = name === "index.md" ? "/" : `/guide/${name.slice(0, -3)}/`;
-        return { path, title, description, markdown: await includeExamples(body, `docs/guide/${name}`), section: "Guide", order };
+        return { path, title, description, markdown: await includeExamples(body, `docs/guide/${name}`, root), section: "Guide", order, source: `docs/guide/${name}` };
     }));
     return pages.toSorted((a, b) => a.order - b.order || a.title.localeCompare(b.title));
 }
@@ -182,6 +185,12 @@ async function reference(): Promise<{ pages: Page[]; manifest: ManifestSymbol[] 
     return { pages, manifest };
 }
 
+/** Catalog text as Markdown: element names such as <button> are shown as code instead of read as markup. */
+function catalogText(text: string): string
+{
+    return text.replace(/<\/?[a-z][^<>]*>/g, (tag) => "`" + tag + "`");
+}
+
 function diagnostics(): Page[]
 {
     const codes = Object.keys(diagnosticCatalog).toSorted();
@@ -193,7 +202,7 @@ function diagnostics(): Page[]
         path: "/e/",
         title: "Diagnostics",
         description: "Every diagnostic code zerolith can emit, with its cause and fix.",
-        markdown: ["# Diagnostics", "", "Every error and warning carries a stable code and a link to its page here. The code and the URL are public API; the message text is not, and production builds omit it.", "", "| Code | Cause |", "| --- | --- |", ...codes.map((code) => `| [${code}](/e/${code}/) | ${diagnosticCatalog[code as keyof typeof diagnosticCatalog]?.cause ?? ""} |`)].join("\n"),
+        markdown: ["# Diagnostics", "", "Every error and warning carries a stable code and a link to its page here. The code and the URL are public API; the message text is not, and production builds omit it.", "", "| Code | Cause |", "| --- | --- |", ...codes.map((code) => `| [${code}](/e/${code}/) | ${catalogText(diagnosticCatalog[code as keyof typeof diagnosticCatalog]?.cause ?? "")} |`)].join("\n"),
         section: "Diagnostics",
         order: 0
     };
@@ -204,7 +213,7 @@ function diagnostics(): Page[]
             path: `/e/${code}/`,
             title: code,
             description: text?.cause ?? code,
-            markdown: ["# " + code, "", "## What happened", "", text?.cause ?? "", "", "## What to do", "", text?.fix ?? "", "", "The arguments of the specific occurrence are in the query string of the URL the error gave you."].join("\n"),
+            markdown: ["# " + code, "", "## What happened", "", catalogText(text?.cause ?? ""), "", "## What to do", "", catalogText(text?.fix ?? ""), "", "The arguments of the specific occurrence are in the query string of the URL the error gave you."].join("\n"),
             section: "Diagnostics",
             order: order + 1
         };
@@ -238,7 +247,12 @@ function checkLinks(pages: Page[], rendered: Map<string, string>): void
     known.add("/search.json");
     known.add("/search.js");
     known.add("/island.js");
+    known.add("/theme.js");
     known.add("/zerolith/index.js");
+    for (const asset of Object.keys(brandAssets))
+    {
+        known.add(`/${asset}`);
+    }
     const broken: string[] = [];
     for (const [path, html] of rendered)
     {
@@ -326,11 +340,11 @@ async function copyIsland(): Promise<void>
     {
         throw new Error("packages/zerolith/dist/production is missing; run `npm run build` before `npm run docs`");
     }
-    await mkdir(join(out, "zerolith"), { recursive: true });
+    await Promise.all([mkdir(join(out, "zerolith"), { recursive: true }), mkdir(join(out, "fonts"), { recursive: true })]);
     await Promise.all([
         ...modules.map((name) => copyFile(join(production, name), join(out, "zerolith", name))),
-        copyFile(join(root, "scripts", "docs", "search.js"), join(out, "search.js")),
-        copyFile(join(root, "scripts", "docs", "island.js"), join(out, "island.js"))
+        ...Object.entries(brandAssets).map(([path, source]) => copyFile(join(root, "brand", source), join(out, path))),
+        ...["search.js", "island.js", "theme.js"].map((name) => copyFile(join(root, "scripts", "docs", name), join(out, name)))
     ]);
 }
 
@@ -352,7 +366,7 @@ const rendered = new Map<string, string>();
 await Promise.all(pages.map(async (page) =>
 {
     const content = await marked.parse(page.markdown);
-    const data: PageData = { title: page.title, description: page.description, path: page.path, content, nav };
+    const data: PageData = { title: page.title, description: page.description, path: page.path, content, nav, version, ...(page.source === undefined ? {} : { source: page.source }) };
     const html = renderPage(data);
     rendered.set(page.path, html);
     await Promise.all([
@@ -367,11 +381,12 @@ const missing = renderPage({
     description: "This page does not exist.",
     path: "/404/",
     content: "<h1>Page not found</h1><p>Nothing lives at this address. Try the search, or start from the <a href=\"/\">introduction</a>.</p>",
-    nav
+    nav,
+    version
 });
 await write("404.html", rebaseHtml(missing, base));
 
-await write("styles.css", globalStyles);
+await write("styles.css", siteStyles());
 await write("api.json", JSON.stringify({ generated: new Date().toISOString(), symbols: manifest }, null, 2) + "\n");
 const searchEntries = searchIndex(pages);
 for (const entry of searchEntries)

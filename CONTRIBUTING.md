@@ -77,7 +77,7 @@ Each example's README walks through what it shows and what the build writes.
 
 - One change per pull request. Dependency updates are their own pull requests and link the changelog of each updated package.
 - Add or update tests for behavior changes. Runtime packages run their tests both in Node and in a real browser; if a change only makes sense in one, say so in the description.
-- Docs examples live in tests, so a new example is a new `#region` in a `*.example.test.ts` file.
+- Docs examples live in tests, so a new example is a new `#region` in a `*.example.test.ts` file. The region is the code an application would contain: the docs build adds the imports it uses and refuses an `expect` inside it, so the checks go after the region, or between two parts of a region opened twice. `@include path#region test` shows a test as a test, and `excerpt` shows generated code verbatim.
 - Every public export has a doc comment and an explicit type annotation (the build uses `isolatedDeclarations`).
 - Prefer a function in user code or a separate package over a new export in the core.
 

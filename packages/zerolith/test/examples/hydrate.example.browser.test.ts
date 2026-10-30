@@ -17,24 +17,27 @@ describe("hydration guide", () =>
     it("hydrate", () =>
     {
         host = document.createElement("div");
+        host.id = "app";
         document.body.append(host);
-        const container = host;
         // #region hydrate
         const count = signal(1);
-        const view = () => html`<button @click=${() => count.set(count.get() + 1)}>Clicked ${count} times</button>`;
+        const view = () => html`
+            <button @click=${() => count.set(count.get() + 1)}>Clicked ${count} times</button>`;
 
-        // On the server:
-        container.innerHTML = renderToString(view());
-
-        // In the browser, with the same view:
-        const handle = hydrate(view(), container);
-        const button = container.querySelector("button");
-        button?.click();
-
-        expect(handle.mismatches).toEqual([]);
-        expect(button?.textContent).toBe("Clicked 2 times");
-        expect(container.querySelector("button")).toBe(button);    // the server's element, not a replacement
+        // On the server, the markup goes into the page inside <div id="app">:
+        const markup = renderToString(view());
         // #endregion hydrate
-        result = handle;
+        host.innerHTML = markup;
+        const served = host.querySelector("button");
+        // #region hydrate
+
+        // In the browser, the same view adopts that markup:
+        const app = hydrate(view(), "#app");    // app.mismatches is empty: nothing differed
+        // #endregion hydrate
+        result = app;
+        expect(app.mismatches).toEqual([]);
+        expect(host.querySelector("button")).toBe(served);
+        served?.click();
+        expect(served?.textContent).toBe("Clicked 2 times");
     });
 });

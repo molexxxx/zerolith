@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { problemResponse, validateForm } from "@zerolith/forms";
 import { type Note, noteSchema } from "./note-schema.ts";
 
+// #region server
 const notes: (Note & { id: number })[] = [];
 
-// #region server
 async function createNote(request: Request): Promise<Response>
 {
     const validation = await validateForm(noteSchema, await request.formData());

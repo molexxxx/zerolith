@@ -2,11 +2,12 @@
 import { context, trace } from "@opentelemetry/api";
 import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
 import { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { html } from "zerolith";
 import { createClient } from "@zerolith/client";
 import { navigationObserver, tracedTransport } from "@zerolith/otel";
 import { createRouter, defineRoutes, route } from "@zerolith/router";
+import { type Api, routes as apiRoutes } from "../../../client/test/fixtures/notes.api.ts";
 
 const exporter = new InMemorySpanExporter();
 const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
@@ -17,6 +18,11 @@ beforeAll(() =>
     manager.enable();
     context.setGlobalContextManager(manager);
     trace.setGlobalTracerProvider(provider);
+});
+
+afterEach(() =>
+{
+    vi.unstubAllGlobals();
 });
 
 afterAll(async () =>
@@ -31,26 +37,27 @@ describe("observability guide", () =>
     it("traces navigations and requests", async () =>
     {
         const routes = defineRoutes({ home: route({ path: "/", view: () => html`<h1>Home</h1>` }) });
-        const seen: Request[] = [];
+        const sent: Request[] = [];
+        vi.stubGlobal("fetch", (request: Request) =>
+        {
+            sent.push(request);
+            return Promise.resolve(Response.json({ items: [] }));
+        });
         // #region spans
         const tracer = trace.getTracer("notes");
 
-        const router = createRouter(routes, { window: null, observe: navigationObserver(tracer) });
-        const api = createClient<{ listNotes: { method: "get"; path: "/notes"; output: unknown } }>({ listNotes: { method: "get", path: "/notes" } }, {
+        const router = createRouter(routes, { observe: navigationObserver(tracer) });
+        const api = createClient<Api>(apiRoutes, {
             baseUrl: "https://notes.example",
-            transport: tracedTransport(async (request) =>
-            {
-                seen.push(request);                                             // the request carries traceparent
-                return Response.json([]);
-            }, tracer)
+            transport: tracedTransport(fetch, tracer)
         });
 
-        await router.navigate("/");
-        await api.call("listNotes");
+        await router.navigate("/");             // a "navigate" span
+        await api.call("listNotes");            // a "GET /notes" span and a traceparent header
         // #endregion spans
         const spans = exporter.getFinishedSpans();
         expect(spans.map((span) => span.name)).toEqual(["navigate", "GET /notes"]);
-        expect(seen[0]?.headers.get("traceparent")).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/);
+        expect(sent[0]?.headers.get("traceparent")).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/);
         router.dispose();
     });
 });

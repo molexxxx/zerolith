@@ -16,6 +16,14 @@ Each declared prop is observed as an attribute and exposed as a property, both f
 
 ## Use it anywhere
 
+In any HTML, or in the markup of a React, Vue, or Angular component:
+
+```html
+<note-count label="Drafts" count="2"></note-count>
+```
+
+From script, its properties and events work like any element's:
+
 @include packages/zerolith/test/examples/element.example.browser.test.ts#use
 
 React 19, Vue, and Angular set a property when the element has one and an attribute otherwise, which is why both paths exist. The content is rendered when the element connects, hydrated when it already holds server-rendered markup, and disposed when it disconnects. It lives in light DOM, as every zerolith view does, so scoped styles, design tokens, and global stylesheets apply unchanged and there is no shadow root to pierce.

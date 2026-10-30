@@ -14,7 +14,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 | Command line | Published with prebuilt binaries for six targets; writes a starter, and develops, bundles, and previews a project on its own; a proxy to backends is next |
 | Dev tools and testing | Shipped; the browser extension adapter remains |
 | Accessibility, i18n, observability | Shipped; the conformance report and the MessageFormat 1 import remain |
-| Docs | Published to GitHub Pages by each release; the project domain is not registered yet |
+| Docs | Published to GitHub Pages by each release in the brand's theme, every example run as a test; the project domain is not registered yet |
 | Coding agents | In-repo context shipped; MCP servers, Skills, and evals remain |
 | Adoption | No production application yet; the first migration is next |
 | Project and supply chain | Policies, provenance, GitHub releases, and npm trusted publishers in place; canaries remain |

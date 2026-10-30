@@ -1,7 +1,25 @@
-// Executed examples for the signals guide. Each region is included in the
-// documentation verbatim and runs as a test, so the docs cannot drift.
-import { describe, expect, it } from "vitest";
+// Executed examples for the signals and diagnostics guides. Each region is
+// application code the documentation shows with its imports, and its
+// comments say what it prints; the checks after it compare what it printed.
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DIAGNOSTIC_URL, type ZerolithError, batch, computed, effect, onDiagnostic, onDispose, resource, scope, signal } from "zerolith";
+
+let printed: unknown[][] = [];
+
+beforeEach(() =>
+{
+    printed = [];
+    vi.spyOn(console, "log").mockImplementation((...values: unknown[]) =>
+    {
+        printed.push(values);
+    });
+});
+
+afterEach(() =>
+{
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+});
 
 describe("signals guide", () =>
 {
@@ -10,11 +28,15 @@ describe("signals guide", () =>
         // #region basics
         const count = signal(0);
         count.set(count.get() + 1);
-        expect(count.get()).toBe(1);
+        console.log(count.get());               // 1
 
         const point = signal({ x: 1 }, { equals: (a, b) => a.x === b.x });
-        point.set({ x: 1 });                // ignored: equal by the custom comparison
+        point.set({ x: 1 });                    // ignored: equal by the custom comparison
         // #endregion basics
+        expect(printed).toEqual([[1]]);
+        const kept = point.get();
+        point.set({ x: 1 });
+        expect(point.get()).toBe(kept);
     });
 
     it("computed", () =>
@@ -24,113 +46,114 @@ describe("signals guide", () =>
         const quantity = signal(2);
         const total = computed(() => price.get() * quantity.get());
 
-        expect(total.get()).toBe(20);
+        console.log(total.get());               // 20
         quantity.set(3);
-        expect(total.get()).toBe(30);
+        console.log(total.get());               // 30
         // #endregion computed
+        expect(printed).toEqual([[20], [30]]);
     });
 
     it("effects", () =>
     {
         // #region effects
-        const name = signal("ann");
-        const log: string[] = [];
+        const name = signal("Ada");
 
         const dispose = effect(() =>
         {
             const current = name.get();
-            log.push(`hello ${current}`);
-            return () => log.push(`goodbye ${current}`);
-        });
+            console.log(`hello ${current}`);
+            return () => console.log(`goodbye ${current}`);
+        });                                     // prints "hello Ada" right away
 
-        name.set("bob");
-        dispose();
-        expect(log).toEqual(["hello ann", "goodbye ann", "hello bob", "goodbye bob"]);
+        name.set("Grace");                      // prints "goodbye Ada", then "hello Grace"
+        dispose();                              // prints "goodbye Grace"
         // #endregion effects
+        expect(printed).toEqual([["hello Ada"], ["goodbye Ada"], ["hello Grace"], ["goodbye Grace"]]);
     });
 
     it("batch", () =>
     {
         // #region batch
-        const first = signal("a");
-        const last = signal("b");
-        let runs = 0;
-        effect(() =>
-        {
-            first.get();
-            last.get();
-            runs++;
-        });
+        const first = signal("Ada");
+        const last = signal("Lovelace");
+        effect(() => console.log(`${first.get()} ${last.get()}`)); // prints "Ada Lovelace"
 
         batch(() =>
         {
-            first.set("c");
-            last.set("d");
-        });
-        expect(runs).toBe(2);                // one run at creation, one for the batch
+            first.set("Grace");
+            last.set("Hopper");
+        });                                     // prints "Grace Hopper", once
         // #endregion batch
+        expect(printed).toEqual([["Ada Lovelace"], ["Grace Hopper"]]);
     });
 
     it("scope", () =>
     {
         // #region scope
         const tick = signal(0);
-        const seen: number[] = [];
 
         const handle = scope(() =>
         {
-            effect(() =>
-            {
-                seen.push(tick.get());
-            });
-            onDispose(() => seen.push(-1));
-        });
+            effect(() => console.log(`tick ${tick.get()}`));
+            onDispose(() => console.log("disposed"));
+        });                                     // prints "tick 0"
 
-        tick.set(1);
-        handle.dispose();
-        tick.set(2);                         // nothing runs: the scope is gone
-        expect(seen).toEqual([0, 1, -1]);
+        tick.set(1);                            // prints "tick 1"
+        handle.dispose();                       // prints "disposed"
+        tick.set(2);                            // prints nothing: the effect is gone
         // #endregion scope
+        expect(printed).toEqual([["tick 0"], ["tick 1"], ["disposed"]]);
     });
 
     it("resource", async () =>
     {
+        const requested: string[] = [];
+        vi.stubGlobal("fetch", (url: string) =>
+        {
+            requested.push(url);
+            return Promise.resolve(Response.json({ id: 7, name: "Ada" }));
+        });
         // #region resource
         const userId = signal<number | undefined>(undefined);
         const user = resource({
             params: () => userId.get(),
             loader: async ({ params, abort }) =>
             {
-                abort.throwIfAborted();
-                return { id: params, name: `user ${params}` };
+                const response = await fetch(`/api/users/${params}`, { signal: abort });
+                return (await response.json()) as { id: number; name: string };
             }
         });
 
-        expect(user.status.get()).toBe("idle");
+        console.log(user.status.get());         // "idle": params returned undefined
         userId.set(7);
-        expect(user.pending.get()).toBe(true);
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        expect(user.get()?.name).toBe("user 7");
+        console.log(user.status.get());         // "pending"
+        // Once the loader settles, the status is "resolved" and user.get() is the user.
         // #endregion resource
+        expect(printed).toEqual([["idle"], ["pending"]]);
+        await vi.waitFor(() => expect(user.status.get()).toBe("resolved"));
+        expect(user.get()).toEqual({ id: 7, name: "Ada" });
+        expect(requested).toEqual(["/api/users/7"]);
     });
 
     it("diagnostics", () =>
     {
         // #region diagnostics
-        const reported: string[] = [];
-        const stop = onDiagnostic((diagnostic) => reported.push(diagnostic.code));
+        // Warnings go to every listener, such as one that reports them:
+        const stop = onDiagnostic((diagnostic) => console.warn(diagnostic.code));
 
+        // Errors are thrown, carrying the same record:
         try
         {
-            onDispose(() => undefined);      // outside any effect or scope
+            onDispose(() => undefined);         // outside any effect or scope
         }
         catch (error)
         {
             const { diagnostic } = error as ZerolithError;
-            expect(diagnostic.code).toBe("on_dispose_outside_scope");
-            expect(diagnostic.url).toBe(DIAGNOSTIC_URL + "on_dispose_outside_scope");
+            console.log(diagnostic.code);       // "on_dispose_outside_scope"
+            console.log(diagnostic.url);        // ".../zerolith/e/on_dispose_outside_scope"
         }
         stop();
         // #endregion diagnostics
+        expect(printed).toEqual([["on_dispose_outside_scope"], [`${DIAGNOSTIC_URL}on_dispose_outside_scope`]]);
     });
 });

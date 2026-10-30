@@ -1,16 +1,15 @@
 // Executed examples for the forms guide: the form.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Root, html, render } from "zerolith";
+import { html, render } from "zerolith";
 import { createForm, problemResponse } from "@zerolith/forms";
 import { noteSchema } from "./note-schema.ts";
 
-let root: Root | undefined;
 let host: HTMLElement | undefined;
 
 afterEach(() =>
 {
-    root?.dispose();
     host?.remove();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
 });
 
@@ -18,26 +17,34 @@ describe("forms guide", () =>
 {
     it("enhances a native form", async () =>
     {
-        const responses = [problemResponse({ title: "Invalid note", fields: { title: ["That title exists already."] } }), Response.json({ id: 7 }, { status: 201 })];
+        const responses = [problemResponse({ title: "Invalid note", fields: { title: ["That title exists already."] } }), Response.json({ id: 7, title: "Routing" }, { status: 201 })];
         const fetchMock = vi.fn(() => Promise.resolve(responses.shift() ?? new Response(null, { status: 500 })));
         vi.stubGlobal("fetch", fetchMock);
-        const saved: unknown[] = [];
+        const created: unknown[] = [];
+        vi.spyOn(console, "log").mockImplementation((...values: unknown[]) =>
+        {
+            created.push(values);
+        });
+        host = document.createElement("main");
+        host.id = "app";
+        document.body.append(host);
         // #region form
         const noteForm = createForm({
             schema: noteSchema,
-            onSuccess: ({ result }) => saved.push(result)
+            reset: true,
+            onSuccess: ({ result }) => console.log("created", result)
         });
 
-        const view = html`
+        render(html`
             <form method="post" action="/notes" @submit=${noteForm.submit}>
-                <label>Title <input name="title" aria-invalid=${noteForm.field("title").invalid} aria-describedby="title-error"></label>
+                <label>Title
+                    <input name="title" aria-describedby="title-error"
+                        aria-invalid=${noteForm.field("title").invalid}>
+                </label>
                 <output id="title-error">${noteForm.field("title").error}</output>
                 <button ?disabled=${noteForm.pending}>Save</button>
-            </form>`;
+            </form>`, "#app");
         // #endregion form
-        host = document.createElement("div");
-        document.body.append(host);
-        root = render(view, host);
         const form = host.querySelector("form") as HTMLFormElement;
         const input = host.querySelector("input") as HTMLInputElement;
 
@@ -56,8 +63,9 @@ describe("forms guide", () =>
 
         form.requestSubmit();
         await vi.waitFor(() => expect(noteForm.status.get()).toBe("success"));
-        expect(saved).toEqual([{ id: 7 }]);
+        expect(created).toEqual([["created", { id: 7, title: "Routing" }]]);
         expect(host.querySelector("output")?.textContent).toBe("");
         expect(input.getAttribute("aria-invalid")).toBe("false");
+        expect(input.value).toBe("");
     });
 });

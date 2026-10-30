@@ -68,21 +68,23 @@ describe("client guide", () =>
         expect(note.title).toBe("Routing");
         expect(page.items).toHaveLength(1);
 
-        let seen: Problem | undefined;
         // #region problem
+        const notice = signal("");
         try
         {
             await api.call("getNote", { params: { id: "missing" } });
         }
         catch (error)
         {
-            if (error instanceof ProblemError)
+            if (!(error instanceof ProblemError))
             {
-                seen = error.problem;
+                throw error;
             }
+            notice.set(error.problem.title ?? "Request failed");    // "No such note"
         }
         // #endregion problem
-        expect(seen).toEqual({ status: 404, title: "No such note" });
+        expect(notice.get()).toBe("No such note");
+        await expect(api.call("getNote", { params: { id: "missing" } })).rejects.toMatchObject({ problem: { status: 404, title: "No such note" } });
 
         // #region query
         const search = signal("rout");

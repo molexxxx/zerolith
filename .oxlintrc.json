@@ -41,6 +41,7 @@
         {
             "files": ["**/test/examples/**"],
             "rules": {
+                "no-console": "off",
                 "unicorn/consistent-function-scoping": "off"
             }
         }

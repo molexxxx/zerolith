@@ -41,7 +41,7 @@ Never write a version number from memory. Read it from `https://registry.npmjs.o
 | --- | --- |
 | Runtime behavior | `packages/zerolith/src`, with tests in `packages/zerolith/test` (`*.test.ts` run in Node, `*.browser.test.ts` run in Chromium) |
 | The command line | `crates/zerolith/src`, with tests beside the code |
-| A guide or a guide example | `docs/guide/*.md`; examples are `#region` blocks in `packages/*/test/examples/`, pulled in with `@include path#region` |
+| A guide or a guide example | `docs/guide/*.md`; examples are `#region` blocks of application code in `packages/*/test/examples/`, with their checks after the region, pulled in with `@include path#region` |
 | A new public API | An RFC issue first, opened with the RFC form (see GOVERNANCE.md) |
 | A policy change | `docs/policy/*.md`, by RFC |
 | A release | `node scripts/version.ts <version>`, the version's `CHANGELOG.md` section, and a release pull request; `docs/policy/releases.md` has the steps |

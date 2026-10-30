@@ -1,23 +1,21 @@
-// Executed examples for the templates and styles guides. Each region is
-// included in the documentation verbatim and runs in a real browser.
-import { afterEach, describe, expect, it } from "vitest";
-import { type Root, computed, css, each, html, render, signal, when } from "zerolith";
+// Executed examples for the introduction and the templates and styles guides.
+// Each region is application code the documentation shows with its imports;
+// the checks around it run in a real browser, so the docs cannot drift.
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { computed, css, each, html, render, signal, when } from "zerolith";
 
-let root: Root | undefined;
-let host: HTMLElement | undefined;
+let host: HTMLElement;
 
-function mount(view: unknown): HTMLElement
+beforeEach(() =>
 {
-    host = document.createElement("div");
+    host = document.createElement("main");
+    host.id = "app";
     document.body.append(host);
-    root = render(view, host);
-    return host;
-}
+});
 
 afterEach(() =>
 {
-    root?.dispose();
-    host?.remove();
+    host.remove();
 });
 
 describe("templates guide", () =>
@@ -36,50 +34,58 @@ describe("templates guide", () =>
                 </section>`;
         }
 
-        const el = mount(Counter({ start: 1 }));
-        el.querySelector("button")?.click();
-        expect(el.querySelector("p")?.textContent).toBe("Count: 2, doubled: 4");
+        render(Counter({ start: 1 }), "#app");
         // #endregion counter
+        host.querySelector("button")?.click();
+        expect(host.querySelector("p")?.textContent).toBe("Count: 2, doubled: 4");
     });
 
     it("mount", () =>
     {
-        root = undefined;
-        host = document.createElement("main");
-        host.id = "app";
-        document.body.append(host);
-
         // #region mount
         const app = render(html`<p>Hello from zerolith</p>`, "#app");
-        expect(app.container).toBe(document.querySelector("#app"));
-        expect(document.querySelector("#app p")?.textContent).toBe("Hello from zerolith");
-
-        app.dispose();
-        expect(document.querySelector("#app p")).toBeNull();
         // #endregion mount
+        expect(app.container).toBe(host);
+        expect(host.querySelector("p")?.textContent).toBe("Hello from zerolith");
+        // #region mount
+
+        // Later, to take the view down and stop its effects:
+        app.dispose();
+        // #endregion mount
+        expect(host.querySelector("p")).toBeNull();
     });
 
     it("bindings", () =>
     {
         // #region bindings
-        const title = signal("first");
-        const disabled = signal(false);
-        const input = signal<HTMLInputElement | undefined>(undefined);
-        const clicks: string[] = [];
+        const name = signal("");
+        const tone = signal("quiet");
+        const saving = signal(false);
+        const field = signal<HTMLInputElement | undefined>(undefined);
+        const typed = (event: Event) => name.set((event.target as HTMLInputElement).value);
 
-        const el = mount(html`
-            <input ref=${input} title=${title} ?disabled=${disabled} .value=${"typed"} @input=${() => clicks.push("input")}>
-            <p class="note ${"extra"}">${"<b>stays text</b>"}</p>`);
+        render(html`
+            <label>Name
+                <input ref=${field} placeholder=${"Ada"} ?disabled=${saving}
+                    .value=${name} @input=${typed}>
+            </label>
+            <p class="greeting ${tone}">Hello ${name}</p>`, "#app");
 
-        expect(input.get()?.title).toBe("first");
-        expect(input.get()?.value).toBe("typed");
-        expect(el.querySelector("p")?.textContent).toBe("<b>stays text</b>");
-
-        title.set("second");
-        disabled.set(true);
-        expect(input.get()?.title).toBe("second");
-        expect(input.get()?.disabled).toBe(true);
+        field.get()?.focus();                   // the ref handed over the element
+        name.set("<b>Ada</b>");                 // shown as text in both places
+        saving.set(true);                       // adds the disabled attribute
         // #endregion bindings
+        const input = host.querySelector("input") as HTMLInputElement;
+        const paragraph = host.querySelector("p") as HTMLParagraphElement;
+        expect(input.placeholder).toBe("Ada");
+        expect(input.value).toBe("<b>Ada</b>");
+        expect(input.disabled).toBe(true);
+        expect(paragraph.className).toBe("greeting quiet");
+        expect(paragraph.textContent).toBe("Hello <b>Ada</b>");
+        expect(paragraph.querySelector("b")).toBeNull();
+        input.value = "Grace";
+        input.dispatchEvent(new InputEvent("input"));
+        expect(paragraph.textContent).toBe("Hello Grace");
     });
 
     it("lists", () =>
@@ -92,14 +98,20 @@ describe("templates guide", () =>
         }
         const tasks = signal<Task[]>([{ id: 1, text: "write" }, { id: 2, text: "test" }]);
 
-        const el = mount(html`
-            <ul>${each(tasks, (task) => task.id, (task) => html`<li>${computed(() => task.get().text)}</li>`)}</ul>`);
-
-        const first = el.querySelector("li");
-        tasks.set([{ id: 2, text: "test" }, { id: 1, text: "write, edited" }]);
-        expect(el.querySelectorAll("li")[1]).toBe(first);           // the same node, moved and updated
-        expect(first?.textContent).toBe("write, edited");
+        render(html`
+            <ul>
+                ${each(tasks, (task) => task.id, (task) => html`
+                    <li>${computed(() => task.get().text)}</li>`)}
+            </ul>`, "#app");
         // #endregion lists
+        const write = host.querySelector("li");
+        // #region lists
+
+        // The row with id 1 moves to the end, keeps its element, and updates its text:
+        tasks.set([{ id: 2, text: "test" }, { id: 1, text: "write, edited" }]);
+        // #endregion lists
+        expect(host.querySelectorAll("li")[1]).toBe(write);
+        expect(write?.textContent).toBe("write, edited");
     });
 
     it("conditions", () =>
@@ -107,12 +119,19 @@ describe("templates guide", () =>
         // #region conditions
         const user = signal<string | null>(null);
 
-        const el = mount(html`${when(user, () => html`<p>Hello ${user}</p>`, () => html`<p>Sign in</p>`)}`);
-
-        expect(el.textContent).toBe("Sign in");
-        user.set("ann");
-        expect(el.textContent).toBe("Hello ann");
+        render(html`
+            <header>
+                ${when(user,
+                    () => html`<p>Hello ${user}</p>`,
+                    () => html`<a href="/sign-in">Sign in</a>`)}
+            </header>`, "#app");
         // #endregion conditions
+        expect(host.textContent?.trim()).toBe("Sign in");
+        // #region conditions
+
+        user.set("Ada");                        // swaps the link for the greeting
+        // #endregion conditions
+        expect(host.textContent?.trim()).toBe("Hello Ada");
     });
 
     it("styles", () =>
@@ -128,8 +147,8 @@ describe("templates guide", () =>
             return html`<article class=${card}><h2>${title}</h2></article>`;
         }
 
-        const el = mount(Card({ title: "Scoped" }));
-        expect(getComputedStyle(el.querySelector("article") as Element).paddingTop).toBe("12px");
+        render(Card({ title: "Scoped" }), "#app");
         // #endregion styles
+        expect(getComputedStyle(host.querySelector("article") as Element).paddingTop).toBe("12px");
     });
 });

@@ -42,6 +42,7 @@ describe("server rendering guide: hydration", () =>
     it("adopts the server's markup and data for the current route", async () =>
     {
         host = document.createElement("div");
+        host.id = "app";
         document.body.append(host);
         const container = host;
         history.replaceState(null, "", "/notes/1");
@@ -55,13 +56,13 @@ describe("server rendering guide: hydration", () =>
 
         // #region hydrate
         const router = createRouter(routes);
-        await router.ready;                             // the initial navigation, with the data the server embedded
-        const handle = hydrate(App(router), container);
+        await router.ready;                     // the initial navigation, with the server's data
+        const app = hydrate(App(router), "#app");
         // #endregion hydrate
         client = router;
-        root = handle;
+        root = app;
         expect(loads).toBe(1);                          // the loader did not run again in the browser
-        expect(handle.mismatches).toEqual([]);
+        expect(app.mismatches).toEqual([]);
         expect(container.querySelector("h1")?.textContent).toBe("Note 1");
         expect(document.querySelector("[data-zerolith-route]")).toBeNull();
 

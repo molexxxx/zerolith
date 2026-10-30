@@ -3,11 +3,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { computed, html } from "zerolith";
 import { define } from "zerolith/element";
 
-let host: HTMLElement | undefined;
-
 afterEach(() =>
 {
-    host?.remove();
+    document.querySelector("#app")?.remove();
 });
 
 describe("custom elements guide", () =>
@@ -17,25 +15,32 @@ describe("custom elements guide", () =>
         // #region define
         define("note-count", {
             props: ["label", "count"],
-            view: ({ label, count }, element) => html`
-                <span>${label}: ${computed(() => Number(count.get() ?? 0))}</span>
-                <button @click=${() => element.dispatchEvent(new CustomEvent("reset", { bubbles: true }))}>Reset</button>`
+            view: ({ label, count }, element) =>
+            {
+                const total = computed(() => Number(count.get() ?? 0));
+                const reset = () =>
+                    element.dispatchEvent(new CustomEvent("reset", { bubbles: true }));
+                return html`
+                    <span>${label}: ${total}</span>
+                    <button @click=${reset}>Reset</button>`;
+            }
         });
         // #endregion define
-        host = document.createElement("div");
+        const host = document.createElement("main");
+        host.id = "app";
+        host.innerHTML = "<note-count label=\"Drafts\" count=\"2\"></note-count>";
         document.body.append(host);
+        expect(host.querySelector("span")?.textContent).toBe("Drafts: 2");
         // #region use
-        host.innerHTML = "<note-count label=\"Drafts\" count=\"2\"></note-count>";    // from any HTML, or from React, Vue, or Angular
-        const element = host.firstElementChild as HTMLElement & { count: number };
-        element.count = 5;                                                           // a property keeps its type
-        // #endregion use
-        expect(element.querySelector("span")?.textContent).toBe("Drafts: 5");
-        let resets = 0;
-        host.addEventListener("reset", () =>
+        const counter = document.querySelector("note-count") as HTMLElement & { count: number };
+        counter.count = 5;                      // a property keeps its type
+        counter.addEventListener("reset", () =>
         {
-            resets += 1;
+            counter.count = 0;
         });
-        element.querySelector("button")?.click();
-        expect(resets).toBe(1);
+        // #endregion use
+        expect(counter.querySelector("span")?.textContent).toBe("Drafts: 5");
+        counter.querySelector("button")?.click();
+        expect(counter.querySelector("span")?.textContent).toBe("Drafts: 0");
     });
 });

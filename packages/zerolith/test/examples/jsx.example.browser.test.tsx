@@ -1,13 +1,11 @@
 // Executed examples for the templates guide: the same component spelled as JSX.
 import { afterEach, describe, expect, it } from "vitest";
-import { type Root, type View, computed, each, render, signal } from "zerolith";
+import { type View, computed, each, render, signal } from "zerolith";
 
-let root: Root | undefined;
 let host: HTMLElement | undefined;
 
 afterEach(() =>
 {
-    root?.dispose();
     host?.remove();
 });
 
@@ -16,6 +14,7 @@ describe("templates guide: JSX", () =>
     it("jsx", () =>
     {
         host = document.createElement("div");
+        host.id = "app";
         document.body.append(host);
         // #region jsx
         function Counter({ start, label }: { start: number; label: string }): View
@@ -41,8 +40,9 @@ describe("templates guide: JSX", () =>
                 </main>
             );
         }
+
+        render(<App />, "#app");
         // #endregion jsx
-        root = render(App(), host);
         expect(host.querySelector("h1")?.textContent).toBe("Hello 2 items");
         expect(host.querySelector("input")?.value).toBe("typed");
         expect(host.querySelectorAll("li")).toHaveLength(2);

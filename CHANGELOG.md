@@ -2,6 +2,17 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
+## Unreleased
+
+### Changed
+
+- Docs site: the site wears the brand, with the lockup, the three typefaces served from the site itself, the basalt palette in a dark and a light theme with a toggle, code colored by keyword, string, and comment with a copy button, a table of contents per page, and a menu on narrow screens.
+- Docs site: every example in the guides reads as application code. It shows the imports it uses, renders into the page or prints what it would show, and leaves the checks that keep it honest to the test around it; the docs build refuses an example that shows one.
+
+### Fixed
+
+- Docs site: an element name in a diagnostic's cause, such as `<iframe>`, is shown as code instead of being rendered as an element.
+
 ## 0.1.0-alpha.3 (2026-10-30)
 
 The command line now does the whole job on its own: `zerolith new` writes a starter in TSX, `zerolith dev` serves it with packages resolved from `node_modules` and no import map, `zerolith build` bundles and minifies it with Rolldown and lightningcss compiled into the binary, and `zerolith preview` serves the result. Vite stays an option through `@zerolith/vite`, and the inspector no longer freezes the page when it opens.
