@@ -1,6 +1,6 @@
 {
     "name": "@zerolith/cli-linux-x64",
-    "version": "0.1.0-alpha.2",
+    "version": "0.1.0-alpha.3",
     "description": "The zerolith command line binary for Linux on x64 (glibc); installed through @zerolith/cli",
     "license": "Apache-2.0",
     "author": "molexxxx",

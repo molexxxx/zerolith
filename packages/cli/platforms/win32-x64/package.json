@@ -1,6 +1,6 @@
 {
     "name": "@zerolith/cli-win32-x64",
-    "version": "0.1.0-alpha.2",
+    "version": "0.1.0-alpha.3",
     "description": "The zerolith command line binary for Windows on x64; installed through @zerolith/cli",
     "license": "Apache-2.0",
     "author": "molexxxx",

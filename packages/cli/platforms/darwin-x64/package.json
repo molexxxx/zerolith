@@ -1,6 +1,6 @@
 {
     "name": "@zerolith/cli-darwin-x64",
-    "version": "0.1.0-alpha.2",
+    "version": "0.1.0-alpha.3",
     "description": "The zerolith command line binary for macOS on Intel; installed through @zerolith/cli",
     "license": "Apache-2.0",
     "author": "molexxxx",

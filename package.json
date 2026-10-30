@@ -1,6 +1,6 @@
 {
     "name": "zerolith-monorepo",
-    "version": "0.1.0-alpha.2",
+    "version": "0.1.0-alpha.3",
     "private": true,
     "description": "Monorepo for zerolith, a standalone frontend framework",
     "license": "Apache-2.0",

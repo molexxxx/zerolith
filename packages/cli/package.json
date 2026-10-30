@@ -1,6 +1,6 @@
 {
     "name": "@zerolith/cli",
-    "version": "0.1.0-alpha.2",
+    "version": "0.1.0-alpha.3",
     "description": "The zerolith command line from npm: a production build that bundles and minifies, a dev server that serves TypeScript and JSX without a build step, import maps with integrity hashes, project checks, and the scaffold, as a prebuilt native binary for the platform npm installs on",
     "license": "Apache-2.0",
     "author": "molexxxx",

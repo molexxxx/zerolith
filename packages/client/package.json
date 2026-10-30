@@ -1,6 +1,6 @@
 {
     "name": "@zerolith/client",
-    "version": "0.1.0-alpha.2",
+    "version": "0.1.0-alpha.3",
     "description": "A typed HTTP client for zerolith over a neutral contract: generate the route table and types from an OpenAPI document, call operations with checked inputs, and read failures as RFC 9457 problems",
     "license": "Apache-2.0",
     "author": "molexxxx",
@@ -52,9 +52,9 @@
         "build": "tsc -p tsconfig.build.json"
     },
     "peerDependencies": {
-        "zerolith": "^0.1.0-alpha.2"
+        "zerolith": "^0.1.0-alpha.3"
     },
     "devDependencies": {
-        "zerolith": "^0.1.0-alpha.2"
+        "zerolith": "^0.1.0-alpha.3"
     }
 }
