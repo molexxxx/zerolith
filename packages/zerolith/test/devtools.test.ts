@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type DevtoolsEvent, type DevtoolsHook, computed, effect, onDispose, signal } from "zerolith";
+import { type DevtoolsEvent, type DevtoolsHook, type ReadableSignal, computed, devtoolsInternal, effect, onDispose, signal } from "zerolith";
 
 function hook(): DevtoolsHook
 {
@@ -51,5 +51,30 @@ describe("devtools hook", () =>
         stop();
         expect(events.map((event) => event.type)).toEqual(["node", "node", "flush", "diagnostic"]);
         expect(hook().diagnostics().at(-1)?.code).toBe("on_dispose_outside_scope");
+    });
+
+    it("keeps what the inspector's effects create when they run again internal and unannounced", () =>
+    {
+        const rows = signal(1);
+        const made: ReadableSignal<number>[] = [];
+        devtoolsInternal(() =>
+        {
+            effect(() =>
+            {
+                for (let index = 0; index < rows.get(); index++)
+                {
+                    made.push(computed(() => index, { name: `inspector row ${index}` }));
+                }
+            });
+        });
+        const events: DevtoolsEvent[] = [];
+        const stop = hook().subscribe((event) => events.push(event));
+        rows.set(3);
+        stop();
+        expect(events).toEqual([]);
+        const rowsTracked = hook().nodes().filter((node) => node.name?.startsWith("inspector row") === true);
+        expect(made).toHaveLength(4);
+        expect(rowsTracked).toHaveLength(4);
+        expect(rowsTracked.every((node) => node.internal)).toBe(true);
     });
 });

@@ -18,6 +18,10 @@ Every package in this repository is released together and carries the same versi
 
 - `@zerolith/vite`, `@zerolith/cli`, and the `zerolith` crate: the prepare pass creates a template with no bindings once, at module scope, and every render reuses that view instead of allocating a new one.
 
+### Fixed
+
+- `zerolith` and `@zerolith/devtools`: opening the inspector from its launcher or with Alt+Shift+Z froze the page. Nodes the inspector created after it mounted counted as the application's, so every refresh listed them and created more. What the inspector's effects and owners create is now internal however late it is created, and internal nodes, roots, and effect runs are not announced to subscribers.
+
 ## 0.1.0-alpha.2 (2026-10-30)
 
 Templates are prepared at build time by the Vite plugin and the command line, views mount by CSS selector, and every diagnostic links to a page that exists: the docs site is published to GitHub Pages with each release.

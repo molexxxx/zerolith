@@ -172,12 +172,15 @@ const hook: DevtoolsHook = {
  * Records a reactive node, held weakly so discarded state can be collected.
  * `inspect` receives the node and reads its state untracked when the
  * inspector asks; it must not capture the node itself. The registry is
- * pruned of collected nodes each time it doubles.
+ * pruned of collected nodes each time it doubles. An internal node is
+ * recorded but not announced, so the inspector's own rendering never wakes
+ * it.
  */
 export function trackNode<T extends object>(node: T, kind: NodeSnapshot["kind"], name: string | undefined, inspect: Inspect<T>): void
 {
     const id = nextId++;
-    nodes.push({ id, kind, name, internal: depth > 0, ref: new WeakRef(node), inspect: inspect as Inspect<object> });
+    const inside = depth > 0;
+    nodes.push({ id, kind, name, internal: inside, ref: new WeakRef(node), inspect: inspect as Inspect<object> });
     if (nodes.length >= pruneAt)
     {
         prune();
@@ -192,7 +195,10 @@ export function trackNode<T extends object>(node: T, kind: NodeSnapshot["kind"],
             restored = undefined;
         }
     }
-    emit({ type: "node", id });
+    if (!inside)
+    {
+        emit({ type: "node", id });
+    }
 }
 
 /**
@@ -211,8 +217,12 @@ export function saveRestore(state: Record<string, unknown>): void
 export function trackRoot(root: object, container: Node, kind: RootSnapshot["kind"]): void
 {
     const id = nextId++;
-    roots.set(root, { id, kind, container, internal: depth > 0 });
-    emit({ type: "root", id, removed: false });
+    const inside = depth > 0;
+    roots.set(root, { id, kind, container, internal: inside });
+    if (!inside)
+    {
+        emit({ type: "root", id, removed: false });
+    }
 }
 
 /** Forgets a disposed root. */
@@ -222,7 +232,10 @@ export function untrackRoot(root: object): void
     if (snapshot !== undefined)
     {
         roots.delete(root);
-        emit({ type: "root", id: snapshot.id, removed: true });
+        if (!snapshot.internal)
+        {
+            emit({ type: "root", id: snapshot.id, removed: true });
+        }
     }
 }
 
@@ -243,7 +256,13 @@ export function trackFlush(effects: number): void
     emit({ type: "flush", effects });
 }
 
-/** Runs `fn` with everything it creates marked as belonging to the inspector. */
+/** True while code that belongs to the inspector runs, inside `internal` or under an effect or owner created there. */
+export function isInternal(): boolean
+{
+    return depth > 0;
+}
+
+/** Runs `fn` with everything it creates marked as belonging to the inspector, including what the effects and owners it creates make when they run later. */
 export function internal<T>(fn: () => T): T
 {
     depth++;

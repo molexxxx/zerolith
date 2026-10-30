@@ -61,6 +61,11 @@ export function saveRestore(_state: Record<string, unknown>): void
 {
 }
 
+export function isInternal(): boolean
+{
+    return false;
+}
+
 export function internal<T>(fn: () => T): T
 {
     return fn();

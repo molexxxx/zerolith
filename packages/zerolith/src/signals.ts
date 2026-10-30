@@ -13,7 +13,7 @@
  * version counter, which keeps it correct without keeping it alive in its
  * sources' subscriber lists.
  */
-import { measure, trackFlush, trackNode } from "./devtools.js";
+import { internal, isInternal, measure, trackFlush, trackNode } from "./devtools.js";
 import { fail } from "./diagnostics.js";
 
 const RUNNING = 1;
@@ -22,6 +22,8 @@ const OUTDATED = 4;
 const DISPOSED = 8;
 const HAS_ERROR = 16;
 const TRACKING = 32;
+/** Set on effects the dev tools create: what they create while running belongs to the dev tools too, and their runs are not announced. */
+const INTERNAL = 64;
 
 /** Decides whether a new value counts as a change. */
 export type Equals<T> = (previous: T, next: T) => boolean;
@@ -325,7 +327,10 @@ function endBatch(): void
             node.flags &= ~NOTIFIED;
             if (!(node.flags & DISPOSED) && stale(node))
             {
-                ran++;
+                if (!(node.flags & INTERNAL))
+                {
+                    ran++;
+                }
                 try
                 {
                     node.run();
@@ -579,6 +584,10 @@ class Effect implements Consumer, OwnerNode
     constructor(fn: EffectFunction)
     {
         this.fn = fn;
+        if (isInternal())
+        {
+            this.flags |= INTERNAL;
+        }
     }
 
     run(): void
@@ -598,7 +607,7 @@ class Effect implements Consumer, OwnerNode
         {
             if (this.fn !== undefined)
             {
-                const cleanup = this.fn();
+                const cleanup = this.flags & INTERNAL ? internal(this.fn) : this.fn();
                 if (typeof cleanup === "function")
                 {
                     this.cleanup = cleanup;
@@ -802,6 +811,7 @@ export function untracked<T>(fn: () => T): T
 export function createOwner(): Owner
 {
     const node: OwnerNode = { children: undefined };
+    const inside = isInternal();
     const handle: Owner = {
         run<T>(fn: () => T): T
         {
@@ -811,7 +821,7 @@ export function createOwner(): Owner
             consumer = undefined;
             try
             {
-                return fn();
+                return inside ? internal(fn) : fn();
             }
             finally
             {
