@@ -39,23 +39,39 @@ Bind the signal, not its value: `${count}` stays live, while `${count.get()}` re
 
 ## Getting started
 
-Node 24 or newer is required. One command writes a starter application and installs it:
+Node 24 or newer is required. Install the command line once; npm puts the prebuilt binary for your platform on your PATH:
 
 ```sh
-npx @zerolith/cli@alpha new my-app
-cd my-app
-npm run dev
+npm install --global @zerolith/cli@alpha
 ```
 
-`new` asks a few questions, each with a default that Enter takes: TypeScript with JSX, the zerolith command line rather than Vite, the inspector included, and the dependencies installed; `--yes` takes them all. The project then runs on three scripts:
+Then write a starter application and run it:
 
-| Script | Runs | What it does |
+```sh
+zerolith new my-app
+cd my-app
+zerolith dev
+```
+
+`zerolith new` asks a few questions. Enter takes the default, a flag answers a question on the command line, and `--yes` takes every default without asking:
+
+| Choice | Default | Other choices |
 | --- | --- | --- |
-| `npm run dev` | `zerolith dev` | Serves the app at http://127.0.0.1:8080/ and reloads it as you edit |
-| `npm run build` | `zerolith build` | Bundles and minifies it into `dist/` |
-| `npm run preview` | `zerolith preview` | Serves `dist/` the way a host will, to check the build |
+| Language | TSX | `--template ts`, `--template jsx`, or `--template js` |
+| Dev server and build | The zerolith command line | `--vite` for Vite with `@zerolith/vite` |
+| Production output | One minified bundle | `--buildless` for the modules behind an import map |
+| Inspector | Included | `--no-devtools` |
+| Dependencies | Installed | `--no-install` |
 
-The scripts are the zerolith command line, written in Rust: `@zerolith/cli` installs the prebuilt binary for your platform, and `npx zerolith` runs the same command directly. `dist/` is static files for any host or backend; the starter's README covers deploying it, environment variables, and when Vite is worth adding, and the [command line guide](docs/guide/command-line.md) has every option.
+In the project:
+
+| Command | What it does |
+| --- | --- |
+| `zerolith dev` | Serves the app at http://127.0.0.1:8080/ and reloads it as you edit |
+| `zerolith build` | Bundles and minifies it into `dist/`, static files for any host or backend |
+| `zerolith preview` | Serves `dist/` the way a host will, to check the build |
+
+Without a global install, `npx @zerolith/cli@alpha new my-app` writes the project, and inside it `npx zerolith dev` and the `dev`, `build`, and `preview` npm scripts run the project's own copy of the command line, which is what CI should use. The starter's README covers deploying, environment variables, and when Vite is worth adding, and the [command line guide](docs/guide/command-line.md) has every option.
 
 To add zerolith to an existing project, install `zerolith@alpha` and the `@zerolith/*` packages you need at the same tag, with `@zerolith/cli` for the commands.
 

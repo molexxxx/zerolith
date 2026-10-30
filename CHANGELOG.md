@@ -4,12 +4,12 @@ Every package in this repository is released together and carries the same versi
 
 ## 0.1.0-alpha.3 (2026-10-30)
 
-The command line now does the whole job on its own: `zerolith new` writes a starter in TypeScript with JSX, `zerolith dev` serves it with packages resolved from `node_modules` and no import map, `zerolith build` bundles and minifies it with Rolldown and lightningcss compiled into the binary, and `zerolith preview` serves the result. Vite stays an option through `@zerolith/vite`, and the inspector no longer freezes the page when it opens.
+The command line now does the whole job on its own: `zerolith new` writes a starter in TSX, `zerolith dev` serves it with packages resolved from `node_modules` and no import map, `zerolith build` bundles and minifies it with Rolldown and lightningcss compiled into the binary, and `zerolith preview` serves the result. Vite stays an option through `@zerolith/vite`, and the inspector no longer freezes the page when it opens.
 
 ### Breaking changes
 
 - `@zerolith/vite`: a client build fails with `lazy_module_not_split` when a view loaded with the router's `lazy()`, or a locale module of a message index compiled by `zerolith-i18n`, is also imported statically, which would put it in the importing chunk instead of a chunk of its own. Server builds are not checked.
-- `@zerolith/cli` and the `zerolith` crate: `zerolith new` writes a starter on the command line by default, in TypeScript with JSX: its `dev`, `build`, and `preview` scripts run `zerolith dev`, `zerolith build`, and `zerolith preview`, and the command installs the dependencies. `--vite` writes a project on Vite, as the default did before, `--template tsx|ts|jsx|js` replaces `--js`, and `--buildless` writes no import map or vendor script any more, since `zerolith dev` resolves the packages and `zerolith build --unbundled` writes the map.
+- `@zerolith/cli` and the `zerolith` crate: `zerolith new` writes a starter on the command line by default, in TSX: its `dev`, `build`, and `preview` scripts run `zerolith dev`, `zerolith build`, and `zerolith preview`, and the command installs the dependencies. `--vite` writes a project on Vite, as the default did before, `--template tsx|ts|jsx|js` replaces `--js`, and `--buildless` writes no import map or vendor script any more, since `zerolith dev` resolves the packages and `zerolith build --unbundled` writes the map.
 - `@zerolith/cli` and the `zerolith` crate: `zerolith build` bundles the application instead of writing it file by file. The previous output, sources transformed one by one and served with the packages vendored behind an import map, is `zerolith build --unbundled`, which `zerolith new --buildless` now writes into the project's build script.
 
 ### Added

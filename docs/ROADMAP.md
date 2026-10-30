@@ -97,7 +97,7 @@ See the [command line guide](guide/command-line.md).
 - [x] `build` bundles with Rolldown and lightningcss compiled in: minified chunks with hashed names, lazy routes and locales split out, one stylesheet lowered for the supported browsers, assets copied under hashed names, a base path, and the same passes as the Vite plugin; `--unbundled` keeps the import map output.
 - [x] `dev` resolves packages from `node_modules` with the build's resolver, so a page needs no import map, and serves stylesheets, JSON, and other files imported from code, `PUBLIC_` variables from `.env` files, and the public folder, as `build` does.
 - [x] `preview` serves a build's output as a static host would.
-- [x] `new` writes a starter in the brand style: TypeScript with JSX on the command line by default, asking for the language, Vite, and the inspector, with a browser test, a README on deploying, and the dependencies installed.
+- [x] `new` writes a starter in the brand style: TSX on the command line by default, asking for the language, Vite, and the inspector, with a browser test, a README on deploying, and the dependencies installed.
 - [ ] A proxy from `dev` to a backend, and a base path for `dev`.
 - [ ] `zerolith migrate`, with codemods between versions.
 - [ ] A musl binary for Alpine and other musl distributions.

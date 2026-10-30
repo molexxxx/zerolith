@@ -2,13 +2,16 @@
 
 The `zerolith` command line from npm: `new`, `dev`, which serves a project with its packages resolved from `node_modules`, `serve`, `build`, which bundles and minifies an application with Rolldown compiled into the binary, `preview`, `importmap`, and `doctor`. The binary is written in Rust; this package carries none itself and depends optionally on one package per platform, so npm installs only the binary that matches the machine.
 
-Start a project with nothing installed. `new` asks a few questions, each with a default, writes the starter, and installs its dependencies, this package among them, so its scripts find the binary:
+Install it once and start a project. `new` asks a few questions, each with a default, writes the starter, and installs its dependencies, this package among them:
 
 ```
-npx @zerolith/cli@alpha new my-app
+npm install --global @zerolith/cli@alpha
+zerolith new my-app
 cd my-app
-npm run dev
+zerolith dev
 ```
+
+Without a global install, `npx @zerolith/cli@alpha new my-app` does the same, and inside the project `npx zerolith dev` and its npm scripts run the copy it lists.
 
 Or add it to an existing project and call it through `npx`:
 

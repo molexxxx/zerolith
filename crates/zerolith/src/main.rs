@@ -121,7 +121,7 @@ enum Command {
         #[arg(long, conflicts_with_all = ["empty_out_dir", "base", "mode", "sourcemap", "no_minify"])]
         unbundled: bool,
     },
-    /// Write a starter application and install its dependencies, asking for what the flags leave open: TypeScript with JSX on the command line, with the inspector, by default.
+    /// Write a starter application and install its dependencies, asking for what the flags leave open: TSX on the command line, with the inspector, by default.
     New {
         /// The folder to create; its name becomes the application's name.
         root: Option<PathBuf>,
