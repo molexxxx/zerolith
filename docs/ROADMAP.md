@@ -17,14 +17,14 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 | Docs | Published to GitHub Pages by each release; the project domain is not registered yet |
 | Coding agents | In-repo context shipped; MCP servers, Skills, and evals remain |
 | Adoption | No production application yet; the first migration is next |
-| Project and supply chain | Policies, provenance, GitHub releases, and npm trusted publishers in place; the crate's trusted publishing and canaries remain |
+| Project and supply chain | Policies, provenance, GitHub releases, and npm trusted publishers in place; canaries remain |
 
 ## Next
 
 In order:
 
 1. Register the project domain and move the docs there from GitHub Pages. Every diagnostic links to its page on the docs site, so the address has to be permanent before 1.0.
-2. Publish the next release through trusted publishing alone, which every npm package now has, and move the crate to crates.io trusted publishing; then start the canary channel.
+2. Publish the next release through npm trusted publishing alone, which every npm package now has; then start the canary channel.
 3. Finish the build path: static hoisting and the lazy-route split check, and the template lint in `zerolith doctor`.
 4. Migrate the first production site onto zerolith.
 5. Review the core, templates, and router API through an RFC and freeze it for 1.0.
@@ -37,7 +37,7 @@ In order:
 - [ ] The docs site is live at the project's own domain, built with zerolith itself, and every diagnostic code's page resolves there.
 - [ ] A production site runs on zerolith, served buildless with an import map and integrity hashes, with a Lighthouse budget enforced in CI.
 - [ ] A keyed entry is submitted to js-framework-benchmark, with the core inside its 10 kB compressed budget.
-- [ ] Every package publishes through trusted publishing with provenance, and the canary channel runs.
+- [ ] Every npm package publishes through trusted publishing with provenance, and the canary channel runs.
 - [x] The test suite passes unbundled under a CSP without `unsafe-eval` and bundled with Vite.
 - [x] Every docs example is a test, so a broken example fails CI.
 - [x] Every public export is documented; the docs build fails on an undocumented one.
@@ -150,7 +150,7 @@ See the [command line guide](guide/command-line.md).
 - [x] Private vulnerability reporting and secret scanning with push protection.
 - [x] One version across every package and the crate, set by a script and checked by a test, and a dry run of the release workflow before each publish.
 - [x] GitHub releases created by the release workflow, with the version's changelog section and the SBOM attached.
-- [ ] Trusted publishing for every npm package and the crate, with no publish token left anywhere. Every npm package has a trusted publisher allowed to publish and move dist-tags, and the next release is the first to use it; the crate still publishes with a token.
+- [ ] Trusted publishing for every npm package, with no npm token left anywhere. Every npm package has a trusted publisher allowed to publish and move dist-tags, and the next release is the first to use it. The crate keeps publishing with a crates.io token.
 - [ ] Canary releases on every merge under the `canary` dist-tag.
 - [ ] The OpenSSF Best Practices badge, passing and then silver.
 - [ ] A trademark search for the name.
