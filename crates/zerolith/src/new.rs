@@ -3,8 +3,8 @@
 //! patterns a project grows from, a browser test, a README that walks
 //! through developing, building, previewing, and deploying, and an
 //! AGENTS.md, then installs its dependencies. It asks for what the flags
-//! leave open, with a default for every question: TypeScript with JSX on
-//! the command line, the inspector included, and the dependencies installed.
+//! leave open, with a default for every question: TSX on the command line,
+//! the inspector included, and the dependencies installed.
 
 use std::fs;
 use std::io::{self, BufRead, IsTerminal, Write};
@@ -34,7 +34,7 @@ pub struct Choice {
 }
 
 impl Choice {
-    /// TypeScript with JSX on the command line, with the inspector: what every question defaults to.
+    /// TSX on the command line, with the inspector: what every question defaults to.
     pub const DEFAULT: Choice = Choice {
         tool: Tool::CommandLine,
         typescript: true,
@@ -535,9 +535,9 @@ const HOME_HTML: &str = r#"    return html`
                 <p class="lead">A zerolith application. Edit <code>src/components/home.__CEXT__</code> and save: the page updates and keeps its state.</p>
             </div>
             <ol>
-                <li><code>npm run dev</code><p>__DEV__</p></li>
-                <li><code>npm run build</code><p>__BUILD__</p></li>
-                <li><code>npm run preview</code><p>__PREVIEW__</p></li>
+                <li><code>__RUN_DEV__</code><p>__DEV__</p></li>
+                <li><code>__RUN_BUILD__</code><p>__BUILD__</p></li>
+                <li><code>__RUN_PREVIEW__</code><p>__PREVIEW__</p></li>
             </ol>
             <div class="next">
                 <a class="button primary" href=${router.href("counter")}>Try the counter</a>
@@ -552,9 +552,9 @@ const HOME_JSX_BODY: &str = r#"    return (
                 <p class="lead">A zerolith application. Edit <code>src/components/home.__CEXT__</code> and save: the page updates and keeps its state.</p>
             </div>
             <ol>
-                <li><code>npm run dev</code><p>__DEV__</p></li>
-                <li><code>npm run build</code><p>__BUILD__</p></li>
-                <li><code>npm run preview</code><p>__PREVIEW__</p></li>
+                <li><code>__RUN_DEV__</code><p>__DEV__</p></li>
+                <li><code>__RUN_BUILD__</code><p>__BUILD__</p></li>
+                <li><code>__RUN_PREVIEW__</code><p>__PREVIEW__</p></li>
             </ol>
             <div class="next">
                 <a class="button primary" href={router.href("counter")}>Try the counter</a>
@@ -954,27 +954,54 @@ fn agents_md(name: &str, choice: Choice) -> String {
     )
 }
 
+/// The commands the starter's home page and README show for each step.
+fn commands(tool: Tool) -> (&'static str, &'static str, &'static str) {
+    match tool {
+        Tool::CommandLine => ("zerolith dev", "zerolith build", "zerolith preview"),
+        Tool::Unbundled => (
+            "zerolith dev",
+            "zerolith build --unbundled",
+            "zerolith preview",
+        ),
+        Tool::Vite => ("npm run dev", "npm run build", "npm run preview"),
+    }
+}
+
 fn readme(name: &str, choice: Choice) -> String {
     let ext = choice.ext();
     let component = choice.component_ext();
+    let (run_dev, run_build, run_preview) = commands(choice.tool);
+    let intro = match choice.tool {
+        Tool::Vite => {
+            "A zerolith application on Vite. The commands below are the project's npm scripts, which run Vite with `@zerolith/vite`."
+        }
+        _ => {
+            "A zerolith application. The commands below are the zerolith command line. Install it once with `npm install --global @zerolith/cli@alpha`, or run the project's own copy, which `npm install` put in `node_modules`, as `npx zerolith dev` or through the `dev`, `build`, and `preview` npm scripts, which is what CI should do."
+        }
+    };
     let (develop, build) = match choice.tool {
         Tool::CommandLine => (
-            "runs `zerolith dev`, which serves the app at http://127.0.0.1:8080/ with live reload. Packages load straight from `node_modules`, so `index.html` names one module and a new file needs nothing but an import where it is used. An edit reloads the page and keeps the value of every named signal; a stylesheet edit applies without a reload.",
-            "runs `zerolith build`, which bundles and minifies the app into `dist/`: one script and one stylesheet with content hashes in their names, a chunk of its own for each lazy route, the files in `public/`, and an `index.html` that loads them. Templates are prepared at build time, and the inspector stays out.",
+            "serves the app at http://127.0.0.1:8080/ with live reload. Packages load straight from `node_modules`, so `index.html` names one module and a new file needs nothing but an import where it is used. An edit reloads the page and keeps the value of every named signal; a stylesheet edit applies without a reload.",
+            "bundles and minifies the app into `dist/`: one script and one stylesheet with content hashes in their names, a chunk of its own for each lazy route, the files in `public/`, and an `index.html` that loads them. Templates are prepared at build time, and the inspector stays out.",
         ),
         Tool::Unbundled => (
-            "runs `zerolith dev`, which serves the app at http://127.0.0.1:8080/ with live reload. Packages load straight from `node_modules`, so `index.html` names one module and a new file needs nothing but an import where it is used. An edit reloads the page and keeps the value of every named signal; a stylesheet edit applies without a reload.",
-            "runs `zerolith build --unbundled`, which writes the app into `dist/` without bundling it: every module transformed to JavaScript and served as it is, the files in `public/`, and the packages copied into `dist/vendor/` behind an import map with integrity hashes. `npx zerolith build` bundles it instead, whenever one minified file suits the host better.",
+            "serves the app at http://127.0.0.1:8080/ with live reload. Packages load straight from `node_modules`, so `index.html` names one module and a new file needs nothing but an import where it is used. An edit reloads the page and keeps the value of every named signal; a stylesheet edit applies without a reload.",
+            "writes the app into `dist/` without bundling it: every module transformed to JavaScript and served as it is, the files in `public/`, and the packages copied into `dist/vendor/` behind an import map with integrity hashes. `zerolith build` bundles it instead, whenever one minified file suits the host better.",
         ),
         Tool::Vite => (
-            "runs Vite with `@zerolith/vite`, which applies an edited component in place and keeps the value of every named signal.",
+            "starts Vite with `@zerolith/vite`, which applies an edited component in place and keeps the value of every named signal.",
             "runs `vite build`, which bundles and minifies the app into `dist/`: hashed scripts and a stylesheet, the files in `public/`, and an `index.html` that loads them. `npx zerolith build` writes an equivalent bundle without Vite.",
         ),
     };
     let preview = if choice.tool == Tool::Vite {
         "runs `vite preview`, which serves `dist/` at http://localhost:4173/"
     } else {
-        "runs `zerolith preview`, which serves `dist/` at http://127.0.0.1:4173/"
+        "serves `dist/` at http://127.0.0.1:4173/"
+    };
+    let base = match choice.tool {
+        Tool::CommandLine => "build it with `zerolith build --base /app/`",
+        Tool::Unbundled => "bundle it with `zerolith build --base /app/`",
+        Tool::Vite => "build it with `npm run build -- --base /app/`",
     };
     let inspector = if choice.devtools {
         " Press Alt+Shift+Z, or the launcher button in the corner, to open the inspector: every signal with its value, the mounted roots, and the diagnostics."
@@ -995,7 +1022,7 @@ fn readme(name: &str, choice: Choice) -> String {
         }
     };
     format!(
-        "# {name}\n\nA zerolith application. Its scripts run the zerolith command line, which `npm install` put in `node_modules`; `npx zerolith` runs the same command directly.{syntax}\n\n## Develop\n\n```\nnpm run dev\n```\n\n`npm run dev` {develop}{inspector}\n\n## Build\n\n```\nnpm run build\n```\n\n`npm run build` {build}\n\n## Preview\n\n```\nnpm run preview\n```\n\n`npm run preview` {preview} as a host would, to check the build before deploying it.\n\n## Deploy\n\n`dist/` is static files. Upload it to any static host, such as GitHub Pages, Netlify, Cloudflare Pages, or a storage bucket, or serve it from the static file handler of any backend. Answer every path that names no file with `index.html`, so routes such as `/counter` load directly. To serve the app under a path such as `/app/`, build it with `npx zerolith build --base /app/`.\n\n## Environment variables\n\nVariables in `.env` whose names start with `PUBLIC_` reach the code as `import.meta.env.PUBLIC_NAME`; any other variable stays out of the browser. `.env.local` overrides `.env` and stays out of git.\n\n## Tests and checks\n\n`npm test` runs the browser tests in `test/` in headless Chromium; run `npx playwright install chromium` once first. `npm run check` runs the type check, the linter, the tests, and the build.\n\n## Vite\n\n{vite}\n\n## Layout\n\n```\nindex.html               the page: the stylesheet and the entry module\npublic/                  files served and copied as they are\nsrc/main.{ext}             the entry\nsrc/routes.{ext}           the route table\nsrc/router.{ext}           the router the components share\nsrc/components/*.{component}   one component per file, its styles next to its markup\nsrc/styles.css           the design tokens and global styles\ntest/                    browser tests\n```\n\n`AGENTS.md` is the same map for coding agents.\n"
+        "# {name}\n\n{intro}{syntax}\n\n## Develop\n\n```\n{run_dev}\n```\n\n`{run_dev}` {develop}{inspector}\n\n## Build\n\n```\n{run_build}\n```\n\n`{run_build}` {build}\n\n## Preview\n\n```\n{run_preview}\n```\n\n`{run_preview}` {preview} as a host would, to check the build before deploying it.\n\n## Deploy\n\n`dist/` is static files. Upload it to any static host, such as GitHub Pages, Netlify, Cloudflare Pages, or a storage bucket, or serve it from the static file handler of any backend. Answer every path that names no file with `index.html`, so routes such as `/counter` load directly. To serve the app under a path such as `/app/`, {base}.\n\n## Environment variables\n\nVariables in `.env` whose names start with `PUBLIC_` reach the code as `import.meta.env.PUBLIC_NAME`; any other variable stays out of the browser. `.env.local` overrides `.env` and stays out of git.\n\n## Tests and checks\n\n`npm test` runs the browser tests in `test/` in headless Chromium; run `npx playwright install chromium` once first. `npm run check` runs the type check, the linter, the tests, and the build.\n\n## Vite\n\n{vite}\n\n## Layout\n\n```\nindex.html               the page: the stylesheet and the entry module\npublic/                  files served and copied as they are\nsrc/main.{ext}             the entry\nsrc/routes.{ext}           the route table\nsrc/router.{ext}           the router the components share\nsrc/components/*.{component}   one component per file, its styles next to its markup\nsrc/styles.css           the design tokens and global styles\ntest/                    browser tests\n```\n\n`AGENTS.md` is the same map for coding agents.\n"
     )
 }
 
@@ -1023,6 +1050,9 @@ fn fill(template: &str, choice: Choice, name: &str) -> String {
         .replace("__DEV__", develop)
         .replace("__BUILD__", build)
         .replace("__PREVIEW__", preview)
+        .replace("__RUN_DEV__", commands(choice.tool).0)
+        .replace("__RUN_BUILD__", commands(choice.tool).1)
+        .replace("__RUN_PREVIEW__", commands(choice.tool).2)
         .replace("__NAME__", name)
         .replace("__CEXT__", choice.component_ext())
         .replace("__EXT__", choice.ext())
@@ -1269,10 +1299,10 @@ pub fn settle(mut answers: Answers, interactive: bool) -> io::Result<(PathBuf, C
             &mut input,
             "Language",
             &[
-                "TypeScript with JSX (.tsx)",
-                "TypeScript with html templates (.ts)",
-                "JavaScript with JSX (.jsx)",
-                "JavaScript with html templates (.js)",
+                "TSX: TypeScript components written in JSX",
+                "TS: TypeScript components written as html templates",
+                "JSX: JavaScript components written in JSX",
+                "JS: JavaScript components written as html templates",
             ],
         )? {
             1 => (true, false),
@@ -1290,9 +1320,11 @@ pub fn settle(mut answers: Answers, interactive: bool) -> io::Result<(PathBuf, C
             &[
                 "The zerolith command line: dev, build, and preview with nothing else",
                 "Vite with @zerolith/vite: in-place component replacement and Vite plugins",
+                "The zerolith command line, deploying the modules behind an import map instead of a bundle",
             ],
         )? {
             1 => Tool::Vite,
+            2 => Tool::Unbundled,
             _ => Choice::DEFAULT.tool,
         },
         None => Choice::DEFAULT.tool,
@@ -1375,21 +1407,50 @@ pub fn run(root: &Path, choice: Choice, install_dependencies: bool) -> io::Resul
             );
         }
     }
-    let run = if manager == "npm" { "npm run" } else { manager };
+    let (develop, build, preview) = commands(choice.tool);
+    let prefix = if choice.tool == Tool::Vite || on_path("zerolith") {
+        ""
+    } else {
+        "npx "
+    };
     println!("\nnext:\n  cd {}", root.display());
     if !installed {
         println!("  {manager} install");
     }
-    println!("  {run} dev        serve the app while you work");
-    println!("  {run} build      write the production build to dist/");
-    println!("  {run} preview    serve dist/ to check it");
+    let width = format!("{prefix}{build}").len() + 4;
+    for (command, what) in [
+        (develop, "serve the app while you work"),
+        (build, "write the production build to dist/"),
+        (preview, "serve dist/ to check it"),
+    ] {
+        println!("  {:<width$}{what}", format!("{prefix}{command}"));
+    }
     Ok(())
+}
+
+/// True when a program of this name is on `PATH` for good, as a global npm install puts the command line there; the folders npx and npm scripts add for one run do not count.
+fn on_path(program: &str) -> bool {
+    let Some(paths) = std::env::var_os("PATH") else {
+        return false;
+    };
+    std::env::split_paths(&paths).any(|folder| {
+        let text = folder.to_string_lossy().replace('\\', "/");
+        !text.contains("/_npx/")
+            && !text.trim_end_matches('/').ends_with("node_modules/.bin")
+            && ["", ".exe", ".cmd"]
+                .iter()
+                .any(|suffix| folder.join(format!("{program}{suffix}")).is_file())
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Answers, Choice, FAVICON, TOOL_VERSIONS, Tool, package_name, scaffold, settle};
+    use super::{
+        Answers, Choice, FAVICON, TOOL_VERSIONS, Tool, ask, confirm, package_name, pick, scaffold,
+        settle,
+    };
     use std::fs;
+    use std::io::Cursor;
     use std::path::{Path, PathBuf};
 
     #[test]
@@ -1527,7 +1588,14 @@ mod tests {
             let main = fs::read_to_string(root.join(entry)).unwrap();
             assert_eq!(main.contains("mountDevtools"), choice.devtools);
             let readme = fs::read_to_string(root.join("README.md")).unwrap();
-            assert!(readme.contains("## Deploy") && readme.contains("npm run preview"));
+            let (develop, _, preview) = super::commands(choice.tool);
+            assert!(
+                readme.contains("## Deploy") && readme.contains(preview),
+                "{readme}"
+            );
+            let home =
+                fs::read_to_string(root.join(format!("src/components/home.{component}"))).unwrap();
+            assert!(home.contains(&format!("<code>{develop}</code>")), "{home}");
             let agents = fs::read_to_string(root.join("AGENTS.md")).unwrap();
             assert!(agents.contains(&format!("# {folder}: guide for coding agents")));
         }
@@ -1562,6 +1630,22 @@ mod tests {
         let (_, defaults, install) = settle(Answers::default(), false).unwrap();
         assert_eq!(defaults, Choice::DEFAULT);
         assert!(install);
+    }
+
+    #[test]
+    fn asks_until_an_answer_is_valid_and_takes_defaults_on_enter() {
+        let mut input = Cursor::new("9\n2\n\nn\nmy-site\n");
+        assert_eq!(pick(&mut input, "Language", &["a", "b", "c"]).unwrap(), 1);
+        assert!(confirm(&mut input, "Install").unwrap());
+        assert!(!confirm(&mut input, "Inspector").unwrap());
+        assert_eq!(
+            ask(&mut input, "Folder", "zerolith-app").unwrap(),
+            "my-site"
+        );
+        assert_eq!(
+            ask(&mut input, "Folder", "zerolith-app").unwrap(),
+            "zerolith-app"
+        );
     }
 
     #[test]

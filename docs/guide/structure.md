@@ -85,7 +85,7 @@ The framework's own `AGENTS.md` follows the same shape, and the documentation si
 The command line comes from npm as `@zerolith/cli`, so `npx @zerolith/cli@alpha new my-app` needs nothing installed first; see [Command line](/guide/command-line/).
 
 ```
-zerolith new my-app                  asks, with TypeScript, JSX, and the command line as the defaults
+zerolith new my-app                  asks, with TSX and the command line as the defaults
 zerolith new my-app --yes            takes every default
 zerolith new my-app --template js    JavaScript with html templates and JSDoc types
 zerolith new my-app --vite           develops and builds on Vite with @zerolith/vite

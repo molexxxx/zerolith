@@ -6,13 +6,13 @@ order: 11
 
 # Command line
 
-The `zerolith` binary is written in Rust and covers the parts of development that need a process outside the browser. It installs from npm as `@zerolith/cli`, a thin package whose optional dependencies carry a prebuilt binary for Linux (glibc), macOS, and Windows on x64 and arm64, so `npm install --save-dev @zerolith/cli@alpha` followed by `npx zerolith` works wherever npm does, and `zerolith new` writes that dependency into the scaffold. Elsewhere, and on musl systems such as Alpine, `cargo install zerolith` builds the same crate from crates.io and `ZEROLITH_BINARY_PATH` tells the npm shim where it is.
+The `zerolith` binary is written in Rust and covers the parts of development that need a process outside the browser. It installs from npm as `@zerolith/cli`, a thin package whose optional dependencies carry a prebuilt binary for Linux (glibc), macOS, and Windows on x64 and arm64, so `npm install --global @zerolith/cli@alpha` puts `zerolith` on the PATH wherever npm runs, and a project that lists `@zerolith/cli` as a development dependency, as every starter does, runs its own copy through `npx zerolith` and its npm scripts. Elsewhere, and on musl systems such as Alpine, `cargo install zerolith` builds the same crate from crates.io and `ZEROLITH_BINARY_PATH` tells the npm shim where it is.
 
 ## dev, serve, and preview
 
 ```
 zerolith dev
-zerolith dev examples/notes --port 3000
+zerolith dev my-app --port 3000
 zerolith preview
 ```
 
@@ -94,7 +94,7 @@ zerolith new my-app --yes
 zerolith new my-app --template ts --vite --no-install
 ```
 
-Writes a starter application and installs its dependencies. On a terminal it asks for what the flags leave open, each question with a default that Enter takes: the folder, `zerolith-app`; the language, TypeScript with JSX, or TypeScript with `html` templates, JavaScript with JSX, or JavaScript with `html` templates and JSDoc types; the dev server and build, the command line or Vite with `@zerolith/vite`; whether to include the inspector, yes; and whether to install the dependencies, yes, with the package manager that ran the command. `--template tsx|ts|jsx|js`, `--vite`, `--no-devtools`, and `--no-install` answer on the command line, `--yes` takes the defaults for the rest, and outside a terminal the defaults apply without asking.
+Writes a starter application and installs its dependencies. On a terminal it asks for what the flags leave open, each question with a default that Enter takes: the folder, `zerolith-app`; the language, TSX, or TS with `html` templates, JSX, or JS with `html` templates and JSDoc types; the dev server and build, the command line, Vite with `@zerolith/vite`, or the command line deploying the modules behind an import map; whether to include the inspector, yes; and whether to install the dependencies, yes, with the package manager that ran the command. `--template tsx|ts|jsx|js`, `--vite`, `--no-devtools`, and `--no-install` answer on the command line, `--yes` takes the defaults for the rest, and outside a terminal the defaults apply without asking.
 
 The starter is three pages in the brand style: a home page that shows the workflow, a counter built on a named signal, and a searchable list that a resource loads from `public/data/packages.json`. It has the layout the [structure guide](/guide/structure/) describes, a browser test, `src/env.d.ts` typing `import.meta.env`, an `AGENTS.md` for coding agents, and a README that walks through developing, building, previewing, deploying, environment variables, and when Vite is worth adding. Its `dev`, `build`, and `preview` scripts run the command line, or Vite with `--vite`; `--buildless` keeps `zerolith dev` and builds with `--unbundled`, for a project deployed as its modules behind an import map. The tool versions it pins are the ones this repository tests with.
 
