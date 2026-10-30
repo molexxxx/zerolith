@@ -2,7 +2,9 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
-## Unreleased
+## 0.1.0-alpha.4 (2026-10-30)
+
+Live reload works on Windows, and the command line's output follows the brand, with a dev server banner, a line per change, and a build table with gzip sizes. The docs site wears the brand too, and every example in the guides now reads as application code. This is the first release published to npm through trusted publishing alone.
 
 ### Changed
 
