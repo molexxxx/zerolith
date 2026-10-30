@@ -45,7 +45,7 @@ Basalt carries every surface. Chartreuse `#AACF16` is spent on five things only:
 | Onest 400 and 600 | Body text and interface labels |
 | Martian Mono 400 | Code, file names, and small uppercase labels |
 
-All three are licensed under the SIL Open Font License 1.1.
+All three are licensed under the SIL Open Font License 1.1. `fonts/` holds their Latin subsets as WOFF2 files, with each family's license, for surfaces that serve their own fonts, such as the docs site.
 
 ## Interface
 
