@@ -14,9 +14,12 @@ name = "zerolith"
 path = "src/main.rs"
 
 [dependencies]
+anstream = "1.0.0"
+anstyle = "1.0.14"
 axum = "0.8.9"
 base64 = "0.23.1"
 clap = { version = "4.6.7", features = ["derive"] }
+flate2 = "1.1.10"
 lightningcss = { version = "1.0.0-alpha.72", default-features = false }
 notify = "8.2.1"
 oxc_allocator = "0.156.0"
