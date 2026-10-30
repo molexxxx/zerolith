@@ -50,6 +50,13 @@ interface ImportDeclaration extends AstNode
     specifiers: readonly (AstNode & { local: Identifier; imported?: Identifier | { value: string } })[];
 }
 
+interface ExportDeclaration extends AstNode
+{
+    type: "ExportAllDeclaration" | "ExportNamedDeclaration";
+    source: { value: string } | null;
+    specifiers?: readonly { local: Identifier | { value: string } }[];
+}
+
 interface MemberExpression extends AstNode
 {
     type: "MemberExpression";
@@ -93,6 +100,21 @@ function importedName(specifier: ImportDeclaration["specifiers"][number]): strin
     return "name" in imported ? imported.name : imported.value;
 }
 
+/** True for `export * from "zerolith"`, `export * as z from "zerolith"`, and `export { html } from "zerolith"`. */
+function reExportsHtml(statement: AstNode): boolean
+{
+    if (statement.type !== "ExportAllDeclaration" && statement.type !== "ExportNamedDeclaration")
+    {
+        return false;
+    }
+    const declaration = statement as ExportDeclaration;
+    if (declaration.source?.value !== SPECIFIER)
+    {
+        return false;
+    }
+    return declaration.type === "ExportAllDeclaration" || (declaration.specifiers ?? []).some(({ local }) => ("name" in local ? local.name : local.value) === "html");
+}
+
 function newlines(text: string): string
 {
     let count = 0;
@@ -124,6 +146,10 @@ export function prepareModule(code: string, id: string, parse: ModuleParser, sca
     let firstStatement: number | undefined;
     for (const statement of parsed.program.body)
     {
+        if (reExportsHtml(statement))
+        {
+            throw new PrepareError("html from zerolith is re-exported here, so templates tagged through this module would reach the browser unprepared; import html from zerolith in each module that uses it, or pass prepare: false to the plugin to keep the scanner", statement.start);
+        }
         if (statement.type !== "ImportDeclaration")
         {
             firstStatement ??= statement.start;

@@ -26,6 +26,9 @@ pub const TEMPLATE_BINDING: &str = "__zl_t";
 
 const SPECIFIER: &str = "zerolith";
 
+/// Appended to the refusals a project can opt out of.
+const NO_PREPARE_HINT: &str = "; build with --no-prepare to keep the scanner";
+
 struct Template {
     span: Span,
     tag: Span,
@@ -60,7 +63,9 @@ impl Finder<'_> {
     fn refuse(&mut self, message: &str, offset: u32) {
         if self.error.is_none() {
             let (line, column) = position(self.source, offset);
-            self.error = Some(fail(format!("{message} ({line}:{column})")));
+            self.error = Some(fail(format!(
+                "{message} ({line}:{column}){NO_PREPARE_HINT}"
+            )));
         }
     }
 
@@ -155,9 +160,33 @@ impl<'a> Visit<'a> for Finder<'_> {
     }
 }
 
-fn collect_imports(program: &Program<'_>, finder: &mut Finder<'_>) -> Option<u32> {
+/// True for `export * from "zerolith"`, `export * as z from "zerolith"`, and `export { html } from "zerolith"`.
+fn reexports_html(statement: &Statement<'_>) -> bool {
+    match statement {
+        Statement::ExportAllDeclaration(declaration) => declaration.source.value == SPECIFIER,
+        Statement::ExportFromDeclaration(declaration) => {
+            declaration.source.value == SPECIFIER
+                && declaration
+                    .specifiers
+                    .iter()
+                    .any(|specifier| specifier.local.name() == "html")
+        }
+        _ => false,
+    }
+}
+
+fn collect_imports(
+    program: &Program<'_>,
+    finder: &mut Finder<'_>,
+) -> Result<Option<u32>, TransformError> {
     let mut first_statement = None;
     for statement in &program.body {
+        if reexports_html(statement) {
+            let (line, column) = position(finder.source, statement.span().start);
+            return Err(fail(format!(
+                "html from zerolith is re-exported here, so templates tagged through this module would reach the browser unprepared; import html from zerolith in each module that uses it ({line}:{column}){NO_PREPARE_HINT}"
+            )));
+        }
         let Statement::ImportDeclaration(declaration) = statement else {
             first_statement.get_or_insert(statement.span().start);
             continue;
@@ -186,7 +215,7 @@ fn collect_imports(program: &Program<'_>, finder: &mut Finder<'_>) -> Option<u32
             }
         }
     }
-    first_statement
+    Ok(first_statement)
 }
 
 /// Prepares every `html` literal of a JavaScript module; a module that imports no `html` from zerolith comes back unchanged.
@@ -207,7 +236,7 @@ pub fn prepare(source: &str) -> Result<String, TransformError> {
         templates: Vec::new(),
         error: None,
     };
-    let first_statement = collect_imports(&parsed.program, &mut finder);
+    let first_statement = collect_imports(&parsed.program, &mut finder)?;
     if finder.locals.is_empty() && finder.namespaces.is_empty() {
         return Ok(source.to_string());
     }
@@ -378,6 +407,29 @@ mod tests {
             bad.message
         );
         assert!(bad.message.contains("(2:25)"), "{}", bad.message);
+    }
+
+    #[test]
+    fn refuses_re_exports_of_html() {
+        for source in [
+            "export * from \"zerolith\";\n",
+            "export * as z from \"zerolith\";\n",
+            "export { html } from \"zerolith\";\n",
+            "export { html as tag, render } from \"zerolith\";\n",
+        ] {
+            let error = prepare(source).unwrap_err();
+            assert!(
+                error.message.contains("re-exported here"),
+                "{}",
+                error.message
+            );
+            assert!(error.message.contains("(1:1)"), "{}", error.message);
+            assert!(error.message.ends_with("--no-prepare to keep the scanner"));
+        }
+        assert_eq!(
+            prepare("export { render } from \"zerolith\";\n").unwrap(),
+            "export { render } from \"zerolith\";\n"
+        );
     }
 
     #[test]

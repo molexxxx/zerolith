@@ -82,6 +82,17 @@ describe("prepareModule", () =>
         expect(prepare("import { html } from \"zerolith\";\nlet x: typeof html;\nexport const v = html`<p></p>`;\n", "/src/app.ts")).toContain("html(__zl_t0)");
     });
 
+    it("refuses re-exports of html, which would leave the templates tagged through them unprepared", () =>
+    {
+        for (const code of ["export * from \"zerolith\";\n", "export * as z from \"zerolith\";\n", "export { html } from \"zerolith\";\n", "export { html as tag, render } from \"zerolith\";\n"])
+        {
+            expect(() => prepare(code)).toThrow(/re-exported here/);
+            expect(offsetOf(code)).toBe(0);
+        }
+        expect(prepare("export { render } from \"zerolith\";\n")).toBeNull();
+        expect(prepare("export * from \"./local.js\";\nimport { html } from \"zerolith\";\nexport const v = html`<p></p>`;\n")).toContain("html(__zl_t0)");
+    });
+
     it("reports a template the scanner refuses at the literal", () =>
     {
         const code = "import { html } from \"zerolith\";\nexport const v = (x) => html`<p ${x}></p>`;\n";

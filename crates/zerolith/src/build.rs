@@ -74,7 +74,22 @@ fn rewrite_html(html: &str) -> String {
     out
 }
 
-fn walk(root: &Path, folder: &Path, out: &Path, built: &mut Built) -> io::Result<()> {
+/// Runs the template prepare pass over a module unless the build keeps the scanner.
+fn prepared(code: String, prepare_templates: bool) -> Result<String, transform::TransformError> {
+    if prepare_templates {
+        prepare::prepare(&code)
+    } else {
+        Ok(code)
+    }
+}
+
+fn walk(
+    root: &Path,
+    folder: &Path,
+    out: &Path,
+    built: &mut Built,
+    prepare_templates: bool,
+) -> io::Result<()> {
     for entry in fs::read_dir(folder)? {
         let entry = entry?;
         let path = entry.path();
@@ -83,7 +98,7 @@ fn walk(root: &Path, folder: &Path, out: &Path, built: &mut Built) -> io::Result
             if SKIPPED.contains(&name.as_str()) || name.starts_with('.') || path == out {
                 continue;
             }
-            walk(root, &path, out, built)?;
+            walk(root, &path, out, built, prepare_templates)?;
             continue;
         }
         if is_development_file(&name) {
@@ -102,14 +117,14 @@ fn walk(root: &Path, folder: &Path, out: &Path, built: &mut Built) -> io::Result
             let source = fs::read_to_string(&path)?;
             let code = transform::transform(&path, &source)
                 .and_then(|code| transform::rewrite_specifiers(&code))
-                .and_then(|code| prepare::prepare(&code))
+                .and_then(|code| prepared(code, prepare_templates))
                 .map_err(|error| io::Error::other(format!("{}: {error}", relative.display())))?;
             fs::write(target.with_extension("js"), code)?;
             built.transformed += 1;
         } else if extension == "js" || extension == "mjs" {
             let source = fs::read_to_string(&path)?;
             let code = transform::rewrite_specifiers(&source)
-                .and_then(|code| prepare::prepare(&code))
+                .and_then(|code| prepared(code, prepare_templates))
                 .map_err(|error| io::Error::other(format!("{}: {error}", relative.display())))?;
             fs::write(&target, code)?;
             built.copied += 1;
@@ -125,7 +140,7 @@ fn walk(root: &Path, folder: &Path, out: &Path, built: &mut Built) -> io::Result
 }
 
 /// Builds `root` into `root/out`.
-pub fn build(root: &Path, out: &Path) -> io::Result<(PathBuf, Built)> {
+pub fn build(root: &Path, out: &Path, prepare_templates: bool) -> io::Result<(PathBuf, Built)> {
     let root = root.canonicalize()?;
     let out_dir = root.join(out);
     if out_dir == root {
@@ -138,10 +153,16 @@ pub fn build(root: &Path, out: &Path) -> io::Result<(PathBuf, Built)> {
     }
     fs::create_dir_all(&out_dir)?;
     let mut built = Built::default();
-    walk(&root, &root, &out_dir, &mut built)?;
+    walk(&root, &root, &out_dir, &mut built, prepare_templates)?;
     let packages = root.join("node_modules");
     if packages.join("zerolith").is_dir() {
-        let vendored = vendor_from(&packages, &out_dir, Path::new("vendor"), false, true)?;
+        let vendored = vendor_from(
+            &packages,
+            &out_dir,
+            Path::new("vendor"),
+            false,
+            prepare_templates,
+        )?;
         let tags = html_tags(&vendored);
         for entry in fs::read_dir(&out_dir)? {
             let path = entry?.path();
@@ -158,8 +179,8 @@ pub fn build(root: &Path, out: &Path) -> io::Result<(PathBuf, Built)> {
 }
 
 /// Runs the `build` command.
-pub fn run(root: &Path, out: &Path) -> io::Result<()> {
-    let (out_dir, built) = build(root, out)?;
+pub fn run(root: &Path, out: &Path, prepare_templates: bool) -> io::Result<()> {
+    let (out_dir, built) = build(root, out, prepare_templates)?;
     println!(
         "zerolith: built {} into {} ({} transformed, {} copied, {} pages)",
         root.display(),
@@ -224,7 +245,7 @@ mod tests {
         .unwrap();
         fs::write(root.join("src/plain.js"), "import \"./app.tsx\";\n").unwrap();
         fs::write(root.join("styles.css"), "body {}").unwrap();
-        let (out, built) = build(&root, std::path::Path::new("dist")).unwrap();
+        let (out, built) = build(&root, std::path::Path::new("dist"), true).unwrap();
         assert_eq!((built.transformed, built.copied, built.html), (2, 2, 1));
         assert!(
             fs::read_to_string(out.join("src/main.js"))
@@ -269,7 +290,17 @@ mod tests {
         );
         assert!(!out.join("node_modules").exists());
         assert!(!out.join("src/main.ts").exists());
-        assert!(build(&root, std::path::Path::new(".")).is_err());
+        assert!(build(&root, std::path::Path::new("."), true).is_err());
+        let (plain, _) = build(&root, std::path::Path::new("plain"), false).unwrap();
+        assert!(
+            fs::read_to_string(plain.join("src/main.js"))
+                .unwrap()
+                .contains("html`<p>${n}</p>`")
+        );
+        assert_eq!(
+            fs::read_to_string(plain.join("vendor/zerolith/dist/scan.js")).unwrap(),
+            "export const scanner = 1;"
+        );
         let _ = fs::remove_dir_all(&root);
     }
 }

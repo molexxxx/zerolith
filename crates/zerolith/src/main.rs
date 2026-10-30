@@ -78,6 +78,9 @@ enum Command {
         /// The output folder, relative to the project; it is emptied first.
         #[arg(long, default_value = "dist")]
         out: PathBuf,
+        /// Keep the template scanner and leave `html` literals as they are, for a project that passes `html` around as a value.
+        #[arg(long)]
+        no_prepare: bool,
     },
     /// Write a new application with the standard layout: Vite and TypeScript by default.
     New {
@@ -119,7 +122,11 @@ async fn main() -> ExitCode {
             html,
         } => importmap::run(&root, &out, development, html.as_deref()),
         Command::Doctor { root, json } => return doctor::run(&root, json),
-        Command::Build { root, out } => build::run(&root, &out),
+        Command::Build {
+            root,
+            out,
+            no_prepare,
+        } => build::run(&root, &out, !no_prepare),
         Command::New {
             root,
             js,

@@ -82,7 +82,7 @@ The framework's own `AGENTS.md` follows the same shape, and the documentation si
 
 ## Scaffolding
 
-The command line comes from npm as `@zerolith/cli`, so `npx @zerolith/cli new my-app` needs nothing installed first; see [Command line](/guide/command-line/).
+The command line comes from npm as `@zerolith/cli`, so `npx @zerolith/cli@alpha new my-app` needs nothing installed first; see [Command line](/guide/command-line/).
 
 ```
 zerolith new my-app              Vite and TypeScript

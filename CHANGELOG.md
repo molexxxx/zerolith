@@ -9,6 +9,8 @@ Every package in this repository is released together and carries the same versi
 - `@zerolith/vite`: the template prepare pass runs in `vite build`, scanning every `html` literal at build time and dropping the scanner from the bundle; `prepare: false` keeps the old behavior.
 - `zerolith`: `DIAGNOSTIC_URL` and every diagnostic link point at the docs on GitHub Pages, `https://molexxxx.github.io/zerolith/e/`, until the project's own domain is registered; the Vite plugin's warnings and the command line use the same address.
 - `@zerolith/cli` and the `zerolith` crate: `build` runs the same prepare pass over the project's modules and the vendored packages, with the scanner replaced by its stand-in, and is held to the Vite plugin's output by a shared fixture.
+- `@zerolith/vite`, `@zerolith/cli`, and the `zerolith` crate: a module that re-exports `html` from zerolith fails a prepared build at its line, since templates tagged through it would reach the browser unprepared; `zerolith build --no-prepare` keeps the scanner, as `prepare: false` does in the plugin.
+- `@zerolith/cli` and the `zerolith` crate: the usage text names the command `zerolith` on every platform instead of the executable file name.
 
 ## 0.1.0-alpha.1 (2026-10-29)
 
