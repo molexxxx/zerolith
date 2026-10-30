@@ -3794,7 +3794,7 @@ dependencies = [
 
 [[package]]
 name = "zerolith"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.4"
 dependencies = [
  "anstream",
  "anstyle",

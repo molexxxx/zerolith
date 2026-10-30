@@ -1,6 +1,6 @@
 {
     "name": "@zerolith/vite",
-    "version": "0.1.0-alpha.3",
+    "version": "0.1.0-alpha.4",
     "description": "The Vite plugin for zerolith: hot module replacement that swaps components in place and keeps named signal state, with no effect on production builds",
     "license": "Apache-2.0",
     "author": "molexxxx",
@@ -46,9 +46,9 @@
     },
     "peerDependencies": {
         "vite": "^8.0.0",
-        "zerolith": "^0.1.0-alpha.3"
+        "zerolith": "^0.1.0-alpha.4"
     },
     "devDependencies": {
-        "zerolith": "^0.1.0-alpha.3"
+        "zerolith": "^0.1.0-alpha.4"
     }
 }
