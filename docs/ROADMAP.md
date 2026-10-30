@@ -10,8 +10,8 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 | --- | --- |
 | Runtime | Feature-complete for 1.0; the API freeze is next |
 | Router, forms, typed client | Feature-complete for 1.0; real-time data follows 1.0 |
-| Build path | Vite plugin and Rust build share one prepare pass; two optimizer passes remain |
-| Command line | Published with prebuilt binaries for six targets |
+| Build path | Template preparation with static hoisting, the split check, and the template lint, in the Vite plugin and the command line alike |
+| Command line | Published with prebuilt binaries for six targets; becoming the one command for every project |
 | Dev tools and testing | Shipped; the browser extension adapter remains |
 | Accessibility, i18n, observability | Shipped; the conformance report and the MessageFormat 1 import remain |
 | Docs | Published to GitHub Pages by each release; the project domain is not registered yet |
@@ -23,11 +23,12 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 
 In order:
 
-1. Register the project domain and move the docs there from GitHub Pages. Every diagnostic links to its page on the docs site, so the address has to be permanent before 1.0.
-2. Publish the next release through npm trusted publishing alone, which every npm package now has; then start the canary channel.
-3. Finish the build path: static hoisting and the lazy-route split check, and the template lint in `zerolith doctor`.
-4. Migrate the first production site onto zerolith.
-5. Review the core, templates, and router API through an RFC and freeze it for 1.0.
+1. One command for every project: `zerolith dev`, `zerolith build`, and `zerolith preview` run Vite with the zerolith plugin in a project that uses Vite, and the native server and unbundled build in one that does not, with a dev proxy and a base path on the native side and example projects for common backend layouts.
+2. Scaffolds in the brand style, fuller examples, and a guide to building and serving.
+3. Publish the next release through npm trusted publishing alone, which every npm package now has; then start the canary channel.
+4. Register the project domain and move the docs there from GitHub Pages. Every diagnostic links to its page on the docs site, so the address has to be permanent before 1.0.
+5. Migrate the first production site onto zerolith.
+6. Review the core, templates, and router API through an RFC and freeze it for 1.0.
 
 ## 1.0
 
@@ -81,8 +82,9 @@ See the [Vite guide](guide/vite.md).
 - [x] `@zerolith/vite`: JSX lowering, hot replacement that keeps named signals, development warnings, and a production check against development modules.
 - [x] The template prepare pass in `vite build` and in `zerolith build`, held to one output by a shared fixture.
 - [x] A size budget for the core and for a built example, enforced in CI.
-- [ ] Static hoisting of templates with no bindings.
-- [ ] A check that no eager import pulls a lazy route or a locale into the entry chunk.
+- [x] Static hoisting of templates with no bindings.
+- [x] A check that fails a client build when a lazy route view or a compiled locale is also imported statically, which would merge it into the importing chunk.
+- [ ] The Vite plugin runs the Rust implementations of JSX lowering, template preparation, the template lint, and the split check through WebAssembly, so each has one implementation.
 - [ ] Adapters for Rolldown, esbuild, Rspack, and webpack, each as it is asked for.
 
 ## Command line
@@ -93,6 +95,8 @@ See the [command line guide](guide/command-line.md).
 - [x] `dev` and `build` serve and write TypeScript and JSX through oxc with no other tool.
 - [x] `@zerolith/cli` on npm with prebuilt binaries for Linux, macOS, and Windows on x64 and arm64, and the crate on crates.io.
 - [x] `doctor` reports the same template warnings as the Vite plugin.
+- [ ] `dev`, `build`, and `preview` run Vite with the zerolith plugin in a project that uses Vite, so one command serves and builds every layout.
+- [ ] A dev proxy and a base path for the native server and build.
 - [ ] `zerolith migrate`, with codemods between versions.
 - [ ] A musl binary and a WebAssembly fallback for platforms without one.
 
