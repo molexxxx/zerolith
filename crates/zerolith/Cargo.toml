@@ -17,6 +17,7 @@ path = "src/main.rs"
 axum = "0.8.9"
 base64 = "0.23.1"
 clap = { version = "4.6.7", features = ["derive"] }
+lightningcss = { version = "1.0.0-alpha.72", default-features = false }
 notify = "8.2.1"
 oxc_allocator = "0.156.0"
 oxc_ast = "0.156.0"
