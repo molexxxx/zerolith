@@ -36,13 +36,15 @@ pub fn targets() -> Targets {
 
 /// A canonical path without the verbatim prefix Windows adds, which the bundler's resolver does not use either.
 pub fn canonical(path: &Path) -> io::Result<PathBuf> {
-    let path = path.canonicalize()?;
-    Ok(
-        match path.to_str().and_then(|text| text.strip_prefix(r"\\?\")) {
-            Some(rest) if !rest.starts_with("UNC") => PathBuf::from(rest),
-            _ => path,
-        },
-    )
+    Ok(plain(&path.canonicalize()?))
+}
+
+/// A path without the `\\?\` prefix Windows gives canonical paths, so it compares equal to the paths tools and file events use.
+pub fn plain(path: &Path) -> PathBuf {
+    match path.to_str().and_then(|text| text.strip_prefix(r"\\?\")) {
+        Some(rest) if !rest.starts_with("UNC") => PathBuf::from(rest),
+        _ => path.to_path_buf(),
+    }
 }
 
 /// The first eight hex digits of a SHA-256 digest, for file names.
