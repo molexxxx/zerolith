@@ -4,7 +4,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 
 ## Where it stands
 
-`0.1.0-alpha.3` was published on 2026-10-30, after `0.1.0-alpha.2` earlier that day and `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, which now writes a starter and develops, bundles, and previews a project with no other build tool. It is on npm under the `alpha` dist-tag with provenance, on crates.io, and a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://molexxxx.github.io/zerolith/) is published from the same commit. The API is not frozen, and minor versions may change it until 1.0.
+`0.1.0-alpha.4` was published on 2026-10-30, the fourth alpha since `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, which writes a starter and develops, bundles, and previews a project with no other build tool. It is on npm under the `alpha` dist-tag with provenance, published through trusted publishing with no npm token anywhere, on crates.io, and a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://molexxxx.github.io/zerolith/) is published from the same commit. The API is not frozen, and minor versions may change it until 1.0.
 
 | Area | State |
 | --- | --- |
@@ -17,7 +17,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 | Docs | Published to GitHub Pages by each release in the brand's theme, every example run as a test; the project domain is not registered yet |
 | Coding agents | In-repo context shipped; MCP servers, Skills, and evals remain |
 | Adoption | No production application yet; the first migration is next |
-| Project and supply chain | Policies, provenance, GitHub releases, and npm trusted publishers in place; canaries remain |
+| Project and supply chain | Policies, provenance, GitHub releases, and npm publishing through trusted publishing alone; crates.io trusted publishing and canaries remain |
 
 ## Next
 
@@ -25,7 +25,7 @@ In order:
 
 1. A proxy from `zerolith dev` to any backend, a base path for it, and example projects for common backend layouts. The Vite plugin stays an option for projects already on Vite.
 2. A guide to building and serving.
-3. Publish the next release through npm trusted publishing alone, which every npm package now has; then start the canary channel.
+3. Publish the crate through crates.io trusted publishing as npm already does, then start the canary channel.
 4. Register the project domain and move the docs there from GitHub Pages. Every diagnostic links to its page on the docs site, so the address has to be permanent before 1.0.
 5. Migrate the first production site onto zerolith.
 6. Review the core, templates, and router API through an RFC and freeze it for 1.0.
