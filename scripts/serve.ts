@@ -1,8 +1,9 @@
 /**
- * Serves the repository for working on examples, or the built docs site:
- *   node scripts/serve.ts            then open http://127.0.0.1:8080/examples/notes/
+ * Serves a folder of the repository as static files, such as the built
+ * docs site:
  *   node scripts/serve.ts 8081 site  then open http://127.0.0.1:8081/
- * Run `npm run build` (and `npm run docs` for the site) first.
+ * Run `npm run docs` first. The examples run on the zerolith command line
+ * instead; see their READMEs.
  */
 import { join } from "node:path";
 import { createStaticServer, listen, repositoryRoot } from "./static.ts";

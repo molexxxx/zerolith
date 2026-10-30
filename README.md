@@ -66,10 +66,10 @@ Everything below runs, is tested in this repository, and is published under the 
 | Testing | `@zerolith/test` | `mount`, `cleanup`, `settle`, and hydration and accessibility checks |
 | Dev tools | `@zerolith/devtools` | The in-page inspector, named signals, and Performance panel tracks |
 | Observability | `@zerolith/otel` | OpenTelemetry spans for navigation, hydration, and requests |
-| Command line | `@zerolith/cli` | The Rust command line with prebuilt binaries: `new`, `dev`, `serve`, `build`, which bundles and minifies with templates prepared ahead of time, `importmap` with integrity hashes, and `doctor` |
+| Command line | `@zerolith/cli` | The Rust command line with prebuilt binaries: `new`, `dev` with packages resolved from `node_modules`, `build`, which bundles and minifies with templates prepared ahead of time, `preview`, `importmap` with integrity hashes, and `doctor` |
 | Vite | `@zerolith/vite` | For projects on Vite: JSX lowering, hot replacement that keeps named state, transform-time warnings, templates prepared at build time, and a production build check |
 
-Two example applications show it end to end: [notes](examples/notes), which runs from its sources with no build step, and [tasks](examples/tasks), developed on Vite and bundled by `zerolith build`, with a typed client and compiled messages.
+Two example applications show it end to end: [notes](examples/notes), plain JavaScript on `zerolith dev` and `zerolith build`, and [tasks](examples/tasks), TypeScript with a backend API, a typed client, and compiled messages, developed on Vite and bundled by `zerolith build`.
 
 ## Where it's going
 
@@ -85,17 +85,7 @@ Next come a dev server that matches the build, with a proxy to any backend, then
 
 ## Working on zerolith
 
-This repository holds the packages, the Rust command line, the docs, and the examples. From a clone:
-
-```sh
-git clone https://github.com/molexxxx/zerolith.git
-cd zerolith
-npm ci
-npm run build
-npm run serve
-```
-
-Here `npm run build` compiles every package from TypeScript into its `dist/` folder, which the examples and the tests load; it does not bundle an application. `npm run serve` then serves the repository, and the notes example opens at http://127.0.0.1:8080/examples/notes/ straight from its sources and import map. The [tasks README](examples/tasks/README.md) shows how to run that example on Vite and bundle it with `zerolith build`, and [CONTRIBUTING.md](CONTRIBUTING.md) lists every script, including `npm run check`, the gate CI runs.
+To run the examples from a clone or to change zerolith itself, follow [CONTRIBUTING.md](CONTRIBUTING.md): it sets up the packages and the command line, lists the commands that run each example, and lists the checks CI runs. The [notes](examples/notes/README.md) and [tasks](examples/tasks/README.md) READMEs walk through developing, building, and previewing each one.
 
 ## Community
 

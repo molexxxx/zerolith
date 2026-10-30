@@ -11,7 +11,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 | Runtime | Feature-complete for 1.0; the API freeze is next |
 | Router, forms, typed client | Feature-complete for 1.0; real-time data follows 1.0 |
 | Build path | Template preparation with static hoisting, the split check, and the template lint, in the Vite plugin and the command line alike |
-| Command line | Published with prebuilt binaries for six targets; bundles and minifies production builds on its own, and the dev server gains what Vite offers next |
+| Command line | Published with prebuilt binaries for six targets; develops, bundles, and previews a project on its own; the starter project and a proxy to backends are next |
 | Dev tools and testing | Shipped; the browser extension adapter remains |
 | Accessibility, i18n, observability | Shipped; the conformance report and the MessageFormat 1 import remain |
 | Docs | Published to GitHub Pages by each release; the project domain is not registered yet |
@@ -23,12 +23,13 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 
 In order:
 
-1. The command line as the one tool a project needs: `zerolith dev` resolves packages without an import map and serves CSS imported from modules, `.env` values, and the public folder, with a proxy to any backend and a base path, and `zerolith preview` serves the built output; example projects show common backend layouts. The Vite plugin stays an option for projects already on Vite.
-2. Scaffolds in the brand style, fuller examples, and a guide to building and serving.
-3. Publish the next release through npm trusted publishing alone, which every npm package now has; then start the canary channel.
-4. Register the project domain and move the docs there from GitHub Pages. Every diagnostic links to its page on the docs site, so the address has to be permanent before 1.0.
-5. Migrate the first production site onto zerolith.
-6. Review the core, templates, and router API through an RFC and freeze it for 1.0.
+1. A starter project that `zerolith new` writes in the brand style, with `dev`, `build`, and `preview` on the command line, dependencies installed in the same step, and a README covering deployment and when to add Vite.
+2. A proxy from `zerolith dev` to any backend, a base path for it, and example projects for common backend layouts. The Vite plugin stays an option for projects already on Vite.
+3. A guide to building and serving.
+4. Publish the next release through npm trusted publishing alone, which every npm package now has; then start the canary channel.
+5. Register the project domain and move the docs there from GitHub Pages. Every diagnostic links to its page on the docs site, so the address has to be permanent before 1.0.
+6. Migrate the first production site onto zerolith.
+7. Review the core, templates, and router API through an RFC and freeze it for 1.0.
 
 ## 1.0
 
@@ -90,13 +91,14 @@ See the [Vite guide](guide/vite.md).
 
 See the [command line guide](guide/command-line.md).
 
-- [x] `new`, `dev`, `serve`, `build`, `importmap`, and `doctor`.
+- [x] `new`, `dev`, `serve`, `build`, `preview`, `importmap`, and `doctor`.
 - [x] `dev` and `build` serve and write TypeScript and JSX through oxc with no other tool.
 - [x] `@zerolith/cli` on npm with prebuilt binaries for Linux, macOS, and Windows on x64 and arm64, and the crate on crates.io.
 - [x] `doctor` reports the same template warnings as the Vite plugin.
 - [x] `build` bundles with Rolldown and lightningcss compiled in: minified chunks with hashed names, lazy routes and locales split out, one stylesheet lowered for the supported browsers, assets copied under hashed names, a base path, and the same passes as the Vite plugin; `--unbundled` keeps the import map output.
-- [ ] `dev` resolves packages without an import map and serves CSS imported from modules, `.env` values, and the public folder, as Vite does.
-- [ ] A proxy to a backend and a base path for `dev`, and `preview` for the built output.
+- [x] `dev` resolves packages from `node_modules` with the build's resolver, so a page needs no import map, and serves stylesheets, JSON, and other files imported from code, `PUBLIC_` variables from `.env` files, and the public folder, as `build` does.
+- [x] `preview` serves a build's output as a static host would.
+- [ ] A proxy from `dev` to a backend, and a base path for `dev`.
 - [ ] `zerolith migrate`, with codemods between versions.
 - [ ] A musl binary for Alpine and other musl distributions.
 

@@ -1,19 +1,22 @@
 //! The zerolith command line.
 //!
-//! `dev` and `serve` host a folder for the buildless path, `importmap`
-//! vendors the installed packages and writes an import map with integrity
-//! hashes, `doctor` checks a project for the mistakes that are easy to make
-//! without a build step, `build` bundles and minifies a project for
-//! production or, with `--unbundled`, writes it file by file with an import
-//! map, and `new` writes the standard application layout.
+//! `dev` serves a project with its packages resolved from `node_modules`
+//! and live reload, `build` bundles and minifies it for production or, with
+//! `--unbundled`, writes it file by file with an import map, `preview`
+//! serves the output, `importmap` vendors the installed packages behind an
+//! import map with integrity hashes, `doctor` checks a project for the
+//! mistakes that are easy to make, and `new` writes the standard
+//! application layout.
 
 mod build;
 mod css;
 mod doctor;
+mod env;
 mod html;
 mod importmap;
 mod lint;
 mod mime;
+mod modules;
 mod new;
 mod prepare;
 mod scan;
@@ -37,20 +40,32 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Serve a folder with live reload: changed stylesheets are swapped in place, and other changes reload the page with named signals restored.
+    /// Serve a project while developing: packages resolve from node_modules, TypeScript and JSX become JavaScript, and edits reload the page with named signals restored, stylesheets in place.
     Dev {
-        /// The folder to serve; index.html inside it is the application.
+        /// The project folder; index.html inside it is the application.
         #[arg(default_value = ".")]
         root: PathBuf,
         /// The port to listen on.
         #[arg(long, default_value_t = 8080)]
         port: u16,
     },
-    /// Serve a folder without watching it.
+    /// Serve a project the way dev does, without watching it.
     Serve {
         #[arg(default_value = ".")]
         root: PathBuf,
         #[arg(long, default_value_t = 8080)]
+        port: u16,
+    },
+    /// Serve a build's output as a static host would, to check it before deploying.
+    Preview {
+        /// The project folder.
+        #[arg(default_value = ".")]
+        root: PathBuf,
+        /// The output folder, relative to the project unless absolute.
+        #[arg(long, default_value = "dist")]
+        out: PathBuf,
+        /// The port to listen on.
+        #[arg(long, default_value_t = 4173)]
         port: u16,
     },
     /// Copy the installed zerolith packages into a vendor folder and write an import map with integrity hashes and preload links.
@@ -128,6 +143,7 @@ async fn main() -> ExitCode {
                 root,
                 port,
                 reload: true,
+                modules: true,
             })
             .await
         }
@@ -136,6 +152,16 @@ async fn main() -> ExitCode {
                 root,
                 port,
                 reload: false,
+                modules: true,
+            })
+            .await
+        }
+        Command::Preview { root, out, port } => {
+            server::run(server::Options {
+                root: root.join(out),
+                port,
+                reload: false,
+                modules: false,
             })
             .await
         }

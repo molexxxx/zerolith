@@ -154,5 +154,5 @@ export function NoteForm({ id })
  */
 export function NotFound()
 {
-    return html`<p data-testid="not-found">That page does not exist. There are ${computed(() => notes.get().length)} notes on the <a href="/examples/notes/">list</a>.</p>`;
+    return html`<p data-testid="not-found">That page does not exist. There are ${computed(() => notes.get().length)} notes on the <a href="/">list</a>.</p>`;
 }

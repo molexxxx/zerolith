@@ -1,6 +1,6 @@
 ---
 title: Command line
-description: "The Rust command line: production builds bundled with Rolldown, a dev server with live reload, import maps with integrity hashes, and project checks."
+description: "The Rust command line: a dev server that resolves packages itself, production builds bundled with Rolldown, a preview server, import maps with integrity hashes, and project checks."
 order: 11
 ---
 
@@ -8,20 +8,41 @@ order: 11
 
 The `zerolith` binary is written in Rust and covers the parts of development that need a process outside the browser. It installs from npm as `@zerolith/cli`, a thin package whose optional dependencies carry a prebuilt binary for Linux (glibc), macOS, and Windows on x64 and arm64, so `npm install --save-dev @zerolith/cli@alpha` followed by `npx zerolith` works wherever npm does, and `zerolith new` writes that dependency into the scaffold. Elsewhere, and on musl systems such as Alpine, `cargo install zerolith` builds the same crate from crates.io and `ZEROLITH_BINARY_PATH` tells the npm shim where it is.
 
-## dev and serve
+## dev, serve, and preview
 
 ```
-zerolith dev examples/notes --port 8080
-zerolith serve dist --port 8080
+zerolith dev
+zerolith dev examples/notes --port 3000
+zerolith preview
 ```
 
-`dev` serves the folder with directory indexes and a nearest-index fallback, so a client-side route such as `/notes/abc` loads the application's `index.html`. TypeScript and JSX need no build step either: a request for a `.ts`, `.tsx`, or `.jsx` file is answered with JavaScript, types stripped through oxc and JSX lowered to the same `html` calls the Vite plugin produces, and an import of `./app.js` whose file is `app.ts` resolves to it, so a project can keep TypeScript sources and still run from an import map while developing. It injects a small module into HTML pages and announces file changes over server-sent events: a changed stylesheet is swapped in place, and any other change reloads the page. Before reloading, the client saves the values of every named signal, and the development build of zerolith restores them when signals with the same names are created again, so a form draft or a selected tab survives an edit with no build step and no component boundary. Under Vite, the plugin in `@zerolith/vite` does the same restore without reloading the page; see [Vite](/guide/vite/).
+`dev` serves the project with live reload. The page names its entry module, such as `<script type="module" src="/src/main.ts"></script>`, and nothing else: an import of a package, such as `import { html } from "zerolith"`, resolves from `node_modules` with the resolver and conditions `build` uses, the development build of zerolith included, so the page needs no import map and a new file needs nothing but an import. A request for a `.ts`, `.tsx`, or `.jsx` file is answered with JavaScript, types stripped through oxc and JSX lowered to the same `html` calls the build produces. A stylesheet imported from a module, as in `import "./card.css"`, is applied through a `<style>` element; an image, font, or other file imported from code gives its URL, `?url` gives any file's URL and `?raw` its text, and a JSON import gives its value, all as in `build`. Files in `public/` are served at the root, and a client-side route such as `/notes/abc` loads the application's `index.html`. A package that lives outside the project folder, such as a workspace package in a monorepo, is served under `/@fs/`, from the folders of the packages that imports resolved to and from nowhere else. A CommonJS package, which a browser cannot load as a module, is reported by name; import the package's ES module build instead.
+
+The server injects a small module into HTML pages and announces file changes over server-sent events: a changed stylesheet, linked or imported, is swapped in place, and any other change reloads the page. Before reloading, the client saves the values of every named signal, and the development build of zerolith restores them when signals with the same names are created again, so a form draft or a selected tab survives an edit with no component boundary. Under Vite, the plugin in `@zerolith/vite` does the same restore without reloading the page; see [Vite](/guide/vite/).
 
 ```ts
 const draft = signal("", { name: "draft" });    // restored across dev reloads
 ```
 
+`serve` serves the project the same way without watching it. `preview` serves a build's output folder, `dist` unless `--out` names another, as a static host would: every file as it is, and `index.html` for any path that names no file, so client-side routes load directly. It listens on port 4173, so it can run next to `dev`.
+
 The server also answers `/.well-known/appspecific/com.chrome.devtools.json` on loopback, which lets Chrome DevTools edit the project's files in place.
+
+## Environment variables
+
+`import.meta.env` carries `MODE`, which is `development` under `dev` and `production` under `build` unless `--mode` names another, `DEV`, `PROD`, and `BASE_URL`, along with every variable whose name starts with `PUBLIC_`. Those are read from `.env`, `.env.local`, `.env.<mode>`, and `.env.<mode>.local` in the project folder, each overriding the one before, and from the environment over all of them:
+
+```
+# .env
+PUBLIC_API_URL=https://api.example.com
+DATABASE_PASSWORD=stays-on-the-server
+```
+
+```ts
+const response = await fetch(`${import.meta.env.PUBLIC_API_URL}/tasks`);
+```
+
+Only the `PUBLIC_` prefix reaches the browser, so a secret kept in the same file never does. `build` replaces each value in the code, and `dev` does the same in every module it serves; restart `dev` after editing a `.env` file.
 
 ## build
 
@@ -57,7 +78,7 @@ import license from "../LICENSE?raw";
 
 A root-absolute URL such as `/favicon.svg` is looked up in `public/` first. The files in `public/` are copied into the output as they are and keep their URLs, so files that need a fixed name, such as `robots.txt`, a web manifest, and the favicon, go there.
 
-`--base` sets the public path the application is served under, and every URL the build writes uses it: `--base /app/` for an application a backend or a reverse proxy serves under `/app/`, and `--base ./` for URLs relative to the page, for a page opened from disk or embedded at a path not known in advance. Modules read the mode and the base as `import.meta.env.MODE`, `import.meta.env.DEV`, `import.meta.env.PROD`, and `import.meta.env.BASE_URL`, which the build replaces with their values, as it replaces `process.env.NODE_ENV` for packages written for Node bundlers.
+`--base` sets the public path the application is served under, and every URL the build writes uses it: `--base /app/` for an application a backend or a reverse proxy serves under `/app/`, and `--base ./` for URLs relative to the page, for a page opened from disk or embedded at a path not known in advance. Modules read the mode, the base, and the `PUBLIC_` variables through `import.meta.env`, as [Environment variables](#environment-variables) describes, and the build replaces each with its value, as it replaces `process.env.NODE_ENV` for packages written for Node bundlers.
 
 The output keeps ES2022 syntax as written. Lowering class fields for the oldest supported browsers would turn every field into a function call, slowing every class, so class static blocks need Chrome 94 and `#field in` checks Chrome 91; newer syntax, such as `using` declarations, is lowered. As in Vite, the `paths` of a `tsconfig.json` do not take part in resolution; give a module an alias through the `imports` field of `package.json` instead, which TypeScript, Node, and the build all read.
 

@@ -3,26 +3,24 @@
 import { defineRoutes, route } from "@zerolith/router";
 import { NoteForm, NoteList, NoteView } from "./components.js";
 
-const base = "/examples/notes";
-
 export const routes = defineRoutes({
     home: route({
-        path: `${base}/`,
+        path: "/",
         view: () => NoteList(),
         head: { title: "Notes" }
     }),
     create: route({
-        path: `${base}/new`,
+        path: "/new",
         view: () => NoteForm({}),
         head: { title: "New note" }
     }),
     note: route({
-        path: `${base}/notes/:id`,
+        path: "/notes/:id",
         view: ({ params }) => NoteView({ id: params.id }),
         head: ({ params }) => ({ title: `Note ${params.id}` })
     }),
     edit: route({
-        path: `${base}/notes/:id/edit`,
+        path: "/notes/:id/edit",
         view: ({ params }) => NoteForm({ id: params.id }),
         head: { title: "Edit note" }
     })

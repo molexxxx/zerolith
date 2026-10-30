@@ -227,22 +227,22 @@ struct Combiner<'a> {
     warnings: Vec<String>,
 }
 
-impl Combiner<'_> {
-    /// Resolves an `@import`: relative to the stylesheet, root-absolute against the project, and a bare name in `node_modules`, through a package's `style` field.
-    fn resolve_import(&self, folder: &Path, url: &str) -> Option<PathBuf> {
-        let path = percent_decode(url.split(['?', '#']).next().unwrap_or(url));
-        if let Some(absolute) = path.strip_prefix('/') {
-            let file = self.options.root.join(absolute);
-            return file.is_file().then_some(file);
-        }
-        let relative = folder.join(&path);
-        if relative.is_file() {
-            return Some(relative);
-        }
-        if path.starts_with('.') {
-            return None;
-        }
-        let package = self.options.root.join("node_modules").join(&path);
+/// Resolves an `@import`: relative to the stylesheet, root-absolute against the project, and a bare name in the nearest `node_modules` above the stylesheet, through a package's `style` field.
+pub fn find_import(root: &Path, folder: &Path, url: &str) -> Option<PathBuf> {
+    let path = percent_decode(url.split(['?', '#']).next().unwrap_or(url));
+    if let Some(absolute) = path.strip_prefix('/') {
+        let file = root.join(absolute);
+        return file.is_file().then_some(file);
+    }
+    let relative = folder.join(&path);
+    if relative.is_file() {
+        return Some(relative);
+    }
+    if path.starts_with('.') {
+        return None;
+    }
+    for ancestor in folder.ancestors() {
+        let package = ancestor.join("node_modules").join(&path);
         if package.is_file() {
             return Some(package);
         }
@@ -254,9 +254,71 @@ impl Combiner<'_> {
             let file = package.join(style.as_deref().unwrap_or("index.css"));
             return file.is_file().then_some(file);
         }
-        None
     }
+    None
+}
 
+/// A stylesheet with its relative `url(...)` and `@import` references made absolute through `url_of`, for a `<style>` element the dev server puts in the page, which resolves references against the page instead of the stylesheet. Root-absolute and remote references stay as written.
+pub fn absolute_urls(
+    file: &Path,
+    root: &Path,
+    url_of: impl Fn(&Path) -> String,
+) -> io::Result<String> {
+    let source = fs::read_to_string(file)?;
+    let name = shown(root, file);
+    let sheet = StyleSheet::parse(
+        &source,
+        ParserOptions {
+            filename: name.clone(),
+            error_recovery: true,
+            ..ParserOptions::default()
+        },
+    )
+    .map_err(|error| io::Error::other(located_error(&error, &name)))?;
+    let output = sheet
+        .to_css(PrinterOptions {
+            analyze_dependencies: Some(DependencyOptions {
+                remove_imports: false,
+            }),
+            ..PrinterOptions::default()
+        })
+        .map_err(|error| io::Error::other(located_error(&error, &name)))?;
+    let folder = file.parent().unwrap_or(Path::new("."));
+    let mut code = output.code;
+    for dependency in output.dependencies.unwrap_or_default() {
+        let (url, placeholder, found) = match dependency {
+            Dependency::Url(reference) => {
+                let path = percent_decode(
+                    reference
+                        .url
+                        .split(['?', '#'])
+                        .next()
+                        .unwrap_or(&reference.url),
+                );
+                let found = folder.join(path);
+                (
+                    reference.url,
+                    reference.placeholder,
+                    found.is_file().then_some(found),
+                )
+            }
+            Dependency::Import(import) => {
+                let found = find_import(root, folder, &import.url);
+                (import.url, import.placeholder, found)
+            }
+        };
+        let replaced = match found {
+            Some(path) if !(url.is_empty() || is_remote(&url) || url.starts_with('/')) => {
+                format!("{}{}", url_of(&canonical(&path)?), suffix(&url))
+            }
+            _ => url,
+        };
+        code = code.replace(&placeholder, &escape(&replaced));
+    }
+    Ok(code)
+}
+
+impl Combiner<'_> {
     /// The URL a `url(...)` gets in the output stylesheet, which sits in the `assets` folder.
     fn rewrite_url(&mut self, file: &Path, url: &str) -> io::Result<String> {
         if url.is_empty() || is_remote(url) {
@@ -363,7 +425,7 @@ impl Combiner<'_> {
                         self.hoisted.push(import.rule);
                         continue;
                     }
-                    let Some(target) = self.resolve_import(&folder, &import.url) else {
+                    let Some(target) = find_import(self.options.root, &folder, &import.url) else {
                         return Err(io::Error::new(
                             io::ErrorKind::NotFound,
                             format!(

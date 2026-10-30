@@ -4,7 +4,7 @@ This file is the always-on index for agents working in this repository. Keep it 
 
 ## What this is
 
-A standalone frontend framework monorepo. `packages/zerolith` is the browser runtime (signals, `html` and `css` tagged templates, fine-grained DOM rendering, hydration, diagnostics). Other `packages/*` are first-party `@zerolith/*` packages. `crates/zerolith` is the Rust command line (`new`, `dev`, `serve`, `build`, `importmap`, `doctor`), shipped on npm as `@zerolith/cli` with one prebuilt platform package per target. The framework is backend-agnostic: it talks to any server over plain HTTP, and no runtime package may reference a specific server. The direction is in `docs/ROADMAP.md`, the guides in `docs/guide/`, and the rules the project has promised its users in `docs/policy/`.
+A standalone frontend framework monorepo. `packages/zerolith` is the browser runtime (signals, `html` and `css` tagged templates, fine-grained DOM rendering, hydration, diagnostics). Other `packages/*` are first-party `@zerolith/*` packages. `crates/zerolith` is the Rust command line (`new`, `dev`, `serve`, `build`, `preview`, `importmap`, `doctor`), shipped on npm as `@zerolith/cli` with one prebuilt platform package per target. The framework is backend-agnostic: it talks to any server over plain HTTP, and no runtime package may reference a specific server. The direction is in `docs/ROADMAP.md`, the guides in `docs/guide/`, and the rules the project has promised its users in `docs/policy/`.
 
 ## Commands
 

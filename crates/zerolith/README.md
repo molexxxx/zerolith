@@ -5,6 +5,7 @@ The Rust side of zerolith: a production build that bundles and minifies with Rol
 ```
 zerolith dev [root] [--port 8080]       serve with live reload
 zerolith serve [root] [--port 8080]     serve without watching
+zerolith preview [root] [--out dist] [--port 4173]
 zerolith importmap [root] [--out vendor] [--development] [--html index.html]
 zerolith doctor [root] [--json]
 zerolith build [root] [--out dist] [--base /] [--mode production] [--sourcemap] [--no-minify] [--no-prepare] [--empty-out-dir]
@@ -14,7 +15,7 @@ zerolith new <name> [--js] [--buildless]
 
 Install it from npm as `@zerolith/cli`, which carries a prebuilt binary for Linux (glibc), macOS, and Windows on x64 and arm64, or from crates.io with `cargo install zerolith`.
 
-`dev` serves files under the root with directory indexes and a nearest-index fallback for client-side routes, injects a small client into HTML pages, and announces file changes over server-sent events. A changed stylesheet is swapped in place; any other change reloads the page after the client saves the values of named signals, which the development build of zerolith restores on the next load. It also serves Chrome's automatic-workspace file on loopback so DevTools can edit sources in place.
+`dev` serves a project with its package imports resolved from `node_modules` the way `build` resolves them, so the page needs no import map; TypeScript and JSX become JavaScript, and stylesheets, JSON, and other files imported from code become modules. It serves `public/` at the root, falls back to the nearest index for client-side routes, injects a small client into HTML pages, and announces file changes over server-sent events. A changed stylesheet is swapped in place; any other change reloads the page after the client saves the values of named signals, which the development build of zerolith restores on the next load. It also serves Chrome's automatic-workspace file on loopback so DevTools can edit sources in place.
 
 `importmap` copies the installed `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, and `@zerolith/devtools` modules into a vendor folder and writes an import map whose `integrity` entries hold the SRI hash of every module, plus `modulepreload` links that carry the same hashes; with `--html` it replaces or inserts them in the page.
 

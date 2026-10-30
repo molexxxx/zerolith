@@ -45,7 +45,7 @@ export const seed = resource({
     params: () => (restore() === undefined ? true : undefined),
     loader: async ({ abort }) =>
     {
-        const response = await fetch("/examples/notes/data/notes.json", { signal: abort });
+        const response = await fetch("/data/notes.json", { signal: abort });
         if (!response.ok)
         {
             throw new Error(`HTTP ${response.status}`);

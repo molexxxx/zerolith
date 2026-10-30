@@ -1,7 +1,9 @@
-//! The static server behind `dev` and `serve`: files under a root with
+//! The server behind `dev`, `serve`, and `preview`: files under a root with
 //! directory indexes and a nearest-index fallback for client-side routes,
-//! a small client script injected into HTML pages when live reload is on,
-//! server-sent change events, and Chrome's automatic-workspace file.
+//! the `public` folder at the root, scripts through the module pipeline
+//! for `dev` and `serve`, a small client script injected into HTML pages
+//! when live reload is on, server-sent change events, and Chrome's
+//! automatic-workspace file.
 
 use std::net::{Ipv4Addr, SocketAddr};
 use std::path::{Component, Path, PathBuf};
@@ -19,8 +21,9 @@ use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::BroadcastStream;
 
+use crate::css;
 use crate::mime::content_type;
-use crate::transform;
+use crate::modules::{self, Pipeline};
 use crate::watch::{self, Change};
 
 /// What `run` needs.
@@ -28,11 +31,14 @@ pub struct Options {
     pub root: PathBuf,
     pub port: u16,
     pub reload: bool,
+    /// Serve scripts through the module pipeline; without it every file is served as it is, as a static host would.
+    pub modules: bool,
 }
 
 struct AppState {
     root: PathBuf,
     changes: Option<broadcast::Sender<Change>>,
+    pipeline: Option<Arc<Pipeline>>,
 }
 
 const CLIENT: &str = include_str!("client.js");
@@ -191,37 +197,9 @@ async fn devtools_json(
         .into_response()
 }
 
-async fn file(State(state): State<Arc<AppState>>, uri: Uri) -> Response {
-    let Some(path) = resolve(&state.root, uri.path()) else {
-        return (StatusCode::NOT_FOUND, "Not found").into_response();
-    };
-    let Ok(bytes) = tokio::fs::read(&path).await else {
-        return (StatusCode::NOT_FOUND, "Not found").into_response();
-    };
-    let extension = path
-        .extension()
-        .and_then(|extension| extension.to_str())
-        .unwrap_or("");
-    let mime = if transform::transforms(extension) {
-        content_type("js")
-    } else {
-        content_type(extension)
-    };
-    let body = if state.changes.is_some() && (extension == "html" || extension == "htm") {
-        Body::from(inject_client(&String::from_utf8_lossy(&bytes)))
-    } else if transform::transforms(extension) {
-        match transform::transform(&path, &String::from_utf8_lossy(&bytes)) {
-            Ok(code) => Body::from(code),
-            Err(error) => {
-                let message = format!("{}: {error}", display(&path));
-                eprintln!("zerolith: {message}");
-                return (StatusCode::INTERNAL_SERVER_ERROR, message).into_response();
-            }
-        }
-    } else {
-        Body::from(bytes)
-    };
-    let mut response = Response::new(body);
+/// A response that is never cached.
+fn fresh(body: impl Into<Body>, mime: &'static str) -> Response {
+    let mut response = Response::new(body.into());
     response
         .headers_mut()
         .insert(header::CONTENT_TYPE, HeaderValue::from_static(mime));
@@ -231,9 +209,124 @@ async fn file(State(state): State<Arc<AppState>>, uri: Uri) -> Response {
     response
 }
 
-/// Builds the application for a root, with change events when a sender is given.
-pub fn app(root: PathBuf, changes: Option<broadcast::Sender<Change>>) -> Router {
-    let state = Arc::new(AppState { root, changes });
+/// A module that throws `message`, so a failure shows in the browser's console as well as the terminal.
+fn failed(message: &str) -> Response {
+    eprintln!("zerolith: {message}");
+    fresh(
+        format!("throw new Error({});\n", serde_json::Value::from(message)),
+        content_type("js"),
+    )
+}
+
+/// A file of the project's `public` folder, served at the root as the build copies it.
+fn public_file(root: &Path, request_path: &str) -> Option<PathBuf> {
+    Path::new(request_path).extension()?;
+    resolve(&root.join("public"), request_path)
+}
+
+/// The dev server's answer for a module or a package file, or `None` for a file served as it is.
+fn module_response(
+    pipeline: &Pipeline,
+    root: &Path,
+    request_path: &str,
+    query: &str,
+) -> Option<Response> {
+    let outside = request_path.starts_with(modules::FS_PREFIX);
+    let path = if outside {
+        let Some(path) = pipeline.locate(request_path) else {
+            return Some((StatusCode::NOT_FOUND, "Not found").into_response());
+        };
+        path
+    } else {
+        resolve(root, request_path).or_else(|| public_file(root, request_path))?
+    };
+    let extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or("");
+    let script = |result: Result<String, String>| match result {
+        Ok(code) => fresh(code, content_type("js")),
+        Err(message) => failed(&message),
+    };
+    if modules::wants(query, "import") && extension == "css" {
+        return Some(script(
+            pipeline
+                .stylesheet(&path)
+                .map_err(|error| format!("{}: {error}", display(&path))),
+        ));
+    }
+    if modules::wants(query, "url")
+        || modules::wants(query, "raw")
+        || (modules::wants(query, "import") && extension == "json")
+    {
+        return Some(script(
+            pipeline
+                .asset(&path, query)
+                .map_err(|error| format!("{}: {error}", display(&path))),
+        ));
+    }
+    if modules::is_script(&path) {
+        return Some(script(
+            pipeline.module(&path).map_err(|error| error.message),
+        ));
+    }
+    if outside {
+        return Some(match std::fs::read(&path) {
+            Ok(bytes) => fresh(bytes, content_type(extension)),
+            Err(_) => (StatusCode::NOT_FOUND, "Not found").into_response(),
+        });
+    }
+    None
+}
+
+async fn file(State(state): State<Arc<AppState>>, uri: Uri) -> Response {
+    if let Some(pipeline) = &state.pipeline {
+        let pipeline = pipeline.clone();
+        let root = state.root.clone();
+        let request_path = uri.path().to_string();
+        let query = uri.query().unwrap_or("").to_string();
+        match tokio::task::spawn_blocking(move || {
+            module_response(&pipeline, &root, &request_path, &query)
+        })
+        .await
+        {
+            Ok(Some(response)) => return response,
+            Ok(None) => {}
+            Err(error) => return failed(&error.to_string()),
+        }
+    }
+    let Some(path) =
+        resolve(&state.root, uri.path()).or_else(|| public_file(&state.root, uri.path()))
+    else {
+        return (StatusCode::NOT_FOUND, "Not found").into_response();
+    };
+    let Ok(bytes) = tokio::fs::read(&path).await else {
+        return (StatusCode::NOT_FOUND, "Not found").into_response();
+    };
+    let extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or("");
+    if state.changes.is_some() && (extension == "html" || extension == "htm") {
+        return fresh(
+            inject_client(&String::from_utf8_lossy(&bytes)),
+            content_type(extension),
+        );
+    }
+    fresh(bytes, content_type(extension))
+}
+
+/// Builds the application for a root, with change events when a sender is given and the module pipeline when one is.
+pub fn app(
+    root: PathBuf,
+    changes: Option<broadcast::Sender<Change>>,
+    pipeline: Option<Arc<Pipeline>>,
+) -> Router {
+    let state = Arc::new(AppState {
+        root,
+        changes,
+        pipeline,
+    });
     Router::new()
         .route("/__zerolith/events", get(events))
         .route("/__zerolith/client.js", get(client))
@@ -247,7 +340,10 @@ pub fn app(root: PathBuf, changes: Option<broadcast::Sender<Change>>) -> Router 
 
 /// Serves `options.root` until the process is interrupted.
 pub async fn run(options: Options) -> std::io::Result<()> {
-    let root = options.root.canonicalize()?;
+    let root = css::canonical(&options.root)?;
+    let pipeline = options
+        .modules
+        .then(|| Arc::new(Pipeline::new(root.clone(), "development", "/")));
     let (sender, watcher) = if options.reload {
         let (sender, _) = broadcast::channel::<Change>(64);
         let watcher = watch::start(root.clone(), sender.clone()).map_err(std::io::Error::other)?;
@@ -270,7 +366,7 @@ pub async fn run(options: Options) -> std::io::Result<()> {
     );
     let result = axum::serve(
         listener,
-        app(root, sender).into_make_service_with_connect_info::<SocketAddr>(),
+        app(root, sender, pipeline).into_make_service_with_connect_info::<SocketAddr>(),
     )
     .with_graceful_shutdown(async {
         let _ = tokio::signal::ctrl_c().await;

@@ -30,7 +30,7 @@ use rolldown_common::{Output, OutputChunk};
 use crate::css::{self, Assets, Located};
 use crate::scan::DIAGNOSTIC_URL;
 use crate::split::{SplitKind, split_imports};
-use crate::{html, prepare, transform};
+use crate::{env, html, prepare, transform};
 
 /// What `build` needs.
 pub struct Options {
@@ -627,23 +627,22 @@ pub async fn build(options: &Options) -> io::Result<Built> {
     } else {
         "development"
     };
-    let env = serde_json::json!({
-        "MODE": options.mode,
-        "DEV": !production,
-        "PROD": production,
-        "BASE_URL": options.base,
-    });
-    let define: Vec<(String, String)> = vec![
+    let env = env::object(
+        &options.mode,
+        &options.base,
+        &env::variables(&root, &options.mode),
+    );
+    let mut define: Vec<(String, String)> = vec![
         ("import.meta.env".to_string(), env.to_string()),
-        ("import.meta.env.MODE".to_string(), quoted(&options.mode)),
-        ("import.meta.env.DEV".to_string(), (!production).to_string()),
-        ("import.meta.env.PROD".to_string(), production.to_string()),
-        (
-            "import.meta.env.BASE_URL".to_string(),
-            quoted(&options.base),
-        ),
         ("process.env.NODE_ENV".to_string(), quoted(node_env)),
     ];
+    if let Some(values) = env.as_object() {
+        define.extend(
+            values
+                .iter()
+                .map(|(key, value)| (format!("import.meta.env.{key}"), value.to_string())),
+        );
+    }
     let recorded = Arc::new(Mutex::new(Recorded {
         splits: Vec::new(),
         css: HashSet::new(),
@@ -821,7 +820,15 @@ pub async fn run(options: &Options) -> io::Result<()> {
     for warning in &built.warnings {
         eprintln!("zerolith: warning: {warning}");
     }
-    let shown_out = crate::server::display(&built.out_dir);
+    let here = std::env::current_dir()
+        .and_then(|folder| css::canonical(&folder))
+        .unwrap_or_default();
+    let shown_out = match built.out_dir.strip_prefix(&here) {
+        Ok(relative) if !here.as_os_str().is_empty() => {
+            relative.to_string_lossy().replace('\\', "/")
+        }
+        _ => crate::server::display(&built.out_dir),
+    };
     println!(
         "zerolith: built {} into {shown_out} in {} ms",
         crate::server::display(&options.root),
@@ -932,7 +939,7 @@ mod tests {
         root
     }
 
-    const MAIN: &str = "import \"./extra.css\";\nimport { html, render, build } from \"zerolith\";\nimport { lazy } from \"@zerolith/router\";\nimport { App } from \"./app.tsx\";\nimport { loaders } from \"./messages/index.ts\";\nimport logo from \"./logo.svg\";\nimport notes from \"./notes.md?raw\";\nexport const routes = { notes: lazy(() => import(\"./views/notes.ts\")) };\nrender(html`<main>${App({ name: \"zerolith\" })}</main>`, \"#app\");\nconsole.log(routes, loaders, build, logo, notes, import.meta.env.MODE, import.meta.env.BASE_URL, process.env.NODE_ENV);\n";
+    const MAIN: &str = "import \"./extra.css\";\nimport { html, render, build } from \"zerolith\";\nimport { lazy } from \"@zerolith/router\";\nimport { App } from \"./app.tsx\";\nimport { loaders } from \"./messages/index.ts\";\nimport logo from \"./logo.svg\";\nimport notes from \"./notes.md?raw\";\nexport const routes = { notes: lazy(() => import(\"./views/notes.ts\")) };\nrender(html`<main>${App({ name: \"zerolith\" })}</main>`, \"#app\");\nconsole.log(routes, loaders, build, logo, notes, import.meta.env.MODE, import.meta.env.BASE_URL, import.meta.env.PUBLIC_API, process.env.NODE_ENV);\n";
 
     fn options(root: &Path, base: &str, mode: &str) -> Options {
         Options {
@@ -962,6 +969,11 @@ mod tests {
     #[tokio::test]
     async fn bundles_minifies_splits_and_rewrites_the_page() {
         let root = project("main", MAIN);
+        fs::write(
+            root.join(".env"),
+            "PUBLIC_API=https://api.example\nSECRET=hidden\n",
+        )
+        .unwrap();
         let built = build(&options(&root, "/", "production")).await.unwrap();
         let paths: Vec<&str> = built.files.iter().map(|file| file.path.as_str()).collect();
         assert!(
@@ -1028,6 +1040,10 @@ mod tests {
         );
         assert!(
             !code.contains("import.meta.env") && !code.contains("process.env"),
+            "{code}"
+        );
+        assert!(
+            code.contains("https://api.example") && !code.contains("hidden"),
             "{code}"
         );
         let css = read_all(&root.join("dist/assets"), "css");

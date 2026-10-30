@@ -11,10 +11,27 @@ Thank you for considering a contribution. This page covers the mechanics; [GOVER
 
 ## Setup
 
-1. Install Node 24 or newer (Node 26 is the active LTS line) and npm 11.
+1. Install Node 24 or newer (Node 26 is the active LTS line) and npm 11, and Rust through rustup for the command line.
 2. `npm ci` installs the dev toolchain. The runtime itself has no dependencies.
-3. `npx playwright install chromium` once, for the browser test project.
-4. `npm run check` runs everything CI runs.
+3. `npx playwright install chromium` once, for the browser test projects.
+4. `npm run build` compiles every package from TypeScript into its `dist/` folder, which the examples and the tests load. It bundles no application.
+5. `cargo build --release` builds the `zerolith` command line into `target/release`, which the examples run on.
+6. `npm run check` runs everything the Node jobs in CI run, and `npm run test:cli` what the Rust job adds.
+
+## Run the examples
+
+Each example runs on this checkout's command line through a script, which finds the newer of `target/release` and `target/debug`:
+
+| Command | What it does |
+| --- | --- |
+| `npm run notes` | `zerolith dev examples/notes`: the notes example with live reload at http://127.0.0.1:8080/ |
+| `npm run notes:build` | `zerolith build examples/notes`: its production build in `examples/notes/dist` |
+| `npm run notes:preview` | `zerolith preview examples/notes`: serves that build at http://127.0.0.1:4173/ |
+| `npm run tasks` | The tasks example on Vite, with its API mounted on the dev server |
+| `npm run tasks:build` | `zerolith build examples/tasks`: its production build in `examples/tasks/dist` |
+| `npm run tasks:preview` | Serves that build with the API next to it, as a backend would, at http://127.0.0.1:4173/ |
+
+Each example's README walks through what it shows and what the build writes.
 
 ## Layout
 
@@ -22,14 +39,14 @@ Thank you for considering a contribution. This page covers the mechanics; [GOVER
 | --- | --- |
 | `packages/zerolith` | The core runtime: signals, `html` and `css` tags, rendering, hydration, diagnostics |
 | `packages/*` | First-party packages under the `@zerolith/*` scope: router, forms, client, i18n, a11y, test, devtools, otel, vite, and cli, which ships the command line with one prebuilt platform package per target under `packages/cli/platforms` |
-| `crates/zerolith` | The Rust command line: `new`, `dev`, `serve`, `build`, `importmap`, `doctor`; published on npm as `@zerolith/cli` and on crates.io |
+| `crates/zerolith` | The Rust command line: `new`, `dev`, `serve`, `build`, `preview`, `importmap`, `doctor`; published on npm as `@zerolith/cli` and on crates.io |
 | `examples/` | Applications built on the packages; their tests run in `npm run check` |
 | `docs/guide` | The guides; examples are pulled from tests with `@include` |
 | `docs/policy` | Support window, release channels, versioning and deprecation rules |
 | `docs/ROADMAP.md` | What is shipped, next, and planned |
 | `brand/` | The brand system; `brand/README.md` describes the rules |
 | `benchmarks/` | The keyed-table benchmark against a vanilla DOM baseline |
-| `scripts/` | The docs build, the size budget, the static server, the brand renderer, and the release tooling (`version.ts`, `release-notes.ts`, `platforms.ts`) |
+| `scripts/` | The docs build, the size budget, the static server, the runner for this checkout's command line (`zerolith.ts`), the brand renderer, and the release tooling (`version.ts`, `release-notes.ts`, `platforms.ts`) |
 
 ## Commands
 
@@ -45,7 +62,6 @@ Thank you for considering a contribution. This page covers the mechanics; [GOVER
 | `npm run size` | Check the compressed size budget |
 | `npm run docs` | Build the docs site into `site/`; fails on an undocumented export, a missing example, or a broken link. `ZEROLITH_DOCS_BASE=/zerolith/` builds it for a subpath, as GitHub Pages serves it |
 | `npm run docs:serve` | Serve the built docs site on port 8081 |
-| `npm run serve` | Serve the repository on port 8080 for the examples (build first) |
 | `npm run bench` | Run the keyed-table benchmark |
 | `npm run sbom` | Emit a CycloneDX SBOM of the runtime dependency graph |
 | `npm run brand` | Render the brand PNG and ICO files from their SVG sources |
