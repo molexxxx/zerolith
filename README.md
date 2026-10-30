@@ -105,7 +105,7 @@ Two example applications show it end to end: [notes](examples/notes), plain Java
 
 ## Where it's going
 
-Next come a proxy from `zerolith dev` to any backend and a guide to building and serving, then a permanent domain for the docs, trusted publishing with a canary channel built from every merge, the first production site, and a frozen API for the core, templates, and router. After that come signals the server can push, agent tooling with MCP servers and a public eval suite, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
+Next come a proxy from `zerolith dev` to any backend and a guide to building and serving, then a permanent domain for the docs, trusted publishing for the crate as npm already has, a canary channel built from every merge, the first production site, and a frozen API for the core, templates, and router. After that come signals the server can push, agent tooling with MCP servers and a public eval suite, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
 
 ## Documentation
 
