@@ -4,6 +4,12 @@ Every package in this repository is released together and carries the same versi
 
 ## Unreleased
 
+### Breaking changes
+
+- `@zerolith/vite`: a client build fails with `lazy_module_not_split` when a view loaded with the router's `lazy()`, or a locale module of a message index compiled by `zerolith-i18n`, is also imported statically, which would put it in the importing chunk instead of a chunk of its own. Server builds are not checked.
+
+### Changed
+
 - `@zerolith/vite`, `@zerolith/cli`, and the `zerolith` crate: the prepare pass creates a template with no bindings once, at module scope, and every render reuses that view instead of allocating a new one.
 
 ## 0.1.0-alpha.2 (2026-10-30)

@@ -12,7 +12,7 @@ order: 5
 
 @include packages/router/test/examples/routing.example.browser.test.ts#table
 
-Write `load` before `view` so the loader's result type flows into the view. A route's `load` and lazy view resolve before the URL changes; `router.pending` is true meanwhile, and a navigation that is superseded by a newer one is discarded.
+Write `load` before `view` so the loader's result type flows into the view. A route's `load` and lazy view resolve before the URL changes; `router.pending` is true meanwhile, and a navigation that is superseded by a newer one is discarded. A view declared with `lazy()` loads as a chunk of its own, and with `@zerolith/vite` a build that also imports it statically fails with [`lazy_module_not_split`](/e/lazy_module_not_split/) instead of quietly bundling it into the page.
 
 ## Links and navigation
 

@@ -16,7 +16,7 @@ export default defineConfig({
 - **Hot replacement that understands components.** In development, exported components become stable proxies to their latest version, `render` and `hydrate` roots render again after an edit, and named signals keep their values.
 - **Warnings at transform time** for a frozen `${signal.get()}` read in a template and for images, buttons, and frames without an accessible name, each with a diagnostic code. `lint: false` turns them off.
 - **Templates prepared at build time.** `vite build` scans every `html` literal ahead of time, so the browser binds templates without scanning them and the scanner leaves the bundle, and a template with no bindings is created once at module scope. A module that uses `html` other than as a template tag, or re-exports it, fails the build at that line. `prepare: false` keeps the scanner.
-- **A production check.** A build in production mode fails when the development build of the core reached the output.
+- **Build checks.** A client build fails when a view loaded with the router's `lazy()`, or a locale of a compiled message index, is also imported statically, which would merge it into the importing chunk. A build in production mode also fails when the development build of the core reached the output.
 
 The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/vite/).
 

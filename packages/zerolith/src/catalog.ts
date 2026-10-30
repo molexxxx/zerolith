@@ -114,6 +114,11 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
         cause: "The server-rendered markup did not match the view, and the differing part was rendered again on the client.",
         fix: "Render the same view with the same data on the server and the client; check the mismatches returned by hydrate()."
     },
+    lazy_module_not_split:
+    {
+        cause: "A module meant to load as a chunk of its own, a view declared with lazy() from @zerolith/router or a locale of a message index compiled by zerolith-i18n, is also imported statically, so the bundler put it in the importing chunk.",
+        fix: "Remove the static import, or import only its types with import type. Declare the view without lazy() if it should load with the page."
+    },
     template_not_prepared:
     {
         cause: "A template reached the runtime that the build's prepare pass never saw, in a bundle built without the scanner.",

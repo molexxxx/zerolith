@@ -1,13 +1,15 @@
 /**
  * The Vite plugin: the JSX lowering ahead of every other transform, hot
  * module replacement for zerolith applications in development, and the
- * template prepare pass and the checks on production output.
+ * template prepare pass and the checks on build output.
  */
-import { type Plugin, parseSync } from "vite";
+import { relative } from "node:path";
+import { type Plugin, parseSync, perEnvironmentState } from "vite";
 import { DIAGNOSTIC_URL, scan } from "zerolith";
 import { type JsxOutput, lowerJsx } from "./jsx.js";
 import { lintModule, position } from "./lint.js";
 import { PrepareError, prepareModule } from "./prepare.js";
+import { type SplitImport, splitImports } from "./split.js";
 import { type ModuleParser, transformModule } from "./transform.js";
 
 export type { AstNode, Edit, IdentityMap } from "./ast.js";
@@ -17,6 +19,8 @@ export type { Finding, LintCode } from "./lint.js";
 export { lintModule, position } from "./lint.js";
 export type { PrepareOutput, ScannedPart, TemplateScanner } from "./prepare.js";
 export { PREPARED_BINDING, PrepareError, TEMPLATE_BINDING, VIEW_BINDING, prepareModule } from "./prepare.js";
+export type { SplitImport } from "./split.js";
+export { MESSAGES_HEADER, splitImports } from "./split.js";
 export type { ModuleParser, ParsedModule, TransformOutput } from "./transform.js";
 export { transformModule } from "./transform.js";
 
@@ -71,6 +75,12 @@ function parseFor(id: string): ModuleParser
     return (filename, code) => parseSync(filename, code, { sourceType: "module", lang });
 }
 
+/** A module id as messages show it: relative to the project root, with forward slashes. */
+function shown(root: string, id: string): string
+{
+    return relative(root, id).replaceAll("\\", "/");
+}
+
 /** Lowers one file's JSX, turning a refusal into a Vite error with its position. */
 function lower(code: string, id: string): JsxOutput | null
 {
@@ -87,16 +97,19 @@ function lower(code: string, id: string): JsxOutput | null
  * replaced, every root renders again, and the saved values flow back into
  * signals created with the same names. The zerolith packages are kept out
  * of dependency pre-bundling. In `vite build` every `html` literal is
- * scanned ahead of time and the scanner leaves the bundle, and the build
- * fails if a module of the development build of the core reached the
- * output of a build in production mode, which means the `production`
- * export condition did not apply.
+ * scanned ahead of time and the scanner leaves the bundle. A client build
+ * fails when a view loaded with the router's `lazy()`, or a locale module
+ * of a compiled message index, is also imported statically, which would
+ * put it in the importing chunk, and a build in production mode fails if
+ * a module of the development build of the core reached the output, which
+ * means the `production` export condition did not apply.
  */
 export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
 {
     const include = options.include ?? DEFAULT_INCLUDE;
     const exclude = options.exclude ?? DEFAULT_EXCLUDE;
     let production = false;
+    const splitsOf = perEnvironmentState(() => new Map<string, { importer: string; kind: SplitImport["kind"] }>());
     const plugins: Plugin[] = [];
     if (options.jsx !== false)
     {
@@ -156,6 +169,37 @@ export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
         });
     }
     plugins.push({
+        name: "zerolith:split",
+        enforce: "pre",
+        apply: "build",
+        buildStart()
+        {
+            splitsOf(this).clear();
+        },
+        transform: {
+            filter: { id: { include, exclude } },
+            async handler(code, id)
+            {
+                if (id.startsWith("\0") || this.environment.config.consumer !== "client")
+                {
+                    return null;
+                }
+                const found = splitImports(code, id, parseFor(id));
+                const targets = await Promise.all(found.map((split) => this.resolve(split.specifier, id)));
+                const splits = splitsOf(this);
+                for (const [index, split] of found.entries())
+                {
+                    const target = targets[index];
+                    if (target !== null && target !== undefined && !target.external)
+                    {
+                        splits.set(target.id, { importer: id, kind: split.kind });
+                    }
+                }
+                return null;
+            }
+        }
+    });
+    plugins.push({
         name: "zerolith",
         apply: "serve",
         enforce: "post",
@@ -192,6 +236,24 @@ export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
         },
         generateBundle(_options, bundle)
         {
+            const { consumer, root } = this.environment.config;
+            if (consumer === "client")
+            {
+                const merged: string[] = [];
+                for (const [id, split] of splitsOf(this))
+                {
+                    const importers = this.getModuleInfo(id)?.importers ?? [];
+                    if (importers.length > 0)
+                    {
+                        const what = split.kind === "route" ? "a route view loaded with lazy()" : "a locale of a compiled message index";
+                        merged.push(`${shown(root, id)} is ${what} in ${shown(root, split.importer)} but is also imported statically by ${importers.map((importer) => shown(root, importer)).join(" and ")}`);
+                    }
+                }
+                if (merged.length > 0)
+                {
+                    this.error(`zerolith: lazy_module_not_split: ${merged.join("; ")}. The bundler puts such a module in the importing chunk instead of a chunk of its own; import only its types with import type, or remove the static import. ${DIAGNOSTIC_URL}lazy_module_not_split`);
+                }
+            }
             if (!production)
             {
                 return;
