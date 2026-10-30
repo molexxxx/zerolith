@@ -8,10 +8,10 @@ import { batch, computed, effect, resource, signal } from "zerolith";
 const STORAGE_KEY = "zerolith-notes";
 
 /** @type {import("zerolith").Signal<readonly Note[]>} */
-export const notes = signal(/** @type {readonly Note[]} */ ([]));
+export const notes = signal(/** @type {readonly Note[]} */ ([]), { name: "notes" });
 
 /** @type {import("zerolith").Signal<string>} */
-export const query = signal("");
+export const query = signal("", { name: "query" });
 
 /** Notes matching the search text, newest first. */
 export const filtered = computed(() =>
@@ -20,7 +20,7 @@ export const filtered = computed(() =>
     return notes.get()
         .filter((note) => text === "" || note.title.toLowerCase().includes(text) || note.body.toLowerCase().includes(text))
         .toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-});
+}, { name: "filtered" });
 
 /** @returns {readonly Note[] | undefined} */
 function restore()
