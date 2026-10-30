@@ -45,7 +45,7 @@ export default defineConfig({
                 test: {
                     name: "cli",
                     environment: "node",
-                    include: ["examples/*/test/**/*.cli.test.ts"],
+                    include: ["examples/*/test/**/*.cli.test.ts", "packages/*/test/**/*.cli.test.ts"],
                     exclude: ["**/node_modules/**", "**/dist/**"]
                 }
             },

@@ -1,21 +1,67 @@
-//! `zerolith new`: writes the application layout the structure guide
-//! describes, with a working first page, the scripts, and an AGENTS.md,
-//! for the Vite path in TypeScript or JavaScript or for the buildless path.
+//! `zerolith new`: writes a starter application in the brand style, with
+//! the layout the structure guide describes, three pages that show the
+//! patterns a project grows from, a browser test, a README that walks
+//! through developing, building, previewing, and deploying, and an
+//! AGENTS.md, then installs its dependencies. It asks for what the flags
+//! leave open, with a default for every question: TypeScript with JSX on
+//! the command line, the inspector included, and the dependencies installed.
 
 use std::fs;
-use std::path::Path;
+use std::io::{self, BufRead, IsTerminal, Write};
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
-/// Which layout to write.
+/// What `dev`, `build`, and `preview` run in the new project.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Flavor {
-    ViteTypeScript,
-    ViteJavaScript,
-    Buildless,
+pub enum Tool {
+    /// `zerolith dev`, `zerolith build`, and `zerolith preview`.
+    CommandLine,
+    /// The same, with a build that writes the modules as they are behind an import map.
+    Unbundled,
+    /// `vite`, `vite build`, and `vite preview`, with `@zerolith/vite`.
+    Vite,
+}
+
+/// The project to write.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Choice {
+    pub tool: Tool,
+    pub typescript: bool,
+    /// Components written in JSX, in `.tsx` or `.jsx` files, instead of `html` templates.
+    pub jsx: bool,
+    /// Mount the inspector from `@zerolith/devtools`.
+    pub devtools: bool,
+}
+
+impl Choice {
+    /// TypeScript with JSX on the command line, with the inspector: what every question defaults to.
+    pub const DEFAULT: Choice = Choice {
+        tool: Tool::CommandLine,
+        typescript: true,
+        jsx: true,
+        devtools: true,
+    };
+
+    fn ext(self) -> &'static str {
+        if self.typescript { "ts" } else { "js" }
+    }
+
+    fn component_ext(self) -> &'static str {
+        match (self.typescript, self.jsx) {
+            (true, true) => "tsx",
+            (true, false) => "ts",
+            (false, true) => "jsx",
+            (false, false) => "js",
+        }
+    }
 }
 
 /// The tool versions the scaffold pins, mirrored from the repository package.json
 /// so the published crate carries them; a test keeps the two in step.
 const TOOL_VERSIONS: &str = include_str!("../versions.json");
+
+/// The favicon from `brand/app-icon`, copied into the crate so the published crate carries it; a test keeps the two in step.
+const FAVICON: &str = include_str!("../templates/favicon.svg");
 
 fn version_of(name: &str) -> String {
     let versions: serde_json::Value = serde_json::from_str(TOOL_VERSIONS).unwrap_or_default();
@@ -29,13 +75,49 @@ fn framework_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
-fn package_json(name: &str, flavor: Flavor) -> String {
+/// The project name as the page shows it: letters, digits, spaces, dots, dashes, and underscores.
+fn display_name(name: &str) -> String {
+    name.chars()
+        .map(|character| {
+            if character.is_alphanumeric() || matches!(character, ' ' | '.' | '-' | '_') {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect()
+}
+
+/// The project name as npm accepts it: lowercase, with anything else a dash.
+fn package_name(name: &str) -> String {
+    let name: String = name
+        .to_lowercase()
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_') {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let name = name.trim_matches(['.', '_', '-']).to_string();
+    if name.is_empty() {
+        "app".to_string()
+    } else {
+        name
+    }
+}
+
+fn package_json(name: &str, choice: Choice) -> String {
     let framework = framework_version();
-    let mut dependencies = [
+    let mut dependencies = vec![
         format!("        \"zerolith\": \"{framework}\""),
         format!("        \"@zerolith/router\": \"{framework}\""),
-        format!("        \"@zerolith/devtools\": \"{framework}\""),
     ];
+    if choice.devtools {
+        dependencies.push(format!("        \"@zerolith/devtools\": \"{framework}\""));
+    }
     let mut dev = vec![
         format!("        \"@zerolith/cli\": \"{framework}\""),
         format!("        \"@zerolith/test\": \"{framework}\""),
@@ -48,201 +130,985 @@ fn package_json(name: &str, flavor: Flavor) -> String {
         format!("        \"typescript\": \"{}\"", version_of("typescript")),
         format!("        \"vitest\": \"{}\"", version_of("vitest")),
     ];
-    let scripts = match flavor {
-        Flavor::Buildless => {
-            dev.push(format!(
-                "        \"@types/node\": \"{}\"",
-                version_of("@types/node")
-            ));
-            vec![
-                "        \"dev\": \"zerolith dev .\"",
-                "        \"vendor\": \"zerolith importmap --html index.html --development\"",
-                "        \"build\": \"zerolith build . --out dist --unbundled\"",
-                "        \"check\": \"npm run typecheck && npm run lint && npm test\"",
-                "        \"typecheck\": \"tsc -p tsconfig.json\"",
-                "        \"lint\": \"oxlint\"",
-                "        \"test\": \"vitest run\"",
-            ]
-        }
-        _ => {
-            dev.push(format!("        \"@zerolith/vite\": \"{framework}\""));
+    if choice.jsx || choice.tool == Tool::Vite {
+        dev.push(format!("        \"@zerolith/vite\": \"{framework}\""));
+    }
+    let (develop, build, preview) = match choice.tool {
+        Tool::CommandLine => ("zerolith dev", "zerolith build", "zerolith preview"),
+        Tool::Unbundled => (
+            "zerolith dev",
+            "zerolith build --unbundled",
+            "zerolith preview",
+        ),
+        Tool::Vite => {
             dev.push(format!("        \"vite\": \"{}\"", version_of("vite")));
-            vec![
-                "        \"dev\": \"vite\"",
-                "        \"build\": \"vite build\"",
-                "        \"preview\": \"vite preview\"",
-                "        \"check\": \"npm run typecheck && npm run lint && npm test && npm run build\"",
-                "        \"typecheck\": \"tsc -p tsconfig.json\"",
-                "        \"lint\": \"oxlint\"",
-                "        \"test\": \"vitest run\"",
-            ]
+            ("vite", "vite build", "vite preview")
         }
     };
     dependencies.sort();
     dev.sort();
+    let scripts = [
+        format!("        \"dev\": \"{develop}\""),
+        format!("        \"build\": \"{build}\""),
+        format!("        \"preview\": \"{preview}\""),
+        "        \"check\": \"npm run typecheck && npm run lint && npm test && npm run build\""
+            .to_string(),
+        "        \"typecheck\": \"tsc -p tsconfig.json\"".to_string(),
+        "        \"lint\": \"oxlint\"".to_string(),
+        "        \"test\": \"vitest run\"".to_string(),
+    ];
     format!(
-        "{{\n    \"name\": \"{name}\",\n    \"version\": \"0.0.0\",\n    \"private\": true,\n    \"type\": \"module\",\n    \"scripts\": {{\n{}\n    }},\n    \"dependencies\": {{\n{}\n    }},\n    \"devDependencies\": {{\n{}\n    }}\n}}\n",
+        "{{\n    \"name\": \"{}\",\n    \"version\": \"0.0.0\",\n    \"private\": true,\n    \"type\": \"module\",\n    \"scripts\": {{\n{}\n    }},\n    \"dependencies\": {{\n{}\n    }},\n    \"devDependencies\": {{\n{}\n    }}\n}}\n",
+        package_name(name),
         scripts.join(",\n"),
         dependencies.join(",\n"),
         dev.join(",\n")
     )
 }
 
-fn index_html(name: &str, flavor: Flavor) -> String {
-    let script = match flavor {
-        Flavor::ViteTypeScript => "<script type=\"module\" src=\"/src/main.ts\"></script>",
-        Flavor::ViteJavaScript => "<script type=\"module\" src=\"/src/main.js\"></script>",
-        Flavor::Buildless => {
-            "<script type=\"importmap\">{\"imports\":{}}</script>\n    <script type=\"module\" src=\"/src/main.js\"></script>"
+const INDEX_HTML: &str = r#"<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>__NAME__</title>
+    <meta name="description" content="__NAME__, a zerolith application.">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/src/styles.css">
+    <script type="module" src="/src/main.__EXT__"></script>
+</head>
+<body>
+    <div id="app"></div>
+</body>
+</html>
+"#;
+
+const STYLES: &str = r#"/*
+ * The design tokens and global styles, in the zerolith brand: basalt
+ * surfaces, square corners, 2 px rules, and chartreuse kept for the mark,
+ * the primary action, the current page, and focus. Component styles live
+ * next to their markup in the css literals under src/components.
+ */
+:root
+{
+    --bg: #0F1114;
+    --surface: #171A1F;
+    --line: #2A2F37;
+    --control: #737C88;
+    --text: #E8EAED;
+    --muted: #9AA3AD;
+    --accent: #AACF16;
+    --on-accent: #0F1114;
+    --accent-text: #AACF16;
+    --focus: #AACF16;
+    --font-display: "Unbounded", system-ui, sans-serif;
+    --font-text: "Onest", system-ui, sans-serif;
+    --font-mono: "Martian Mono", ui-monospace, monospace;
+    color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light)
+{
+    :root
+    {
+        --bg: #F5F6F8;
+        --surface: #FFFFFF;
+        --line: #D5DAE0;
+        --text: #0F1114;
+        --muted: #4F5864;
+        --accent-text: #4B5E00;
+        --focus: #4B5E00;
+        color-scheme: light;
+    }
+}
+
+*,
+*::before,
+*::after
+{
+    box-sizing: border-box;
+}
+
+body
+{
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 1rem/1.6 var(--font-text);
+}
+
+h1,
+h2
+{
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+}
+
+a
+{
+    color: var(--accent-text);
+}
+
+code,
+kbd
+{
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+}
+
+button,
+.button
+{
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border: 2px solid var(--control);
+    border-radius: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+button.primary,
+.button.primary
+{
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
+    font-weight: 600;
+}
+
+input
+{
+    padding: 0.5rem 0.75rem;
+    border: 2px solid var(--control);
+    border-radius: 0;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+}
+
+:focus-visible
+{
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+}
+"#;
+
+const MAIN: &str = r##"// The entry: wait for the first route and render the layout around it.
+import { render } from "zerolith";
+import { Layout } from "./components/layout.__CEXT__";
+import { router } from "./router.__EXT__";
+
+await router.ready;
+render(Layout({ content: router.outlet() }), "#app");
+"##;
+
+const MAIN_DEVTOOLS: &str = r##"// The entry: wait for the first route, render the layout around it, and
+// mount the inspector, which Alt+Shift+Z opens while developing.
+import { render } from "zerolith";
+import { mountDevtools } from "@zerolith/devtools";
+import { Layout } from "./components/layout.__CEXT__";
+import { router } from "./router.__EXT__";
+
+await router.ready;
+render(Layout({ content: router.outlet() }), "#app");
+mountDevtools();
+"##;
+
+const ROUTER_TS: &str = r#"// The router, in its own module so components can import it for typed
+// links while the route table imports the components.
+import { createRouter } from "@zerolith/router";
+import { NotFound } from "./components/not-found.__CEXT__";
+import { routes } from "./routes.__EXT__";
+
+export const router = createRouter(routes, { fallback: (url) => NotFound({ path: url.pathname }) });
+"#;
+
+const ROUTER_JS: &str = r#"// The router, in its own module so components can import it for typed
+// links while the route table imports the components.
+import { createRouter } from "@zerolith/router";
+import { NotFound } from "./components/not-found.__CEXT__";
+import { routes } from "./routes.__EXT__";
+
+/** @type {import("@zerolith/router").Router<typeof routes>} */
+export const router = createRouter(routes, { fallback: (url) => NotFound({ path: url.pathname }) });
+"#;
+
+const ROUTES: &str = r#"// The route table: one entry per page. Parameters are inferred from each
+// path, so the links that router.href builds are checked.
+import { defineRoutes, route } from "@zerolith/router";
+import { Counter } from "./components/counter.__CEXT__";
+import { Home } from "./components/home.__CEXT__";
+import { Packages } from "./components/packages.__CEXT__";
+
+export const routes = defineRoutes({
+    home: route({ path: "/", view: () => Home(), head: { title: "__NAME__" } }),
+    counter: route({ path: "/counter", view: () => Counter({ start: 0 }), head: { title: "Counter" } }),
+    packages: route({ path: "/packages", view: () => Packages(), head: { title: "Packages" } })
+});
+"#;
+
+const MARK: &str = r#"<svg viewBox="14.29 4 35.42 56" aria-hidden="true"><path fill-rule="evenodd" fill="currentColor" d="M26 4h12q6 0 6.64 5.97l5.04 47.05Q50 60 47 60H17q-3 0-2.68-2.98l5.04-47.05Q20 4 26 4ZM30 13h4q3 0 3.26 2.99l2.56 29.02Q40 47 38 47H26q-2 0-1.82-1.99l2.56-29.02Q27 13 30 13Z"/></svg>"#;
+
+const FOOTER: &str = r#"Built with <a href="https://molexxxx.github.io/zerolith/">zerolith</a>."#;
+
+const FOOTER_DEVTOOLS: &str = r#"Built with <a href="https://molexxxx.github.io/zerolith/">zerolith</a>. Press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> for the inspector."#;
+
+const LAYOUT_STYLES: &str = r#"const frame = css`
+    :scope { min-height: 100vh; display: grid; grid-template-rows: auto 1fr auto; }
+    header { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 2rem; padding: 1rem 1.5rem; border-bottom: 2px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 0.75rem; color: var(--text); text-decoration: none; font-family: var(--font-display); font-weight: 600; letter-spacing: -0.03em; }
+    .brand svg { width: 1.25rem; height: 2rem; color: var(--accent); }
+    nav { display: flex; gap: 1.5rem; }
+    nav a { color: var(--muted); text-decoration: none; padding: 0.25rem 0; border-bottom: 2px solid transparent; }
+    nav a[aria-current="page"] { color: var(--text); border-bottom-color: var(--accent); }
+    .page { width: 100%; max-width: 48rem; margin: 0 auto; padding: 3rem 1.5rem; }
+    footer { padding: 1rem 1.5rem; border-top: 2px solid var(--line); color: var(--muted); font-size: 0.875rem; }
+`;"#;
+
+const LAYOUT_TS: &str = r#"// The frame around every page: the header with the mark and the
+// navigation, the page itself, and the footer.
+import { type View, computed, css, html } from "zerolith";
+import { router } from "../router.ts";
+
+__STYLES__
+
+function Link({ href, label, exact }: { href: string; label: string; exact: boolean }): View
+{
+    const here = router.matches(href, { exact });
+    return html`<a href=${href} aria-current=${computed(() => (here.get() ? "page" : undefined))}>${label}</a>`;
+}
+
+export function Layout({ content }: { content: View }): View
+{
+    return html`
+        <div class=${frame}>
+            <header>
+                <a class="brand" href=${router.href("home")}>__MARK__ __NAME__</a>
+                <nav aria-label="Pages">
+                    ${Link({ href: router.href("home"), label: "Home", exact: true })}
+                    ${Link({ href: router.href("counter"), label: "Counter", exact: false })}
+                    ${Link({ href: router.href("packages"), label: "Packages", exact: false })}
+                </nav>
+            </header>
+            <main class="page">${content}</main>
+            <footer>__FOOTER__</footer>
+        </div>`;
+}
+"#;
+
+const LAYOUT_JS: &str = r#"// The frame around every page: the header with the mark and the
+// navigation, the page itself, and the footer.
+import { computed, css, html } from "zerolith";
+import { router } from "../router.js";
+
+/** @typedef {import("zerolith").View} View */
+
+__STYLES__
+
+/**
+ * @param {{ href: string, label: string, exact: boolean }} props
+ * @returns {View}
+ */
+function Link({ href, label, exact })
+{
+    const here = router.matches(href, { exact });
+    return html`<a href=${href} aria-current=${computed(() => (here.get() ? "page" : undefined))}>${label}</a>`;
+}
+
+/**
+ * @param {{ content: View }} props
+ * @returns {View}
+ */
+export function Layout({ content })
+{
+    return html`
+        <div class=${frame}>
+            <header>
+                <a class="brand" href=${router.href("home")}>__MARK__ __NAME__</a>
+                <nav aria-label="Pages">
+                    ${Link({ href: router.href("home"), label: "Home", exact: true })}
+                    ${Link({ href: router.href("counter"), label: "Counter", exact: false })}
+                    ${Link({ href: router.href("packages"), label: "Packages", exact: false })}
+                </nav>
+            </header>
+            <main class="page">${content}</main>
+            <footer>__FOOTER__</footer>
+        </div>`;
+}
+"#;
+
+const LAYOUT_TSX: &str = r#"// The frame around every page: the header with the mark and the
+// navigation, the page itself, and the footer.
+import { type View, computed, css } from "zerolith";
+import { router } from "../router.ts";
+
+__STYLES__
+
+function Link({ href, label, exact }: { href: string; label: string; exact: boolean }): View
+{
+    const here = router.matches(href, { exact });
+    return <a href={href} aria-current={computed(() => (here.get() ? "page" : undefined))}>{label}</a>;
+}
+
+export function Layout({ content }: { content: View }): View
+{
+    return (
+        <div class={frame}>
+            <header>
+                <a class="brand" href={router.href("home")}>__MARK__ __NAME__</a>
+                <nav aria-label="Pages">
+                    <Link href={router.href("home")} label="Home" exact={true} />
+                    <Link href={router.href("counter")} label="Counter" exact={false} />
+                    <Link href={router.href("packages")} label="Packages" exact={false} />
+                </nav>
+            </header>
+            <main class="page">{content}</main>
+            <footer>__FOOTER__</footer>
+        </div>
+    );
+}
+"#;
+
+const LAYOUT_JSX: &str = r#"// The frame around every page: the header with the mark and the
+// navigation, the page itself, and the footer.
+import { computed, css } from "zerolith";
+import { router } from "../router.js";
+
+/** @typedef {import("zerolith").View} View */
+
+__STYLES__
+
+/**
+ * @param {{ href: string, label: string, exact: boolean }} props
+ * @returns {View}
+ */
+function Link({ href, label, exact })
+{
+    const here = router.matches(href, { exact });
+    return <a href={href} aria-current={computed(() => (here.get() ? "page" : undefined))}>{label}</a>;
+}
+
+/**
+ * @param {{ content: View }} props
+ * @returns {View}
+ */
+export function Layout({ content })
+{
+    return (
+        <div class={frame}>
+            <header>
+                <a class="brand" href={router.href("home")}>__MARK__ __NAME__</a>
+                <nav aria-label="Pages">
+                    <Link href={router.href("home")} label="Home" exact={true} />
+                    <Link href={router.href("counter")} label="Counter" exact={false} />
+                    <Link href={router.href("packages")} label="Packages" exact={false} />
+                </nav>
+            </header>
+            <main class="page">{content}</main>
+            <footer>__FOOTER__</footer>
+        </div>
+    );
+}
+"#;
+
+const HOME_STYLES: &str = r#"const home = css`
+    :scope { display: grid; gap: 2.5rem; }
+    h1 { font-size: clamp(2.25rem, 7vw, 3.5rem); }
+    .lead { margin: 1rem 0 0; color: var(--muted); font-size: 1.25rem; max-width: 36rem; }
+    ol { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--line); }
+    li { display: grid; grid-template-columns: minmax(9rem, 12rem) 1fr; gap: 1rem; padding: 1rem 0; border-bottom: 2px solid var(--line); }
+    li code { color: var(--accent-text); }
+    li p { margin: 0; color: var(--muted); }
+    .next { display: flex; flex-wrap: wrap; gap: 1rem; }
+`;"#;
+
+const HOME_HTML: &str = r#"    return html`
+        <section class=${home}>
+            <div>
+                <h1>__NAME__</h1>
+                <p class="lead">A zerolith application. Edit <code>src/components/home.__CEXT__</code> and save: the page updates and keeps its state.</p>
+            </div>
+            <ol>
+                <li><code>npm run dev</code><p>__DEV__</p></li>
+                <li><code>npm run build</code><p>__BUILD__</p></li>
+                <li><code>npm run preview</code><p>__PREVIEW__</p></li>
+            </ol>
+            <div class="next">
+                <a class="button primary" href=${router.href("counter")}>Try the counter</a>
+                <a class="button" href="https://molexxxx.github.io/zerolith/guide/">Read the guide</a>
+            </div>
+        </section>`;"#;
+
+const HOME_JSX_BODY: &str = r#"    return (
+        <section class={home}>
+            <div>
+                <h1>__NAME__</h1>
+                <p class="lead">A zerolith application. Edit <code>src/components/home.__CEXT__</code> and save: the page updates and keeps its state.</p>
+            </div>
+            <ol>
+                <li><code>npm run dev</code><p>__DEV__</p></li>
+                <li><code>npm run build</code><p>__BUILD__</p></li>
+                <li><code>npm run preview</code><p>__PREVIEW__</p></li>
+            </ol>
+            <div class="next">
+                <a class="button primary" href={router.href("counter")}>Try the counter</a>
+                <a class="button" href="https://molexxxx.github.io/zerolith/guide/">Read the guide</a>
+            </div>
+        </section>
+    );"#;
+
+const HOME_TS: &str = r#"// The first page: what the project is and the three commands it runs on.
+import { type View, css, html } from "zerolith";
+import { router } from "../router.ts";
+
+__STYLES__
+
+export function Home(): View
+{
+__BODY__
+}
+"#;
+
+const HOME_JS: &str = r#"// The first page: what the project is and the three commands it runs on.
+import { css, html } from "zerolith";
+import { router } from "../router.js";
+
+/** @typedef {import("zerolith").View} View */
+
+__STYLES__
+
+/** @returns {View} */
+export function Home()
+{
+__BODY__
+}
+"#;
+
+const HOME_TSX: &str = r#"// The first page: what the project is and the three commands it runs on.
+import { type View, css } from "zerolith";
+import { router } from "../router.ts";
+
+__STYLES__
+
+export function Home(): View
+{
+__BODY__
+}
+"#;
+
+const HOME_JSX: &str = r#"// The first page: what the project is and the three commands it runs on.
+import { css } from "zerolith";
+import { router } from "../router.js";
+
+/** @typedef {import("zerolith").View} View */
+
+__STYLES__
+
+/** @returns {View} */
+export function Home()
+{
+__BODY__
+}
+"#;
+
+const COUNTER_STYLES: &str = r#"const counter = css`
+    :scope { display: grid; gap: 1.5rem; justify-items: start; }
+    output { font-family: var(--font-display); font-size: 4rem; line-height: 1; }
+    p { margin: 0; color: var(--muted); }
+    .actions { display: flex; gap: 0.75rem; }
+`;"#;
+
+const COUNTER_HTML: &str = r#"    const count = signal(start, { name: "count" });
+    const doubled = computed(() => count.get() * 2);
+    return html`
+        <section class=${counter}>
+            <h1>Counter</h1>
+            <output aria-live="polite">${count}</output>
+            <p>Doubled, ${doubled}. The count is a named signal, so an edit to this file keeps it.</p>
+            <div class="actions">
+                <button class="primary" @click=${() => count.set(count.get() + 1)}>Add one</button>
+                <button @click=${() => count.set(start)}>Reset</button>
+            </div>
+        </section>`;"#;
+
+const COUNTER_JSX_BODY: &str = r#"    const count = signal(start, { name: "count" });
+    const doubled = computed(() => count.get() * 2);
+    return (
+        <section class={counter}>
+            <h1>Counter</h1>
+            <output aria-live="polite">{count}</output>
+            <p>Doubled, {doubled}. The count is a named signal, so an edit to this file keeps it.</p>
+            <div class="actions">
+                <button class="primary" on:click={() => count.set(count.get() + 1)}>Add one</button>
+                <button on:click={() => count.set(start)}>Reset</button>
+            </div>
+        </section>
+    );"#;
+
+const COUNTER_TS: &str = r#"// State in a component: a named signal and a value derived from it. Bind
+// the signal, not its value: ${count} stays live, ${count.get()} would not.
+import { type View, computed, css, html, signal } from "zerolith";
+
+__STYLES__
+
+export function Counter({ start }: { start: number }): View
+{
+__BODY__
+}
+"#;
+
+const COUNTER_JS: &str = r#"// State in a component: a named signal and a value derived from it. Bind
+// the signal, not its value: ${count} stays live, ${count.get()} would not.
+import { computed, css, html, signal } from "zerolith";
+
+/** @typedef {import("zerolith").View} View */
+
+__STYLES__
+
+/**
+ * @param {{ start: number }} props
+ * @returns {View}
+ */
+export function Counter({ start })
+{
+__BODY__
+}
+"#;
+
+const COUNTER_TSX: &str = r#"// State in a component: a named signal and a value derived from it. Bind
+// the signal, not its value: {count} stays live, {count.get()} would not.
+import { type View, computed, css, signal } from "zerolith";
+
+__STYLES__
+
+export function Counter({ start }: { start: number }): View
+{
+__BODY__
+}
+"#;
+
+const COUNTER_JSX: &str = r#"// State in a component: a named signal and a value derived from it. Bind
+// the signal, not its value: {count} stays live, {count.get()} would not.
+import { computed, css, signal } from "zerolith";
+
+/** @typedef {import("zerolith").View} View */
+
+__STYLES__
+
+/**
+ * @param {{ start: number }} props
+ * @returns {View}
+ */
+export function Counter({ start })
+{
+__BODY__
+}
+"#;
+
+const PACKAGES_STYLES: &str = r#"const page = css`
+    :scope { display: grid; gap: 1.5rem; }
+    input { width: 100%; }
+    ul { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--line); }
+    li { display: grid; gap: 0.25rem; padding: 0.75rem 0; border-bottom: 2px solid var(--line); }
+    li strong { font-family: var(--font-mono); font-weight: 400; color: var(--accent-text); }
+    li span, .status { color: var(--muted); }
+`;"#;
+
+const PACKAGES_DOC: &str = r#"// Data from a request: a resource loads public/data/packages.json once, a
+// computed value filters it by the search text, and each renders the
+// matches keyed by name."#;
+
+const CATALOG_TS: &str = r#"interface Package
+{
+    name: string;
+    description: string;
+}
+
+const catalog = resource({
+    params: () => "/data/packages.json",
+    loader: async ({ params, abort }) =>
+    {
+        const response = await fetch(params, { signal: abort });
+        if (!response.ok)
+        {
+            throw new Error(`${params} answered ${response.status}`);
         }
-    };
-    format!(
-        "<!doctype html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>{name}</title>\n    <link rel=\"stylesheet\" href=\"/src/styles.css\">\n</head>\n<body>\n    <div id=\"app\"></div>\n    {script}\n</body>\n</html>\n"
-    )
+        return (await response.json()) as Package[];
+    }
+});"#;
+
+const CATALOG_JS: &str = r#"/** @typedef {import("zerolith").View} View */
+/** @typedef {{ name: string, description: string }} Package */
+
+const catalog = resource({
+    params: () => "/data/packages.json",
+    loader: async ({ params, abort }) =>
+    {
+        const response = await fetch(params, { signal: abort });
+        if (!response.ok)
+        {
+            throw new Error(`${params} answered ${response.status}`);
+        }
+        return /** @type {Package[]} */ (await response.json());
+    }
+});"#;
+
+const MATCHES: &str = r#"    const query = signal("", { name: "query" });
+    const matches = computed(() =>
+    {
+        const text = query.get().trim().toLowerCase();
+        return (catalog.get() ?? []).filter((item) => text === "" || item.name.includes(text) || item.description.toLowerCase().includes(text));
+    });"#;
+
+const PACKAGES_HTML: &str = r#"    return html`
+        <section class=${page}>
+            <h1>Packages</h1>
+            <input type="search" placeholder="Search the packages" aria-label="Search the packages" .value=${query} @input=${__INPUT__}>
+            ${when(catalog.pending, () => html`<p class="status">Loading the list</p>`)}
+            ${when(catalog.error, () => html`<p class="status">The list did not load. <button @click=${() => catalog.reload()}>Try again</button></p>`)}
+            <ul>${each(matches, (item) => item.name, (item) => html`<li><strong>${computed(() => item.get().name)}</strong><span>${computed(() => item.get().description)}</span></li>`)}</ul>
+        </section>`;"#;
+
+const PACKAGES_JSX_BODY: &str = r#"    return (
+        <section class={page}>
+            <h1>Packages</h1>
+            <input type="search" placeholder="Search the packages" aria-label="Search the packages" prop:value={query} on:input={__INPUT__} />
+            {when(catalog.pending, () => <p class="status">Loading the list</p>)}
+            {when(catalog.error, () => <p class="status">The list did not load. <button on:click={() => catalog.reload()}>Try again</button></p>)}
+            <ul>{each(matches, (item) => item.name, (item) => <li><strong>{computed(() => item.get().name)}</strong><span>{computed(() => item.get().description)}</span></li>)}</ul>
+        </section>
+    );"#;
+
+const INPUT_TS: &str =
+    r#"(event: Event) => query.set((event.currentTarget as HTMLInputElement).value)"#;
+
+const INPUT_JS: &str = r#"(/** @type {Event} */ event) => query.set(/** @type {HTMLInputElement} */ (event.currentTarget).value)"#;
+
+const NOT_FOUND_TS: &str = r#"// Shown for a URL that no route matches.
+import { type View, html } from "zerolith";
+
+export function NotFound({ path }: { path: string }): View
+{
+    return html`<section><h1>Not found</h1><p>Nothing lives at <code>${path}</code>. <a href="/">Go home</a>.</p></section>`;
+}
+"#;
+
+const NOT_FOUND_JS: &str = r#"// Shown for a URL that no route matches.
+import { html } from "zerolith";
+
+/**
+ * @param {{ path: string }} props
+ * @returns {import("zerolith").View}
+ */
+export function NotFound({ path })
+{
+    return html`<section><h1>Not found</h1><p>Nothing lives at <code>${path}</code>. <a href="/">Go home</a>.</p></section>`;
+}
+"#;
+
+const NOT_FOUND_TSX: &str = r#"// Shown for a URL that no route matches.
+import type { View } from "zerolith";
+
+export function NotFound({ path }: { path: string }): View
+{
+    return <section><h1>Not found</h1><p>Nothing lives at <code>{path}</code>. <a href="/">Go home</a>.</p></section>;
+}
+"#;
+
+const NOT_FOUND_JSX: &str = r#"// Shown for a URL that no route matches.
+
+/**
+ * @param {{ path: string }} props
+ * @returns {import("zerolith").View}
+ */
+export function NotFound({ path })
+{
+    return <section><h1>Not found</h1><p>Nothing lives at <code>{path}</code>. <a href="/">Go home</a>.</p></section>;
+}
+"#;
+
+const ENV_TYPES: &str = r#"// The values import.meta.env carries under zerolith dev and zerolith
+// build: the mode, the base path, and every PUBLIC_ variable from the .env
+// files and the environment.
+interface ImportMetaEnv
+{
+    readonly MODE: string;
+    readonly DEV: boolean;
+    readonly PROD: boolean;
+    readonly BASE_URL: string;
+    readonly [name: `PUBLIC_${string}`]: string | undefined;
 }
 
-const STYLES: &str = ":root {\n    --bg: #101214;\n    --panel: #181b1f;\n    --line: #2a2f36;\n    --text: #e6e8eb;\n    --muted: #9aa3ad;\n    --accent: #7cc4ff;\n    color-scheme: dark;\n}\n* { box-sizing: border-box; }\nbody { margin: 0; font: 16px/1.5 system-ui, sans-serif; background: var(--bg); color: var(--text); }\na { color: var(--accent); }\nbutton { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }\n";
-
-fn main_source(ext: &str) -> String {
-    format!(
-        "// Mounts the application: wait for the router, render the layout around its outlet, open the inspector in development.\nimport {{ render }} from \"zerolith\";\nimport {{ mountDevtools }} from \"@zerolith/devtools\";\nimport {{ Layout }} from \"./components/layout.{ext}\";\nimport {{ router }} from \"./router.{ext}\";\n\nawait router.ready;\nrender(Layout({{ content: router.outlet() }}), \"#app\");\nmountDevtools();\n"
-    )
+interface ImportMeta
+{
+    readonly env: ImportMetaEnv;
 }
+"#;
 
-fn routes_source(ext: &str) -> String {
-    format!(
-        "// The route table, one entry per page. Parameters are inferred from each path.\nimport {{ defineRoutes, route }} from \"@zerolith/router\";\nimport {{ Counter }} from \"./components/counter.{ext}\";\nimport {{ Home }} from \"./components/home.{ext}\";\n\nexport const routes = defineRoutes({{\n    home: route({{ path: \"/\", view: () => Home(), head: {{ title: \"Home\" }} }}),\n    counter: route({{ path: \"/counter/:start\", view: ({{ params }}) => Counter({{ start: Number(params.start) }}), head: {{ title: \"Counter\" }} }})\n}});\n"
-    )
-}
+const PACKAGES_DATA: &str = r#"[
+    { "name": "zerolith", "description": "Signals, html and css templates, rendering, hydration, and coded diagnostics." },
+    { "name": "@zerolith/router", "description": "A typed route table, plain links, route data, and head tags." },
+    { "name": "@zerolith/forms", "description": "Native forms enhanced with fetch, validation, and field errors." },
+    { "name": "@zerolith/client", "description": "A typed client generated from an OpenAPI contract." },
+    { "name": "@zerolith/i18n", "description": "Locales, formatters, and message catalogs compiled to typed modules." },
+    { "name": "@zerolith/a11y", "description": "A focus trap, roving tabindex, a live announcer, and preference signals." },
+    { "name": "@zerolith/test", "description": "Mount, settle, and check hydration and accessibility in tests." },
+    { "name": "@zerolith/devtools", "description": "The in-page inspector that Alt+Shift+Z opens." },
+    { "name": "@zerolith/otel", "description": "OpenTelemetry spans for navigation, hydration, and requests." },
+    { "name": "@zerolith/cli", "description": "The command line: dev, build, preview, and project checks." },
+    { "name": "@zerolith/vite", "description": "The plugin for projects that develop on Vite." }
+]
+"#;
 
-fn router_source(ext: &str, typescript: bool) -> String {
-    let annotation = if typescript {
-        ""
-    } else {
-        "/** @type {import(\"@zerolith/router\").Router<typeof routes>} */\n"
-    };
-    format!(
-        "// The router, in its own module so components import it for typed hrefs while the route table imports the components.\nimport {{ createRouter }} from \"@zerolith/router\";\nimport {{ html }} from \"zerolith\";\nimport {{ routes }} from \"./routes.{ext}\";\n\n{annotation}export const router = createRouter(routes, {{ fallback: (url) => html`<p>Nothing at ${{url.pathname}}. <a href=\"/\">Home</a></p>` }});\n"
-    )
-}
+const TEST: &str = r#"import { afterEach, expect, it } from "vitest";
+import { cleanup, mount, settle } from "@zerolith/test";
+import { Counter } from "../src/components/counter.__CEXT__";
 
-fn layout_source(name: &str, ext: &str, typescript: bool) -> String {
-    let (signature, doc) = if typescript {
-        (
-            "export function Layout({ content }: { content: unknown }): View",
-            "",
-        )
-    } else {
-        (
-            "export function Layout({ content })",
-            "/**\n * @param {{ content: unknown }} props\n * @returns {View}\n */\n",
-        )
-    };
-    let import_view = if typescript {
-        "import { type View, css, html } from \"zerolith\";"
-    } else {
-        "import { css, html } from \"zerolith\";\n\n/** @typedef {import(\"zerolith\").View} View */"
-    };
-    format!(
-        "// The page frame around every route.\n{import_view}\nimport {{ router }} from \"../router.{ext}\";\n\nconst layout = css`\n    :scope {{ max-width: 40rem; margin: 0 auto; padding: 24px 16px; display: grid; gap: 24px; }}\n    header {{ display: flex; align-items: baseline; justify-content: space-between; }}\n    header h1 {{ margin: 0; font-size: 1.4rem; }}\n    header a {{ text-decoration: none; }}\n`;\n\n{doc}{signature}\n{{\n    return html`\n        <main class=${{layout}}>\n            <header>\n                <h1><a href=${{router.href(\"home\")}}>{name}</a></h1>\n                <a href=${{router.href(\"counter\", {{ start: \"5\" }})}}>Counter</a>\n            </header>\n            ${{content}}\n        </main>`;\n}}\n"
-    )
-}
+afterEach(cleanup);
 
-fn home_source(typescript: bool) -> String {
-    let (signature, doc, import_view) = if typescript {
-        (
-            "export function Home(): View",
-            "",
-            "import { type View, html } from \"zerolith\";",
-        )
-    } else {
-        (
-            "export function Home()",
-            "/** @returns {View} */\n",
-            "import { html } from \"zerolith\";\n\n/** @typedef {import(\"zerolith\").View} View */",
-        )
-    };
-    format!(
-        "// The first page.\n{import_view}\n\n{doc}{signature}\n{{\n    return html`<p>A zerolith application. Edit <code>src/components/home</code> and the page updates in place.</p>`;\n}}\n"
-    )
-}
-
-fn counter_source(typescript: bool) -> String {
-    let (signature, doc, import_view) = if typescript {
-        (
-            "export function Counter({ start }: { start: number }): View",
-            "",
-            "import { type View, html, signal } from \"zerolith\";",
-        )
-    } else {
-        (
-            "export function Counter({ start })",
-            "/**\n * @param {{ start: number }} props\n * @returns {View}\n */\n",
-            "import { html, signal } from \"zerolith\";\n\n/** @typedef {import(\"zerolith\").View} View */",
-        )
-    };
-    format!(
-        "// A component with state: the signal is bound, never its value, and it is named so an edit keeps the count.\n{import_view}\n\n{doc}{signature}\n{{\n    const count = signal(start, {{ name: \"count\" }});\n    return html`<button @click=${{() => count.set(count.get() + 1)}}>Clicked ${{count}} times</button>`;\n}}\n"
-    )
-}
-
-fn test_source(ext: &str) -> String {
-    format!(
-        "import {{ afterEach, expect, it }} from \"vitest\";\nimport {{ cleanup, mount, settle }} from \"@zerolith/test\";\nimport {{ Counter }} from \"../src/components/counter.{ext}\";\n\nafterEach(cleanup);\n\nit(\"counts clicks\", async () =>\n{{\n    const {{ container }} = mount(Counter({{ start: 1 }}));\n    container.querySelector(\"button\")?.click();\n    await settle();\n    expect(container.textContent).toBe(\"Clicked 2 times\");\n}});\n"
-    )
-}
+it("counts clicks and resets", async () =>
+{
+    const { container } = mount(Counter({ start: 1 }));
+    const [add, reset] = Array.from(container.querySelectorAll("button"));
+    add?.click();
+    await settle();
+    expect(container.querySelector("output")?.textContent).toBe("2");
+    reset?.click();
+    await settle();
+    expect(container.querySelector("output")?.textContent).toBe("1");
+});
+"#;
 
 const VITEST_CONFIG: &str = "import { playwright } from \"@vitest/browser-playwright\";\nimport { defineConfig } from \"vitest/config\";\n\nexport default defineConfig({\n    test: {\n        browser: { enabled: true, headless: true, provider: playwright(), instances: [{ browser: \"chromium\" }] }\n    }\n});\n";
 
+const VITEST_CONFIG_JSX: &str = "import { playwright } from \"@vitest/browser-playwright\";\nimport { defineConfig } from \"vitest/config\";\nimport { zerolith } from \"@zerolith/vite\";\n\n// Vitest reads the components directly, so it needs the same JSX lowering zerolith dev and build apply.\nexport default defineConfig({\n    plugins: zerolith().filter((plugin) => plugin.name === \"zerolith:jsx\"),\n    test: {\n        browser: { enabled: true, headless: true, provider: playwright(), instances: [{ browser: \"chromium\" }] }\n    }\n});\n";
+
 const VITE_CONFIG: &str = "import { defineConfig } from \"vite\";\nimport { zerolith } from \"@zerolith/vite\";\n\nexport default defineConfig({\n    plugins: [zerolith()]\n});\n";
 
-fn tsconfig(flavor: Flavor) -> String {
-    let typescript = flavor != Flavor::ViteJavaScript;
-    let files = if flavor == Flavor::ViteTypeScript {
+const OXLINTRC: &str = "{\n    \"plugins\": [\"typescript\", \"unicorn\", \"import\"],\n    \"categories\": { \"correctness\": \"error\", \"suspicious\": \"error\" },\n    \"rules\": { \"eqeqeq\": \"error\", \"no-var\": \"error\", \"prefer-const\": \"error\" },\n    \"ignorePatterns\": [\"dist\", \"node_modules\"]\n}\n";
+
+fn tsconfig(choice: Choice) -> String {
+    let files = if choice.tool == Tool::Vite {
         "\"src\", \"test\", \"vite.config.ts\", \"vitest.config.ts\""
     } else {
         "\"src\", \"test\", \"vitest.config.ts\""
     };
-    let js = if typescript {
+    let js = if choice.typescript {
         ""
     } else {
         "        \"allowJs\": true,\n        \"checkJs\": true,\n"
     };
-    format!(
-        "{{\n    \"compilerOptions\": {{\n        \"target\": \"es2024\",\n        \"lib\": [\"es2024\", \"dom\", \"dom.iterable\"],\n        \"module\": \"nodenext\",\n        \"moduleResolution\": \"nodenext\",\n        \"strict\": true,\n        \"noUncheckedIndexedAccess\": true,\n        \"erasableSyntaxOnly\": true,\n        \"verbatimModuleSyntax\": true,\n        \"allowImportingTsExtensions\": true,\n        \"noEmit\": true,\n{js}        \"skipLibCheck\": true\n    }},\n    \"include\": [{files}]\n}}\n"
-    )
-}
-
-const OXLINTRC: &str = "{\n    \"plugins\": [\"typescript\", \"unicorn\", \"import\"],\n    \"categories\": { \"correctness\": \"error\", \"suspicious\": \"error\" },\n    \"rules\": { \"eqeqeq\": \"error\", \"no-var\": \"error\", \"prefer-const\": \"error\" },\n    \"ignorePatterns\": [\"dist\", \"node_modules\", \"vendor\"]\n}\n";
-
-fn agents_md(name: &str, flavor: Flavor) -> String {
-    let dev = match flavor {
-        Flavor::Buildless => {
-            "`npm run dev` serves the folder with live reload; `npm run vendor` copies the packages into `vendor/` and writes the import map after `npm install`."
-        }
-        _ => "`npm run dev` starts Vite with hot replacement; `npm run build` writes `dist/`.",
-    };
-    let ext = if flavor == Flavor::ViteTypeScript {
-        "ts"
+    let jsx = if choice.jsx {
+        "        \"jsx\": \"react-jsx\",\n        \"jsxImportSource\": \"zerolith\",\n"
     } else {
-        "js"
+        ""
     };
     format!(
-        "# {name}: guide for coding agents\n\nA zerolith application. The framework's structure guide describes the layout; this file holds what is specific to this project.\n\n## Commands\n\n- {dev}\n- `npm run check` is the gate: typecheck, lint, tests.\n- `npx zerolith-client openapi.json --out src/api.{ext}` and `npx zerolith-i18n messages --out src/messages` regenerate the generated files once the project has a contract or catalogs.\n\n## Rules\n\n- Bind the signal, not its value: `${{count}}` updates, `${{count.get()}}` freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.\n- Components are capitalized functions returning `html` templates, one per file under `src/components/`, with their `css` literal next to the markup.\n- State that must survive an edit is a named signal: `signal(0, {{ name: \"count\" }})`.\n- `src/api.{ext}` and `src/messages/` are generated when they exist; change their inputs and regenerate, never edit them.\n- A new page is a route in `src/routes.{ext}` and a component; shared state goes in `src/store.{ext}`.\n- Relative imports carry the file extension so the same source runs unbundled.\n\n## Where things go\n\n| Change | Location |\n| --- | --- |\n| A page | `src/routes.{ext}` and `src/components/<page>.{ext}` |\n| Shared state or a request | `src/store.{ext}` |\n| A message | `messages/<locale>.json`, then regenerate |\n| A style token | `src/styles.css`; component styles stay in the component |\n"
+        "{{\n    \"compilerOptions\": {{\n        \"target\": \"es2024\",\n        \"lib\": [\"es2024\", \"dom\", \"dom.iterable\"],\n        \"module\": \"nodenext\",\n        \"moduleResolution\": \"nodenext\",\n        \"strict\": true,\n        \"noUncheckedIndexedAccess\": true,\n        \"erasableSyntaxOnly\": true,\n        \"verbatimModuleSyntax\": true,\n        \"allowImportingTsExtensions\": true,\n        \"noEmit\": true,\n{js}{jsx}        \"skipLibCheck\": true\n    }},\n    \"include\": [{files}]\n}}\n"
     )
 }
 
-fn readme(name: &str, flavor: Flavor) -> String {
-    let run = match flavor {
-        Flavor::Buildless => "npm install\nnpm run vendor\nnpm run dev",
-        _ => "npm install\nnpm run dev",
+/// What each script does, as the home page says it.
+fn steps(tool: Tool) -> (&'static str, &'static str, &'static str) {
+    match tool {
+        Tool::CommandLine => (
+            "Serves the app while you work, with packages loaded straight from node_modules.",
+            "Bundles and minifies it into dist/, ready for any host.",
+            "Serves dist/ the way a host will, to check the build.",
+        ),
+        Tool::Unbundled => (
+            "Serves the app while you work, with packages loaded straight from node_modules.",
+            "Writes the modules to dist/ as they are, the packages behind an import map.",
+            "Serves dist/ the way a host will, to check the build.",
+        ),
+        Tool::Vite => (
+            "Starts Vite, which swaps an edited component in place.",
+            "Bundles and minifies the app into dist/ through Vite.",
+            "Serves dist/ the way a host will, to check the build.",
+        ),
+    }
+}
+
+fn agents_md(name: &str, choice: Choice) -> String {
+    let ext = choice.ext();
+    let component = choice.component_ext();
+    let tool = match choice.tool {
+        Tool::Vite => "The project develops and builds on Vite with `@zerolith/vite`.",
+        _ => {
+            "The project develops and builds on the zerolith command line; packages load from `node_modules` with no import map, and there is no Vite config."
+        }
+    };
+    let syntax = if choice.jsx {
+        "Components are capitalized functions written in JSX, one per file under `src/components/`, with their `css` literal next to the markup. JSX is a spelling of `html` templates: `class`, not `className`; `on:click` for events, `prop:value` for properties, `bool:disabled` for boolean attributes; lists and conditions are `each` and `when`."
+    } else {
+        "Components are capitalized functions returning `html` templates, one per file under `src/components/`, with their `css` literal next to the markup."
     };
     format!(
-        "# {name}\n\nA zerolith application.\n\n```\n{run}\n```\n\n`AGENTS.md` is the map of the project for contributors and coding agents.\n"
+        "# {name}: guide for coding agents\n\nA zerolith application. {tool} The framework's structure guide describes the layout; this file holds what is specific to this project.\n\n## Commands\n\n- `npm run dev` serves the app with live reload; `npm run build` writes `dist/`; `npm run preview` serves `dist/`.\n- `npm run check` is the gate: typecheck, lint, browser tests, and the build.\n- `npx zerolith-client openapi.json --out src/api.{ext}` and `npx zerolith-i18n messages --out src/messages` regenerate the generated files once the project has a contract or catalogs.\n\n## Rules\n\n- Bind the signal, not its value: a live binding takes `count`, never `count.get()`, which freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.\n- {syntax}\n- State that must survive an edit is a named signal: `signal(0, {{ name: \"count\" }})`.\n- `src/api.{ext}` and `src/messages/` are generated when they exist; change their inputs and regenerate, never edit them.\n- A new page is a route in `src/routes.{ext}` and a component; shared state goes in `src/store.{ext}`.\n- Files served as they are, such as data, icons, and `robots.txt`, go in `public/`.\n- Only `.env` variables named `PUBLIC_*` reach the browser, as `import.meta.env.PUBLIC_*`.\n\n## Where things go\n\n| Change | Location |\n| --- | --- |\n| A page | `src/routes.{ext}` and `src/components/<page>.{component}` |\n| Shared state or a request | `src/store.{ext}` |\n| A message | `messages/<locale>.json`, then regenerate |\n| A style token | `src/styles.css`; component styles stay in the component |\n| A static file | `public/` |\n"
     )
 }
 
-fn write(root: &Path, relative: &str, content: &str) -> std::io::Result<()> {
+fn readme(name: &str, choice: Choice) -> String {
+    let ext = choice.ext();
+    let component = choice.component_ext();
+    let (develop, build) = match choice.tool {
+        Tool::CommandLine => (
+            "runs `zerolith dev`, which serves the app at http://127.0.0.1:8080/ with live reload. Packages load straight from `node_modules`, so `index.html` names one module and a new file needs nothing but an import where it is used. An edit reloads the page and keeps the value of every named signal; a stylesheet edit applies without a reload.",
+            "runs `zerolith build`, which bundles and minifies the app into `dist/`: one script and one stylesheet with content hashes in their names, a chunk of its own for each lazy route, the files in `public/`, and an `index.html` that loads them. Templates are prepared at build time, and the inspector stays out.",
+        ),
+        Tool::Unbundled => (
+            "runs `zerolith dev`, which serves the app at http://127.0.0.1:8080/ with live reload. Packages load straight from `node_modules`, so `index.html` names one module and a new file needs nothing but an import where it is used. An edit reloads the page and keeps the value of every named signal; a stylesheet edit applies without a reload.",
+            "runs `zerolith build --unbundled`, which writes the app into `dist/` without bundling it: every module transformed to JavaScript and served as it is, the files in `public/`, and the packages copied into `dist/vendor/` behind an import map with integrity hashes. `npx zerolith build` bundles it instead, whenever one minified file suits the host better.",
+        ),
+        Tool::Vite => (
+            "runs Vite with `@zerolith/vite`, which applies an edited component in place and keeps the value of every named signal.",
+            "runs `vite build`, which bundles and minifies the app into `dist/`: hashed scripts and a stylesheet, the files in `public/`, and an `index.html` that loads them. `npx zerolith build` writes an equivalent bundle without Vite.",
+        ),
+    };
+    let preview = if choice.tool == Tool::Vite {
+        "runs `vite preview`, which serves `dist/` at http://localhost:4173/"
+    } else {
+        "runs `zerolith preview`, which serves `dist/` at http://127.0.0.1:4173/"
+    };
+    let inspector = if choice.devtools {
+        " Press Alt+Shift+Z, or the launcher button in the corner, to open the inspector: every signal with its value, the mounted roots, and the diagnostics."
+    } else {
+        ""
+    };
+    let syntax = if choice.jsx {
+        "\n\nComponents are written in JSX, which `zerolith dev` and `zerolith build` lower to `html` templates before the browser sees them: write `class` rather than `className`, `on:click` for events, `prop:value` for properties, and `bool:disabled` for boolean attributes. Lists and conditions are `each` and `when`. The [templates guide](https://molexxxx.github.io/zerolith/guide/templates/) has the whole mapping."
+    } else {
+        ""
+    };
+    let vite = match choice.tool {
+        Tool::Vite => {
+            "This project develops on Vite, for in-place component replacement and Vite plugins. The zerolith command line runs the same app without it: `npx zerolith dev`, `npx zerolith build`, and `npx zerolith preview`."
+        }
+        _ => {
+            "Nothing here needs Vite: the zerolith command line serves, bundles, and previews the app on its own. Add Vite when you want one of its plugins, or an edited component applied in place instead of a reload: `npm install --save-dev vite @zerolith/vite`, write a `vite.config.ts` that adds `zerolith()` from `@zerolith/vite` to its plugins, and point the scripts at `vite`, `vite build`, and `vite preview`. `zerolith new --vite` starts a project that way."
+        }
+    };
+    format!(
+        "# {name}\n\nA zerolith application. Its scripts run the zerolith command line, which `npm install` put in `node_modules`; `npx zerolith` runs the same command directly.{syntax}\n\n## Develop\n\n```\nnpm run dev\n```\n\n`npm run dev` {develop}{inspector}\n\n## Build\n\n```\nnpm run build\n```\n\n`npm run build` {build}\n\n## Preview\n\n```\nnpm run preview\n```\n\n`npm run preview` {preview} as a host would, to check the build before deploying it.\n\n## Deploy\n\n`dist/` is static files. Upload it to any static host, such as GitHub Pages, Netlify, Cloudflare Pages, or a storage bucket, or serve it from the static file handler of any backend. Answer every path that names no file with `index.html`, so routes such as `/counter` load directly. To serve the app under a path such as `/app/`, build it with `npx zerolith build --base /app/`.\n\n## Environment variables\n\nVariables in `.env` whose names start with `PUBLIC_` reach the code as `import.meta.env.PUBLIC_NAME`; any other variable stays out of the browser. `.env.local` overrides `.env` and stays out of git.\n\n## Tests and checks\n\n`npm test` runs the browser tests in `test/` in headless Chromium; run `npx playwright install chromium` once first. `npm run check` runs the type check, the linter, the tests, and the build.\n\n## Vite\n\n{vite}\n\n## Layout\n\n```\nindex.html               the page: the stylesheet and the entry module\npublic/                  files served and copied as they are\nsrc/main.{ext}             the entry\nsrc/routes.{ext}           the route table\nsrc/router.{ext}           the router the components share\nsrc/components/*.{component}   one component per file, its styles next to its markup\nsrc/styles.css           the design tokens and global styles\ntest/                    browser tests\n```\n\n`AGENTS.md` is the same map for coding agents.\n"
+    )
+}
+
+/// Fills a template's placeholders for the project.
+fn fill(template: &str, choice: Choice, name: &str) -> String {
+    let (develop, build, preview) = steps(choice.tool);
+    template
+        .replace(
+            "__INPUT__",
+            if choice.typescript {
+                INPUT_TS
+            } else {
+                INPUT_JS
+            },
+        )
+        .replace("__MARK__", MARK)
+        .replace(
+            "__FOOTER__",
+            if choice.devtools {
+                FOOTER_DEVTOOLS
+            } else {
+                FOOTER
+            },
+        )
+        .replace("__DEV__", develop)
+        .replace("__BUILD__", build)
+        .replace("__PREVIEW__", preview)
+        .replace("__NAME__", name)
+        .replace("__CEXT__", choice.component_ext())
+        .replace("__EXT__", choice.ext())
+}
+
+/// A component file from its frame, styles, and body.
+fn assemble(frame: &str, styles: &str, body: &str) -> String {
+    frame
+        .replace("__STYLES__", styles)
+        .replace("__BODY__", body)
+}
+
+/// The source of each component for the choice.
+fn components(choice: Choice) -> Vec<(&'static str, String)> {
+    let pick = |ts: &'static str, js: &'static str, tsx: &'static str, jsx: &'static str| match (
+        choice.typescript,
+        choice.jsx,
+    ) {
+        (true, false) => ts,
+        (false, false) => js,
+        (true, true) => tsx,
+        (false, true) => jsx,
+    };
+    let markup = |html: &'static str, jsx: &'static str| if choice.jsx { jsx } else { html };
+    let packages_imports = match (choice.typescript, choice.jsx) {
+        (true, false) => {
+            "import { type View, computed, css, each, html, resource, signal, when } from \"zerolith\";"
+        }
+        (false, false) => {
+            "import { computed, css, each, html, resource, signal, when } from \"zerolith\";"
+        }
+        (true, true) => {
+            "import { type View, computed, css, each, resource, signal, when } from \"zerolith\";"
+        }
+        (false, true) => {
+            "import { computed, css, each, resource, signal, when } from \"zerolith\";"
+        }
+    };
+    let packages_signature = if choice.typescript {
+        "export function Packages(): View"
+    } else {
+        "/** @returns {View} */\nexport function Packages()"
+    };
+    let packages = format!(
+        "{PACKAGES_DOC}\n{packages_imports}\n\n{}\n\n{PACKAGES_STYLES}\n\n{packages_signature}\n{{\n{MATCHES}\n{}\n}}\n",
+        if choice.typescript {
+            CATALOG_TS
+        } else {
+            CATALOG_JS
+        },
+        markup(PACKAGES_HTML, PACKAGES_JSX_BODY)
+    );
+    vec![
+        (
+            "layout",
+            assemble(
+                pick(LAYOUT_TS, LAYOUT_JS, LAYOUT_TSX, LAYOUT_JSX),
+                LAYOUT_STYLES,
+                "",
+            ),
+        ),
+        (
+            "home",
+            assemble(
+                pick(HOME_TS, HOME_JS, HOME_TSX, HOME_JSX),
+                HOME_STYLES,
+                markup(HOME_HTML, HOME_JSX_BODY),
+            ),
+        ),
+        (
+            "counter",
+            assemble(
+                pick(COUNTER_TS, COUNTER_JS, COUNTER_TSX, COUNTER_JSX),
+                COUNTER_STYLES,
+                markup(COUNTER_HTML, COUNTER_JSX_BODY),
+            ),
+        ),
+        ("packages", packages),
+        (
+            "not-found",
+            pick(NOT_FOUND_TS, NOT_FOUND_JS, NOT_FOUND_TSX, NOT_FOUND_JSX).to_string(),
+        ),
+    ]
+}
+
+fn write(root: &Path, relative: &str, content: &str) -> io::Result<()> {
     let path = root.join(relative);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
@@ -250,48 +1116,78 @@ fn write(root: &Path, relative: &str, content: &str) -> std::io::Result<()> {
     fs::write(path, content)
 }
 
-/// Writes the layout for `name` into `root`, which must not exist yet or must be empty.
-pub fn scaffold(root: &Path, name: &str, flavor: Flavor) -> std::io::Result<Vec<String>> {
+/// Writes the starter for `name` into `root`, which must not exist yet or must be empty, and returns the files it wrote.
+pub fn scaffold(root: &Path, name: &str, choice: Choice) -> io::Result<Vec<String>> {
     if root.exists() && fs::read_dir(root)?.next().is_some() {
-        return Err(std::io::Error::other(format!(
+        return Err(io::Error::other(format!(
             "{} exists and is not empty",
             root.display()
         )));
     }
-    let typescript = flavor != Flavor::ViteJavaScript;
-    let ext = if typescript { "ts" } else { "js" };
+    let shown = display_name(name);
+    let ext = choice.ext();
     let mut files = vec![
-        ("package.json".to_string(), package_json(name, flavor)),
-        ("index.html".to_string(), index_html(name, flavor)),
-        ("AGENTS.md".to_string(), agents_md(name, flavor)),
-        ("README.md".to_string(), readme(name, flavor)),
-        ("tsconfig.json".to_string(), tsconfig(flavor)),
+        ("package.json".to_string(), package_json(name, choice)),
+        ("index.html".to_string(), fill(INDEX_HTML, choice, &shown)),
+        ("README.md".to_string(), readme(&shown, choice)),
+        ("AGENTS.md".to_string(), agents_md(&shown, choice)),
+        ("tsconfig.json".to_string(), tsconfig(choice)),
         (".oxlintrc.json".to_string(), OXLINTRC.to_string()),
-        ("vitest.config.ts".to_string(), VITEST_CONFIG.to_string()),
+        (
+            "vitest.config.ts".to_string(),
+            if choice.jsx {
+                VITEST_CONFIG_JSX
+            } else {
+                VITEST_CONFIG
+            }
+            .to_string(),
+        ),
         (
             ".gitignore".to_string(),
-            "node_modules/\ndist/\nvendor/\n".to_string(),
+            "node_modules/\ndist/\n.env.local\n.env.*.local\n".to_string(),
+        ),
+        ("public/favicon.svg".to_string(), FAVICON.to_string()),
+        (
+            "public/data/packages.json".to_string(),
+            PACKAGES_DATA.to_string(),
         ),
         ("src/styles.css".to_string(), STYLES.to_string()),
-        (format!("src/main.{ext}"), main_source(ext)),
-        (format!("src/routes.{ext}"), routes_source(ext)),
-        (format!("src/router.{ext}"), router_source(ext, typescript)),
         (
-            format!("src/components/layout.{ext}"),
-            layout_source(name, ext, typescript),
+            format!("src/main.{ext}"),
+            fill(
+                if choice.devtools { MAIN_DEVTOOLS } else { MAIN },
+                choice,
+                &shown,
+            ),
         ),
         (
-            format!("src/components/home.{ext}"),
-            home_source(typescript),
+            format!("src/router.{ext}"),
+            fill(
+                if choice.typescript {
+                    ROUTER_TS
+                } else {
+                    ROUTER_JS
+                },
+                choice,
+                &shown,
+            ),
         ),
+        (format!("src/routes.{ext}"), fill(ROUTES, choice, &shown)),
         (
-            format!("src/components/counter.{ext}"),
-            counter_source(typescript),
+            format!("test/counter.browser.test.{ext}"),
+            fill(TEST, choice, &shown),
         ),
-        (format!("test/counter.browser.test.{ext}"), test_source(ext)),
     ];
-    if flavor != Flavor::Buildless {
+    for (component, source) in components(choice) {
+        files.push((
+            format!("src/components/{component}.{}", choice.component_ext()),
+            fill(&source, choice, &shown),
+        ));
+    }
+    if choice.tool == Tool::Vite {
         files.push(("vite.config.ts".to_string(), VITE_CONFIG.to_string()));
+    } else {
+        files.push(("src/env.d.ts".to_string(), ENV_TYPES.to_string()));
     }
     for (relative, content) in &files {
         write(root, relative, content)?;
@@ -299,83 +1195,386 @@ pub fn scaffold(root: &Path, name: &str, flavor: Flavor) -> std::io::Result<Vec<
     Ok(files.into_iter().map(|(relative, _)| relative).collect())
 }
 
-/// Runs the `new` command.
-pub fn run(root: &Path, flavor: Flavor) -> std::io::Result<()> {
+/// What the command line settled before any question: each `None` is asked, or takes its default.
+#[derive(Debug, Default)]
+pub struct Answers {
+    pub root: Option<PathBuf>,
+    /// `tsx`, `ts`, `jsx`, or `js`.
+    pub template: Option<String>,
+    pub tool: Option<Tool>,
+    pub devtools: Option<bool>,
+    pub install: Option<bool>,
+}
+
+fn template_choice(template: &str) -> (bool, bool) {
+    match template {
+        "ts" => (true, false),
+        "jsx" => (false, true),
+        "js" => (false, false),
+        _ => (true, true),
+    }
+}
+
+/// Asks one question on the terminal and returns the answer, or the default for an empty line.
+fn ask(input: &mut impl BufRead, question: &str, default: &str) -> io::Result<String> {
+    print!("{question} ({default}): ");
+    io::stdout().flush()?;
+    let mut line = String::new();
+    input.read_line(&mut line)?;
+    let answer = line.trim();
+    Ok(if answer.is_empty() {
+        default.to_string()
+    } else {
+        answer.to_string()
+    })
+}
+
+/// Asks to pick one of `options` by number, the first being the default.
+fn pick(input: &mut impl BufRead, question: &str, options: &[&str]) -> io::Result<usize> {
+    println!("{question}");
+    for (index, option) in options.iter().enumerate() {
+        println!("  {}. {option}", index + 1);
+    }
+    loop {
+        let answer = ask(input, &format!("Choose 1-{}", options.len()), "1")?;
+        if let Ok(number) = answer.parse::<usize>()
+            && (1..=options.len()).contains(&number)
+        {
+            return Ok(number - 1);
+        }
+        println!("Type a number from 1 to {}.", options.len());
+    }
+}
+
+fn confirm(input: &mut impl BufRead, question: &str) -> io::Result<bool> {
+    let answer = ask(input, question, "Y/n")?;
+    Ok(!matches!(answer.to_ascii_lowercase().as_str(), "n" | "no"))
+}
+
+/// Fills in what the flags left open: asked on a terminal, or the defaults elsewhere and with `--yes`.
+pub fn settle(mut answers: Answers, interactive: bool) -> io::Result<(PathBuf, Choice, bool)> {
+    let interactive = interactive && io::stdin().is_terminal() && io::stdout().is_terminal();
+    let stdin = io::stdin();
+    let mut input = stdin.lock();
+    if answers.root.is_none() {
+        answers.root = Some(PathBuf::from(if interactive {
+            ask(&mut input, "Project folder", "zerolith-app")?
+        } else {
+            "zerolith-app".to_string()
+        }));
+    }
+    let (typescript, jsx) = match &answers.template {
+        Some(template) => template_choice(template),
+        None if interactive => match pick(
+            &mut input,
+            "Language",
+            &[
+                "TypeScript with JSX (.tsx)",
+                "TypeScript with html templates (.ts)",
+                "JavaScript with JSX (.jsx)",
+                "JavaScript with html templates (.js)",
+            ],
+        )? {
+            1 => (true, false),
+            2 => (false, true),
+            3 => (false, false),
+            _ => (Choice::DEFAULT.typescript, Choice::DEFAULT.jsx),
+        },
+        None => (Choice::DEFAULT.typescript, Choice::DEFAULT.jsx),
+    };
+    let tool = match answers.tool {
+        Some(tool) => tool,
+        None if interactive => match pick(
+            &mut input,
+            "Dev server and build",
+            &[
+                "The zerolith command line: dev, build, and preview with nothing else",
+                "Vite with @zerolith/vite: in-place component replacement and Vite plugins",
+            ],
+        )? {
+            1 => Tool::Vite,
+            _ => Choice::DEFAULT.tool,
+        },
+        None => Choice::DEFAULT.tool,
+    };
+    let devtools = match answers.devtools {
+        Some(devtools) => devtools,
+        None if interactive => {
+            confirm(&mut input, "Include the inspector from @zerolith/devtools")?
+        }
+        None => Choice::DEFAULT.devtools,
+    };
+    let install = match answers.install {
+        Some(install) => install,
+        None if interactive => confirm(
+            &mut input,
+            &format!("Install the dependencies with {}", package_manager()),
+        )?,
+        None => true,
+    };
+    let root = answers.root.unwrap_or_default();
+    Ok((
+        root,
+        Choice {
+            tool,
+            typescript,
+            jsx,
+            devtools,
+        },
+        install,
+    ))
+}
+
+/// The package manager that ran the command, from the user agent npm, pnpm, Yarn, and Bun set, or npm.
+fn package_manager() -> &'static str {
+    let agent = std::env::var("npm_config_user_agent").unwrap_or_default();
+    ["pnpm", "yarn", "bun"]
+        .into_iter()
+        .find(|name| agent.starts_with(name))
+        .unwrap_or("npm")
+}
+
+/// Runs `<manager> install` in the new project, through `cmd` on Windows, where the managers are batch files.
+fn install(root: &Path, manager: &str) -> io::Result<bool> {
+    let status = if cfg!(windows) {
+        Command::new("cmd")
+            .args(["/C", manager, "install"])
+            .current_dir(root)
+            .status()?
+    } else {
+        Command::new(manager)
+            .arg("install")
+            .current_dir(root)
+            .status()?
+    };
+    Ok(status.success())
+}
+
+/// Runs the `new` command: writes the starter and, when asked to, installs its dependencies.
+pub fn run(root: &Path, choice: Choice, install_dependencies: bool) -> io::Result<()> {
     let name = root
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("app")
         .to_string();
-    let files = scaffold(root, &name, flavor)?;
+    let files = scaffold(root, &name, choice)?;
     println!(
         "zerolith: wrote {} files to {}",
         files.len(),
         root.display()
     );
-    match flavor {
-        Flavor::Buildless => {
-            println!("next: cd {name} && npm install && npm run vendor && npm run dev")
+    let manager = package_manager();
+    let mut installed = false;
+    if install_dependencies {
+        println!("zerolith: installing the dependencies with {manager}");
+        installed = install(root, manager).unwrap_or(false);
+        if !installed {
+            eprintln!(
+                "zerolith: {manager} install did not finish; run it in {} before starting",
+                root.display()
+            );
         }
-        _ => println!("next: cd {name} && npm install && npm run dev"),
     }
+    let run = if manager == "npm" { "npm run" } else { manager };
+    println!("\nnext:\n  cd {}", root.display());
+    if !installed {
+        println!("  {manager} install");
+    }
+    println!("  {run} dev        serve the app while you work");
+    println!("  {run} build      write the production build to dist/");
+    println!("  {run} preview    serve dist/ to check it");
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Flavor, TOOL_VERSIONS, scaffold};
+    use super::{Answers, Choice, FAVICON, TOOL_VERSIONS, Tool, package_name, scaffold, settle};
     use std::fs;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     #[test]
-    fn writes_each_flavor_with_the_name_and_pinned_versions() {
+    fn writes_each_choice_with_the_name_and_pinned_versions() {
         let base = std::env::temp_dir().join(format!("zerolith-new-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
-        for (flavor, folder, entry) in [
-            (Flavor::ViteTypeScript, "ts-app", "src/main.ts"),
-            (Flavor::ViteJavaScript, "js-app", "src/main.js"),
-            (Flavor::Buildless, "plain-app", "src/main.ts"),
-        ] {
+        let choices = [
+            (
+                "tsx-app",
+                Choice::DEFAULT,
+                "src/main.ts",
+                "tsx",
+                "zerolith dev",
+            ),
+            (
+                "ts-app",
+                Choice {
+                    jsx: false,
+                    ..Choice::DEFAULT
+                },
+                "src/main.ts",
+                "ts",
+                "zerolith dev",
+            ),
+            (
+                "jsx-app",
+                Choice {
+                    typescript: false,
+                    ..Choice::DEFAULT
+                },
+                "src/main.js",
+                "jsx",
+                "zerolith dev",
+            ),
+            (
+                "js-app",
+                Choice {
+                    typescript: false,
+                    jsx: false,
+                    devtools: false,
+                    ..Choice::DEFAULT
+                },
+                "src/main.js",
+                "js",
+                "zerolith dev",
+            ),
+            (
+                "plain-app",
+                Choice {
+                    tool: Tool::Unbundled,
+                    ..Choice::DEFAULT
+                },
+                "src/main.ts",
+                "tsx",
+                "zerolith dev",
+            ),
+            (
+                "vite-app",
+                Choice {
+                    tool: Tool::Vite,
+                    ..Choice::DEFAULT
+                },
+                "src/main.ts",
+                "tsx",
+                "vite",
+            ),
+        ];
+        for (folder, choice, entry, component, develop) in choices {
             let root = base.join(folder);
-            let files = scaffold(&root, folder, flavor).unwrap();
+            let files = scaffold(&root, folder, choice).unwrap();
             assert!(
                 files.iter().any(|file| file == entry),
                 "{folder} lacks {entry}"
             );
             let manifest = fs::read_to_string(root.join("package.json")).unwrap();
-            assert!(manifest.contains(&format!("\"name\": \"{folder}\"")));
-            assert!(manifest.contains("\"vitest\": \""));
             let parsed: serde_json::Value = serde_json::from_str(&manifest).unwrap();
-            assert!(parsed["dependencies"]["zerolith"].is_string());
-            assert!(parsed["devDependencies"]["@zerolith/test"].is_string());
-            assert!(parsed["dependencies"]["@zerolith/test"].is_null());
+            assert_eq!(parsed["name"], folder);
+            assert_eq!(parsed["scripts"]["dev"], develop);
+            assert_eq!(
+                parsed["scripts"]["build"]
+                    .as_str()
+                    .unwrap()
+                    .ends_with("--unbundled"),
+                choice.tool == Tool::Unbundled
+            );
+            assert!(
+                parsed["devDependencies"]["@zerolith/cli"].is_string()
+                    && parsed["devDependencies"]["@zerolith/test"].is_string()
+            );
+            assert_eq!(
+                parsed["devDependencies"]["vite"].is_string(),
+                choice.tool == Tool::Vite
+            );
             assert_eq!(
                 parsed["devDependencies"]["@zerolith/vite"].is_string(),
-                flavor != Flavor::Buildless
+                choice.tool == Tool::Vite || choice.jsx
             );
-            assert!(parsed["dependencies"]["@zerolith/vite"].is_null());
+            assert_eq!(
+                parsed["dependencies"]["@zerolith/devtools"].is_string(),
+                choice.devtools
+            );
             assert!(!manifest.contains("latest"));
             assert!(
                 crate::doctor::lint_sources(&root).is_empty(),
                 "{folder} has template findings"
             );
-            let agents = fs::read_to_string(root.join("AGENTS.md")).unwrap();
-            assert!(agents.contains(&format!("# {folder}: guide for coding agents")));
             let html = fs::read_to_string(root.join("index.html")).unwrap();
-            assert_eq!(html.contains("importmap"), flavor == Flavor::Buildless);
+            assert!(
+                !html.contains("importmap") && html.contains(&format!("src=\"/{entry}\"")),
+                "{html}"
+            );
             assert_eq!(
                 root.join("vite.config.ts").exists(),
-                flavor != Flavor::Buildless
+                choice.tool == Tool::Vite
             );
+            assert!(
+                root.join("public/favicon.svg").is_file()
+                    && root.join("public/data/packages.json").is_file()
+            );
+            for page in ["layout", "home", "counter", "packages", "not-found"] {
+                let source =
+                    fs::read_to_string(root.join(format!("src/components/{page}.{component}")))
+                        .unwrap();
+                assert!(
+                    !source.contains("__"),
+                    "{folder}/{page} keeps a placeholder: {source}"
+                );
+                assert_eq!(source.contains("html`"), !choice.jsx, "{folder}/{page}");
+                assert_eq!(
+                    source.contains("): View"),
+                    choice.typescript,
+                    "{folder}/{page}"
+                );
+            }
+            let main = fs::read_to_string(root.join(entry)).unwrap();
+            assert_eq!(main.contains("mountDevtools"), choice.devtools);
+            let readme = fs::read_to_string(root.join("README.md")).unwrap();
+            assert!(readme.contains("## Deploy") && readme.contains("npm run preview"));
+            let agents = fs::read_to_string(root.join("AGENTS.md")).unwrap();
+            assert!(agents.contains(&format!("# {folder}: guide for coding agents")));
         }
-        assert!(scaffold(&base.join("ts-app"), "ts-app", Flavor::ViteTypeScript).is_err());
+        assert!(scaffold(&base.join("tsx-app"), "tsx-app", Choice::DEFAULT).is_err());
         let _ = fs::remove_dir_all(&base);
     }
 
     #[test]
-    fn tool_versions_match_the_root_manifest() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../package.json");
-        let Ok(source) = fs::read_to_string(root) else {
+    fn settles_flags_and_defaults_without_asking() {
+        let (root, choice, install) = settle(
+            Answers {
+                template: Some("js".to_string()),
+                tool: Some(Tool::Vite),
+                devtools: Some(false),
+                install: Some(false),
+                ..Answers::default()
+            },
+            false,
+        )
+        .unwrap();
+        assert_eq!(root, PathBuf::from("zerolith-app"));
+        assert_eq!(
+            choice,
+            Choice {
+                tool: Tool::Vite,
+                typescript: false,
+                jsx: false,
+                devtools: false
+            }
+        );
+        assert!(!install);
+        let (_, defaults, install) = settle(Answers::default(), false).unwrap();
+        assert_eq!(defaults, Choice::DEFAULT);
+        assert!(install);
+    }
+
+    #[test]
+    fn makes_any_folder_name_a_package_name() {
+        assert_eq!(package_name("My App"), "my-app");
+        assert_eq!(package_name("--"), "app");
+        assert_eq!(package_name("site.v2"), "site.v2");
+    }
+
+    #[test]
+    fn tool_versions_and_the_favicon_match_their_sources() {
+        let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let Ok(source) = fs::read_to_string(repository.join("package.json")) else {
             return;
         };
         let manifest: serde_json::Value = serde_json::from_str(&source).unwrap();
@@ -386,5 +1585,10 @@ mod tests {
                 "{name} drifted"
             );
         }
+        let favicon = fs::read_to_string(repository.join("brand/app-icon/favicon.svg")).unwrap();
+        assert_eq!(
+            FAVICON, favicon,
+            "templates/favicon.svg drifted from brand/app-icon/favicon.svg"
+        );
     }
 }

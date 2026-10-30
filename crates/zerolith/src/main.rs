@@ -121,16 +121,28 @@ enum Command {
         #[arg(long, conflicts_with_all = ["empty_out_dir", "base", "mode", "sourcemap", "no_minify"])]
         unbundled: bool,
     },
-    /// Write a new application with the standard layout: Vite and TypeScript by default.
+    /// Write a starter application and install its dependencies, asking for what the flags leave open: TypeScript with JSX on the command line, with the inspector, by default.
     New {
         /// The folder to create; its name becomes the application's name.
-        root: PathBuf,
-        /// JavaScript with JSDoc types instead of TypeScript.
+        root: Option<PathBuf>,
+        /// The language and syntax: tsx, ts with html templates, jsx, or js with html templates.
+        #[arg(long, value_parser = ["tsx", "ts", "jsx", "js"])]
+        template: Option<String>,
+        /// Develop and build on Vite with @zerolith/vite instead of the command line.
         #[arg(long)]
-        js: bool,
-        /// An import map and no bundler, in JavaScript.
-        #[arg(long)]
+        vite: bool,
+        /// Deploy the modules as they are behind an import map instead of a bundle.
+        #[arg(long, conflicts_with = "vite")]
         buildless: bool,
+        /// Leave out the inspector from @zerolith/devtools.
+        #[arg(long)]
+        no_devtools: bool,
+        /// Write the files without installing the dependencies.
+        #[arg(long)]
+        no_install: bool,
+        /// Take the default for everything the flags leave open instead of asking.
+        #[arg(long, short)]
+        yes: bool,
     },
 }
 
@@ -201,18 +213,29 @@ async fn main() -> ExitCode {
         }
         Command::New {
             root,
-            js,
+            template,
+            vite,
             buildless,
-        } => new::run(
-            &root,
-            if buildless {
-                new::Flavor::Buildless
-            } else if js {
-                new::Flavor::ViteJavaScript
-            } else {
-                new::Flavor::ViteTypeScript
+            no_devtools,
+            no_install,
+            yes,
+        } => new::settle(
+            new::Answers {
+                root,
+                template,
+                tool: if vite {
+                    Some(new::Tool::Vite)
+                } else if buildless {
+                    Some(new::Tool::Unbundled)
+                } else {
+                    None
+                },
+                devtools: no_devtools.then_some(false),
+                install: no_install.then_some(false),
             },
-        ),
+            !yes,
+        )
+        .and_then(|(root, choice, install)| new::run(&root, choice, install)),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

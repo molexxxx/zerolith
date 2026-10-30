@@ -30,18 +30,25 @@ Bind the signal, not its value: `${count}` stays live, while `${count.get()}` re
 
 ## Getting started
 
-Node 24 or newer is required. Create an application with the command line, which npm installs with a prebuilt binary:
+Node 24 or newer is required. One command writes a starter application and installs it:
 
 ```sh
 npx @zerolith/cli@alpha new my-app
 cd my-app
-npm install
 npm run dev
 ```
 
-`npm run dev` starts the development server, and `npm run build` writes the production build to `dist/`, ready for any static host or for a backend to serve. `new` writes a TypeScript project developed on Vite by default; `--js` writes JavaScript with JSDoc types, and `--buildless` writes a project that runs from an import map with no build step at all. In any of them, `npx zerolith build` bundles and minifies the application on its own, with no Vite involved; the [command line guide](docs/guide/command-line.md) covers every option.
+`new` asks a few questions, each with a default that Enter takes: TypeScript with JSX, the zerolith command line rather than Vite, the inspector included, and the dependencies installed; `--yes` takes them all. The project then runs on three scripts:
 
-To add zerolith to an existing project, install `zerolith@alpha` and the `@zerolith/*` packages you need at the same tag.
+| Script | Runs | What it does |
+| --- | --- | --- |
+| `npm run dev` | `zerolith dev` | Serves the app at http://127.0.0.1:8080/ and reloads it as you edit |
+| `npm run build` | `zerolith build` | Bundles and minifies it into `dist/` |
+| `npm run preview` | `zerolith preview` | Serves `dist/` the way a host will, to check the build |
+
+The scripts are the zerolith command line, written in Rust: `@zerolith/cli` installs the prebuilt binary for your platform, and `npx zerolith` runs the same command directly. `dist/` is static files for any host or backend; the starter's README covers deploying it, environment variables, and when Vite is worth adding, and the [command line guide](docs/guide/command-line.md) has every option.
+
+To add zerolith to an existing project, install `zerolith@alpha` and the `@zerolith/*` packages you need at the same tag, with `@zerolith/cli` for the commands.
 
 ## Why zerolith
 
@@ -73,7 +80,7 @@ Two example applications show it end to end: [notes](examples/notes), plain Java
 
 ## Where it's going
 
-Next come a dev server that matches the build, with a proxy to any backend, then a permanent domain for the docs, trusted publishing with a canary channel built from every merge, the first production site, and a frozen API for the core, templates, and router. After that come signals the server can push, agent tooling with MCP servers and a public eval suite, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
+Next come a proxy from `zerolith dev` to any backend and a guide to building and serving, then a permanent domain for the docs, trusted publishing with a canary channel built from every merge, the first production site, and a frozen API for the core, templates, and router. After that come signals the server can push, agent tooling with MCP servers and a public eval suite, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
 
 ## Documentation
 

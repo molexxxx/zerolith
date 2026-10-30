@@ -11,8 +11,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::importmap::{html_tags, update_html, vendor_from};
-use crate::prepare;
 use crate::transform;
+use crate::{env, modules, prepare};
 
 /// Folders never copied into the output.
 const SKIPPED: [&str; 7] = [
@@ -83,12 +83,19 @@ fn prepared(code: String, prepare_templates: bool) -> Result<String, transform::
     }
 }
 
+/// What every module's `import.meta.env` and `process.env.NODE_ENV` become in the output.
+struct Defines {
+    env: String,
+    node_env: String,
+}
+
 fn walk(
     root: &Path,
     folder: &Path,
     out: &Path,
     built: &mut Built,
     prepare_templates: bool,
+    defines: &Defines,
 ) -> io::Result<()> {
     for entry in fs::read_dir(folder)? {
         let entry = entry?;
@@ -98,7 +105,7 @@ fn walk(
             if SKIPPED.contains(&name.as_str()) || name.starts_with('.') || path == out {
                 continue;
             }
-            walk(root, &path, out, built, prepare_templates)?;
+            walk(root, &path, out, built, prepare_templates, defines)?;
             continue;
         }
         if is_development_file(&name) {
@@ -109,14 +116,26 @@ fn walk(
             .extension()
             .and_then(|extension| extension.to_str())
             .unwrap_or("");
+        if let Ok(public) = relative.strip_prefix("public") {
+            let target = out.join(public);
+            if let Some(parent) = target.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::copy(&path, &target)?;
+            built.copied += 1;
+            continue;
+        }
         let target = out.join(relative);
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent)?;
         }
+        let replace =
+            |code: String| modules::replace_defines(&code, &defines.env, &defines.node_env);
         if transform::transforms(extension) {
             let source = fs::read_to_string(&path)?;
             let code = transform::transform(&path, &source)
                 .and_then(|code| transform::rewrite_specifiers(&code))
+                .map(replace)
                 .and_then(|code| prepared(code, prepare_templates))
                 .map_err(|error| io::Error::other(format!("{}: {error}", relative.display())))?;
             fs::write(target.with_extension("js"), code)?;
@@ -124,6 +143,7 @@ fn walk(
         } else if extension == "js" || extension == "mjs" {
             let source = fs::read_to_string(&path)?;
             let code = transform::rewrite_specifiers(&source)
+                .map(replace)
                 .and_then(|code| prepared(code, prepare_templates))
                 .map_err(|error| io::Error::other(format!("{}: {error}", relative.display())))?;
             fs::write(&target, code)?;
@@ -153,8 +173,26 @@ pub fn build(root: &Path, out: &Path, prepare_templates: bool) -> io::Result<(Pa
     }
     fs::create_dir_all(&out_dir)?;
     let mut built = Built::default();
-    walk(&root, &root, &out_dir, &mut built, prepare_templates)?;
-    let packages = root.join("node_modules");
+    let defines = Defines {
+        env: format!(
+            "({})",
+            env::object("production", "/", &env::variables(&root, "production"))
+        ),
+        node_env: "\"production\"".to_string(),
+    };
+    walk(
+        &root,
+        &root,
+        &out_dir,
+        &mut built,
+        prepare_templates,
+        &defines,
+    )?;
+    let packages = root
+        .ancestors()
+        .map(|folder| folder.join("node_modules"))
+        .find(|folder| folder.join("zerolith").is_dir())
+        .unwrap_or_else(|| root.join("node_modules"));
     if packages.join("zerolith").is_dir() {
         let vendored = vendor_from(
             &packages,

@@ -89,12 +89,14 @@ The output folder, `dist` unless `--out` names another, is emptied first when it
 ## new
 
 ```
-zerolith new my-app
-zerolith new my-app --js
-zerolith new my-app --buildless
+zerolith new
+zerolith new my-app --yes
+zerolith new my-app --template ts --vite --no-install
 ```
 
-Writes the application layout the [structure guide](/guide/structure/) describes, with a working first page, the scripts, and an `AGENTS.md`, pinning the tool versions this repository tests with. The default is Vite and TypeScript; `--js` keeps Vite with JavaScript and JSDoc types; `--buildless` writes an import map instead of a bundler configuration, filled by `zerolith importmap` after `npm install`, with TypeScript sources that `zerolith dev` serves and `zerolith build --unbundled` writes out file by file for static hosting.
+Writes a starter application and installs its dependencies. On a terminal it asks for what the flags leave open, each question with a default that Enter takes: the folder, `zerolith-app`; the language, TypeScript with JSX, or TypeScript with `html` templates, JavaScript with JSX, or JavaScript with `html` templates and JSDoc types; the dev server and build, the command line or Vite with `@zerolith/vite`; whether to include the inspector, yes; and whether to install the dependencies, yes, with the package manager that ran the command. `--template tsx|ts|jsx|js`, `--vite`, `--no-devtools`, and `--no-install` answer on the command line, `--yes` takes the defaults for the rest, and outside a terminal the defaults apply without asking.
+
+The starter is three pages in the brand style: a home page that shows the workflow, a counter built on a named signal, and a searchable list that a resource loads from `public/data/packages.json`. It has the layout the [structure guide](/guide/structure/) describes, a browser test, `src/env.d.ts` typing `import.meta.env`, an `AGENTS.md` for coding agents, and a README that walks through developing, building, previewing, deploying, environment variables, and when Vite is worth adding. Its `dev`, `build`, and `preview` scripts run the command line, or Vite with `--vite`; `--buildless` keeps `zerolith dev` and builds with `--unbundled`, for a project deployed as its modules behind an import map. The tool versions it pins are the ones this repository tests with.
 
 ## importmap
 

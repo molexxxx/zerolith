@@ -124,6 +124,35 @@ impl<'a> Visit<'a> for Defines {
     fn visit_simple_assignment_target(&mut self, _it: &SimpleAssignmentTarget<'a>) {}
 }
 
+/// Replaces `import.meta.env` with `env`, an expression for the object, and `process.env.NODE_ENV` with `node_env`, in a module that parses; one that does not comes back as it is.
+pub fn replace_defines(code: &str, env: &str, node_env: &str) -> String {
+    if !code.contains("import.meta.env") && !code.contains("process.env.NODE_ENV") {
+        return code.to_string();
+    }
+    let allocator = Allocator::default();
+    let parsed = Parser::new(&allocator, code, SourceType::mjs()).parse();
+    if !parsed.diagnostics.is_empty() {
+        return code.to_string();
+    }
+    let mut defines = Defines::default();
+    defines.visit_program(&parsed.program);
+    let mut edits: Vec<Edit> = defines
+        .meta_env
+        .iter()
+        .map(|span| Edit {
+            start: span.start,
+            end: span.end,
+            text: env.to_string(),
+        })
+        .collect();
+    edits.extend(defines.node_env.iter().map(|span| Edit {
+        start: span.start,
+        end: span.end,
+        text: node_env.to_string(),
+    }));
+    apply_edits(code, edits)
+}
+
 /// Serves a project's modules for `zerolith dev`.
 pub struct Pipeline {
     root: PathBuf,

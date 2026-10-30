@@ -7,6 +7,7 @@ Every package in this repository is released together and carries the same versi
 ### Breaking changes
 
 - `@zerolith/vite`: a client build fails with `lazy_module_not_split` when a view loaded with the router's `lazy()`, or a locale module of a message index compiled by `zerolith-i18n`, is also imported statically, which would put it in the importing chunk instead of a chunk of its own. Server builds are not checked.
+- `@zerolith/cli` and the `zerolith` crate: `zerolith new` writes a starter on the command line by default, in TypeScript with JSX: its `dev`, `build`, and `preview` scripts run `zerolith dev`, `zerolith build`, and `zerolith preview`, and the command installs the dependencies. `--vite` writes a project on Vite, as the default did before, `--template tsx|ts|jsx|js` replaces `--js`, and `--buildless` writes no import map or vendor script any more, since `zerolith dev` resolves the packages and `zerolith build --unbundled` writes the map.
 - `@zerolith/cli` and the `zerolith` crate: `zerolith build` bundles the application instead of writing it file by file. The previous output, sources transformed one by one and served with the packages vendored behind an import map, is `zerolith build --unbundled`, which `zerolith new --buildless` now writes into the project's build script.
 
 ### Added
@@ -15,6 +16,8 @@ Every package in this repository is released together and carries the same versi
 - `@zerolith/cli` and the `zerolith` crate: `zerolith dev` resolves package imports from `node_modules` with the resolver and conditions `zerolith build` uses, so a page needs one module script and no import map, and serves packages that live outside the project folder, such as workspace packages, under `/@fs/`. Stylesheets, JSON, and other files imported from code become modules as in the build, a CommonJS package is reported by name, and `public/` is served at the root.
 - `@zerolith/cli` and the `zerolith` crate: `zerolith preview` serves a build's output folder as a static host would.
 - `@zerolith/cli` and the `zerolith` crate: `import.meta.env` carries the mode, the base, and every variable named with the `PUBLIC_` prefix from `.env` files and the environment, in `zerolith dev` and `zerolith build` alike; other variables never reach the browser.
+- `@zerolith/cli` and the `zerolith` crate: the starter `zerolith new` writes has three pages in the brand style, a browser test, `src/env.d.ts` typing `import.meta.env`, an `AGENTS.md`, and a README on developing, building, previewing, and deploying. On a terminal the command asks for the folder, the language, the dev server and build, the inspector, and the install, each with a default, and `--yes`, `--no-devtools`, and `--no-install` answer without asking.
+- `@zerolith/cli` and the `zerolith` crate: `zerolith build --unbundled` copies `public/` to the root of the output, replaces `import.meta.env` as the bundled build does, and vendors the packages from the nearest `node_modules` above the project, as in a workspace.
 - `@zerolith/cli` and the `zerolith` crate: `zerolith doctor` runs the template lint of the Vite plugin over the project's sources and reports the same warnings, with the file, line, and column; a shared fixture holds both implementations to the same findings.
 
 ### Changed
