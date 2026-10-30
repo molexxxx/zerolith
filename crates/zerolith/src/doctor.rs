@@ -10,7 +10,7 @@ use serde::Serialize;
 
 use crate::importmap::{ImportMap, PACKAGES, integrity};
 use crate::scan::DIAGNOSTIC_URL;
-use crate::{lint, transform};
+use crate::{lint, term, transform};
 
 /// Folders the template lint does not enter, besides hidden ones.
 const SKIPPED: [&str; 6] = ["node_modules", "vendor", "dist", "target", "test", "tests"];
@@ -156,20 +156,26 @@ pub fn check(root: &Path) -> Vec<Finding> {
     findings
 }
 
-/// The checks of `index.html`, its import map, the files the map points at, and the vendored packages.
+/// The checks of `index.html` and, when it has an import map, the map, the files it points at, and the vendored packages. A page without a map is complete: `zerolith dev` resolves the packages and `zerolith build` bundles them.
 fn page_checks(root: &Path) -> Vec<Finding> {
     let mut findings = Vec::new();
     let index = root.join("index.html");
     let Ok(html) = fs::read_to_string(&index) else {
-        findings.push(error("index_missing", format!("{} does not exist", index.display()), "Create index.html with an import map and a module script, or pass the folder that holds it."));
+        findings.push(error(
+            "index_missing",
+            format!("{} does not exist", index.display()),
+            "Create index.html with a module script, or pass the folder that holds it.",
+        ));
         return findings;
     };
-    let Some(raw) = import_map_of(&html) else {
-        findings.push(error(
-            "importmap_missing",
-            "index.html has no <script type=\"importmap\">".to_string(),
-            "Run `zerolith importmap --html index.html` to vendor the packages and write one.",
+    if !html.contains("<script type=\"module\"") {
+        findings.push(warning(
+            "module_script_missing",
+            "index.html has no <script type=\"module\">".to_string(),
+            "Load the application with <script type=\"module\" src=\"/src/main.ts\"></script>.",
         ));
+    }
+    let Some(raw) = import_map_of(&html) else {
         return findings;
     };
     let map: ImportMap = match serde_json::from_str(raw) {
@@ -226,13 +232,6 @@ fn page_checks(root: &Path) -> Vec<Finding> {
             ));
         }
     }
-    if !html.contains("<script type=\"module\"") {
-        findings.push(warning(
-            "module_script_missing",
-            "index.html has no <script type=\"module\">".to_string(),
-            "Load the application with <script type=\"module\" src=\"/app.js\"></script>.",
-        ));
-    }
     for package in PACKAGES {
         let vendored = map
             .imports
@@ -281,13 +280,49 @@ pub fn run(root: &Path, json: bool) -> ExitCode {
             "{}",
             serde_json::to_string_pretty(&findings).unwrap_or_default()
         );
-    } else if findings.is_empty() {
-        println!("zerolith doctor: no problems found in {}", root.display());
     } else {
+        let shown = crate::css::canonical(root).unwrap_or_else(|_| root.to_path_buf());
+        anstream::println!(
+            "{}",
+            term::heading("doctor", &crate::server::display(&shown))
+        );
         for finding in &findings {
-            println!(
-                "{} {}: {}\n  fix: {}",
-                finding.severity, finding.code, finding.cause, finding.fix
+            let style: fn(&str) -> String = match finding.severity {
+                "error" => term::failure,
+                "warning" => term::caution,
+                _ => term::label,
+            };
+            anstream::println!(
+                "{}",
+                term::row(
+                    finding.severity,
+                    style,
+                    format!("{}: {}", term::bold(finding.code), finding.cause)
+                )
+            );
+            anstream::println!(
+                "  {:width$} {} {}",
+                "",
+                term::hint("fix:"),
+                finding.fix,
+                width = term::LABEL_WIDTH
+            );
+        }
+        let errors = findings
+            .iter()
+            .filter(|finding| finding.severity == "error")
+            .count();
+        let warnings = findings.len() - errors;
+        if findings.is_empty() {
+            anstream::println!("  {}\n", term::success("no problems found"));
+        } else {
+            let plural = |count: usize, word: &str| {
+                format!("{count} {word}{}", if count == 1 { "" } else { "s" })
+            };
+            anstream::println!(
+                "\n  {}, {}\n",
+                plural(errors, "error"),
+                plural(warnings, "warning")
             );
         }
     }
@@ -382,6 +417,18 @@ export const view = html`<p>${count.get()}</p>`;
             Some("{\"imports\":{}}")
         );
         assert_eq!(check(&root.join("nowhere"))[0].code, "index_missing");
+        fs::write(
+            root.join("index.html"),
+            "<html><head></head><body><main id=\"app\"></main><script type=\"module\" src=\"/src/main.ts\"></script></body></html>",
+        )
+        .unwrap();
+        assert!(
+            check(&root).is_empty(),
+            "a page without an import map is complete"
+        );
+        fs::write(root.join("index.html"), "<html><body></body></html>").unwrap();
+        let codes: Vec<&str> = check(&root).iter().map(|finding| finding.code).collect();
+        assert_eq!(codes, vec!["module_script_missing"]);
         let _ = fs::remove_dir_all(&root);
     }
 }

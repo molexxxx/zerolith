@@ -8,6 +8,8 @@ order: 11
 
 The `zerolith` binary is written in Rust and covers the parts of development that need a process outside the browser. It installs from npm as `@zerolith/cli`, a thin package whose optional dependencies carry a prebuilt binary for Linux (glibc), macOS, and Windows on x64 and arm64, so `npm install --global @zerolith/cli@alpha` puts `zerolith` on the PATH wherever npm runs, and a project that lists `@zerolith/cli` as a development dependency, as every starter does, runs its own copy through `npx zerolith` and its npm scripts. Elsewhere, and on musl systems such as Alpine, `cargo install zerolith` builds the same crate from crates.io and `ZEROLITH_BINARY_PATH` tells the npm shim where it is.
 
+Every command opens with the `zerolith` badge and the command's name, and colors what follows by meaning: addresses and finished steps in green, errors in red, warnings in yellow, and labels and details dimmed. The colors are dropped when `NO_COLOR` is set or the output goes to a file or another program, so logs and CI output stay plain text, and `CLICOLOR_FORCE=1` keeps them.
+
 ## dev, serve, and preview
 
 ```
@@ -18,7 +20,7 @@ zerolith preview
 
 `dev` serves the project with live reload. The page names its entry module, such as `<script type="module" src="/src/main.ts"></script>`, and nothing else: an import of a package, such as `import { html } from "zerolith"`, resolves from `node_modules` with the resolver and conditions `build` uses, the development build of zerolith included, so the page needs no import map and a new file needs nothing but an import. A request for a `.ts`, `.tsx`, or `.jsx` file is answered with JavaScript, types stripped through oxc and JSX lowered to the same `html` calls the build produces. A stylesheet imported from a module, as in `import "./card.css"`, is applied through a `<style>` element; an image, font, or other file imported from code gives its URL, `?url` gives any file's URL and `?raw` its text, and a JSON import gives its value, all as in `build`. Files in `public/` are served at the root, and a client-side route such as `/notes/abc` loads the application's `index.html`. A package that lives outside the project folder, such as a workspace package in a monorepo, is served under `/@fs/`, from the folders of the packages that imports resolved to and from nowhere else. A CommonJS package, which a browser cannot load as a module, is reported by name; import the package's ES module build instead.
 
-The server injects a small module into HTML pages and announces file changes over server-sent events: a changed stylesheet, linked or imported, is swapped in place, and any other change reloads the page. Before reloading, the client saves the values of every named signal, and the development build of zerolith restores them when signals with the same names are created again, so a form draft or a selected tab survives an edit with no component boundary. Under Vite, the plugin in `@zerolith/vite` does the same restore without reloading the page; see [Vite](/guide/vite/).
+The server injects a small module into HTML pages and announces file changes over server-sent events: a changed stylesheet, linked or imported, is swapped in place, and any other change reloads the page. The terminal shows a line for each change, `update` for a stylesheet and `reload` for anything else, and changes inside `node_modules`, `dist`, and other tooling folders are ignored. Before reloading, the client saves the values of every named signal, and the development build of zerolith restores them when signals with the same names are created again, so a form draft or a selected tab survives an edit with no component boundary. Under Vite, the plugin in `@zerolith/vite` does the same restore without reloading the page; see [Vite](/guide/vite/).
 
 ```ts
 const draft = signal("", { name: "draft" });    // restored across dev reloads
@@ -52,15 +54,18 @@ zerolith build --base /app/ --out ../server/static
 zerolith build --unbundled
 ```
 
-Bundles the application for production with [Rolldown](https://rolldown.rs), the bundler Vite is built on, compiled into the binary: no Node tooling runs and nothing else needs installing. The build starts from `index.html`. Every `<script type="module" src="...">` with a local source is an entry, and the modules it imports, TypeScript, TSX, JSX, and JavaScript alike, are bundled into minified, tree-shaken chunks under `assets/`, each with a content hash in its name so a host can cache it forever. Packages resolve from `node_modules`, with the production build of zerolith; `--mode` with any other name, such as `--mode staging`, resolves the development build with its diagnostic text instead. The command prints every file it wrote:
+Bundles the application for production with [Rolldown](https://rolldown.rs), the bundler Vite is built on, compiled into the binary: no Node tooling runs and nothing else needs installing. The build starts from `index.html`. Every `<script type="module" src="...">` with a local source is an entry, and the modules it imports, TypeScript, TSX, JSX, and JavaScript alike, are bundled into minified, tree-shaken chunks under `assets/`, each with a content hash in its name so a host can cache it forever. Packages resolve from `node_modules`, with the production build of zerolith; `--mode` with any other name, such as `--mode staging`, resolves the development build with its diagnostic text instead. The command prints every file it wrote, with the gzip size of each text file:
 
 ```
-zerolith: built . into dist in 63 ms
-  assets/de-DWUa6-jV.js           1.69 kB
-  assets/en-BR-GMg9l.js           1.62 kB
-  assets/index-GOwJAoK8.js       45.27 kB
-  assets/index-a01166d1.css       0.81 kB
-  index.html                      0.57 kB
+ zerolith  build  production, minified
+
+  dist/assets/de-DWUa6-jV.js       1.69 kB  gzip  0.79 kB
+  dist/assets/en-BR-GMg9l.js       1.62 kB  gzip  0.76 kB
+  dist/assets/index-BcViqks6.js   45.39 kB  gzip 14.90 kB
+  dist/assets/index-a01166d1.css   0.81 kB  gzip  0.41 kB
+  dist/index.html                  0.57 kB  gzip  0.37 kB
+
+  built tasks into dist in 91 ms
 ```
 
 The zerolith passes are the ones `vite build` runs through the [Vite plugin](/guide/vite/), held to the same output by shared fixtures. JSX is lowered to `html` calls. Every module goes through the template prepare pass: each `html` literal is scanned ahead of time and registered next to the literal, a template with no bindings is created once at module scope, and the core's scanner is replaced by a stand-in that reports `template_not_prepared`, so the browser binds templates without scanning them and the scanner is not shipped. A template the scanner refuses fails the build at its line, and so does a module that uses `html` from zerolith other than as a template tag; `--no-prepare` keeps the scanner and leaves every literal as it is.
@@ -113,6 +118,6 @@ zerolith doctor
 zerolith doctor --json
 ```
 
-Reports coded findings, each with a cause and a fix: `index_missing`, `importmap_missing`, `importmap_invalid`, `importmap_target_missing`, `integrity_mismatch`, `integrity_target_missing`, `preload_integrity_mismatch`, `module_script_missing`, and `package_outdated`. The exit code is 1 when any finding is an error.
+Reports coded findings, each with a cause and a fix. The page must exist and load a module script, `index_missing` and `module_script_missing`. A page with an import map, as `zerolith importmap` writes one, also has its map checked: `importmap_invalid`, `importmap_target_missing`, `integrity_mismatch`, `integrity_target_missing`, `preload_integrity_mismatch`, and `package_outdated`. A page without one is complete, since `dev` resolves the packages and `build` bundles them. The exit code is 1 when any finding is an error.
 
 It then runs the template lint of the [Vite plugin](/guide/vite/) over the project's `.js`, `.ts`, `.jsx`, and `.tsx` sources, outside `node_modules`, `vendor`, `dist`, `target`, test folders, and hidden folders, and reports the same warnings with the file, line, and column: `template_frozen_read`, `image_without_alt`, `button_without_name`, and `frame_without_title`. JSX is lowered first, keeping its lines, so a finding in a `.tsx` file points at the line its element starts on. A shared fixture holds the two implementations to the same findings.

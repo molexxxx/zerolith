@@ -36,12 +36,15 @@ npm run tasks:build
 This runs `zerolith build examples/tasks`, no Vite involved, and writes the production build to `examples/tasks/dist`:
 
 ```
-zerolith: built examples/tasks into examples/tasks/dist in 65 ms
-  assets/de-DWUa6-jV.js           1.69 kB
-  assets/en-BR-GMg9l.js           1.62 kB
-  assets/index-BcViqks6.js       45.39 kB
-  assets/index-a01166d1.css       0.81 kB
-  index.html                      0.57 kB
+ zerolith  build  production, minified
+
+  examples/tasks/dist/assets/de-DWUa6-jV.js       1.69 kB  gzip  0.79 kB
+  examples/tasks/dist/assets/en-BR-GMg9l.js       1.62 kB  gzip  0.76 kB
+  examples/tasks/dist/assets/index-BcViqks6.js   45.39 kB  gzip 14.90 kB
+  examples/tasks/dist/assets/index-a01166d1.css   0.81 kB  gzip  0.41 kB
+  examples/tasks/dist/index.html                  0.57 kB  gzip  0.37 kB
+
+  built tasks into examples/tasks/dist in 91 ms
 ```
 
 The application is one minified script, and each locale is a chunk of its own that loads when someone picks that language. Templates are prepared at build time, the inspector leaves the production build on its own, and `index.html` loads the hashed files. `npx vite build examples/tasks` writes an equivalent bundle through the plugin, and `npm run size` builds it that way and holds it to a budget.

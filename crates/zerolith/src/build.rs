@@ -30,7 +30,7 @@ use rolldown_common::{Output, OutputChunk};
 use crate::css::{self, Assets, Located};
 use crate::scan::DIAGNOSTIC_URL;
 use crate::split::{SplitKind, split_imports};
-use crate::{env, html, prepare, transform};
+use crate::{env, html, prepare, term, transform};
 
 /// What `build` needs.
 pub struct Options {
@@ -813,12 +813,51 @@ pub async fn build(options: &Options) -> io::Result<Built> {
     })
 }
 
-/// Runs the `build` command and prints what it wrote.
+/// The extensions whose gzip size the summary shows: text a server compresses.
+const COMPRESSED: [&str; 8] = ["js", "mjs", "css", "html", "json", "svg", "xml", "txt"];
+
+/// The size of a file once gzipped at the default level, as a server would send it.
+fn gzip_size(path: &Path) -> Option<u64> {
+    use std::io::Write;
+    let bytes = fs::read(path).ok()?;
+    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder.write_all(&bytes).ok()?;
+    Some(encoder.finish().ok()?.len() as u64)
+}
+
+fn kilobytes(bytes: u64) -> String {
+    format!("{:.2} kB", bytes as f64 / 1000.0)
+}
+
+/// The heading's detail: the mode and the options that change the output.
+fn describe(options: &Options) -> String {
+    let mut parts = vec![
+        options.mode.clone(),
+        if options.minify {
+            "minified".to_string()
+        } else {
+            "not minified".to_string()
+        },
+    ];
+    if options.base != "/" {
+        parts.push(format!("base {}", options.base));
+    }
+    if options.sourcemap {
+        parts.push("source maps".to_string());
+    }
+    parts.join(", ")
+}
+
+/// Runs the `build` command and prints what it wrote, each file with its size and, for text, its gzip size.
 pub async fn run(options: &Options) -> io::Result<()> {
     let started = Instant::now();
+    anstream::println!("{}", term::heading("build", &describe(options)));
     let built = build(options).await?;
     for warning in &built.warnings {
-        eprintln!("zerolith: warning: {warning}");
+        anstream::eprintln!("{}", term::row("warning", term::caution, warning));
+    }
+    if !built.warnings.is_empty() {
+        anstream::println!();
     }
     let here = std::env::current_dir()
         .and_then(|folder| css::canonical(&folder))
@@ -829,24 +868,64 @@ pub async fn run(options: &Options) -> io::Result<()> {
         }
         _ => crate::server::display(&built.out_dir),
     };
-    println!(
-        "zerolith: built {} into {shown_out} in {} ms",
-        crate::server::display(&options.root),
-        started.elapsed().as_millis()
-    );
+    let prefix = if shown_out.is_empty() {
+        String::new()
+    } else {
+        format!("{}/", shown_out.trim_end_matches('/'))
+    };
     let width = built
         .files
         .iter()
-        .map(|file| file.path.len())
+        .map(|file| prefix.len() + file.path.len())
         .max()
         .unwrap_or(0);
-    for file in &built.files {
-        println!(
-            "  {:<width$}  {:>9.2} kB",
-            file.path,
-            file.bytes as f64 / 1000.0
-        );
+    let size_width = built
+        .files
+        .iter()
+        .map(|file| kilobytes(file.bytes).len())
+        .max()
+        .unwrap_or(0);
+    let gzipped: Vec<Option<String>> = built
+        .files
+        .iter()
+        .map(|file| {
+            let extension = file.path.rsplit('.').next().unwrap_or("");
+            COMPRESSED
+                .contains(&extension)
+                .then(|| gzip_size(&built.out_dir.join(&file.path)))
+                .flatten()
+                .map(kilobytes)
+        })
+        .collect();
+    let gzip_width = gzipped.iter().flatten().map(String::len).max().unwrap_or(0);
+    for (file, gzip) in built.files.iter().zip(&gzipped) {
+        let name = format!("{prefix}{}", file.path);
+        let padding = " ".repeat(width.saturating_sub(name.len()));
+        let size = format!("{:>size_width$}", kilobytes(file.bytes));
+        let gzip = gzip
+            .as_ref()
+            .map(|text| format!("  {}", term::muted(format!("gzip {text:>gzip_width$}"))))
+            .unwrap_or_default();
+        anstream::println!("  {}{padding}  {size}{gzip}", term::path(&name));
     }
+    let project = css::canonical(&options.root)
+        .ok()
+        .and_then(|root| {
+            root.file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+        })
+        .unwrap_or_else(|| crate::server::display(&options.root));
+    anstream::println!(
+        "\n  {} {} into {} in {} ms\n",
+        term::success("built"),
+        term::bold(project),
+        if shown_out.is_empty() {
+            "."
+        } else {
+            &shown_out
+        },
+        started.elapsed().as_millis()
+    );
     Ok(())
 }
 

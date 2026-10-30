@@ -479,25 +479,40 @@ footer .wrap { display: grid; gap: var(--zl-space-3); }
 <h2>Command line</h2>
 <p>Severity uses the basic ANSI colors, so each terminal theme tunes them to its own background. Chartreuse appears only as a badge with basalt text, which reads on light and dark terminals alike. Output stays plain when <code>NO_COLOR</code> is set or the output is not a terminal. The sample below shows real messages with illustrative values.</p>
 </div>
-<pre class="terminal" aria-label="Sample terminal output"><span class="p">$</span> zerolith new my-app
-<span class="badge">zerolith</span> wrote 12 files to my-app
-<span class="dim">next:</span> cd my-app &amp;&amp; npm install &amp;&amp; npm run dev
+<pre class="terminal" aria-label="Sample terminal output"><span class="p">$</span> zerolith new my-app --yes
+
+<span class="badge">zerolith</span> <b>new</b>  <span class="dim">a starter application</span>
+
+  <span class="ok">wrote    </span> 21 files to <b>my-app</b>
+
 <span class="p">$</span> zerolith dev
-<span class="badge">zerolith</span> serving my-app at <span class="ok">http://127.0.0.1:8080/</span> with live reload
+
+<span class="badge">zerolith</span> <b>dev server</b>  <span class="dim">v0.1.0, ready in 4 ms</span>
+
+  <span class="dim">Local    </span> <span class="ok">http://127.0.0.1:8080/</span>
+  <span class="dim">Root     </span> /home/ada/my-app
+  <span class="dim">Reload   </span> on: edits reload the page, stylesheets update in place
+
+  <span class="ok">reload   </span> <span class="dim">src/components/</span>home.tsx
 <span class="p">$</span> zerolith doctor
-<span class="bad">error</span> integrity_mismatch: /vendor/zerolith/index.js no longer matches its integrity hash
-  <span class="hint">fix:</span> The file changed after the import map was written; regenerate the import map or restore the file.
+
+<span class="badge">zerolith</span> <b>doctor</b>  <span class="dim">/home/ada/my-app</span>
+
+  <span class="bad">error    </span> <b>integrity_mismatch</b>: /vendor/zerolith/index.js no longer matches its integrity hash
+            <span class="hint">fix:</span> The file changed after the import map was written; regenerate the import map or restore the file.
+
+  1 error, 0 warnings
 <span class="p">$</span> <span class="cursor"></span></pre>
 <div class="table-scroll">
 <table class="stack-table terminal-table">
 <thead><tr><th scope="col">Role</th><th scope="col">Color</th><th scope="col">Used for</th></tr></thead>
 <tbody>
-<tr><td>Badge</td><td><code>#AACF16</code> background, <code>#0F1114</code> text</td><td>The <code>zerolith</code> prefix on status lines</td></tr>
+<tr><td>Badge</td><td><code>#AACF16</code> background, <code>#0F1114</code> text</td><td>The badge that opens each command&apos;s output</td></tr>
 <tr><td>Success</td><td>ANSI green, SGR 32</td><td>Addresses, completed steps</td></tr>
-<tr><td>Error</td><td>ANSI red, SGR 31</td><td>Error findings</td></tr>
+<tr><td>Error</td><td>ANSI red, SGR 31</td><td>Error findings and failed commands</td></tr>
 <tr><td>Warning</td><td>ANSI yellow, SGR 33</td><td>Warning findings</td></tr>
 <tr><td>Hint</td><td>ANSI blue, SGR 34</td><td>The <code>fix:</code> line under a finding</td></tr>
-<tr><td>Muted</td><td>ANSI bright black, SGR 90</td><td>Labels such as <code>next:</code></td></tr>
+<tr><td>Muted</td><td>ANSI bright black, SGR 90</td><td>Labels such as <code>Local</code> and <code>Next:</code>, file folders, and details</td></tr>
 </tbody>
 </table>
 </div>

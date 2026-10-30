@@ -321,25 +321,42 @@ pub fn update_html(html: &str, tags: &str) -> String {
 
 /// Runs the `importmap` command.
 pub fn run(root: &Path, out: &Path, development: bool, html: Option<&Path>) -> io::Result<()> {
+    anstream::println!(
+        "{}",
+        crate::term::heading(
+            "importmap",
+            if development {
+                "development entries"
+            } else {
+                "production entries"
+            }
+        )
+    );
     let vendored = vendor(root, out, development)?;
     let tags = html_tags(&vendored);
+    let packages = format!(
+        "{} packages into {}",
+        vendored.versions.len(),
+        out.display()
+    );
+    anstream::println!(
+        "{}",
+        crate::term::row("vendored", crate::term::done, packages)
+    );
     match html {
         Some(file) => {
             let path = root.join(file);
             let current = fs::read_to_string(&path)?;
             fs::write(&path, update_html(&current, &tags))?;
-            println!(
-                "zerolith: vendored {} packages into {} and updated {}",
-                vendored.versions.len(),
-                out.display(),
-                file.display()
+            anstream::println!(
+                "{}\n",
+                crate::term::row("updated", crate::term::done, file.display())
             );
         }
         None => {
-            println!(
-                "zerolith: vendored {} packages into {}; add this to the head of your HTML:\n{tags}",
-                vendored.versions.len(),
-                out.display()
+            anstream::println!(
+                "\n  {}\n\n{tags}\n",
+                crate::term::muted("Add this to the head of your HTML:")
             );
         }
     }

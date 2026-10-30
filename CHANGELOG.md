@@ -6,11 +6,16 @@ Every package in this repository is released together and carries the same versi
 
 ### Changed
 
+- `@zerolith/cli` and the `zerolith` crate: the command line's output follows the brand. Every command opens with the `zerolith` badge, and colors mark addresses and finished steps in green, errors in red, warnings in yellow, and labels and details dimmed. `zerolith dev` prints the address, the folder, and the reload behavior, then a line for each change it announces. `zerolith build` prints a table of the files it wrote with their gzip sizes. Colors are dropped under `NO_COLOR` and when the output goes to a file or another program.
+- `@zerolith/cli` and the `zerolith` crate: `zerolith dev` ignores changes inside `dist`, `coverage`, and `test-results`, so a build or a test run next to it does not reload the page.
+- `@zerolith/cli` and the `zerolith` crate: `zerolith doctor` checks a page's import map only when the page has one; a page without one is complete, since `zerolith dev` resolves the packages and `zerolith build` bundles them, so a new starter no longer fails with `importmap_missing`.
 - Docs site: the site wears the brand, with the lockup, the three typefaces served from the site itself, the basalt palette in a dark and a light theme with a toggle, code colored by keyword, string, and comment with a copy button, a table of contents per page, and a menu on narrow screens.
 - Docs site: every example in the guides reads as application code. It shows the imports it uses, renders into the page or prints what it would show, and leaves the checks that keep it honest to the test around it; the docs build refuses an example that shows one.
 
 ### Fixed
 
+- `@zerolith/cli` and the `zerolith` crate: live reload works on Windows. The watcher compared each changed file with a project folder carrying the `\\?\` prefix of a Windows canonical path, which no change matched, so `zerolith dev` never told the page to reload.
+- `@zerolith/cli` and the `zerolith` crate: a port already in use is reported as such, with the `--port` option to pick another.
 - Docs site: an element name in a diagnostic's cause, such as `<iframe>`, is shown as code instead of being rendered as an element.
 
 ## 0.1.0-alpha.3 (2026-10-30)

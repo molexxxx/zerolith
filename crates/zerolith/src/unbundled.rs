@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 
 use crate::importmap::{html_tags, update_html, vendor_from};
 use crate::transform;
-use crate::{env, modules, prepare};
+use crate::{env, modules, prepare, term};
 
 /// Folders never copied into the output.
 const SKIPPED: [&str; 7] = [
@@ -216,16 +216,41 @@ pub fn build(root: &Path, out: &Path, prepare_templates: bool) -> io::Result<(Pa
     Ok((out_dir, built))
 }
 
-/// Runs the `build` command.
+/// Runs the `build --unbundled` command and prints what it wrote.
 pub fn run(root: &Path, out: &Path, prepare_templates: bool) -> io::Result<()> {
+    let started = std::time::Instant::now();
+    anstream::println!(
+        "{}",
+        term::heading("build", "unbundled, the modules behind an import map")
+    );
     let (out_dir, built) = build(root, out, prepare_templates)?;
-    println!(
-        "zerolith: built {} into {} ({} transformed, {} copied, {} pages)",
-        root.display(),
+    anstream::println!(
+        "{}",
+        term::row(
+            "Modules",
+            term::label,
+            format!("{} transformed", built.transformed)
+        )
+    );
+    anstream::println!(
+        "{}",
+        term::row("Files", term::label, format!("{} copied", built.copied))
+    );
+    anstream::println!("{}", term::row("Pages", term::label, built.html));
+    let project = crate::css::canonical(root)
+        .ok()
+        .and_then(|folder| {
+            folder
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+        })
+        .unwrap_or_else(|| root.display().to_string());
+    anstream::println!(
+        "\n  {} {} into {} in {} ms\n",
+        term::success("built"),
+        term::bold(project),
         crate::server::display(&out_dir),
-        built.transformed,
-        built.copied,
-        built.html
+        started.elapsed().as_millis()
     );
     Ok(())
 }

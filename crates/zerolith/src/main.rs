@@ -22,6 +22,7 @@ mod prepare;
 mod scan;
 mod server;
 mod split;
+mod term;
 mod transform;
 mod unbundled;
 mod watch;
@@ -219,28 +220,31 @@ async fn main() -> ExitCode {
             no_devtools,
             no_install,
             yes,
-        } => new::settle(
-            new::Answers {
-                root,
-                template,
-                tool: if vite {
-                    Some(new::Tool::Vite)
-                } else if buildless {
-                    Some(new::Tool::Unbundled)
-                } else {
-                    None
+        } => {
+            anstream::println!("{}", term::heading("new", "a starter application"));
+            new::settle(
+                new::Answers {
+                    root,
+                    template,
+                    tool: if vite {
+                        Some(new::Tool::Vite)
+                    } else if buildless {
+                        Some(new::Tool::Unbundled)
+                    } else {
+                        None
+                    },
+                    devtools: no_devtools.then_some(false),
+                    install: no_install.then_some(false),
                 },
-                devtools: no_devtools.then_some(false),
-                install: no_install.then_some(false),
-            },
-            !yes,
-        )
-        .and_then(|(root, choice, install)| new::run(&root, choice, install)),
+                !yes,
+            )
+            .and_then(|(root, choice, install)| new::run(&root, choice, install))
+        }
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            eprintln!("zerolith: {error}");
+            anstream::eprintln!("\n{} {} {error}\n", term::badge(), term::error("error"));
             ExitCode::FAILURE
         }
     }

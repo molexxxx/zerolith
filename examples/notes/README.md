@@ -39,11 +39,14 @@ npm run notes:build
 This runs `zerolith build examples/notes` and writes the production build to `examples/notes/dist`:
 
 ```
-zerolith: built examples/notes into examples/notes/dist in 57 ms
-  assets/index-39e0298e.css       0.79 kB
-  assets/index-DMmvpp44.js       32.63 kB
-  data/notes.json                 0.76 kB
-  index.html                      0.51 kB
+ zerolith  build  production, minified
+
+  examples/notes/dist/assets/index-39e0298e.css   0.79 kB  gzip  0.41 kB
+  examples/notes/dist/assets/index-DMmvpp44.js   32.63 kB  gzip 10.93 kB
+  examples/notes/dist/data/notes.json             0.76 kB  gzip  0.37 kB
+  examples/notes/dist/index.html                  0.51 kB  gzip  0.33 kB
+
+  built notes into examples/notes/dist in 80 ms
 ```
 
 Every module, the packages included, is in one minified script with a content hash in its name, so a host can cache it for good; the stylesheet is minified the same way; `public/` is copied as it is; and `index.html` now loads the two hashed files. Templates are prepared at build time, so the template scanner is not in the script, and the inspector leaves the production build on its own.

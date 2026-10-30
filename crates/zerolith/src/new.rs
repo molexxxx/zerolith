@@ -11,6 +11,8 @@ use std::io::{self, BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use crate::term;
+
 /// What `dev`, `build`, and `preview` run in the new project.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Tool {
@@ -1247,7 +1249,11 @@ fn template_choice(template: &str) -> (bool, bool) {
 
 /// Asks one question on the terminal and returns the answer, or the default for an empty line.
 fn ask(input: &mut impl BufRead, question: &str, default: &str) -> io::Result<String> {
-    print!("{question} ({default}): ");
+    anstream::print!(
+        "  {} {}: ",
+        term::bold(question),
+        term::muted(format!("({default})"))
+    );
     io::stdout().flush()?;
     let mut line = String::new();
     input.read_line(&mut line)?;
@@ -1261,9 +1267,9 @@ fn ask(input: &mut impl BufRead, question: &str, default: &str) -> io::Result<St
 
 /// Asks to pick one of `options` by number, the first being the default.
 fn pick(input: &mut impl BufRead, question: &str, options: &[&str]) -> io::Result<usize> {
-    println!("{question}");
+    anstream::println!("\n  {}", term::bold(question));
     for (index, option) in options.iter().enumerate() {
-        println!("  {}. {option}", index + 1);
+        anstream::println!("    {}  {option}", term::muted(index + 1));
     }
     loop {
         let answer = ask(input, &format!("Choose 1-{}", options.len()), "1")?;
@@ -1272,11 +1278,15 @@ fn pick(input: &mut impl BufRead, question: &str, options: &[&str]) -> io::Resul
         {
             return Ok(number - 1);
         }
-        println!("Type a number from 1 to {}.", options.len());
+        anstream::println!(
+            "  {}",
+            term::warning(format!("Type a number from 1 to {}.", options.len()))
+        );
     }
 }
 
 fn confirm(input: &mut impl BufRead, question: &str) -> io::Result<bool> {
+    anstream::println!();
     let answer = ask(input, question, "Y/n")?;
     Ok(!matches!(answer.to_ascii_lowercase().as_str(), "n" | "no"))
 }
@@ -1344,6 +1354,9 @@ pub fn settle(mut answers: Answers, interactive: bool) -> io::Result<(PathBuf, C
         )?,
         None => true,
     };
+    if interactive {
+        anstream::println!();
+    }
     let root = answers.root.unwrap_or_default();
     Ok((
         root,
@@ -1390,20 +1403,38 @@ pub fn run(root: &Path, choice: Choice, install_dependencies: bool) -> io::Resul
         .unwrap_or("app")
         .to_string();
     let files = scaffold(root, &name, choice)?;
-    println!(
-        "zerolith: wrote {} files to {}",
-        files.len(),
-        root.display()
+    anstream::println!(
+        "{}",
+        term::row(
+            "wrote",
+            term::done,
+            format!("{} files to {}", files.len(), term::bold(root.display()))
+        )
     );
     let manager = package_manager();
     let mut installed = false;
     if install_dependencies {
-        println!("zerolith: installing the dependencies with {manager}");
+        anstream::println!(
+            "{}\n",
+            term::row("install", term::label, format!("{manager} install"))
+        );
         installed = install(root, manager).unwrap_or(false);
-        if !installed {
-            eprintln!(
-                "zerolith: {manager} install did not finish; run it in {} before starting",
-                root.display()
+        if installed {
+            anstream::println!(
+                "\n{}",
+                term::row("installed", term::done, "the dependencies")
+            );
+        } else {
+            anstream::eprintln!(
+                "\n{}",
+                term::row(
+                    "warning",
+                    term::caution,
+                    format!(
+                        "{manager} install did not finish; run it in {} before starting",
+                        root.display()
+                    )
+                )
             );
         }
     }
@@ -1413,18 +1444,27 @@ pub fn run(root: &Path, choice: Choice, install_dependencies: bool) -> io::Resul
     } else {
         "npx "
     };
-    println!("\nnext:\n  cd {}", root.display());
+    anstream::println!("\n  {}", term::muted("Next:"));
+    anstream::println!("    {}", term::bold(format!("cd {}", root.display())));
     if !installed {
-        println!("  {manager} install");
+        anstream::println!("    {}", term::bold(format!("{manager} install")));
     }
-    let width = format!("{prefix}{build}").len() + 4;
+    let width = [develop, build, preview]
+        .iter()
+        .map(|command| prefix.len() + command.len())
+        .max()
+        .unwrap_or(0)
+        + 3;
     for (command, what) in [
         (develop, "serve the app while you work"),
         (build, "write the production build to dist/"),
         (preview, "serve dist/ to check it"),
     ] {
-        println!("  {:<width$}{what}", format!("{prefix}{command}"));
+        let shown = format!("{prefix}{command}");
+        let padding = " ".repeat(width.saturating_sub(shown.len()));
+        anstream::println!("    {}{padding}{}", term::bold(&shown), term::muted(what));
     }
+    anstream::println!();
     Ok(())
 }
 

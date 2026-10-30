@@ -24,6 +24,7 @@ use tokio_stream::wrappers::BroadcastStream;
 use crate::css;
 use crate::mime::content_type;
 use crate::modules::{self, Pipeline};
+use crate::term;
 use crate::watch::{self, Change};
 
 /// What `run` needs.
@@ -211,7 +212,7 @@ fn fresh(body: impl Into<Body>, mime: &'static str) -> Response {
 
 /// A module that throws `message`, so a failure shows in the browser's console as well as the terminal.
 fn failed(message: &str) -> Response {
-    eprintln!("zerolith: {message}");
+    anstream::eprintln!("{}", term::row("error", term::failure, message));
     fresh(
         format!("throw new Error({});\n", serde_json::Value::from(message)),
         content_type("js"),
@@ -338,8 +339,52 @@ pub fn app(
         .with_state(state)
 }
 
+/// Prints a line for each change the browsers are told about, once per save even when an editor writes a file several times.
+fn log_changes(sender: &broadcast::Sender<Change>) {
+    let mut receiver = sender.subscribe();
+    tokio::spawn(async move {
+        let mut last: Option<(String, std::time::Instant, usize)> = None;
+        loop {
+            let change = match receiver.recv().await {
+                Ok(change) => change,
+                Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                Err(broadcast::error::RecvError::Closed) => break,
+            };
+            let now = std::time::Instant::now();
+            let count = match &mut last {
+                Some((path, at, count)) if *path == change.path => {
+                    let repeat = now.duration_since(*at) < std::time::Duration::from_millis(500);
+                    *at = now;
+                    if repeat {
+                        continue;
+                    }
+                    *count += 1;
+                    *count
+                }
+                _ => {
+                    last = Some((change.path.clone(), now, 1));
+                    1
+                }
+            };
+            let verb = if change.path.ends_with(".css") {
+                "update"
+            } else {
+                "reload"
+            };
+            let shown = term::path(change.path.trim_start_matches('/'));
+            let times = if count > 1 {
+                format!(" {}", term::muted(format!("x{count}")))
+            } else {
+                String::new()
+            };
+            anstream::println!("{}{times}", term::row(verb, term::done, shown));
+        }
+    });
+}
+
 /// Serves `options.root` until the process is interrupted.
 pub async fn run(options: Options) -> std::io::Result<()> {
+    let started = std::time::Instant::now();
     let root = css::canonical(&options.root)?;
     let pipeline = options
         .modules
@@ -351,19 +396,59 @@ pub async fn run(options: Options) -> std::io::Result<()> {
     } else {
         (None, None)
     };
-    let listener =
-        tokio::net::TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, options.port)))
-            .await?;
-    let address = listener.local_addr()?;
-    println!(
-        "zerolith: serving {} at http://{address}/{}",
-        display(&root),
-        if options.reload {
-            " with live reload"
-        } else {
-            ""
+    let listener = match tokio::net::TcpListener::bind(SocketAddr::from((
+        Ipv4Addr::LOCALHOST,
+        options.port,
+    )))
+    .await
+    {
+        Ok(listener) => listener,
+        Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
+            return Err(std::io::Error::new(
+                error.kind(),
+                format!(
+                    "port {} is already in use; stop the server using it, or pass --port with another number",
+                    options.port
+                ),
+            ));
         }
+        Err(error) => return Err(error),
+    };
+    let address = listener.local_addr()?;
+    let title = match (options.reload, options.modules) {
+        (true, _) => "dev server",
+        (false, true) => "server",
+        (false, false) => "preview",
+    };
+    let detail = format!(
+        "v{}, ready in {} ms",
+        env!("CARGO_PKG_VERSION"),
+        started.elapsed().as_millis()
     );
+    anstream::println!("{}", term::heading(title, &detail));
+    anstream::println!(
+        "{}",
+        term::row(
+            "Local",
+            term::label,
+            term::success(format!("http://{address}/"))
+        )
+    );
+    anstream::println!("{}", term::row("Root", term::label, display(&root)));
+    if options.reload {
+        anstream::println!(
+            "{}",
+            term::row(
+                "Reload",
+                term::label,
+                "on: edits reload the page, stylesheets update in place"
+            )
+        );
+    }
+    anstream::println!("\n  {}\n", term::muted("Press Ctrl+C to stop."));
+    if let Some(sender) = &sender {
+        log_changes(sender);
+    }
     let result = axum::serve(
         listener,
         app(root, sender, pipeline).into_make_service_with_connect_info::<SocketAddr>(),
