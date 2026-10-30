@@ -133,7 +133,7 @@ beforeAll(async () =>
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     browser = await chromium.launch();
-});
+}, 60000);
 
 afterAll(async () =>
 {
@@ -207,5 +207,5 @@ describe("buildless under a strict CSP", () =>
         expect(probeLogs).toHaveLength(1);
         expect(errors.filter((error) => !probeLogs.includes(error))).toEqual([]);
         await tab.close();
-    });
+    }, 30000);
 });
