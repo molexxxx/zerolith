@@ -9,7 +9,7 @@ Routing, forms, rendering, and i18n, with clear patterns for you and your agent.
 
 > **Alpha.** Packages publish under the `alpha` dist-tag (`npm install zerolith@alpha`) and the API is still settling. Watch the repository or join the [discussions](https://github.com/molexxxx/zerolith/discussions) to follow along.
 
-zerolith is a standalone frontend framework: fine-grained signals, HTML templates that need no compiler, a typed router, server rendering with hydration, and tooling that works wherever the app is served. It talks to any backend over plain HTTP.
+zerolith is a standalone frontend framework: fine-grained signals, HTML templates that need no compiler, a typed router, server rendering with hydration, and a command line that develops and builds the application on its own. It talks to any backend over plain HTTP.
 
 ```ts
 import { computed, html, render, signal } from "zerolith";
@@ -28,13 +28,28 @@ render(Counter({ start: 1 }), "#app");
 
 Bind the signal, not its value: `${count}` stays live, while `${count.get()}` reads once.
 
+## Getting started
+
+Node 24 or newer is required. Create an application with the command line, which npm installs with a prebuilt binary:
+
+```sh
+npx @zerolith/cli@alpha new my-app
+cd my-app
+npm install
+npm run dev
+```
+
+`npm run dev` starts the development server, and `npm run build` writes the production build to `dist/`, ready for any static host or for a backend to serve. `new` writes a TypeScript project developed on Vite by default; `--js` writes JavaScript with JSDoc types, and `--buildless` writes a project that runs from an import map with no build step at all. In any of them, `npx zerolith build` bundles and minifies the application on its own, with no Vite involved; the [command line guide](docs/guide/command-line.md) covers every option.
+
+To add zerolith to an existing project, install `zerolith@alpha` and the `@zerolith/*` packages you need at the same tag.
+
 ## Why zerolith
 
 - **Clear patterns, coded diagnostics.** Each concept has one documented form, and every runtime error carries a stable code, its cause, and the fix, with a page per code. See [diagnostics](docs/guide/diagnostics.md).
-- **Buildless or bundled, same files.** Plain JavaScript and `html` templates run from an import map with no build step, and `zerolith build` bundles the same files into minified, hashed chunks with the Rust command line alone. Projects already on Vite get the same passes from a plugin. See the [command line](docs/guide/command-line.md) and [Vite](docs/guide/vite.md) guides.
+- **Buildless or bundled, same files.** Plain JavaScript and `html` templates run from an import map with no build step, and `zerolith build` bundles the same files into minified, hashed chunks with the Rust command line alone. See the [command line guide](docs/guide/command-line.md).
 - **Docs that cannot drift.** Every example in the guides is a test that runs in CI, and the API reference is generated from the source.
-- **Ready for coding agents.** An always-on [AGENTS.md](AGENTS.md), a Markdown twin of every docs page indexed by `llms.txt`, and a Vite plugin that flags mistakes such as frozen reads at transform time.
-- **Dev tools wherever it runs.** The inspector is a plain module, so it works under Vite, a static server, electron-vite, or `file://`, with no browser extension. See [dev tools](docs/guide/dev-tools.md).
+- **Ready for coding agents.** An always-on [AGENTS.md](AGENTS.md), a Markdown twin of every docs page indexed by `llms.txt`, and template checks in `zerolith doctor` that flag mistakes such as frozen reads before the code runs.
+- **Dev tools wherever it runs.** The inspector is a plain module, so it works under any dev server, a static server, electron-vite, or `file://`, with no browser extension. See [dev tools](docs/guide/dev-tools.md).
 
 ## What works today
 
@@ -51,25 +66,26 @@ Everything below runs, is tested in this repository, and is published under the 
 | Testing | `@zerolith/test` | `mount`, `cleanup`, `settle`, and hydration and accessibility checks |
 | Dev tools | `@zerolith/devtools` | The in-page inspector, named signals, and Performance panel tracks |
 | Observability | `@zerolith/otel` | OpenTelemetry spans for navigation, hydration, and requests |
-| Build | `@zerolith/vite` | JSX lowering, hot replacement that keeps named state, transform-time warnings, templates prepared at build time, and a production build check |
 | Command line | `@zerolith/cli` | The Rust command line with prebuilt binaries: `new`, `dev`, `serve`, `build`, which bundles and minifies with templates prepared ahead of time, `importmap` with integrity hashes, and `doctor` |
+| Vite | `@zerolith/vite` | For projects on Vite: JSX lowering, hot replacement that keeps named state, transform-time warnings, templates prepared at build time, and a production build check |
 
-Two example applications show it end to end: [notes](examples/notes) with no build step, and [tasks](examples/tasks) on Vite with a typed client and compiled messages.
+Two example applications show it end to end: [notes](examples/notes), which runs from its sources with no build step, and [tasks](examples/tasks), developed on Vite and bundled by `zerolith build`, with a typed client and compiled messages.
 
-## Getting started
+## Where it's going
 
-Node 24 or newer is required. Scaffold an application with the command line, which comes from npm with a prebuilt binary:
+Next come a dev server that matches the build, with a proxy to any backend, then a permanent domain for the docs, trusted publishing with a canary channel built from every merge, the first production site, and a frozen API for the core, templates, and router. After that come signals the server can push, agent tooling with MCP servers and a public eval suite, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
 
-```sh
-npx @zerolith/cli@alpha new my-app
-cd my-app
-npm install
-npm run dev
-```
+## Documentation
 
-`new` writes a Vite and TypeScript project by default; `--js` writes JavaScript with JSDoc types, and `--buildless` writes a project that runs from an import map with no bundler. To add zerolith to an existing project, install `zerolith@alpha` and the `@zerolith/*` packages you need at the same tag.
+- The [docs site](https://molexxxx.github.io/zerolith/), rebuilt with every release: the guides, the API reference generated from the source, and a page for every diagnostic code.
+- [Guides](docs/guide/index.md), from [application structure](docs/guide/structure.md) to [testing](docs/guide/testing.md). `npm run docs` builds them into a site with the generated reference.
+- The [roadmap](docs/ROADMAP.md), the [changelog](CHANGELOG.md), and the [releases](https://github.com/molexxxx/zerolith/releases) with their SBOMs.
+- [Support window and channels](docs/policy/support.md), [releases](docs/policy/releases.md), and [versioning](docs/policy/versioning.md).
+- [Brand](brand/README.md): the mark, colors, type, and icons.
 
-The examples run from a clone:
+## Working on zerolith
+
+This repository holds the packages, the Rust command line, the docs, and the examples. From a clone:
 
 ```sh
 git clone https://github.com/molexxxx/zerolith.git
@@ -79,19 +95,7 @@ npm run build
 npm run serve
 ```
 
-Then open http://127.0.0.1:8080/examples/notes/.
-
-## Where it's going
-
-Next come a permanent domain for the docs, trusted publishing with a canary channel built from every merge, the remaining build optimizations, the first production site, and a frozen API for the core, templates, and router. After that come signals the server can push, agent tooling with MCP servers and a public eval suite, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
-
-## Documentation
-
-- The [docs site](https://molexxxx.github.io/zerolith/), rebuilt with every release: the guides, the API reference generated from the source, and a page for every diagnostic code.
-- [Guides](docs/guide/index.md), from [application structure](docs/guide/structure.md) to [testing](docs/guide/testing.md). `npm run docs` builds them into a site with the generated reference.
-- The [roadmap](docs/ROADMAP.md), the [changelog](CHANGELOG.md), and the [releases](https://github.com/molexxxx/zerolith/releases) with their SBOMs.
-- [Support window and channels](docs/policy/support.md), [releases](docs/policy/releases.md), and [versioning](docs/policy/versioning.md).
-- [Brand](brand/README.md): the mark, colors, type, and icons.
+Here `npm run build` compiles every package from TypeScript into its `dist/` folder, which the examples and the tests load; it does not bundle an application. `npm run serve` then serves the repository, and the notes example opens at http://127.0.0.1:8080/examples/notes/ straight from its sources and import map. The [tasks README](examples/tasks/README.md) shows how to run that example on Vite and bundle it with `zerolith build`, and [CONTRIBUTING.md](CONTRIBUTING.md) lists every script, including `npm run check`, the gate CI runs.
 
 ## Community
 

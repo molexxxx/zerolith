@@ -1,0 +1,32 @@
+name: Badges
+
+# Asks the molexxxx profile repository to redraw the badges and the card that
+# read this repository's registries and CI, after each CI run and release on
+# main. The dispatch authenticates with the BADGES_DISPATCH_TOKEN secret;
+# without it the job reports and skips instead of failing.
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [CI, Release]
+    types: [completed]
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  dispatch:
+    name: Refresh profile badges
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Dispatch refresh-badges
+        env:
+          GH_TOKEN: ${{ secrets.BADGES_DISPATCH_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice::BADGES_DISPATCH_TOKEN is not set on this repository; the profile badges were not refreshed."
+            exit 0
+          fi
+          gh api -X POST repos/molexxxx/molexxxx/dispatches \
+            -f event_type=refresh-badges \
+            -f "client_payload[repo]=$REPOSITORY"
