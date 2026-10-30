@@ -87,7 +87,7 @@ The command line comes from npm as `@zerolith/cli`, so `npx @zerolith/cli@alpha 
 ```
 zerolith new my-app              Vite and TypeScript
 zerolith new my-app --js         Vite and JavaScript with JSDoc
-zerolith new my-app --buildless  an import map and no bundler; TypeScript served by zerolith dev and built by zerolith build
+zerolith new my-app --buildless  an import map and no bundler; TypeScript served by zerolith dev and written out by zerolith build --unbundled
 ```
 
 The command writes the layout with a working first page, the scripts, and the `AGENTS.md`, pinning the tool versions this repository tests with. `cd my-app && npm install && npm run dev` starts it.

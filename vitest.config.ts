@@ -37,7 +37,16 @@ export default defineConfig({
                     name: "node",
                     environment: "node",
                     include: ["packages/*/test/**/*.test.{ts,tsx}", "examples/*/test/**/*.test.{ts,tsx}", "scripts/**/test/**/*.test.{ts,tsx}"],
-                    exclude: ["**/*.browser.test.{ts,tsx}", "**/node_modules/**", "**/dist/**"]
+                    exclude: ["**/*.browser.test.{ts,tsx}", "**/*.cli.test.ts", "**/node_modules/**", "**/dist/**"]
+                }
+            },
+            {
+                extends: true,
+                test: {
+                    name: "cli",
+                    environment: "node",
+                    include: ["examples/*/test/**/*.cli.test.ts"],
+                    exclude: ["**/node_modules/**", "**/dist/**"]
                 }
             },
             {

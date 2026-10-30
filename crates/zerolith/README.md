@@ -1,13 +1,14 @@
 # zerolith (command line)
 
-The Rust side of zerolith: a dev server for the buildless path that serves TypeScript and JSX as JavaScript through oxc, a build that writes the same transformation to a folder for static hosting, import map generation with integrity hashes, project checks, and a scaffold for new applications.
+The Rust side of zerolith: a production build that bundles and minifies with Rolldown and lightningcss compiled in, a dev server that serves TypeScript and JSX as JavaScript through oxc, import map generation with integrity hashes, project checks, and a scaffold for new applications.
 
 ```
 zerolith dev [root] [--port 8080]       serve with live reload
 zerolith serve [root] [--port 8080]     serve without watching
 zerolith importmap [root] [--out vendor] [--development] [--html index.html]
 zerolith doctor [root] [--json]
-zerolith build [root] [--out dist] [--no-prepare]
+zerolith build [root] [--out dist] [--base /] [--mode production] [--sourcemap] [--no-minify] [--no-prepare] [--empty-out-dir]
+zerolith build [root] --unbundled [--out dist] [--no-prepare]
 zerolith new <name> [--js] [--buildless]
 ```
 
@@ -19,8 +20,8 @@ Install it from npm as `@zerolith/cli`, which carries a prebuilt binary for Linu
 
 `doctor` reports coded findings: a missing index or import map, map targets that do not exist, integrity mismatches, preload links without their module's hash, a missing module script, and vendored packages older than the installed ones. It then runs the Vite plugin's template lint over the project's sources and reports the same warnings, with the file, line, and column.
 
-`build` writes a buildless project's production output for any static host: sources transformed to JavaScript, relative specifiers and module scripts rewritten, every module run through the template prepare pass so the browser never scans a template, and the installed packages vendored with an import map and integrity hashes. `--no-prepare` keeps the scanner.
+`build` bundles the modules `index.html` loads into minified, tree-shaken chunks with hashed names, with Rolldown, the bundler Vite is built on: JSX lowered and every template prepared ahead of time, as in the Vite plugin, lazy routes and compiled locales in chunks of their own, the stylesheets the page links and the modules import combined into one through lightningcss, the files they reference copied under hashed names, `public/` copied as it is, and the page rewritten to load the output under any `--base`. `--unbundled` writes the buildless output instead: sources transformed to JavaScript file by file, prepared, and served with the installed packages vendored behind an import map with integrity hashes. `--no-prepare` keeps the scanner in either.
 
-`new` writes the standard application layout with a working first page, the scripts, and an `AGENTS.md`: Vite and TypeScript by default, `--js` for JavaScript with JSDoc types, `--buildless` for TypeScript on an import map with no bundler, served by `dev` and written out by `build`.
+`new` writes the standard application layout with a working first page, the scripts, and an `AGENTS.md`: Vite and TypeScript by default, `--js` for JavaScript with JSDoc types, `--buildless` for TypeScript on an import map with no bundler, served by `dev` and written out by `build --unbundled`.
 
 From this repository, `cargo build --release` puts the binary at `target/release/zerolith`. The [command line guide](https://molexxxx.github.io/zerolith/guide/command-line/) documents every command.

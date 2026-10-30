@@ -1,6 +1,6 @@
 # @zerolith/cli
 
-The `zerolith` command line from npm: `new`, `dev`, `serve`, `build`, `importmap`, and `doctor`. The binary is written in Rust; this package carries none itself and depends optionally on one package per platform, so npm installs only the binary that matches the machine.
+The `zerolith` command line from npm: `new`, `dev`, `serve`, `build`, which bundles and minifies an application with Rolldown compiled into the binary, `importmap`, and `doctor`. The binary is written in Rust; this package carries none itself and depends optionally on one package per platform, so npm installs only the binary that matches the machine.
 
 Start a project with nothing installed; the project it writes lists this package, so its scripts find the binary:
 

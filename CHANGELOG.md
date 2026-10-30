@@ -7,9 +7,11 @@ Every package in this repository is released together and carries the same versi
 ### Breaking changes
 
 - `@zerolith/vite`: a client build fails with `lazy_module_not_split` when a view loaded with the router's `lazy()`, or a locale module of a message index compiled by `zerolith-i18n`, is also imported statically, which would put it in the importing chunk instead of a chunk of its own. Server builds are not checked.
+- `@zerolith/cli` and the `zerolith` crate: `zerolith build` bundles the application instead of writing it file by file. The previous output, sources transformed one by one and served with the packages vendored behind an import map, is `zerolith build --unbundled`, which `zerolith new --buildless` now writes into the project's build script.
 
 ### Added
 
+- `@zerolith/cli` and the `zerolith` crate: `zerolith build` bundles with Rolldown and lightningcss compiled into the binary, with no Node tooling. The modules `index.html` loads become minified, tree-shaken chunks with content hashes in their names; lazy route views and compiled locales get chunks of their own, under the same `lazy_module_not_split` check as the Vite plugin; JSX is lowered and every template prepared as in `vite build`; the stylesheets the page links and the modules import become one file, with local `@import`s inlined under their conditions and the result lowered for the supported browsers; imported and referenced files are copied under hashed names, `?url` and `?raw` imports included; `public/` is copied as it is; and the page is rewritten to load the output, with its static imports preloaded. `--base`, `--mode`, `--sourcemap`, `--no-minify`, and `--empty-out-dir` configure it, and `import.meta.env` carries the mode and the base.
 - `@zerolith/cli` and the `zerolith` crate: `zerolith doctor` runs the template lint of the Vite plugin over the project's sources and reports the same warnings, with the file, line, and column; a shared fixture holds both implementations to the same findings.
 
 ### Changed

@@ -1,6 +1,6 @@
 [package]
 name = "zerolith"
-description = "The zerolith command line: a dev server for the buildless path, import map generation, and project checks"
+description = "The zerolith command line: a production bundler built on Rolldown, a dev server that serves TypeScript and JSX, import map generation, and project checks"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

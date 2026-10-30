@@ -1,10 +1,12 @@
 ---
 title: Vite
-description: "The Vite plugin: hot module replacement that swaps components in place and keeps named signal state, and the parts of a build it leaves alone."
+description: "For projects that use Vite: the plugin brings zerolith's build passes into Vite and adds hot module replacement that swaps components in place and keeps named signal state."
 order: 12
 ---
 
 # Vite
+
+[Vite](https://vite.dev) is a separate tool from the wider JavaScript ecosystem, run with Node, that does two jobs for a web project: a development server that serves the source files to the browser while you work and updates the page as you edit, and a production build that bundles and minifies them. Many frameworks are built on it. A zerolith project does not need it: `zerolith dev` and `zerolith build` in the [command line](/guide/command-line/) do both jobs, and the build runs Rolldown, the bundler Vite itself uses. This guide is for a project that already uses Vite, or that wants a Vite plugin such as Tailwind's: the zerolith plugin brings the same JSX lowering, template preparation, and build checks into Vite, and adds hot replacement that swaps components in place.
 
 zerolith runs under Vite without a plugin. The packages are plain ES modules, and Vite's default `development` condition selects the build with diagnostic text and the inspector while developing and the lean build for production. What the plugin adds is hot module replacement that understands components, so an edit lands in the page without a reload and without losing the state you were looking at.
 

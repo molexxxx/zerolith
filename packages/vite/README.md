@@ -1,6 +1,6 @@
 # @zerolith/vite
 
-The Vite plugin for zerolith. zerolith runs under Vite with no plugin: the packages are plain ES modules, and Vite's default `development` condition selects the diagnostic build and the inspector in development. The plugin adds what a build step makes possible.
+The Vite plugin for zerolith, for projects that use [Vite](https://vite.dev). A zerolith project does not need Vite: `zerolith dev` and `zerolith build` from `@zerolith/cli` serve and bundle it on their own, with the same passes this plugin runs. zerolith also runs under Vite with no plugin: the packages are plain ES modules, and Vite's default `development` condition selects the diagnostic build and the inspector in development. The plugin adds what a build step makes possible.
 
 ```ts
 // vite.config.ts

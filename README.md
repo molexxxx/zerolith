@@ -31,7 +31,7 @@ Bind the signal, not its value: `${count}` stays live, while `${count.get()}` re
 ## Why zerolith
 
 - **Clear patterns, coded diagnostics.** Each concept has one documented form, and every runtime error carries a stable code, its cause, and the fix, with a page per code. See [diagnostics](docs/guide/diagnostics.md).
-- **Buildless or bundled, same files.** Plain JavaScript and `html` templates run from an import map or through Vite. The bundler and the Rust command line optimize; neither is required. See the [command line](docs/guide/command-line.md) and [Vite](docs/guide/vite.md) guides.
+- **Buildless or bundled, same files.** Plain JavaScript and `html` templates run from an import map with no build step, and `zerolith build` bundles the same files into minified, hashed chunks with the Rust command line alone. Projects already on Vite get the same passes from a plugin. See the [command line](docs/guide/command-line.md) and [Vite](docs/guide/vite.md) guides.
 - **Docs that cannot drift.** Every example in the guides is a test that runs in CI, and the API reference is generated from the source.
 - **Ready for coding agents.** An always-on [AGENTS.md](AGENTS.md), a Markdown twin of every docs page indexed by `llms.txt`, and a Vite plugin that flags mistakes such as frozen reads at transform time.
 - **Dev tools wherever it runs.** The inspector is a plain module, so it works under Vite, a static server, electron-vite, or `file://`, with no browser extension. See [dev tools](docs/guide/dev-tools.md).
@@ -52,7 +52,7 @@ Everything below runs, is tested in this repository, and is published under the 
 | Dev tools | `@zerolith/devtools` | The in-page inspector, named signals, and Performance panel tracks |
 | Observability | `@zerolith/otel` | OpenTelemetry spans for navigation, hydration, and requests |
 | Build | `@zerolith/vite` | JSX lowering, hot replacement that keeps named state, transform-time warnings, templates prepared at build time, and a production build check |
-| Command line | `@zerolith/cli` | The Rust command line with prebuilt binaries: `new`, `dev`, `serve`, `build` with templates prepared ahead of time, `importmap` with integrity hashes, and `doctor` |
+| Command line | `@zerolith/cli` | The Rust command line with prebuilt binaries: `new`, `dev`, `serve`, `build`, which bundles and minifies with templates prepared ahead of time, `importmap` with integrity hashes, and `doctor` |
 
 Two example applications show it end to end: [notes](examples/notes) with no build step, and [tasks](examples/tasks) on Vite with a typed client and compiled messages.
 

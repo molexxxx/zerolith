@@ -3,11 +3,14 @@
 //! `dev` and `serve` host a folder for the buildless path, `importmap`
 //! vendors the installed packages and writes an import map with integrity
 //! hashes, `doctor` checks a project for the mistakes that are easy to make
-//! without a build step, `build` writes the production output of a buildless
-//! project, and `new` writes the standard application layout.
+//! without a build step, `build` bundles and minifies a project for
+//! production or, with `--unbundled`, writes it file by file with an import
+//! map, and `new` writes the standard application layout.
 
 mod build;
+mod css;
 mod doctor;
+mod html;
 mod importmap;
 mod lint;
 mod mime;
@@ -15,7 +18,9 @@ mod new;
 mod prepare;
 mod scan;
 mod server;
+mod split;
 mod transform;
+mod unbundled;
 mod watch;
 
 use std::path::PathBuf;
@@ -71,17 +76,35 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Build the project for static hosting: sources transformed to JavaScript, specifiers and module scripts rewritten, packages vendored with an import map and integrity hashes.
+    /// Build the project for production: the modules index.html loads bundled into minified chunks with hashed names, lazy routes split out, and the stylesheets combined into one.
     Build {
-        /// The project folder.
+        /// The project folder, holding index.html.
         #[arg(default_value = ".")]
         root: PathBuf,
-        /// The output folder, relative to the project; it is emptied first.
+        /// The output folder, relative to the project unless absolute; it is emptied first when it is inside the project.
         #[arg(long, default_value = "dist")]
         out: PathBuf,
+        /// Empty an output folder outside the project before writing into it.
+        #[arg(long)]
+        empty_out_dir: bool,
+        /// The public path the app is served under, such as /app/; ./ makes every URL relative to the page.
+        #[arg(long, default_value = "/")]
+        base: String,
+        /// The mode: production builds use the production entries of the packages, any other mode the development ones.
+        #[arg(long, default_value = "production")]
+        mode: String,
+        /// Write a source map next to each chunk.
+        #[arg(long)]
+        sourcemap: bool,
+        /// Keep the output readable: dead code is still removed, but names and whitespace stay.
+        #[arg(long)]
+        no_minify: bool,
         /// Keep the template scanner and leave `html` literals as they are, for a project that passes `html` around as a value.
         #[arg(long)]
         no_prepare: bool,
+        /// Write the sources file by file, transformed to JavaScript, with the packages vendored behind an import map, instead of bundling.
+        #[arg(long, conflicts_with_all = ["empty_out_dir", "base", "mode", "sourcemap", "no_minify"])]
+        unbundled: bool,
     },
     /// Write a new application with the standard layout: Vite and TypeScript by default.
     New {
@@ -126,8 +149,30 @@ async fn main() -> ExitCode {
         Command::Build {
             root,
             out,
+            empty_out_dir,
+            base,
+            mode,
+            sourcemap,
+            no_minify,
             no_prepare,
-        } => build::run(&root, &out, !no_prepare),
+            unbundled,
+        } => {
+            if unbundled {
+                unbundled::run(&root, &out, !no_prepare)
+            } else {
+                build::run(&build::Options {
+                    root,
+                    out,
+                    empty_out_dir,
+                    base: build::normalize_base(&base),
+                    mode,
+                    minify: !no_minify,
+                    sourcemap,
+                    prepare: !no_prepare,
+                })
+                .await
+            }
+        }
         Command::New {
             root,
             js,

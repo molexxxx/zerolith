@@ -10,7 +10,7 @@ use std::collections::{BTreeSet, HashSet};
 use oxc_allocator::Allocator;
 use oxc_ast::ast::{
     BindingIdentifier, Expression, IdentifierReference, ImportDeclarationSpecifier, Program,
-    Statement, StaticMemberExpression, TaggedTemplateExpression,
+    Statement, StaticMemberExpression, TSType, TaggedTemplateExpression,
 };
 use oxc_ast_visit::{Visit, walk};
 use oxc_parser::Parser;
@@ -81,6 +81,8 @@ impl Finder<'_> {
 }
 
 impl<'a> Visit<'a> for Finder<'_> {
+    fn visit_ts_type(&mut self, _it: &TSType<'a>) {}
+
     fn visit_tagged_template_expression(&mut self, it: &TaggedTemplateExpression<'a>) {
         if self.error.is_some() {
             return;
@@ -213,11 +215,16 @@ fn collect_imports(
 
 /// Prepares every `html` literal of a JavaScript module; a module that imports no `html` from zerolith comes back unchanged.
 pub fn prepare(source: &str) -> Result<String, TransformError> {
+    prepare_source(source, SourceType::mjs())
+}
+
+/// Prepares every `html` literal of a module of any source type, TypeScript and JSX included; types are skipped, as the Vite plugin skips them.
+pub fn prepare_source(source: &str, source_type: SourceType) -> Result<String, TransformError> {
     if !source.contains(SPECIFIER) {
         return Ok(source.to_string());
     }
     let allocator = Allocator::default();
-    let parsed = Parser::new(&allocator, source, SourceType::mjs()).parse();
+    let parsed = Parser::new(&allocator, source, source_type).parse();
     if let Some(error) = parse_errors(parsed.diagnostics, source) {
         return Err(error);
     }
@@ -425,6 +432,17 @@ mod tests {
             prepare("export { render } from \"zerolith\";\n").unwrap(),
             "export { render } from \"zerolith\";\n"
         );
+    }
+
+    #[test]
+    fn prepares_typescript_and_skips_types() {
+        let source = "import { html } from \"zerolith\";
+type Tag = typeof html;
+export const view = (label: string): unknown => html`<p>${label as string}</p>`;
+";
+        let out = super::prepare_source(source, oxc_span::SourceType::ts()).unwrap();
+        assert!(out.contains("html(__zl_t0, label as string)"), "{out}");
+        assert!(out.contains("type Tag = typeof html;"), "{out}");
     }
 
     #[test]

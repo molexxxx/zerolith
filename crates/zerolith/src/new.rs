@@ -57,7 +57,7 @@ fn package_json(name: &str, flavor: Flavor) -> String {
             vec![
                 "        \"dev\": \"zerolith dev .\"",
                 "        \"vendor\": \"zerolith importmap --html index.html --development\"",
-                "        \"build\": \"zerolith build . --out dist\"",
+                "        \"build\": \"zerolith build . --out dist --unbundled\"",
                 "        \"check\": \"npm run typecheck && npm run lint && npm test\"",
                 "        \"typecheck\": \"tsc -p tsconfig.json\"",
                 "        \"lint\": \"oxlint\"",

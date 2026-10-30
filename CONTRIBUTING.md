@@ -40,6 +40,7 @@ Thank you for considering a contribution. This page covers the mechanics; [GOVER
 | `npm run lint` | Lint with oxlint |
 | `npm test` | Run the Node test project |
 | `npm run test:browser` | Run the browser test project in headless Chromium |
+| `npm run test:cli` | Build the examples with the `zerolith` binary and drive the output in headless Chromium; run `cargo build` first, which it finds in `target/release` or `target/debug` by date, or point `ZEROLITH_BINARY_PATH` at a binary. CI runs it in the Rust job |
 | `npm run check` | Build, typecheck, lint, both test projects, the size budget, and the docs build; this is what CI runs |
 | `npm run size` | Check the compressed size budget |
 | `npm run docs` | Build the docs site into `site/`; fails on an undocumented export, a missing example, or a broken link. `ZEROLITH_DOCS_BASE=/zerolith/` builds it for a subpath, as GitHub Pages serves it |
@@ -75,7 +76,7 @@ Thank you for considering a contribution. This page covers the mechanics; [GOVER
 
 ## Rust
 
-The command line lives in `crates/zerolith`. `rust-toolchain.toml` pins the compiler for rustup users and CI; the crate also builds on the minimum version in `Cargo.toml`, 1.97, which the oxc crates require. Rust code follows default `rustfmt` formatting, `unsafe_code` is forbidden, and CI runs `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, and a release build.
+The command line lives in `crates/zerolith`. `rust-toolchain.toml` pins the compiler for rustup users and CI; the crate also builds on the minimum version in `Cargo.toml`, 1.97, which the oxc crates require. Rust code follows default `rustfmt` formatting, `unsafe_code` is forbidden, and CI runs `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, and a release build, then builds the examples with that binary and drives them in a browser through `npm run test:cli`.
 
 ## Commits
 
