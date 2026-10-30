@@ -8,6 +8,9 @@ name: Release
 # secret is only read when it exists, for the first publish of a package
 # that has no trusted publisher yet.
 #
+# A release that publishes the core also rebuilds the documentation site
+# from the same commit and deploys it to GitHub Pages.
+#
 # @zerolith/cli carries no binary: one platform package per target does,
 # built here on the matching runner. Linux builds on Ubuntu 22.04 so the
 # binaries link against glibc 2.35 and run on older distributions.
@@ -172,6 +175,18 @@ jobs:
           name: sbom-${{ github.run_id }}
           path: sbom.cdx.json
           retention-days: 90
+
+  docs:
+    name: Docs
+    needs: npm
+    if: ${{ !cancelled() && needs.npm.result == 'success' && github.event.inputs.dry_run != 'true' && (github.event.inputs.package == 'all' || github.event.inputs.package == 'zerolith' || startsWith(github.ref_name, 'zerolith@')) }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/docs.yml
+    with:
+      ref: ${{ github.sha }}
 
   crate:
     name: crates.io

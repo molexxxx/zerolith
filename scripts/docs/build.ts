@@ -10,11 +10,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { marked } from "marked";
 import { diagnosticCatalog } from "zerolith";
+import { normalizeBase, rebaseHtml, rebaseMarkdown, rebasePath } from "./base.ts";
 import { type NavSection, type PageData, globalStyles, markdownTwin, renderPage } from "./layout.ts";
 import { type Entry, type ManifestSymbol, extract, referencePage, symbolsOf } from "./reference.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const out = join(root, "site");
+/** Where the site is served: `ZEROLITH_DOCS_BASE`, `/` by default, `/zerolith/` on GitHub Pages. */
+const base = normalizeBase(process.env["ZEROLITH_DOCS_BASE"]);
 
 const entries: Entry[] = [
     { specifier: "zerolith", file: "packages/zerolith/src/index.ts", title: "zerolith" },
@@ -353,15 +356,24 @@ await Promise.all(pages.map(async (page) =>
     const html = renderPage(data);
     rendered.set(page.path, html);
     await Promise.all([
-        write(page.path === "/" ? "index.html" : `${page.path}index.html`, html),
-        write(markdownTwin(page.path), page.markdown + "\n")
+        write(page.path === "/" ? "index.html" : `${page.path}index.html`, rebaseHtml(html, base)),
+        write(markdownTwin(page.path), rebaseMarkdown(page.markdown, base) + "\n")
     ]);
 }));
 checkLinks(pages, rendered);
 
+const missing = renderPage({
+    title: "Page not found",
+    description: "This page does not exist.",
+    path: "/404/",
+    content: "<h1>Page not found</h1><p>Nothing lives at this address. Try the search, or start from the <a href=\"/\">introduction</a>.</p>",
+    nav
+});
+await write("404.html", rebaseHtml(missing, base));
+
 await write("styles.css", globalStyles);
 await write("api.json", JSON.stringify({ generated: new Date().toISOString(), symbols: manifest }, null, 2) + "\n");
-await write("search.json", JSON.stringify(searchIndex(pages)));
+await write("search.json", JSON.stringify(searchIndex(pages).map((entry) => ({ ...entry, path: rebasePath(entry.path, base) }))));
 await copyIsland();
 
 const llms = ["# zerolith", "", "> A standalone frontend framework: fine-grained signals, HTML templates that need no compiler, typed routing, and tooling that works wherever the app is served.", ""];
@@ -374,7 +386,7 @@ for (const section of ["Guide", "Reference", "Diagnostics"] as const)
     }
     llms.push("");
 }
-await write("llms.txt", llms.join("\n"));
-await write("llms-full.txt", pages.map((page) => page.markdown).join("\n\n\n") + "\n");
+await write("llms.txt", rebaseMarkdown(llms.join("\n"), base));
+await write("llms-full.txt", rebaseMarkdown(pages.map((page) => page.markdown).join("\n\n\n"), base) + "\n");
 
-console.log(`docs: ${pages.length} pages, ${manifest.length} reference symbols, ${Math.round(performance.now() - start)} ms, written to site/`);
+console.log(`docs: ${pages.length} pages, ${manifest.length} reference symbols, ${Math.round(performance.now() - start)} ms, written to site/ for ${base}`);

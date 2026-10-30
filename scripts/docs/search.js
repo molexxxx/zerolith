@@ -142,7 +142,7 @@ export function Search()
 {
     const query = signal("");
     const index = resource({
-        params: () => (terms(query.get()).length > 0 ? "/search.json" : undefined),
+        params: () => (terms(query.get()).length > 0 ? new URL("search.json", import.meta.url).href : undefined),
         loader: async ({ params, abort }) => /** @type {Entry[]} */ (await (await fetch(params, { signal: abort })).json())
     });
     const hits = computed(() => rank(index.get() ?? [], query.get()).slice(0, 8));

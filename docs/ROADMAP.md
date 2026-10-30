@@ -1,59 +1,170 @@
 # Roadmap
 
-Where zerolith stands, what comes next, and where it is headed. There are no dates: items move when they are ready, and anything that changes the public API goes through an RFC first, as [GOVERNANCE.md](../GOVERNANCE.md) describes.
+Where zerolith stands, what remains before 1.0, and what follows it. There are no dates: items move when they are ready, and anything that changes the public API goes through an [RFC](rfcs/0000-template.md) first. A checked item is on `main` and tested; an unchecked item is planned. The [changelog](../CHANGELOG.md) records what each release contains.
 
-## Shipped
+The plan behind this page comes from a design research pass on 2026-10-28. That report is not published; its conclusions are recorded here and in the [architecture decisions](decisions/). Where an ADR or RFC mentions "the research report", it means that document.
 
-Everything here runs and is tested in this repository, and the first alpha is published under the `alpha` dist-tag on npm and on crates.io.
+## Where it stands
 
-- **Runtime.** Signals (`signal`, `computed`, `effect`, `batch`, `resource`), `html` and `css` tagged templates with keyed lists and conditions, fine-grained rendering, hydration, server rendering, custom elements with attributes and properties as signals, JSX as an alternative spelling of `html`, and coded diagnostics with a page per code. The runtime has no dependencies and runs under a strict Content Security Policy and Trusted Types.
-- **Packages.** Router, forms, typed client generated from OpenAPI, i18n with compiled MessageFormat 2 catalogs, accessibility primitives, test helpers, dev tools, OpenTelemetry spans, and the Vite plugin.
-- **Tooling.** The Rust command line (`new`, `dev`, `serve`, `build`, `importmap`, `doctor`), published on npm as `@zerolith/cli` with a prebuilt binary per platform and on crates.io, the template prepare pass in the Vite plugin and in `zerolith build` (held to one output by a shared fixture), transform-time warnings in the Vite plugin, a size budget and a benchmark harness enforced in CI, and a CycloneDX SBOM.
-- **Docs.** Guides whose examples are tests, a reference generated from the source, search, and a Markdown twin of every page indexed by `llms.txt` and `llms-full.txt`.
-- **Project.** Governance, a security policy, the support window and release channels, the RFC process, OpenSSF Scorecard, SHA-pinned workflows, and the brand system.
+`0.1.0-alpha.1` was published on 2026-10-29: the core, ten first-party packages, and the command line, on npm under the `alpha` dist-tag with provenance and on crates.io. The API is not frozen, and minor versions may change it until 1.0.
+
+| Area | State |
+| --- | --- |
+| Runtime | Feature-complete for 1.0; the API freeze is next |
+| Router, forms, typed client | Feature-complete for 1.0; real-time data follows 1.0 |
+| Build path | Vite plugin and Rust build share one prepare pass; two optimizer passes remain |
+| Command line | Published with prebuilt binaries for six targets |
+| Dev tools and testing | Shipped; the browser extension adapter remains |
+| Accessibility, i18n, observability | Shipped; the conformance report and the MessageFormat 1 import remain |
+| Docs | Built and tested in CI; deployed to GitHub Pages by each release from the next one on |
+| Coding agents | In-repo context shipped; MCP servers, Skills, and evals remain |
+| Adoption | No production application yet; the first migration is next |
+| Project and supply chain | Policies and provenance shipped; trusted publishing and canaries remain |
 
 ## Next
 
-- Freeze the API of the core, templates, and router for 1.0.
-- Trusted publishing for every package and the crate, then the canary channel.
-- Run the template lint from the Rust command line, so `zerolith doctor` reports the same warnings as the Vite plugin.
+In order:
 
-## Planned
+1. Register the project domain and move the docs there from GitHub Pages. Every diagnostic links to its page on the docs site, so the address has to be permanent before 1.0.
+2. Move every package and the crate to trusted publishing, then start the canary channel.
+3. Finish the build path: static hoisting and the lazy-route split check, and the template lint in `zerolith doctor`.
+4. Migrate the first production site onto zerolith.
+5. Review the core, templates, and router API through an RFC and freeze it for 1.0.
 
-### Real time
+## 1.0
 
-- Signals the server can push over Server-Sent Events, resuming from `Last-Event-ID` after a reconnect.
-- WebSocket for two-way and binary traffic, and WebTransport behind feature detection.
+1.0 ships when all of these hold. The API of the core, templates, and router is then supported for 24 months under the [support policy](policy/support.md).
 
-### Coding agents
+- [ ] The API of the core, templates, and router is frozen through an RFC.
+- [ ] The docs site is live at the project's own domain, built with zerolith itself, and every diagnostic code's page resolves there.
+- [ ] A production site runs on zerolith, served buildless with an import map and integrity hashes, with a Lighthouse budget enforced in CI.
+- [ ] A keyed entry is submitted to js-framework-benchmark, with the core inside its 10 kB compressed budget.
+- [ ] Every package publishes through trusted publishing with provenance, and the canary channel runs.
+- [x] The test suite passes unbundled under a CSP without `unsafe-eval` and bundled with Vite.
+- [x] Every docs example is a test, so a broken example fails CI.
+- [x] Every public export is documented; the docs build fails on an undocumented one.
 
-- An MCP server for the docs, and one inside the dev server that exposes the reactive graph with a read-only mode.
-- Agent Skills, and a public eval suite that measures whether the in-repo context helps agents, published with its method.
+## Runtime
 
-### Docs and editors
+- [x] Signals: `signal`, `computed`, `effect`, `batch`, `untracked`, `scope`, and `resource`, on the TC39 vocabulary.
+- [x] `html` and `css` tagged templates, keyed `each`, `when`, refs, and scoped styles.
+- [x] Fine-grained rendering with no virtual DOM, under Trusted Types and a strict CSP.
+- [x] Server rendering to strings and hydration with mismatch repair and reporting.
+- [x] Coded diagnostics with a cause, a fix, and a page per code.
+- [x] Custom elements with attributes and properties as signals (`zerolith/element`).
+- [x] JSX as an alternative spelling of `html` ([RFC 0001](rfcs/0001-jsx-authoring.md)).
+- [x] Mounting by element or CSS selector.
+- [x] Templates prepared ahead of time by a build tool, with the scanner left out of the bundle.
+- [ ] Streaming server rendering.
+- [ ] Islands as a public API: server-rendered pages that hydrate only their interactive parts. The docs search already runs this way.
+- [ ] Form-associated custom elements through `ElementInternals`.
+- [ ] Attribute checking inside `html` templates through template literal types, as a bounded experiment. JSX already checks attributes.
 
-- A versioned API manifest that feeds the agent index and editor tooling.
-- A VS Code extension for templates, generated from that manifest.
-- Type-checked code samples on every docs page.
+## Router
 
-### Tooling
+- [x] A typed route table with lazy views, loaders, head metadata, and scroll restoration.
+- [x] A server entry with head rendering and embedded route data that the browser reuses.
+- [x] An `observe` hook for navigation start, commit, and error.
+- [ ] Generated route declarations for large route tables, where inference slows type checking.
+- [ ] View-stack routing for desktop applications: history, kept-alive views, and full-screen views.
 
-- `zerolith migrate`, with codemods between versions.
-- An entry in js-framework-benchmark. Performance claims appear only with a reproducible benchmark beside them.
+## Data and forms
 
-### Enterprise readiness
+- [x] `@zerolith/client`: types and a route table generated from OpenAPI 3.x, checked calls, problems as errors, and a message port transport.
+- [x] `@zerolith/forms`: native forms enhanced with `fetch`, RFC 9457 problems with a `fields` map, and Standard Schema validation shared with the server.
+- [ ] An in-process transport that calls a handler directly, for tests.
+- [ ] Signals the server pushes over Server-Sent Events, resuming from `Last-Event-ID` after a reconnect.
+- [ ] WebSocket for two-way and binary traffic, and WebTransport behind feature detection.
 
-- An accessibility conformance report for the first-party components.
-- The latest, canary, and experimental release channels running as [the support policy](policy/support.md) describes.
+## Build path
 
-### Ecosystem and community
+See [ADR 0005](decisions/0005-build-path.md).
 
-- An adapter contract and a directory for third-party packages.
-- A showcase of applications built with zerolith.
-- A second maintainer with release rights, and a contributor ladder.
+- [x] `@zerolith/vite`: JSX lowering, hot replacement that keeps named signals, development warnings, and a production check against development modules.
+- [x] The template prepare pass in `vite build` and in `zerolith build`, held to one output by a shared fixture.
+- [x] A size budget for the core and for a built example, enforced in CI.
+- [ ] Static hoisting of templates with no bindings.
+- [ ] A check that no eager import pulls a lazy route or a locale into the entry chunk.
+- [ ] Adapters for Rolldown, esbuild, Rspack, and webpack, each as it is asked for.
+
+## Command line
+
+See [ADR 0006](decisions/0006-command-line-distribution.md).
+
+- [x] `new`, `dev`, `serve`, `build`, `importmap`, and `doctor`.
+- [x] `dev` and `build` serve and write TypeScript and JSX through oxc with no other tool.
+- [x] `@zerolith/cli` on npm with prebuilt binaries for Linux, macOS, and Windows on x64 and arm64, and the crate on crates.io.
+- [ ] `doctor` reports the same template warnings as the Vite plugin.
+- [ ] `zerolith migrate`, with codemods between versions.
+- [ ] A musl binary and a WebAssembly fallback for platforms without one.
+
+## Dev tools and testing
+
+- [x] The in-page inspector: component tree, signal graph, route state, and diagnostics, from any host including `file://`.
+- [x] Render and signal tracks in Chrome's Performance panel.
+- [x] Chrome DevTools workspace support from `zerolith dev`.
+- [x] `@zerolith/test`: mount with cleanup, settle, hydration mismatches, and accessibility issues.
+- [ ] A thin browser extension panel over the same hook.
+- [ ] The inspector verified in a packaged Electron build.
+
+## Accessibility, i18n, and observability
+
+- [x] `@zerolith/a11y`: focus trap, roving tabindex, live announcer, focus origin, visually hidden styles, and media query signals.
+- [x] Warnings for images without alt text, unnamed buttons, and untitled frames.
+- [x] `@zerolith/i18n`: locale negotiation, direction, `Intl` formatters, and MessageFormat 2 catalogs compiled to typed modules.
+- [x] `@zerolith/otel`: navigation, hydration, and request spans through `@opentelemetry/api`.
+- [ ] An accessibility audit of the rendered page while developing.
+- [ ] An import path for existing MessageFormat 1 catalogs.
+- [ ] An accessibility conformance report for the first-party packages.
+
+## Docs
+
+- [x] Guides whose examples are tests, a reference generated from the source, and search built with zerolith.
+- [x] A Markdown twin of every page, indexed by `llms.txt` and `llms-full.txt`.
+- [x] A page for every diagnostic code.
+- [ ] The site on [GitHub Pages](https://molexxxx.github.io/zerolith/), deployed by each release from the commit it published.
+- [ ] The site at the project's own domain.
+- [ ] A versioned API manifest that feeds the agent index and editor tooling.
+- [ ] Type-checked code samples on every page.
+- [ ] Link, prose, and spelling checks in CI.
+- [ ] A VS Code extension for templates, generated from the manifest.
+
+## Coding agents
+
+- [x] An `AGENTS.md` in this repository and in every project `zerolith new` writes.
+- [ ] An MCP server for the docs.
+- [ ] An MCP server inside the dev server that exposes the reactive graph, with a read-only mode.
+- [ ] Agent Skills.
+- [ ] A public eval suite that measures whether the in-repo context helps agents, published with its method. No claim about agent results appears before it.
+
+## Adoption
+
+- [ ] The first production site moves onto zerolith, served buildless.
+- [ ] An Electron desktop application adopts zerolith view by view: custom elements inside its existing React tree, the typed client over its IPC bridge, and state bridged to signals.
+- [ ] A showcase of applications built with zerolith, and named design partners.
+- [ ] zero-query, the predecessor, moves to maintenance and later retires as [ADR 0004](decisions/0004-zero-query-maintenance-and-retirement.md) describes.
+
+## Project and supply chain
+
+- [x] Governance, a security policy, a 24-month support window, release and versioning policies, and the RFC process with a seven-day final comment period.
+- [x] A code of conduct, a contributing guide, issue forms, a pull request template, and code owners.
+- [x] SHA-pinned workflows, OpenSSF Scorecard, a CycloneDX SBOM, and provenance on every published package.
+- [x] Private vulnerability reporting and secret scanning with push protection.
+- [ ] Trusted publishing for every npm package and the crate, with no publish token left anywhere.
+- [ ] Canary releases on every merge under the `canary` dist-tag.
+- [ ] GitHub releases created by the release workflow, with the SBOM attached.
+- [ ] The OpenSSF Best Practices badge, passing and then silver.
+- [ ] A trademark search for the name.
+
+## Community
+
+- [x] The RFC process and contributing guide.
+- [ ] A contributor ladder, and a second maintainer with release rights.
+- [ ] An adapter contract and a directory for third-party packages.
+- [ ] Sponsorship with a line for funding ecosystem work.
 
 ## Not planned
 
 - **A required compiler.** The bundler and the command line optimize; plain files always run.
 - **WebRTC in the core.** A separate package may follow later.
-- **Coupling to a particular backend.** zerolith talks to any server over plain HTTP; an integration with a specific server is a separate package, never a requirement of the core.
+- **Coupling to a particular backend.** zerolith talks to servers over plain HTTP ([ADR 0002](decisions/0002-standalone-framework.md)).

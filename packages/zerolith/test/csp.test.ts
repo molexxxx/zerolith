@@ -189,7 +189,7 @@ describe("buildless under a strict CSP", () =>
 
         const message = await tab.evaluate(() => (globalThis as { app?: { probeError(): string } }).app?.probeError() ?? "");
         expect(message).toContain("on_dispose_outside_scope");
-        expect(message).toContain("https://zerolith.dev/e/on_dispose_outside_scope");
+        expect(message).toContain("https://molexxxx.github.io/zerolith/e/on_dispose_outside_scope");
         if (entry.name === "production")
         {
             expect(message).not.toContain("onDispose() was called");

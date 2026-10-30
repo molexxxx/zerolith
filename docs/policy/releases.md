@@ -28,7 +28,7 @@ Alpha and beta versions (`0.1.0-alpha.1` and on) are published under the `alpha`
 2. CI runs the full matrix on the pull request, including the size and benchmark assertions for runtime packages.
 3. After merge, the release manager pushes the tags.
 4. The release workflow builds from the tag, runs the full check again, publishes to npm with provenance through trusted publishing, attaches the CycloneDX SBOM to the run, and publishes the crate to crates.io when it changed.
-5. The documentation site is rebuilt from the tag; the API reference and the agent index (`llms.txt`, the API manifest) are regenerated from the published build, never hand-edited.
+5. The release workflow rebuilds the documentation site from the commit it published and deploys it to GitHub Pages, so the docs always describe what the registry serves; the API reference and the agent index (`llms.txt`, the API manifest) are regenerated from that build, never hand-edited. Pushes to the default branch do not redeploy the site, and a manual run of the docs workflow redeploys a given ref.
 
 No step publishes from a developer machine. Publishing credentials do not exist outside the workflow.
 

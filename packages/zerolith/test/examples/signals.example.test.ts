@@ -1,7 +1,7 @@
 // Executed examples for the signals guide. Each region is included in the
 // documentation verbatim and runs as a test, so the docs cannot drift.
 import { describe, expect, it } from "vitest";
-import { type ZerolithError, batch, computed, effect, onDiagnostic, onDispose, resource, scope, signal } from "zerolith";
+import { DIAGNOSTIC_URL, type ZerolithError, batch, computed, effect, onDiagnostic, onDispose, resource, scope, signal } from "zerolith";
 
 describe("signals guide", () =>
 {
@@ -128,7 +128,7 @@ describe("signals guide", () =>
         {
             const { diagnostic } = error as ZerolithError;
             expect(diagnostic.code).toBe("on_dispose_outside_scope");
-            expect(diagnostic.url).toBe("https://zerolith.dev/e/on_dispose_outside_scope");
+            expect(diagnostic.url).toBe(DIAGNOSTIC_URL + "on_dispose_outside_scope");
         }
         stop();
         // #endregion diagnostics

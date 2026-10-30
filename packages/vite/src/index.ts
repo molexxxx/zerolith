@@ -4,7 +4,7 @@
  * template prepare pass and the checks on production output.
  */
 import { type Plugin, parseSync } from "vite";
-import { scan } from "zerolith";
+import { DIAGNOSTIC_URL, scan } from "zerolith";
 import { type JsxOutput, lowerJsx } from "./jsx.js";
 import { lintModule, position } from "./lint.js";
 import { PrepareError, prepareModule } from "./prepare.js";
@@ -176,7 +176,7 @@ export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
                     for (const finding of lintModule(code, id, parse))
                     {
                         const { line, column } = position(code, finding.offset);
-                        this.warn({ message: `${finding.code}: ${finding.message} https://zerolith.dev/e/${finding.code}`, pos: finding.offset, loc: { file: id, line, column } });
+                        this.warn({ message: `${finding.code}: ${finding.message} ${DIAGNOSTIC_URL}${finding.code}`, pos: finding.offset, loc: { file: id, line, column } });
                     }
                 }
                 return transformModule(code, id, parse);

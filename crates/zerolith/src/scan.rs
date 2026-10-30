@@ -12,6 +12,9 @@ pub const PROPERTY: u8 = 3;
 pub const EVENT: u8 = 4;
 pub const REF: u8 = 5;
 
+/// Where each diagnostic code has its page; the core's `DIAGNOSTIC_URL`.
+pub const DIAGNOSTIC_URL: &str = "https://molexxxx.github.io/zerolith/e/";
+
 const MARK: &str = "zl$";
 const CHILD_MARKER: &str = "<!--zl$-->";
 const RAW_TAGS: [&str; 3] = ["style", "textarea", "title"];
@@ -44,12 +47,8 @@ pub struct ScanError {
 impl fmt::Display for ScanError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.detail {
-            Some(detail) => write!(
-                f,
-                "{} ({detail}) https://zerolith.dev/e/{}",
-                self.code, self.code
-            ),
-            None => write!(f, "{} https://zerolith.dev/e/{}", self.code, self.code),
+            Some(detail) => write!(f, "{} ({detail}) {DIAGNOSTIC_URL}{}", self.code, self.code),
+            None => write!(f, "{} {DIAGNOSTIC_URL}{}", self.code, self.code),
         }
     }
 }

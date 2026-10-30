@@ -440,7 +440,7 @@ describe("diagnostics", () =>
             expect(diagnostic.severity).toBe("error");
             expect(diagnostic.cause).toMatch(/onDispose/);
             expect(diagnostic.fix.length).toBeGreaterThan(0);
-            expect(diagnostic.url).toBe("https://zerolith.dev/e/on_dispose_outside_scope");
+            expect(diagnostic.url).toBe("https://molexxxx.github.io/zerolith/e/on_dispose_outside_scope");
             expect((error as Error).message).toContain("on_dispose_outside_scope");
             return;
         }
