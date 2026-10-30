@@ -5,6 +5,15 @@
 </picture>
 </h1>
 
+<p>
+  <a href="https://www.npmjs.com/package/zerolith"><img src="https://raw.githubusercontent.com/molexxxx/molexxxx/main/.github/badges/zerolith-npm-zerolith.svg" alt="npm"></a>
+  <a href="https://crates.io/crates/zerolith"><img src="https://raw.githubusercontent.com/molexxxx/molexxxx/main/.github/badges/zerolith-crates-zerolith.svg" alt="crates.io"></a>
+  <a href="https://github.com/molexxxx/zerolith/actions/workflows/ci.yml"><img src="https://raw.githubusercontent.com/molexxxx/molexxxx/main/.github/badges/zerolith-ci-zerolith.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://raw.githubusercontent.com/molexxxx/molexxxx/main/.github/badges/zerolith-license-zerolith.svg" alt="license"></a>
+  <a href="https://molexxxx.github.io/zerolith/"><img src="https://raw.githubusercontent.com/molexxxx/molexxxx/main/.github/badges/zerolith-docs-zerolith.svg" alt="docs"></a>
+  <a href="https://github.com/molexxxx/zerolith/commits/main"><img src="https://raw.githubusercontent.com/molexxxx/molexxxx/main/.github/badges/zerolith-last-commit-zerolith.svg" alt="last commit"></a>
+</p>
+
 Routing, forms, rendering, and i18n, with clear patterns for you and your agent.
 
 > **Alpha.** Packages publish under the `alpha` dist-tag (`npm install zerolith@alpha`) and the API is still settling. Watch the repository or join the [discussions](https://github.com/molexxxx/zerolith/discussions) to follow along.
