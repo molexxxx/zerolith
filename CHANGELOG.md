@@ -2,15 +2,29 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
-## Unreleased
+## 0.1.0-alpha.2 (2026-10-30)
 
-- `zerolith`: `render` and `hydrate` take a CSS selector for the container as well as an element, expose the element as `container` on the root, and report a selector that matches nothing as `mount_target_missing`. The `@zerolith/vite` runtime and `tracedHydrate` in `@zerolith/otel` take the same targets.
-- `zerolith`: `prepared` registers a template's scan made ahead of time, `scan` is exported for build tools, and `template_not_prepared` reports a template a scanner-free bundle never saw.
-- `@zerolith/vite`: the template prepare pass runs in `vite build`, scanning every `html` literal at build time and dropping the scanner from the bundle; `prepare: false` keeps the old behavior.
-- `zerolith`: `DIAGNOSTIC_URL` and every diagnostic link point at the docs on GitHub Pages, `https://molexxxx.github.io/zerolith/e/`, until the project's own domain is registered; the Vite plugin's warnings and the command line use the same address.
-- `@zerolith/cli` and the `zerolith` crate: `build` runs the same prepare pass over the project's modules and the vendored packages, with the scanner replaced by its stand-in, and is held to the Vite plugin's output by a shared fixture.
-- `@zerolith/vite`, `@zerolith/cli`, and the `zerolith` crate: a module that re-exports `html` from zerolith fails a prepared build at its line, since templates tagged through it would reach the browser unprepared; `zerolith build --no-prepare` keeps the scanner, as `prepare: false` does in the plugin.
+Templates are prepared at build time by the Vite plugin and the command line, views mount by CSS selector, and every diagnostic links to a page that exists: the docs site is published to GitHub Pages with each release.
+
+### Breaking changes
+
+- `zerolith`: `DIAGNOSTIC_URL`, and with it the link in every diagnostic, moves from `https://zerolith.dev/e/` to `https://molexxxx.github.io/zerolith/e/`, where the pages are published. The old address never resolved; the links move once more when the project registers its own domain.
+- `@zerolith/vite`: `vite build` runs the template prepare pass by default, and a module that uses `html` from zerolith other than as a template tag, or re-exports it, fails the build at its line. `prepare: false` keeps the previous behavior.
+- `@zerolith/cli` and the `zerolith` crate: `zerolith build` runs the same pass with the same refusals. `--no-prepare` keeps the previous behavior.
+
+### Added
+
+- `zerolith`: `render` and `hydrate` take a CSS selector for the container as well as an element, the root exposes the element it mounted into as `container`, and a selector that matches nothing reports `mount_target_missing`. The `@zerolith/vite` runtime and `tracedHydrate` in `@zerolith/otel` take the same targets.
+- `zerolith`: `prepared` registers a template's scan made ahead of time, `scan` is exported for build tools, and `template_not_prepared` reports a template that a bundle without the scanner was never given.
+- `@zerolith/vite`: the template prepare pass scans every `html` literal at build time, so the browser binds templates without scanning them and the scanner leaves the bundle.
+- `@zerolith/cli` and the `zerolith` crate: `build` runs the prepare pass over the project's modules and the vendored packages and puts the scanner's stand-in in its place, held to the Vite plugin's output by a shared fixture.
+
+### Fixed
+
+- `@zerolith/cli` and the `zerolith` crate: `importmap` and `build` write each module's integrity hash on its preload link. Without it the browser could not use the preloads, because the import map gives the module requests that hash, and downloaded every vendored module twice. `doctor` warns about a page whose preload links lack it, under `preload_integrity_mismatch`.
+- `@zerolith/cli` and the `zerolith` crate: `zerolith new` lists `@zerolith/test` and `@zerolith/vite` as development dependencies.
 - `@zerolith/cli` and the `zerolith` crate: the usage text names the command `zerolith` on every platform instead of the executable file name.
+- Every package: the `latest` dist-tag follows the newest pre-release until a stable version exists, so `npm install zerolith` no longer stays on `0.1.0-alpha.1`.
 
 ## 0.1.0-alpha.1 (2026-10-29)
 
