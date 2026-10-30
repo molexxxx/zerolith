@@ -17,4 +17,5 @@ all = "warn"
 
 [profile.release]
 strip = true
-lto = "thin"
+lto = "fat"
+codegen-units = 1
