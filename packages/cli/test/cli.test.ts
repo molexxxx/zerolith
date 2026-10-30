@@ -40,16 +40,16 @@ describe("platformPackage", () =>
     it("has a platform package directory per entry, constrained to that platform", async () =>
     {
         expect((await readdir(platformsUrl)).toSorted()).toEqual(Object.keys(PLATFORMS).toSorted());
-        for (const [key, name] of Object.entries(PLATFORMS))
+        const entries = Object.entries(PLATFORMS);
+        const manifests = await Promise.all(entries.map(async ([key]) => JSON.parse(await readFile(new URL(`${key}/package.json`, platformsUrl), "utf8")) as PlatformManifest));
+        for (const [index, [key, name]] of entries.entries())
         {
             const [platform, arch] = key.split("-");
-            const manifest = JSON.parse(
-                await readFile(new URL(`${key}/package.json`, platformsUrl), "utf8"),
-            ) as PlatformManifest;
-            expect(manifest.name).toBe(name);
-            expect(manifest.os).toEqual([platform]);
-            expect(manifest.cpu).toEqual([arch]);
-            expect(manifest.files).toContain(binaryName(platform ?? ""));
+            const manifest = manifests[index];
+            expect(manifest?.name).toBe(name);
+            expect(manifest?.os).toEqual([platform]);
+            expect(manifest?.cpu).toEqual([arch]);
+            expect(manifest?.files).toContain(binaryName(platform ?? ""));
         }
     });
 });

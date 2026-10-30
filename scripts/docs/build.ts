@@ -373,7 +373,12 @@ await write("404.html", rebaseHtml(missing, base));
 
 await write("styles.css", globalStyles);
 await write("api.json", JSON.stringify({ generated: new Date().toISOString(), symbols: manifest }, null, 2) + "\n");
-await write("search.json", JSON.stringify(searchIndex(pages).map((entry) => ({ ...entry, path: rebasePath(entry.path, base) }))));
+const searchEntries = searchIndex(pages);
+for (const entry of searchEntries)
+{
+    entry.path = rebasePath(entry.path, base);
+}
+await write("search.json", JSON.stringify(searchEntries));
 await copyIsland();
 
 const llms = ["# zerolith", "", "> A standalone frontend framework: fine-grained signals, HTML templates that need no compiler, typed routing, and tooling that works wherever the app is served.", ""];

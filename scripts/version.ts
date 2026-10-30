@@ -18,11 +18,11 @@ const files = [
     ...manifest.workspaces.map((workspace) => `${workspace}/package.json`),
     ...platforms.map((platform) => `packages/cli/platforms/${platform}/package.json`)
 ];
-for (const file of files)
+await Promise.all(files.map(async (file) =>
 {
     const url = new URL(file, root);
     await writeFile(url, withFirstPartyRanges(withPackageVersion(await readFile(url, "utf8"), version), version));
-}
+}));
 const cargo = new URL("Cargo.toml", root);
 await writeFile(cargo, withCrateVersion(await readFile(cargo, "utf8"), version));
 process.stdout.write(`${version}: ${files.length} manifests and Cargo.toml. Next: npm install, cargo update --workspace, and the CHANGELOG.md section.\n`);
