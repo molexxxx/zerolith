@@ -2,7 +2,9 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
-## Unreleased
+## 0.1.0-alpha.3 (2026-10-30)
+
+The command line now does the whole job on its own: `zerolith new` writes a starter in TypeScript with JSX, `zerolith dev` serves it with packages resolved from `node_modules` and no import map, `zerolith build` bundles and minifies it with Rolldown and lightningcss compiled into the binary, and `zerolith preview` serves the result. Vite stays an option through `@zerolith/vite`, and the inspector no longer freezes the page when it opens.
 
 ### Breaking changes
 
