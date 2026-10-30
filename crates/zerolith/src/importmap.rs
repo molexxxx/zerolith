@@ -264,13 +264,19 @@ pub fn vendor_from(
     Ok(vendored)
 }
 
-/// The script and preload tags for an HTML head.
+/// The script and preload tags for an HTML head. Each preload carries the integrity hash the map gives its module: a browser reuses a preload only when its integrity matches the module request's, which takes the hash from the map.
 pub fn html_tags(vendored: &Vendored) -> String {
     let map = serde_json::to_string(&vendored.map).unwrap_or_default();
     let mut out = format!("<script type=\"importmap\">{map}</script>\n");
     for module in &vendored.modules {
+        let integrity = vendored
+            .map
+            .integrity
+            .get(module)
+            .map(|hash| format!(" integrity=\"{hash}\""))
+            .unwrap_or_default();
         out.push_str(&format!(
-            "<link rel=\"modulepreload\" href=\"{module}\" data-zerolith-preload>\n"
+            "<link rel=\"modulepreload\" href=\"{module}\"{integrity} data-zerolith-preload>\n"
         ));
     }
     out
@@ -452,7 +458,12 @@ mod tests {
         assert!(updated.contains("\"zerolith\":\"/vendor/zerolith/dist/production/index.js\""));
         assert!(!updated.contains("/old.js"));
         assert_eq!(updated.matches("<script type=\"importmap\">").count(), 1);
-        assert!(updated.contains("<link rel=\"modulepreload\" href=\"/vendor/zerolith/dist/production/index.js\" data-zerolith-preload>"));
+        let hash = &vendored.map.integrity["/vendor/zerolith/dist/production/index.js"];
+        assert!(updated.contains(&format!("<link rel=\"modulepreload\" href=\"/vendor/zerolith/dist/production/index.js\" integrity=\"{hash}\" data-zerolith-preload>")));
+        assert_eq!(
+            updated.matches("rel=\"modulepreload\"").count(),
+            updated.matches(" integrity=\"sha256-").count()
+        );
 
         let inserted = update_html(
             "<html><head></head></html>",

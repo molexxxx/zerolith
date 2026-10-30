@@ -29,7 +29,7 @@ The server also answers `/.well-known/appspecific/com.chrome.devtools.json` on l
 zerolith importmap --html index.html
 ```
 
-Copies the installed `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, and `@zerolith/devtools` modules into `vendor/`, writes `vendor/importmap.json`, and replaces or inserts the import map and `modulepreload` links in the page. The map carries an `integrity` entry with the SRI hash of every module reachable from the entries, so a modified file fails to load. Pass `--development` to map the entries with diagnostic text and the inspector instead of the production ones.
+Copies the installed `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, and `@zerolith/devtools` modules into `vendor/`, writes `vendor/importmap.json`, and replaces or inserts the import map and `modulepreload` links in the page. The map carries an `integrity` entry with the SRI hash of every module reachable from the entries, so a modified file fails to load, and each preload link carries the same hash, since a browser reuses a preload only when its integrity matches the module request's. Pass `--development` to map the entries with diagnostic text and the inspector instead of the production ones.
 
 ## doctor
 
@@ -38,7 +38,7 @@ zerolith doctor
 zerolith doctor --json
 ```
 
-Reports coded findings, each with a cause and a fix: `index_missing`, `importmap_missing`, `importmap_invalid`, `importmap_target_missing`, `integrity_mismatch`, `integrity_target_missing`, `module_script_missing`, and `package_outdated`. The exit code is 1 when any finding is an error.
+Reports coded findings, each with a cause and a fix: `index_missing`, `importmap_missing`, `importmap_invalid`, `importmap_target_missing`, `integrity_mismatch`, `integrity_target_missing`, `preload_integrity_mismatch`, `module_script_missing`, and `package_outdated`. The exit code is 1 when any finding is an error.
 
 ## new
 

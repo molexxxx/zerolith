@@ -43,6 +43,31 @@ pub fn import_map_of(html: &str) -> Option<&str> {
     Some(html[start..end].trim())
 }
 
+/// The value of a double-quoted attribute in one tag.
+fn attribute<'t>(tag: &'t str, name: &str) -> Option<&'t str> {
+    let marker = format!(" {name}=\"");
+    let start = tag.find(&marker)? + marker.len();
+    let end = tag[start..].find('"')? + start;
+    Some(&tag[start..end])
+}
+
+/// The `modulepreload` link tags of a page.
+fn preload_links(html: &str) -> Vec<&str> {
+    let mut links = Vec::new();
+    let mut rest = html;
+    while let Some(start) = rest.find("<link") {
+        let Some(end) = rest[start..].find('>') else {
+            break;
+        };
+        let tag = &rest[start..start + end + 1];
+        if attribute(tag, "rel") == Some("modulepreload") {
+            links.push(tag);
+        }
+        rest = &rest[start + end + 1..];
+    }
+    links
+}
+
 /// Runs every check against `root`.
 pub fn check(root: &Path) -> Vec<Finding> {
     let mut findings = Vec::new();
@@ -97,6 +122,20 @@ pub fn check(root: &Path) -> Vec<Finding> {
                     "Regenerate the import map.",
                 ));
             }
+        }
+    }
+    for link in preload_links(&html) {
+        let Some(href) = attribute(link, "href") else {
+            continue;
+        };
+        if let Some(expected) = map.integrity.get(href)
+            && attribute(link, "integrity") != Some(expected.as_str())
+        {
+            findings.push(warning(
+                "preload_integrity_mismatch",
+                format!("the preload link for {href} lacks the integrity hash the import map gives it, so the browser downloads the module twice"),
+                "Run `zerolith importmap --html index.html` again, which writes the hash on every preload link.",
+            ));
         }
     }
     if !html.contains("<script type=\"module\"") {
@@ -185,14 +224,25 @@ mod tests {
         fs::write(root.join("vendor/a.js"), "export {}").unwrap();
         fs::write(
             root.join("index.html"),
-            "<html><head><script type=\"importmap\">{\"imports\":{\"a\":\"/vendor/a.js\",\"b\":\"/vendor/b.js\"},\"integrity\":{\"/vendor/a.js\":\"sha256-wrong\"}}</script></head><body><script type=\"module\" src=\"/app.js\"></script></body></html>",
+            "<html><head><script type=\"importmap\">{\"imports\":{\"a\":\"/vendor/a.js\",\"b\":\"/vendor/b.js\"},\"integrity\":{\"/vendor/a.js\":\"sha256-wrong\"}}</script><link rel=\"modulepreload\" href=\"/vendor/a.js\"><link rel=\"modulepreload\" href=\"/vendor/b.js\"></head><body><script type=\"module\" src=\"/app.js\"></script></body></html>",
         )
         .unwrap();
         let codes: Vec<&str> = check(&root).iter().map(|finding| finding.code).collect();
         assert_eq!(
             codes,
-            vec!["importmap_target_missing", "integrity_mismatch"]
+            vec![
+                "importmap_target_missing",
+                "integrity_mismatch",
+                "preload_integrity_mismatch"
+            ]
         );
+        fs::write(
+            root.join("index.html"),
+            "<html><head><script type=\"importmap\">{\"imports\":{\"a\":\"/vendor/a.js\"},\"integrity\":{\"/vendor/a.js\":\"sha256-wrong\"}}</script><link rel=\"modulepreload\" href=\"/vendor/a.js\" integrity=\"sha256-wrong\"></head><body><script type=\"module\" src=\"/app.js\"></script></body></html>",
+        )
+        .unwrap();
+        let codes: Vec<&str> = check(&root).iter().map(|finding| finding.code).collect();
+        assert_eq!(codes, vec!["integrity_mismatch"]);
         assert_eq!(
             import_map_of("<script type=\"importmap\"> {\"imports\":{}} </script>"),
             Some("{\"imports\":{}}")
