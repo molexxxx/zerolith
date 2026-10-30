@@ -7,7 +7,7 @@ zerolith dev [root] [--port 8080]       serve with live reload
 zerolith serve [root] [--port 8080]     serve without watching
 zerolith importmap [root] [--out vendor] [--development] [--html index.html]
 zerolith doctor [root] [--json]
-zerolith build [root] [--out dist]
+zerolith build [root] [--out dist] [--no-prepare]
 zerolith new <name> [--js] [--buildless]
 ```
 
@@ -19,6 +19,8 @@ Install it from npm as `@zerolith/cli`, which carries a prebuilt binary for Linu
 
 `doctor` reports coded findings: a missing index or import map, map targets that do not exist, integrity mismatches, a missing module script, and vendored packages older than the installed ones.
 
+`build` writes a buildless project's production output for any static host: sources transformed to JavaScript, relative specifiers and module scripts rewritten, every module run through the template prepare pass so the browser never scans a template, and the installed packages vendored with an import map and integrity hashes. `--no-prepare` keeps the scanner.
+
 `new` writes the standard application layout with a working first page, the scripts, and an `AGENTS.md`: Vite and TypeScript by default, `--js` for JavaScript with JSDoc types, `--buildless` for TypeScript on an import map with no bundler, served by `dev` and written out by `build`.
 
-From this repository, `cargo build --release` puts the binary at `target/release/zerolith`.
+From this repository, `cargo build --release` puts the binary at `target/release/zerolith`. The [command line guide](https://molexxxx.github.io/zerolith/guide/command-line/) documents every command.

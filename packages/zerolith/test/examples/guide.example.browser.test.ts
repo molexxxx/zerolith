@@ -42,6 +42,23 @@ describe("templates guide", () =>
         // #endregion counter
     });
 
+    it("mount", () =>
+    {
+        root = undefined;
+        host = document.createElement("main");
+        host.id = "app";
+        document.body.append(host);
+
+        // #region mount
+        const app = render(html`<p>Hello from zerolith</p>`, "#app");
+        expect(app.container).toBe(document.querySelector("#app"));
+        expect(document.querySelector("#app p")?.textContent).toBe("Hello from zerolith");
+
+        app.dispose();
+        expect(document.querySelector("#app p")).toBeNull();
+        // #endregion mount
+    });
+
     it("bindings", () =>
     {
         // #region bindings

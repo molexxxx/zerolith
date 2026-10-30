@@ -16,7 +16,7 @@ format.number(1234.5, { style: "currency", currency: "EUR" });
 - `formatters` wraps `Intl.NumberFormat`, `DateTimeFormat`, `RelativeTimeFormat`, `ListFormat`, and `PluralRules`, cached per locale and options, reading the locale signal when called.
 - `zerolith-i18n` compiles MessageFormat 2 catalogs (`messages/en.json`) into one module per locale, with a function per message and typed arguments, so a locale is one chunk and no message runtime is loaded.
 
-The guide is `docs/guide/i18n.md` in the repository.
+The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/i18n/).
 
 Status: alpha. Install with `npm install @zerolith/i18n@alpha`; the API may change before 1.0.
 

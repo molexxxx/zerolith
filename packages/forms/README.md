@@ -17,7 +17,7 @@ html`<form method="post" action="/notes" @submit=${form.submit}>
 
 Validation is written once as a Standard Schema and runs on both sides: `validateForm` turns the schema's issues into the same problem document the server returns, and `problemResponse` writes that document as a WinterTC `Response`, so the no-JavaScript path and the enhanced path share one handler and one wire shape. Any backend that can answer with `application/problem+json` fits.
 
-The guide is `docs/guide/forms.md` in the repository.
+The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/forms/).
 
 Status: alpha. Install with `npm install @zerolith/forms@alpha`; the API may change before 1.0.
 

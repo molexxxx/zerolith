@@ -2,7 +2,7 @@
 
 A standalone frontend framework: fine-grained signals, HTML templates that need no compiler, and a runtime that loads from an import map or a bundle with no second-class path. It works with any backend over plain HTTP.
 
-Status: alpha. Install with `npm install zerolith@alpha`; the API may change before 1.0. The direction is in the repository's `docs/ROADMAP.md`.
+Status: alpha. Install with `npm install zerolith@alpha`; the API may change before 1.0. The guides, the API reference, and a page for every diagnostic code are on the [docs site](https://molexxxx.github.io/zerolith/), and the direction is in the [roadmap](https://github.com/molexxxx/zerolith/blob/main/docs/ROADMAP.md).
 
 ## The one rule to learn first
 

@@ -10,6 +10,8 @@ Typed client-side routing for zerolith.
 - Back and forward restore the scroll position; new navigations scroll to the top or to the hash.
 - `outlet(router)` renders the current route's view and the fallback for unknown URLs.
 
+The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/routing/).
+
 Status: alpha. Install with `npm install @zerolith/router@alpha`; the API may change before 1.0.
 
 ## License

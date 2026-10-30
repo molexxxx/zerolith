@@ -24,7 +24,7 @@ it("renders and hydrates", async () =>
 - `hydrationMismatches` renders a view with the server renderer, hydrates the same view over that markup, and returns every disagreement, so a component that cannot hydrate fails its test.
 - `accessibilityIssues` finds the defects a test can catch without a browser engine's accessibility tree: images without alternative text, controls without a label, buttons and links without a name, frames without a title.
 
-The guide is `docs/guide/testing.md` in the repository.
+The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/testing/).
 
 Status: alpha. Install with `npm install --save-dev @zerolith/test@alpha`; the API may change before 1.0.
 

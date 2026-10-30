@@ -28,6 +28,12 @@ A component is a function that returns a view. State is signals; the template bi
 
 @include packages/zerolith/test/examples/guide.example.browser.test.ts#counter
 
+## Putting it on the page
+
+`render` mounts a view at the end of an element, named by a CSS selector or passed as the element itself, and returns a root: `container` is the element it mounted into, and `dispose()` removes the view and stops its effects. A selector that matches nothing fails with [`mount_target_missing`](/e/mount_target_missing/). `hydrate` takes the same targets for markup the server rendered; see [Server rendering](/guide/server-rendering/).
+
+@include packages/zerolith/test/examples/guide.example.browser.test.ts#mount
+
 ## Loading it
 
 With no build step, an import map maps the package names to the files, and the application is a module script:
@@ -54,7 +60,7 @@ With a bundler, install the packages and import them; the `development` export c
 - [Diagnostics](/guide/diagnostics/): the error record, stable codes, and production builds.
 - [Dev tools](/guide/dev-tools/): the in-page inspector, named signals, and Performance tracks.
 - [Command line](/guide/command-line/): the dev server for the buildless path, import maps with integrity, and project checks.
-- [Vite](/guide/vite/): hot module replacement that swaps components in place and keeps named state.
+- [Vite](/guide/vite/): hot module replacement that swaps components in place and keeps named state, JSX, and templates prepared at build time.
 - [Testing](/guide/testing/): mount with cleanup, settle async work, and check hydration and accessibility in tests.
 - [Accessibility](/guide/accessibility/): focus trap, roving tabindex, live announcer, focus origin, hidden text, and preference signals.
 - [Custom elements](/guide/elements/): mount a view inside a tree another framework owns, with attributes and properties as signals.

@@ -12,6 +12,8 @@ The dock shows the live reactive graph (every signal, computed value, and effect
 
 The package reads the hook the core publishes in development builds as `globalThis.__ZEROLITH_DEVTOOLS__`. Under the `development` export condition it is the inspector; otherwise it is a no-op, so the call can stay in application code.
 
+The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/dev-tools/).
+
 Status: alpha. Install with `npm install @zerolith/devtools@alpha`; the API may change before 1.0.
 
 ## License

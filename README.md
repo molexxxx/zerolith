@@ -51,8 +51,8 @@ Everything below runs, is tested in this repository, and is published under the 
 | Testing | `@zerolith/test` | `mount`, `cleanup`, `settle`, and hydration and accessibility checks |
 | Dev tools | `@zerolith/devtools` | The in-page inspector, named signals, and Performance panel tracks |
 | Observability | `@zerolith/otel` | OpenTelemetry spans for navigation, hydration, and requests |
-| Build | `@zerolith/vite` | Hot replacement that keeps named state, JSX lowering, transform-time warnings, and a production build check |
-| Command line | `zerolith` (Rust) | `new`, `dev`, `serve`, `build`, `importmap` with integrity hashes, and `doctor` |
+| Build | `@zerolith/vite` | JSX lowering, hot replacement that keeps named state, transform-time warnings, templates prepared at build time, and a production build check |
+| Command line | `@zerolith/cli` | The Rust command line with prebuilt binaries: `new`, `dev`, `serve`, `build` with templates prepared ahead of time, `importmap` with integrity hashes, and `doctor` |
 
 Two example applications show it end to end: [notes](examples/notes) with no build step, and [tasks](examples/tasks) on Vite with a typed client and compiled messages.
 
@@ -83,10 +83,11 @@ Then open http://127.0.0.1:8080/examples/notes/.
 
 ## Where it's going
 
-Next is a frozen API for the core, templates, and router, and a canary channel built from every merge to the default branch. After that come signals the server can push, agent tooling with MCP servers and a public eval suite, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
+Next come a permanent domain for the docs, trusted publishing with a canary channel built from every merge, the remaining build optimizations, the first production site, and a frozen API for the core, templates, and router. After that come signals the server can push, agent tooling with MCP servers and a public eval suite, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
 
 ## Documentation
 
+- The [docs site](https://molexxxx.github.io/zerolith/), rebuilt with every release: the guides, the API reference generated from the source, and a page for every diagnostic code.
 - [Guides](docs/guide/index.md), from [application structure](docs/guide/structure.md) to [testing](docs/guide/testing.md). `npm run docs` builds them into a site with the generated reference.
 - The [roadmap](docs/ROADMAP.md) and the [changelog](CHANGELOG.md).
 - [Support window and channels](docs/policy/support.md), [releases](docs/policy/releases.md), and [versioning](docs/policy/versioning.md).
