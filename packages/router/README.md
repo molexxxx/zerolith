@@ -7,6 +7,7 @@ Typed client-side routing for zerolith.
 - A route's `load` runs, and its lazy view resolves, before the URL changes, so the page never shows a half-loaded route; `router.pending` is true meanwhile.
 - `head` sets the document title and description per route, statically or from the loaded data.
 - `router.ready` settles when the initial navigation has committed, `router.head` is the current route's metadata as a signal, and `renderHead` from `@zerolith/router/server` writes it as `<title>` and `<meta>` elements, so the same router renders a request on the server and hydrates in the browser. `renderRouteState` embeds the loaded data in the page, and the browser router reuses it for the initial navigation instead of running the loader twice.
+- `base`, such as `import.meta.env.BASE_URL`, serves the application under a path: route paths stay relative to it, `href()` includes it, and links outside it are left to the browser.
 - Back and forward restore the scroll position; new navigations scroll to the top or to the hash.
 - `outlet(router)` renders the current route's view and the fallback for unknown URLs.
 

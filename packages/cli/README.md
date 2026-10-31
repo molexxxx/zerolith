@@ -1,6 +1,6 @@
 # @zerolith/cli
 
-The `zerolith` command line from npm: `new`, `dev`, which serves a project with its packages resolved from `node_modules`, `serve`, `build`, which bundles and minifies an application with Rolldown compiled into the binary, `preview`, `importmap`, and `doctor`. The binary is written in Rust; this package carries none itself and depends optionally on one package per platform, so npm installs only the binary that matches the machine.
+The `zerolith` command line from npm: `new`, `dev`, which serves a project with its packages resolved from `node_modules` and forwards its API to a backend, `serve`, `build`, which bundles and minifies an application with Rolldown compiled into the binary, `preview`, `importmap`, and `doctor`. The binary is written in Rust; this package carries none itself and depends optionally on one package per platform, so npm installs only the binary that matches the machine.
 
 Install it once and start a project. `new` asks a few questions, each with a default, writes the starter, and installs its dependencies, this package among them:
 

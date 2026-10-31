@@ -91,7 +91,8 @@ The page itself is plain HTML with one element to mount into and one module scri
 - [Server rendering](/guide/server-rendering/): rendering views to HTML with no DOM.
 - [Diagnostics](/guide/diagnostics/): the error record, stable codes, and production builds.
 - [Dev tools](/guide/dev-tools/): the in-page inspector, named signals, and Performance tracks.
-- [Command line](/guide/command-line/): the starter, the dev server, the production build, preview, and project checks.
+- [Command line](/guide/command-line/): the starter, the dev server, the production build, preview, `zerolith.json`, and project checks.
+- [Building and serving](/guide/deploying/): what the build writes and how to serve it from a static host, a web server, or a backend, under a path, and next to a backend while developing.
 - [Vite](/guide/vite/): for projects already on Vite, hot module replacement that keeps named state, JSX, and templates prepared at build time.
 - [Testing](/guide/testing/): mount with cleanup, settle async work, and check hydration and accessibility in tests.
 - [Accessibility](/guide/accessibility/): focus trap, roving tabindex, live announcer, focus origin, hidden text, and preference signals.

@@ -73,7 +73,9 @@ In the project:
 
 Without a global install, `npx @zerolith/cli@alpha new my-app` writes the project, and inside it `npx zerolith dev` and the `dev`, `build`, and `preview` npm scripts run the project's own copy of the command line, which is what CI should use. The starter's README covers deploying, environment variables, and when Vite is worth adding, and the [command line guide](docs/guide/command-line.md) has every option.
 
-To add zerolith to an existing project, install `zerolith@alpha` and the `@zerolith/*` packages you need at the same tag, with `@zerolith/cli` for the commands.
+To add zerolith to an existing project, install `zerolith@alpha` and the `@zerolith/*` packages you need at the same tag, with `@zerolith/cli` for the commands. To work against a backend, the [building and serving guide](docs/guide/deploying.md) covers the dev server's proxy, a base path, and serving the build from a static host, a web server, or the backend itself.
+
+Every night that the code changed, every package is also published under the `canary` tag, built from the main branch: `npx @zerolith/cli@canary new my-app` starts a project on it.
 
 ## Why zerolith
 
@@ -90,7 +92,7 @@ Everything below runs, is tested in this repository, and is published under the 
 | Area | Package | What it does |
 | --- | --- | --- |
 | Core | `zerolith` | Signals, `html` and `css` templates with keyed lists and conditions, rendering, hydration, server rendering, custom elements, JSX types, coded diagnostics |
-| Routing | `@zerolith/router` | A typed route table, plain anchors, route data, head tags, and server rendering with embedded route state |
+| Routing | `@zerolith/router` | A typed route table, plain anchors, route data, head tags, a base path, and server rendering with embedded route state |
 | Forms | `@zerolith/forms` | Native forms enhanced with fetch, pending state, Standard Schema validation, and field errors as RFC 9457 problem details |
 | Data | `@zerolith/client` | Types and a route table generated from OpenAPI 3.x, checked calls, problems for failures, and a MessagePort transport |
 | i18n | `@zerolith/i18n` | Locale negotiation, direction, formatters, and MessageFormat 2 catalogs compiled to typed per-locale modules |
@@ -98,19 +100,19 @@ Everything below runs, is tested in this repository, and is published under the 
 | Testing | `@zerolith/test` | `mount`, `cleanup`, `settle`, and hydration and accessibility checks |
 | Dev tools | `@zerolith/devtools` | The in-page inspector, named signals, and Performance panel tracks |
 | Observability | `@zerolith/otel` | OpenTelemetry spans for navigation, hydration, and requests |
-| Command line | `@zerolith/cli` | The Rust command line with prebuilt binaries: `new`, `dev` with packages resolved from `node_modules`, `build`, which bundles and minifies with templates prepared ahead of time, `preview`, `importmap` with integrity hashes, and `doctor` |
+| Command line | `@zerolith/cli` | The Rust command line with prebuilt binaries: `new`, `dev` with packages resolved from `node_modules`, a proxy to backends, and a base path, `build`, which bundles and minifies with templates prepared ahead of time, `preview`, `importmap` with integrity hashes, and `doctor`, with shared settings in `zerolith.json` |
 | Vite | `@zerolith/vite` | For projects on Vite: JSX lowering, hot replacement that keeps named state, transform-time warnings, templates prepared at build time, and a production build check |
 
-Two example applications show it end to end: [notes](examples/notes), plain JavaScript on `zerolith dev` and `zerolith build`, and [tasks](examples/tasks), TypeScript with a backend API, a typed client, and compiled messages, developed on Vite and bundled by `zerolith build`.
+Three example applications show it end to end: [notes](examples/notes), plain JavaScript on `zerolith dev` and `zerolith build`; [tasks](examples/tasks), TypeScript with a backend API, a typed client, and compiled messages, developed on Vite and bundled by `zerolith build`; and [fullstack](examples/fullstack), an app under `/app/` with a Node backend, reached through the dev server's proxy while developing and serving the build in production.
 
 ## Where it's going
 
-Next come a proxy from `zerolith dev` to any backend and a guide to building and serving, then a permanent domain for the docs, a canary channel built from every merge, the first production site, and a frozen API for the core, templates, and router. After that come signals the server can push, agent tooling with MCP servers and a public eval suite, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
+Next come a permanent domain for the docs, the first production site, and a frozen API for the core, templates, and router. After that come signals the server can push, agent tooling with MCP servers and a public eval suite, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
 
 ## Documentation
 
 - The [docs site](https://molexxxx.github.io/zerolith/), rebuilt with every release: the guides, the API reference generated from the source, and a page for every diagnostic code.
-- [Guides](docs/guide/index.md), from [application structure](docs/guide/structure.md) to [testing](docs/guide/testing.md). `npm run docs` builds them into a site with the generated reference.
+- [Guides](docs/guide/index.md), from [application structure](docs/guide/structure.md) and [building and serving](docs/guide/deploying.md) to [testing](docs/guide/testing.md). `npm run docs` builds them into a site with the generated reference.
 - The [roadmap](docs/ROADMAP.md), the [changelog](CHANGELOG.md), and the [releases](https://github.com/molexxxx/zerolith/releases) with their SBOMs.
 - [Support window and channels](docs/policy/support.md), [releases](docs/policy/releases.md), and [versioning](docs/policy/versioning.md).
 - [Brand](brand/README.md): the mark, colors, type, and icons.

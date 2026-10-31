@@ -21,19 +21,6 @@ export interface BackendOptions
     base?: string;
 }
 
-const types: Record<string, string> = {
-    ".html": "text/html; charset=utf-8",
-    ".js": "text/javascript; charset=utf-8",
-    ".css": "text/css; charset=utf-8",
-    ".json": "application/json; charset=utf-8",
-    ".map": "application/json; charset=utf-8",
-    ".svg": "image/svg+xml",
-    ".png": "image/png",
-    ".ico": "image/x-icon",
-    ".woff2": "font/woff2",
-    ".txt": "text/plain; charset=utf-8"
-};
-
 function json(response: ServerResponse, status: number, value: unknown): void
 {
     response.writeHead(status, { "content-type": "application/json; charset=utf-8" });
@@ -87,6 +74,19 @@ async function api(request: IncomingMessage, response: ServerResponse, notes: No
 }
 
 // #region static
+const types: Record<string, string> = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".map": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".ico": "image/x-icon",
+    ".woff2": "font/woff2",
+    ".txt": "text/plain; charset=utf-8"
+};
+
 /**
  * Serves a zerolith build from `dist` under `base`: a file that exists is
  * sent with its type, the hashed files under assets/ are cached for a year,

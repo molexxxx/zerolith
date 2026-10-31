@@ -11,7 +11,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 | Runtime | Feature-complete for 1.0; the API freeze is next |
 | Router, forms, typed client | Feature-complete for 1.0; real-time data follows 1.0 |
 | Build path | Template preparation with static hoisting, the split check, and the template lint, in the Vite plugin and the command line alike |
-| Command line | Published with prebuilt binaries for six targets; writes a starter, and develops, bundles, and previews a project on its own; a proxy to backends is next |
+| Command line | Published with prebuilt binaries for six targets; writes a starter, develops, bundles, and previews a project on its own, forwards an API to its backend, and serves under a base path |
 | Dev tools and testing | Shipped; the browser extension adapter remains |
 | Accessibility, i18n, observability | Shipped; the conformance report and the MessageFormat 1 import remain |
 | Docs | Published to GitHub Pages by each release in the brand's theme, every example run as a test; the project domain is not registered yet |
@@ -23,12 +23,9 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 
 In order:
 
-1. A proxy from `zerolith dev` to any backend, a base path for it, and example projects for common backend layouts. The Vite plugin stays an option for projects already on Vite.
-2. A guide to building and serving.
-3. Start the canary channel: every merge that passes CI publishes a canary version under the `canary` dist-tag.
-4. Register the project domain and move the docs there from GitHub Pages. Every diagnostic links to its page on the docs site, so the address has to be permanent before 1.0.
-5. Migrate the first production site onto zerolith.
-6. Review the core, templates, and router API through an RFC and freeze it for 1.0.
+1. Migrate the first production site onto zerolith.
+2. Review the core, templates, and router API through an RFC and freeze it for 1.0.
+3. Register the project domain and move the docs there from GitHub Pages. Every diagnostic links to its page on the docs site, so the address has to be permanent before 1.0.
 
 ## 1.0
 
@@ -98,7 +95,8 @@ See the [command line guide](guide/command-line.md).
 - [x] `dev` resolves packages from `node_modules` with the build's resolver, so a page needs no import map, and serves stylesheets, JSON, and other files imported from code, `PUBLIC_` variables from `.env` files, and the public folder, as `build` does.
 - [x] `preview` serves a build's output as a static host would.
 - [x] `new` writes a starter in the brand style: TSX on the command line by default, asking for the language, Vite, and the inspector, with a browser test, a README on deploying, and the dependencies installed.
-- [ ] A proxy from `dev` to a backend, and a base path for `dev`.
+- [x] A proxy from `dev`, `serve`, and `preview` to backends, streaming bodies and joining WebSocket connections, a base path for all three and the router, and `zerolith.json` for the settings they share, with a schema.
+- [ ] A proxy to `https://` backends.
 - [ ] `zerolith migrate`, with codemods between versions.
 - [ ] A musl binary for Alpine and other musl distributions.
 

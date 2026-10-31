@@ -2,6 +2,23 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
+## Unreleased
+
+### Added
+
+- `@zerolith/cli` and the `zerolith` crate: `zerolith dev`, `serve`, and `preview` forward requests under a path to a backend, with `--proxy /api=http://127.0.0.1:3000` or a `proxy` entry in `zerolith.json`, so a page reaches its API on its own origin with no CORS to configure. Bodies stream both ways, server-sent events included; WebSocket connections are joined end to end; the backend receives its own `Host` with `X-Forwarded-Host`, `-Proto`, and `-For`; a redirect to the backend's own address comes back as a path; `stripPrefix` removes the matched prefix; and an unreachable backend answers 502 with the reason in the terminal. Only `http://` backends are supported for now.
+- `@zerolith/cli` and the `zerolith` crate: `--base` serves the application under a path in `dev`, `serve`, and `preview`, as `build` already wrote it: the site root redirects there, routes under it fall back to `index.html`, and `import.meta.env.BASE_URL` carries it.
+- `@zerolith/cli` and the `zerolith` crate: `zerolith.json` next to `index.html` holds what the commands share, `base`, `proxy`, `dev.port`, `preview.port`, and `build.out`, with flags over it, and `@zerolith/cli` ships its JSON schema as `zerolith.schema.json`. Starters on the command line include one.
+- `@zerolith/router`: `base`, such as `import.meta.env.BASE_URL`, serves the application under a path. Route paths stay relative to it, `href()` includes it, `navigate()` and `matches()` take a path with or without it, and links outside it are left to the browser.
+- Starters follow the base path: the router passes `import.meta.env.BASE_URL`, the packages page fetches its data under the base, and the not-found page links home through it. The README explains reaching a backend through the proxy.
+- The fullstack example: an app under `/app/` with a dependency-free Node backend, reached through the proxy while developing, with the backend serving the build in production.
+- Docs: a guide to building and serving, with the routing and caching rules and the setup for Netlify, Vercel, Cloudflare Pages, GitHub Pages, nginx, IIS, Node, Express, and ASP.NET Core.
+- Nightly canaries of every npm package under the `canary` dist-tag, published by the release workflow when the code changed since the last canary.
+
+### Changed
+
+- `@zerolith/cli` and the `zerolith` crate: when the default port of `dev`, `serve`, or `preview` is taken or reserved, as 8080 often is on Windows, the next free port is used and the banner says so; a port given explicitly fails with a message that says why.
+
 ## 0.1.0-alpha.4 (2026-10-30)
 
 Live reload works on Windows, and the command line's output follows the brand, with a dev server banner, a line per change, and a build table with gzip sizes. The docs site wears the brand too, and every example in the guides now reads as application code. This is the first release published to npm through trusted publishing alone.

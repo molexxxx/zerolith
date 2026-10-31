@@ -15,6 +15,7 @@ Every command opens with the `zerolith` badge and the command's name, and colors
 ```
 zerolith dev
 zerolith dev my-app --port 3000
+zerolith dev --base /app/ --proxy /api=http://127.0.0.1:3000
 zerolith preview
 ```
 
@@ -27,6 +28,38 @@ const draft = signal("", { name: "draft" });    // restored across dev reloads
 ```
 
 `serve` serves the project the same way without watching it. `preview` serves a build's output folder, `dist` unless `--out` names another, as a static host would: every file as it is, and `index.html` for any path that names no file, so client-side routes load directly. It listens on port 4173, so it can run next to `dev`.
+
+`dev` and `serve` listen on port 8080. When the default port is taken, as 8080 often is on Windows, they take the next free one and say so in the banner; a port given with `--port` or in `zerolith.json` is used as it is, and a taken one fails with a message that says so.
+
+`--base /app/` serves the application under a path, as a backend or a reverse proxy will: the site root redirects there, paths under it load the project with the same route fallback, and `import.meta.env.BASE_URL` carries it for the router. `--proxy /api=http://127.0.0.1:3000` forwards every request under `/api` to a backend, so the page reaches its API on its own origin; `preview` takes both options too. [Building and serving](/guide/deploying/) describes the proxy in full.
+
+## zerolith.json
+
+The settings the commands share live in `zerolith.json` next to `index.html`, so they are written once instead of on every command line. A flag overrides the file, and the starters `zerolith new` writes on the command line include one that points at the schema `@zerolith/cli` ships, so an editor completes the keys:
+
+```json
+{
+    "$schema": "./node_modules/@zerolith/cli/zerolith.schema.json",
+    "base": "/app/",
+    "proxy": {
+        "/api": "http://127.0.0.1:3000",
+        "/auth": { "target": "http://127.0.0.1:4000", "stripPrefix": true }
+    },
+    "dev": { "port": 5000 },
+    "preview": { "port": 5001 },
+    "build": { "out": "../server/public" }
+}
+```
+
+| Key | Used by | What it sets |
+| --- | --- | --- |
+| `base` | `dev`, `build`, `preview` | The path the application is served under |
+| `proxy` | `dev`, `serve`, `preview` | Path prefixes forwarded to backends: an `http://` address, or an object with `target` and `stripPrefix` |
+| `dev.port` | `dev`, `serve` | The port, used as it is |
+| `preview.port` | `preview` | The port, used as it is |
+| `build.out` | `build`, `preview` | The output folder, relative to the project unless absolute |
+
+An unknown key fails with the file's name, so a typo does not go unnoticed. `build --unbundled` does not apply `base` and says so.
 
 The server also answers `/.well-known/appspecific/com.chrome.devtools.json` on loopback, which lets Chrome DevTools edit the project's files in place.
 

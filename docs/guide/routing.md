@@ -22,6 +22,16 @@ Plain anchors navigate. One delegated listener handles same-origin links clicked
 
 Back and forward restore the scroll position; a new navigation scrolls to the top or to the hash. Pass `scroll: false` to keep control of scrolling.
 
+## Under a base path
+
+An application served under a path, such as `/app/`, passes it as `base`; `import.meta.env.BASE_URL` carries the base `zerolith dev`, `zerolith build`, and Vite were given, so one line follows all of them:
+
+```ts
+const router = createRouter(routes, { base: import.meta.env.BASE_URL });
+```
+
+Route paths stay relative to the base: `"/notes/:id"` matches `/app/notes/7`, and `href("note", { id: "7" })` returns `/app/notes/7`. `navigate` and `matches` take a path with the base or without it, so `navigate("/notes/8")` and `navigate("/app/notes/8")` go to the same place. A URL outside the base renders the fallback, and a link outside it is left to the browser, so the rest of the site keeps working around the application. [Building and serving](/guide/deploying/) covers setting the base for the build and the server.
+
 ## Head metadata
 
 `head` sets the document title and description per route, as a static object or as a function of the parameters and loaded data.
