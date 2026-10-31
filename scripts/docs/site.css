@@ -509,8 +509,8 @@ article blockquote > :last-child
     right: var(--zl-space-2);
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     padding: 0;
     border: var(--zl-rule) solid var(--zl-basalt-800);
     border-radius: 0;

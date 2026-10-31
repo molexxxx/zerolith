@@ -71,7 +71,15 @@ h3
 
 a
 {
-    color: var(--accent-text);
+    color: inherit;
+    text-decoration-color: var(--control);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.25em;
+}
+
+a:hover
+{
+    text-decoration-color: var(--text);
 }
 
 code,
