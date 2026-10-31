@@ -18,9 +18,11 @@ function defaultTracer(): Tracer
 
 /**
  * The `observe` function for `createRouter`: a span named `navigate`
- * opens when a navigation starts and ends when it commits or fails, with
- * `zerolith.route`, `url.path`, and `zerolith.navigation.mode` as
- * attributes and the loader's error recorded on failure.
+ * opens when a navigation starts and ends when it commits, fails, or is
+ * canceled by a newer navigation, with `zerolith.route`, `url.path`, and
+ * `zerolith.navigation.mode` as attributes, the loader's error recorded on
+ * failure, and `zerolith.navigation.canceled` set on a canceled one, whose
+ * status stays unset.
  */
 export function navigationObserver(tracer: Tracer = defaultTracer()): (event: NavigationEvent) => void
 {
@@ -46,6 +48,10 @@ export function navigationObserver(tracer: Tracer = defaultTracer()): (event: Na
         {
             span.setAttribute("zerolith.route", event.name ?? "");
             span.setStatus({ code: SpanStatusCode.OK });
+        }
+        else if (event.type === "cancel")
+        {
+            span.setAttribute("zerolith.navigation.canceled", true);
         }
         else
         {

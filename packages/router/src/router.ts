@@ -90,10 +90,14 @@ export interface Match
 /** The arguments `href()` takes for a path: none when it has no parameters. */
 export type HrefArgs<Path extends string> = Record<string, never> extends ParamsOf<Path> ? [] : [params: ParamsOf<Path>];
 
-/** What `observe` receives: a navigation starting, committing, or failing, with one id per navigation. */
+/**
+ * What `observe` receives: a navigation starting, then committing, failing,
+ * or canceled because a newer navigation started before it committed, with
+ * one id per navigation.
+ */
 export interface NavigationEvent
 {
-    readonly type: "start" | "commit" | "error";
+    readonly type: "start" | "commit" | "error" | "cancel";
     /** The same number for the start and the end of one navigation. */
     readonly id: number;
     readonly url: URL;
@@ -400,10 +404,12 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         }
         catch (error)
         {
-            if (run === generation)
+            if (run !== generation)
             {
-                pending.set(false);
+                options.observe?.({ type: "cancel", id: run, url: target, mode });
+                return;
             }
+            pending.set(false);
             options.observe?.({ type: "error", id: run, url: target, mode, error });
             if (options.onError === undefined)
             {
@@ -414,6 +420,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         }
         if (run !== generation)
         {
+            options.observe?.({ type: "cancel", id: run, url: target, mode });
             return;
         }
         if (win !== undefined && mode !== "pop")
@@ -462,14 +469,28 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         void go(target, "push");
     };
 
+    /**
+     * Back and forward. Between two entries of the page already shown, which
+     * a same-page hash link adds, only the hash changed: the router follows
+     * the URL and moves to the hash, or to the entry's scroll position,
+     * without loading or rendering the page again.
+     */
     const onPopState = (): void =>
     {
         if (win === undefined)
         {
             return;
         }
+        const target = new URL(win.location.href);
         const key: string = win.history.state?.key ?? "";
-        void go(new URL(win.location.href), "pop", scrollPositions.get(key));
+        const shown = url.get();
+        if (!pending.get() && target.pathname === shown.pathname && target.search === shown.search)
+        {
+            url.set(target);
+            scrollTo(target, target.hash === "" ? scrollPositions.get(key) : undefined);
+            return;
+        }
+        void go(target, "pop", scrollPositions.get(key));
     };
 
     if (win !== undefined)

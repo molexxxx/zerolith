@@ -192,6 +192,39 @@ describe("router", () =>
         expect(seen).toEqual([false, true, false]);
     });
 
+    it("follows back and forward between hash entries of the page shown without loading it again", async () =>
+    {
+        history.replaceState(null, "", "/");
+        let loads = 0;
+        const pages = defineRoutes({
+            home: route({ path: "/", view: () => html`<h1>Home</h1>` }),
+            guide: route({
+                path: "/guide",
+                load: () =>
+                {
+                    loads++;
+                    return Promise.resolve(loads);
+                },
+                view: ({ data }) => html`<h1>Guide ${data}</h1><h2 id="part">Part</h2>`
+            })
+        });
+        router = createRouter(pages, { window });
+        await settled(router);
+        const el = mount(html`<main>${router.outlet()}</main>`);
+        await router.navigate("/guide");
+        expect(loads).toBe(1);
+        history.pushState(null, "", "/guide#part");
+        history.back();
+        await vi.waitFor(() => expect(location.hash).toBe(""));
+        history.forward();
+        await vi.waitFor(() => expect(location.hash).toBe("#part"));
+        await vi.waitFor(() => expect(router?.url.get().hash).toBe("#part"));
+        history.back();
+        await vi.waitFor(() => expect(router?.url.get().hash).toBe(""));
+        expect(loads).toBe(1);
+        expect(el.querySelector("h1")?.textContent).toBe("Guide 1");
+    });
+
     it("gives each page an owner that ends when the route changes", async () =>
     {
         history.replaceState(null, "", "/");
@@ -261,6 +294,51 @@ describe("router", () =>
         const slowNavigation = router.navigate("/slow");
         await router.navigate("/");
         await slowNavigation;
+        expect(location.pathname).toBe("/");
+        expect(el.textContent).toBe("home");
+    });
+
+    it("cancels a navigation a newer one replaced, without reporting its aborted loader as an error", async () =>
+    {
+        history.replaceState(null, "", "/");
+        const onError = vi.fn();
+        const events: string[] = [];
+        const aborting = defineRoutes({
+            home: route({ path: "/", view: () => html`<p>home</p>` }),
+            fetching: route({
+                path: "/fetching",
+                load: ({ abort }) => new Promise<string>((resolve, reject) =>
+                {
+                    const timer = setTimeout(() => resolve("loaded"), 50);
+                    abort.addEventListener("abort", () =>
+                    {
+                        clearTimeout(timer);
+                        reject(new DOMException("The navigation was replaced.", "AbortError"));
+                    });
+                }),
+                view: ({ data }) => html`<p>${data}</p>`
+            }),
+            late: route({
+                path: "/late",
+                load: () => new Promise<string>((resolve) => setTimeout(() => resolve("late"), 30)),
+                view: ({ data }) => html`<p>${data}</p>`
+            })
+        });
+        router = createRouter(aborting, { window, onError, observe: (event) => events.push(`${event.type} ${event.url.pathname}`) });
+        await settled(router);
+        const el = mount(html`<main>${router.outlet()}</main>`);
+        events.length = 0;
+
+        const replaced = router.navigate("/fetching");
+        await router.navigate("/");
+        await replaced;
+        const outlived = router.navigate("/late");
+        await router.navigate("/");
+        await outlived;
+
+        expect(onError).not.toHaveBeenCalled();
+        expect(events.filter((event) => !event.endsWith(" /"))).toEqual(["start /fetching", "cancel /fetching", "start /late", "cancel /late"]);
+        expect(events.filter((event) => event.endsWith(" /"))).toEqual(["start /", "commit /", "start /", "commit /"]);
         expect(location.pathname).toBe("/");
         expect(el.textContent).toBe("home");
     });

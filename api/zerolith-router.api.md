@@ -51,7 +51,7 @@ interface Match
 
 interface NavigationEvent
 {
-    readonly type: "start" | "commit" | "error"
+    readonly type: "start" | "commit" | "error" | "cancel"
     readonly id: number
     readonly url: URL
     readonly mode: "push" | "replace" | "pop"

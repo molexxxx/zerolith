@@ -57,6 +57,29 @@ describe("navigationObserver", () =>
         expect(spans[1]?.events[0]?.name).toBe("exception");
         expect(spans[2]?.attributes["zerolith.route"]).toBe("");
     });
+
+    it("ends the span of a navigation a newer one canceled, without an error status", async () =>
+    {
+        const routes = defineRoutes({
+            home: route({ path: "/", view: () => html`<h1>Home</h1>` }),
+            slow: route({
+                path: "/slow",
+                load: ({ abort }) => new Promise<string>((_resolve, reject) => abort.addEventListener("abort", () => reject(new DOMException("replaced", "AbortError")))),
+                view: ({ data }) => html`<p>${data}</p>`
+            })
+        });
+        const router = createRouter(routes, { window: null, observe: navigationObserver(tracer), onError: () => undefined });
+        const replaced = router.navigate("/slow");
+        await router.navigate("/");
+        await replaced;
+        router.dispose();
+        const spans = exporter.getFinishedSpans();
+        const canceled = spans.find((span) => span.attributes["url.path"] === "/slow");
+        expect(canceled?.attributes["zerolith.navigation.canceled"]).toBe(true);
+        expect(canceled?.status.code).toBe(SpanStatusCode.UNSET);
+        expect(canceled?.events).toEqual([]);
+        expect(spans.find((span) => span.attributes["url.path"] === "/")?.status.code).toBe(SpanStatusCode.OK);
+    });
 });
 
 describe("tracedTransport", () =>

@@ -50,7 +50,9 @@ render(html`
 await router.navigate("/missing");      // nothing matches: the fallback renders
 ```
 
-Back and forward restore the scroll position; a new navigation scrolls to the top or to the hash. Pass `scroll: false` to keep control of scrolling.
+Back and forward restore the scroll position; a new navigation scrolls to the top or to the hash. A link to a hash on the page shown is left to the browser, and back and forward between the entries it adds move to the hash without loading the page again. Pass `scroll: false` to keep control of scrolling.
+
+A navigation whose loader fails calls `onError` with the error and the URL; without `onError`, `navigate` rejects. A navigation that a newer one replaces before it commits is canceled rather than failed: its loader's `abort` signal fires, and `onError` is not called for it.
 
 ## Under a base path
 

@@ -21,4 +21,4 @@ A production application wants its navigations, its hydration, and its requests 
 
 The package never chooses an SDK. In the browser, OpenTelemetry's web SDK or a vendor's registers a tracer provider with the API, and from then on `trace.getTracer("my-app")` returns a real tracer; on the server, the Node SDK does the same for server rendering. Until one is registered, the spans above cost nothing, which is why the package can be wired at startup unconditionally.
 
-The `observe` option on the router is a plain function receiving `start`, `commit`, and `error` events with one id per navigation, so logging, analytics, or a custom metric can attach the same way without this package.
+The `observe` option on the router is a plain function receiving `start`, `commit`, `error`, and `cancel` events with one id per navigation, `cancel` for one a newer navigation replaced before it committed, so logging, analytics, or a custom metric can attach the same way without this package.
