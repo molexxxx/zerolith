@@ -563,7 +563,7 @@ pub async fn build(options: &Options) -> io::Result<Built> {
             ),
         )
     })?;
-    let page = html::scan(&page_source);
+    let mut page = html::scan(&page_source);
     if page.scripts.is_empty() {
         return Err(failure(
             "index.html has no <script type=\"module\" src=\"...\"> with a local source, so there is nothing to bundle".to_string(),
@@ -576,6 +576,16 @@ pub async fn build(options: &Options) -> io::Result<Built> {
         .collect::<io::Result<Vec<PathBuf>>>()?;
     let out_dir = normalized(&root.join(&options.out));
     let mut warnings = Vec::new();
+    let (styles, hosted): (Vec<_>, Vec<_>) = std::mem::take(&mut page.styles)
+        .into_iter()
+        .partition(|style| page_file(&root, &style.url).is_ok());
+    page.styles = styles;
+    warnings.extend(hosted.iter().map(|style| {
+        format!(
+            "index.html links {}, which is not in the project, so the link is kept as it is for the host to serve",
+            style.url
+        )
+    }));
     prepare_out_dir(
         &root,
         &out_dir,
@@ -1242,6 +1252,32 @@ mod tests {
         assert!(
             !code.contains("using handle") && !code.contains("defineProperty"),
             "{code}"
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn keeps_a_stylesheet_the_host_serves() {
+        let root = project("hosted-css", MAIN);
+        let page = fs::read_to_string(root.join("index.html")).unwrap().replace(
+            "<link rel=\"icon\" href=\"/favicon.svg\">",
+            "<link rel=\"icon\" href=\"/favicon.svg\">\n    <link rel=\"stylesheet\" href=\"/css/shared.css\">",
+        );
+        fs::write(root.join("index.html"), page).unwrap();
+        let built = build(&options(&root, "/", "production")).await.unwrap();
+        let page = fs::read_to_string(root.join("dist/index.html")).unwrap();
+        assert!(
+            page.contains("<link rel=\"stylesheet\" href=\"/css/shared.css\">"),
+            "{page}"
+        );
+        assert!(page.contains("/assets/index-"), "{page}");
+        assert!(
+            built
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("/css/shared.css")),
+            "{:?}",
+            built.warnings
         );
         let _ = fs::remove_dir_all(&root);
     }
