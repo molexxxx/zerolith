@@ -27,6 +27,8 @@ Every package in this repository is released together and carries the same versi
 
 ### Changed
 
+- `@zerolith/cli` and the `zerolith` crate: the `AGENTS.md` that `zerolith new` writes points its agent at the zerolith skill and the guides, and the structure guide shows that file exactly as written, which a test checks.
+- Docs: the coding agents guide sets an agent up in two steps, the project's `AGENTS.md` and `npx skills add molexxxx/zerolith`, with a table of when an agent reads each piece, and states what the `skills` command and Claude Code do as their own documentation describes. The home page, the README, and the repository's own `AGENTS.md` say the same, and the last now says it is for agents changing zerolith itself.
 - `@zerolith/cli` and the `zerolith` crate: when the default port of `dev`, `serve`, or `preview` is taken or reserved, as 8080 often is on Windows, the next free port is used and the banner says so; a port given explicitly fails with a message that says why.
 - Docs: the introduction moved from the site root to `/guide/`; the root is the home page.
 - `zerolith`: keyed lists insert new rows once per run of new rows, clear a list that owns its parent in one step, keep rows that match at both ends without diffing them, and render a row whose view is a template without marker comments, and every binding allocates less. Measured side by side in one browser, script time to create, replace, or clear 1,000 rows fell by a quarter to a third.

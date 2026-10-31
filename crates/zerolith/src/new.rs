@@ -989,7 +989,7 @@ fn agents_md(name: &str, choice: Choice) -> String {
         "Components are capitalized functions returning `html` templates, one per file under `src/components/`, with their `css` literal next to the markup."
     };
     format!(
-        "# {name}: guide for coding agents\n\nA zerolith application. {tool} The framework's structure guide describes the layout; this file holds what is specific to this project.\n\n## Commands\n\n- `npm run dev` serves the app with live reload; `npm run build` writes `dist/`; `npm run preview` serves `dist/`.\n- `npm run check` is the gate: typecheck, lint, browser tests, and the build.\n- `npx zerolith-client openapi.json --out src/api.{ext}` and `npx zerolith-i18n messages --out src/messages` regenerate the generated files once the project has a contract or catalogs.\n\n## Rules\n\n- Bind the signal, not its value: a live binding takes `count`, never `count.get()`, which freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.\n- {syntax}\n- State that must survive an edit is a named signal: `signal(0, {{ name: \"count\" }})`.\n- `src/api.{ext}` and `src/messages/` are generated when they exist; change their inputs and regenerate, never edit them.\n- A new page is a route in `src/routes.{ext}` and a component; shared state goes in `src/store.{ext}`.\n- Files served as they are, such as data, icons, and `robots.txt`, go in `public/`.\n- Only `.env` variables named `PUBLIC_*` reach the browser, as `import.meta.env.PUBLIC_*`.\n\n## Where things go\n\n| Change | Location |\n| --- | --- |\n| A page | `src/routes.{ext}` and `src/components/<page>.{component}` |\n| Shared state or a request | `src/store.{ext}` |\n| A message | `messages/<locale>.json`, then regenerate |\n| A style token | `src/styles.css`; component styles stay in the component |\n| A static file | `public/` |\n"
+        "# {name}: guide for coding agents\n\nA zerolith application. {tool} This file holds what is specific to this project. zerolith's own rules and patterns are in the zerolith skill, which `npx skills add molexxxx/zerolith` installs, and in the guides at https://molexxxx.github.io/zerolith/guide/.\n\n## Commands\n\n- `npm run dev` serves the app with live reload; `npm run build` writes `dist/`; `npm run preview` serves `dist/`.\n- `npm run check` is the gate: typecheck, lint, browser tests, and the build.\n- `npx zerolith-client openapi.json --out src/api.{ext}` and `npx zerolith-i18n messages --out src/messages` regenerate the generated files once the project has a contract or catalogs.\n\n## Rules\n\n- Bind the signal, not its value: a live binding takes `count`, never `count.get()`, which freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.\n- {syntax}\n- State that must survive an edit is a named signal: `signal(0, {{ name: \"count\" }})`.\n- `src/api.{ext}` and `src/messages/` are generated when they exist; change their inputs and regenerate, never edit them.\n- A new page is a route in `src/routes.{ext}` and a component; shared state goes in `src/store.{ext}`.\n- Files served as they are, such as data, icons, and `robots.txt`, go in `public/`.\n- Only `.env` variables named `PUBLIC_*` reach the browser, as `import.meta.env.PUBLIC_*`.\n\n## Where things go\n\n| Change | Location |\n| --- | --- |\n| A page | `src/routes.{ext}` and `src/components/<page>.{component}` |\n| Shared state or a request | `src/store.{ext}` |\n| A message | `messages/<locale>.json`, then regenerate |\n| A style token | `src/styles.css`; component styles stay in the component |\n| A static file | `public/` |\n"
     )
 }
 
@@ -1169,7 +1169,7 @@ test/                    the backend's tests and the page's
 
 const FULLSTACK_AGENTS: &str = r##"# __NAME__: guide for coding agents
 
-A zerolith application with its own backend, written from the fullstack example. The app is served under `/app/` and calls a JSON API under `/api`; `server.ts` is the backend, plain Node with no dependencies, and serves the build in production. The app develops and builds on the zerolith command line; packages load from `node_modules` with no import map, and there is no Vite config. The framework's structure guide describes the layout; this file holds what is specific to this project.
+A zerolith application with its own backend, written from the fullstack example. The app is served under `/app/` and calls a JSON API under `/api`; `server.ts` is the backend, plain Node with no dependencies, and serves the build in production. The app develops and builds on the zerolith command line; packages load from `node_modules` with no import map, and there is no Vite config. This file holds what is specific to this project. zerolith's own rules and patterns are in the zerolith skill, which `npx skills add molexxxx/zerolith` installs, and in the guides at https://molexxxx.github.io/zerolith/guide/.
 
 ## Commands
 
@@ -1920,12 +1920,32 @@ fn on_path(program: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        Answers, Choice, FAVICON, FULLSTACK_FILES, Start, TOOL_VERSIONS, Tool, ask, confirm,
-        package_json, package_name, pick, scaffold, settle, settle_from,
+        Answers, Choice, FAVICON, FULLSTACK_FILES, Start, TOOL_VERSIONS, Tool, agents_md, ask,
+        confirm, package_json, package_name, pick, scaffold, settle, settle_from,
     };
     use std::fs;
     use std::io::{self, Cursor};
     use std::path::{Path, PathBuf};
+
+    #[test]
+    fn writes_the_agents_md_the_structure_guide_shows() {
+        let guide = include_str!("../../../docs/guide/structure.md");
+        let written = agents_md(
+            "<name>",
+            Choice {
+                jsx: false,
+                ..Choice::DEFAULT
+            },
+        );
+        assert!(
+            guide.contains(&format!(
+                "```markdown
+{written}```"
+            )),
+            "docs/guide/structure.md should show the AGENTS.md a TypeScript starter gets:
+{written}"
+        );
+    }
 
     /// The files under `folder` as paths relative to `prefix`, leaving out build output and installed packages.
     fn files_under(folder: &Path, prefix: &str, found: &mut Vec<String>) {

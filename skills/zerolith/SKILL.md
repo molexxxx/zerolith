@@ -11,7 +11,7 @@ zerolith is a standalone frontend framework. A component is a function that runs
 ## Before changing code
 
 1. Read the project's `AGENTS.md`. It names the commands and where things go, and it wins over this file where they differ.
-2. Check the installed `zerolith` version in `package.json`. The API may change between alpha versions; the references describe the latest release.
+2. Check the installed `zerolith` version in `package.json`. The API may change between alpha versions, and the references describe the repository's main branch, which can be ahead of the latest release. When a reference shows something the installed version lacks, the changelog at https://github.com/molexxxx/zerolith/blob/main/CHANGELOG.md says which release brings it.
 3. Know the layout: pages are components in `src/components/` with a route in `src/routes.ts`; shared state is in `src/store.ts`; the router is in `src/router.ts`; files served as they are go in `public/`. `src/api.ts` and `src/messages/` are generated: change their inputs and regenerate, never edit them.
 
 ## Rules
@@ -101,5 +101,5 @@ Read only the reference the task needs. Each is a guide from the docs, with test
 - [references/dev-tools.md](references/dev-tools.md): the in-page inspector and Performance tracks.
 - [references/diagnostics.md](references/diagnostics.md): the diagnostic record and production builds.
 - [references/observability.md](references/observability.md): OpenTelemetry spans.
-- [references/agents.md](references/agents.md): what agents read in a project and on the docs site.
+- [references/agents.md](references/agents.md): how an agent is set up for a zerolith app, and what the docs and diagnostics give it.
 - [references/diagnostic-codes.md](references/diagnostic-codes.md): every code with its cause and fix.

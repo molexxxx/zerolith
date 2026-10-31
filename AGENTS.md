@@ -1,6 +1,6 @@
-# zerolith: guide for coding agents
+# Working on zerolith: guide for coding agents
 
-This file is the always-on index for agents working in this repository. Keep it under 8 KB; link out for detail.
+This file is the always-on index for agents changing the zerolith repository itself. Keep it under 8 KB; link out for detail. An app built with zerolith does not use it: `zerolith new` writes the app its own `AGENTS.md`, and [docs/guide/agents.md](docs/guide/agents.md) covers setting up an agent for an app.
 
 ## What this is
 

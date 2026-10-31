@@ -103,5 +103,5 @@ The page itself is plain HTML with one element to mount into and one module scri
 - [Custom elements](elements.md): mount a view inside a tree another framework owns, with attributes and properties as signals.
 - [Internationalization](i18n.md): locale negotiation and state on Intl, formatters that follow the locale, and compiled MessageFormat 2 catalogs.
 - [Observability](observability.md): spans for navigations, hydration, and requests through the OpenTelemetry API.
-- [Coding agents](agents.md): what an agent reads in a zerolith project and on this site, and how to give it the zerolith Skills.
+- [Coding agents](agents.md): set up an agent for a zerolith app, with the project's AGENTS.md and the zerolith skill.
 - [Reference](https://molexxxx.github.io/zerolith/reference/zerolith/): every export, generated from the source.

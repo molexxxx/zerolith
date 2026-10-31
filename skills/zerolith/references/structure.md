@@ -47,34 +47,41 @@ A JavaScript project has the same layout with `.js` files and JSDoc types; `npm 
 
 ## The AGENTS.md
 
-An agent reads one file before touching a project. The scaffold writes this one, and the point of its shape is that it fits in context next to the task:
+An agent reads one file before touching a project. The scaffold writes this one for a TypeScript project on the command line, and the point of its shape is that it fits in context next to the task:
 
 ```markdown
 # <name>: guide for coding agents
 
-A zerolith application. Read `docs/guide/structure.md` in the framework's documentation for the layout; this file holds what is specific to this project.
+A zerolith application. The project develops and builds on the zerolith command line; packages load from `node_modules` with no import map, and there is no Vite config. This file holds what is specific to this project. zerolith's own rules and patterns are in the zerolith skill, which `npx skills add molexxxx/zerolith` installs, and in the guides at https://molexxxx.github.io/zerolith/guide/.
 
 ## Commands
-- `npm run dev` serves the application; `npm run check` is the gate: typecheck, lint, tests.
-- `npx zerolith-client openapi.json --out src/api.ts` and `npx zerolith-i18n messages --out src/messages` regenerate the generated files.
+
+- `npm run dev` serves the app with live reload; `npm run build` writes `dist/`; `npm run preview` serves `dist/`.
+- `npm run check` is the gate: typecheck, lint, browser tests, and the build.
+- `npx zerolith-client openapi.json --out src/api.ts` and `npx zerolith-i18n messages --out src/messages` regenerate the generated files once the project has a contract or catalogs.
 
 ## Rules
-- Bind the signal, not its value: `${count}` updates, `${count.get()}` freezes.
-- Components are capitalized functions returning `html` templates; one per file under `src/components/`.
-- `src/api.ts` and `src/messages/` are generated; change their inputs and regenerate.
+
+- Bind the signal, not its value: a live binding takes `count`, never `count.get()`, which freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.
+- Components are capitalized functions returning `html` templates, one per file under `src/components/`, with their `css` literal next to the markup.
+- State that must survive an edit is a named signal: `signal(0, { name: "count" })`.
+- `src/api.ts` and `src/messages/` are generated when they exist; change their inputs and regenerate, never edit them.
 - A new page is a route in `src/routes.ts` and a component; shared state goes in `src/store.ts`.
-- Forms post native `FormData` and validate with the schema in `src/schema.ts` on both sides.
+- Files served as they are, such as data, icons, and `robots.txt`, go in `public/`.
+- Only `.env` variables named `PUBLIC_*` reach the browser, as `import.meta.env.PUBLIC_*`.
 
 ## Where things go
+
 | Change | Location |
 | --- | --- |
 | A page | `src/routes.ts` and `src/components/<page>.ts` |
 | Shared state or a request | `src/store.ts` |
 | A message | `messages/<locale>.json`, then regenerate |
 | A style token | `src/styles.css`; component styles stay in the component |
+| A static file | `public/` |
 ```
 
-The framework's own `AGENTS.md` follows the same shape, and the documentation site publishes `llms.txt` and a Markdown twin of every page so an agent can read the guide it needs without the HTML around it.
+The framework's rules live in the zerolith skill rather than in this file, so the file stays about the project. The [coding agents guide](agents.md) covers setting up both.
 
 ## Scaffolding
 

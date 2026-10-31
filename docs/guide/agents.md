@@ -1,44 +1,40 @@
 ---
 title: Coding agents
-description: "What a coding agent reads in a zerolith project and on this site: AGENTS.md, the zerolith Agent Skill, llms.txt, Markdown twins, the API manifest, and coded diagnostics."
+description: "Set up a coding agent for a zerolith app: the project's AGENTS.md and the zerolith skill, and what the docs and diagnostics give it besides."
 order: 19
 group: Tooling
 ---
 
 # Coding agents
 
-zerolith is written to be worked on by people and coding agents alike, from the same sources. The rules an agent follows are the rules this guide teaches, the examples it reads are the ones that run in CI, and every error it meets names its own fix. This page lists what an agent can read and how to give it each piece.
+A coding agent needs two things to work well in a zerolith app: the project's own conventions and the framework's rules. The first is already in every new project, and the second takes one command. Each piece is read at a different time, which keeps what the agent always carries small:
 
-## AGENTS.md in every project
+| Piece | When it is read |
+| --- | --- |
+| `AGENTS.md`, in the project | At the start of every task |
+| The zerolith skill, in the project | When a task involves zerolith, one reference at a time |
+| The docs as Markdown, on this site | When it looks something up |
 
-`zerolith new` writes an `AGENTS.md` next to `package.json`: the project's commands, the rules that matter most, and a table of where each kind of change goes. Agents that follow the AGENTS.md convention read it at the start of a task. Keep it current as the project grows: a convention that lives only in your head is one the agent cannot follow.
+## Set up
 
-## The zerolith Agent Skill
+1. **The project's AGENTS.md.** `zerolith new` writes an `AGENTS.md` next to `package.json`, with the project's commands, the rules that matter most, a table of where each kind of change goes, and a pointer to the skill. Agents that follow the AGENTS.md convention, Claude Code among them, read it at the start of every task; Claude Code reads a `CLAUDE.md` instead when the project has one, so put a line holding `@AGENTS.md` in that file to include this one. Keep it current as the project grows: when an agent gets something wrong twice, add the rule there.
+2. **The zerolith skill.** Install it in the project:
 
-An [Agent Skill](https://agentskills.io/) is a folder with a `SKILL.md` that an agent loads when a task calls for it, and reference files it reads only when it needs them. The zerolith skill holds the rules, one pattern for each concept, the commands, and a checklist for finishing a change, with every guide on this site as a reference and every diagnostic code with its fix.
+   ```sh
+   npx skills add molexxxx/zerolith
+   ```
 
-Install it into a project with the `skills` command, which finds the agents on your machine and copies the skill where each one looks:
+   The command detects the agents installed on your machine, asks which ones to set up, and installs the skill into the project for each of them. An [Agent Skill](https://agentskills.io/) is a folder an agent loads when a task calls for it; this one holds the rules, one pattern for each concept, the commands, a checklist for finishing a change, and every guide and diagnostic code as a reference the agent opens when it needs one. Without the command, copy the [skills/zerolith](https://github.com/molexxxx/zerolith/tree/main/skills/zerolith) folder of the repository into the project's `.agents/skills/`, which Codex, Cursor, GitHub Copilot, Gemini CLI, and most other agents read, or into `.claude/skills/` for Claude Code. The skill on the main branch describes the code on main; to match a release, copy the folder from that release's tag.
 
-```sh
-npx skills add molexxxx/zerolith
-```
+That is the whole setup. The rest of this page is what an agent can use without any.
 
-Or copy the [skills/zerolith](https://github.com/molexxxx/zerolith/tree/main/skills/zerolith) folder of the repository into the project's `.agents/skills/`, the folder agents share, or into the skills folder of your agent. The skill on the main branch describes the code on main; to match a release, copy the folder from that release's tag. The references are generated from these guides and checked by a test, so they never disagree with this site.
+## What else an agent can use
 
-## This site, for agents
+- **Diagnostics with their fix.** Every error and warning carries a stable code and a link to its page, which says what happened and what to do, such as [template_frozen_read](https://molexxxx.github.io/zerolith/e/template_frozen_read/). `zerolith doctor` reports the same template mistakes before the code runs, and in a project from `zerolith new`, `npm run check` runs the typecheck, the lint, the tests, and the build, so an agent can verify its own work.
+- **The docs as Markdown.** Every page of this site has a Markdown version at its address with `.md` in place of the closing slash, such as [guide/signals.md](https://molexxxx.github.io/zerolith/guide/signals.md) for the signals guide. [llms.txt](https://molexxxx.github.io/zerolith/llms.txt) lists them all, [llms-full.txt](https://molexxxx.github.io/zerolith/llms-full.txt) holds every page but the playground in one file, and [api.json](https://molexxxx.github.io/zerolith/api.json) lists every export with its documentation. Point an agent at llms.txt when it cannot install the skill.
 
-- **Markdown twins.** Every page has a Markdown version at the same path with `.md`, such as [guide/signals.md](https://molexxxx.github.io/zerolith/guide/signals.md) for the signals guide, and each page links its twin with `rel="alternate" type="text/markdown"`. The twin has the examples expanded, so it holds everything the page shows.
-- **llms.txt.** [llms.txt](https://molexxxx.github.io/zerolith/llms.txt) lists every twin with a one-line description, the index an agent reads first, and [llms-full.txt](https://molexxxx.github.io/zerolith/llms-full.txt) puts every page in one file.
-- **The API manifest.** [api.json](https://molexxxx.github.io/zerolith/api.json) lists every export of every package with its module, its kind, and its documentation, generated from the source.
+## Which AGENTS.md is which
 
-## Diagnostics an agent can act on
-
-Every error and warning carries a stable code and a link to its page, which states what happened and what to do. An agent that meets `template_frozen_read` can read [its page](https://molexxxx.github.io/zerolith/e/template_frozen_read/) and apply the fix without guessing. `zerolith doctor` reports the same template mistakes before the code runs, along with a missing entry module or a stale import map, so an agent can check its work the way CI will.
-
-## Working with an agent
-
-- Ask it to finish with `npm run check` where the project defines it, or with doctor, the tests, the typecheck, and the build.
-- Point it at [llms.txt](https://molexxxx.github.io/zerolith/llms.txt) when it needs the docs and cannot install the skill.
-- When it gets something wrong twice, add the rule to `AGENTS.md`.
+The `AGENTS.md` in your project is the one your agent reads. The [AGENTS.md at the root of the zerolith repository](https://github.com/molexxxx/zerolith/blob/main/AGENTS.md) is for agents changing zerolith itself, and an app never needs it.
 
 Whether this context makes agents measurably better is a claim to be tested, not assumed: a public evaluation suite is on the [roadmap](https://github.com/molexxxx/zerolith/blob/main/docs/ROADMAP.md), along with an MCP server for the docs.
