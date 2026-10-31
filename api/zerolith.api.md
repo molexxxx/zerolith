@@ -3,8 +3,6 @@
 function batch<T>(fn: () => T): T
 function computed<T>(fn: () => T, options?: SignalOptions<T>): ReadableSignal<T>
 function css(strings: TemplateStringsArray, ...values: ReadonlyArray<number | Styles>): Styles
-function devtoolsInternal<T>(fn: () => T): T
-function devtoolsSaveRestore(state: Record<string, unknown>): void
 function each<T>(items: ReadableSignal<readonly T[]> | readonly T[], key: KeyOf<T>, row: RowOf<T>): View
 function effect(fn: EffectFunction): () => void
 function html(strings: TemplateStringsArray, ...values: unknown[]): View
@@ -12,10 +10,8 @@ function hydrate(view: unknown, target: MountTarget): HydrateResult
 function isProblem(value: unknown): value is Problem
 function onDiagnostic(listener: DiagnosticListener): () => void
 function onDispose(fn: () => void): void
-function prepared(strings: readonly string[], markup: string, parts: readonly PreparedPart[]): TemplateStringsArray
 function render(view: unknown, target: MountTarget): Root
 function resource<P, T>(options: ResourceOptions<P, T>): Resource<T>
-function scan(strings: readonly string[]): Scanned
 function scope<T>(fn: () => T): Scope<T>
 function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T>
 function unsafeHtml(markup: string): View
@@ -24,12 +20,6 @@ function when(condition: unknown, then: () => unknown, otherwise?: () => unknown
 class ZerolithError extends Error
     constructor(record: Diagnostic)
     readonly diagnostic: Diagnostic
-interface DevtoolsHook
-    readonly version: number
-    nodes(): NodeSnapshot[]
-    roots(): RootSnapshot[]
-    diagnostics(): Diagnostic[]
-    subscribe(listener: (event: DevtoolsEvent) => void): () => void
 interface Diagnostic
     code: string
     severity: DiagnosticSeverity
@@ -60,19 +50,6 @@ interface HydrationMismatch
 interface LoaderContext<P>
     params: P
     abort: AbortSignal
-interface NodeSnapshot
-    id: number
-    kind: "state" | "computed" | "effect"
-    name: string | undefined
-    value?: unknown
-    observers: number
-    internal: boolean
-interface PartSpec
-    kind: number
-    index: number
-    name: string
-    strings: readonly string[]
-    count: number
 interface Problem
     type?: string
     title?: string
@@ -94,14 +71,6 @@ interface ResourceOptions<P, T>
 interface Root
     readonly container: Element | DocumentFragment
     dispose(): void
-interface RootSnapshot
-    id: number
-    kind: "render" | "hydrate"
-    container: Node
-    internal: boolean
-interface Scanned
-    markup: string
-    parts: PartSpec[]
 interface Scope<T>
     readonly value: T
     dispose(): void
@@ -117,7 +86,6 @@ interface Styles
 interface View
     readonly VIEW: true
 type Applicability = "machine_applicable" | "maybe_incorrect" | "has_placeholders" | "unspecified"
-type DevtoolsEvent = { type: "node"; id: number } | { type: "root"; id: number; removed: boolean } | { type: "diagnostic"; diagnostic: Diagnostic } | { type: "flush"; effects: number }
 type DiagnosticArgs = Readonly<Record<string, string | number | boolean>>
 type DiagnosticCode = "signal_written_inside_computed" | "computed_cycle" | "effect_cycle" | "effect_loop" | "on_dispose_outside_scope" | "binding_in_tag_position" | "binding_in_comment" | "binding_in_raw_text" | "binding_not_single" | "script_in_template" | "template_unclosed_tag" | "unsafe_property_binding" | "unsafe_attribute_binding" | "unsafe_url_blocked" | "unrenderable_value" | "event_handler_not_function" | "each_key_undefined" | "each_key_duplicate" | "css_value_not_allowed" | "ref_not_assignable" | "hydration_mismatch" | "jsx_not_lowered" | "template_frozen_read" | "image_without_alt" | "button_without_name" | "frame_without_title" | "mount_target_missing" | "template_not_prepared" | "lazy_module_not_split"
 type DiagnosticListener = (diagnostic: Diagnostic) => void
@@ -127,10 +95,8 @@ type Equals<T> = (previous: T, next: T) => boolean
 type FieldErrors = Readonly<Record<string, readonly string[]>>
 type KeyOf<T> = (item: T, index: number) => string | number | bigint | boolean | symbol | object
 type MountTarget = Element | DocumentFragment | string
-type PreparedPart = readonly [number, string, readonly string[]]
 type ResourceStatus = "idle" | "pending" | "resolved" | "error"
 type RowOf<T> = (item: ReadableSignal<T>, index: ReadableSignal<number>) => unknown
 const DIAGNOSTIC_URL: string
 const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, DiagnosticText>>>
 const PROBLEM_MEDIA_TYPE: string
-const SCOPE_MARKER: string

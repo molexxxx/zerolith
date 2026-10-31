@@ -1,4 +1,4 @@
-import { prepared as __zl_prepared } from "zerolith";import { html as h, render } from "zerolith";
+import { prepared as __zl_prepared } from "zerolith/internal";import { html as h, render } from "zerolith";
 import * as z from "zerolith";
 import { other } from "./other.js";
 

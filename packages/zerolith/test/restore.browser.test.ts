@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { devtoolsSaveRestore, signal } from "zerolith";
+import { signal } from "zerolith";
+import { devtoolsSaveRestore } from "zerolith/internal";
 
 describe("named state across a development reload", () =>
 {

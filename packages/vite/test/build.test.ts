@@ -82,7 +82,7 @@ function run(entry: string, mode: string, options: Parameters<typeof zerolith>[0
         logLevel: "silent",
         mode,
         plugins: [zerolith(options)],
-        resolve: { alias: { zerolith: entry } },
+        resolve: { alias: { "zerolith/internal": entry.replace(/index\.js$/, "internal.js"), zerolith: entry } },
         build: { write: false, minify: false }
     });
 }

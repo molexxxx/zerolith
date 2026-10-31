@@ -34,7 +34,7 @@ export const TEMPLATE_BINDING: string = "__zl_t";
 export const VIEW_BINDING: string = "__zl_v";
 
 const SPECIFIER = "zerolith";
-const HEAD = `import { prepared as ${PREPARED_BINDING} } from "${SPECIFIER}";`;
+const HEAD = `import { prepared as ${PREPARED_BINDING} } from "zerolith/internal";`;
 
 /** TypeScript nodes that wrap an expression and so are walked; every other TS node is a type and is skipped. */
 const TS_EXPRESSIONS: ReadonlySet<string> = new Set(["TSAsExpression", "TSSatisfiesExpression", "TSNonNullExpression", "TSInstantiationExpression", "TSTypeAssertion"]);

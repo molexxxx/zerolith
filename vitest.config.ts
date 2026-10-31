@@ -24,6 +24,7 @@ export default defineConfig({
             "@zerolith/devtools": fileURLToPath(new URL("./packages/devtools/src/index.ts", import.meta.url)),
             "@zerolith/router/server": fileURLToPath(new URL("./packages/router/src/server.ts", import.meta.url)),
             "@zerolith/router": routerEntry,
+            "zerolith/internal": fileURLToPath(new URL("./packages/zerolith/src/internal.ts", import.meta.url)),
             "zerolith/element": fileURLToPath(new URL("./packages/zerolith/src/element.ts", import.meta.url)),
             "zerolith/ssr": fileURLToPath(new URL("./packages/zerolith/src/ssr.ts", import.meta.url)),
             zerolith: coreEntry

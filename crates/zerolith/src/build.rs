@@ -950,7 +950,7 @@ mod tests {
         let root =
             std::env::temp_dir().join(format!("zerolith-bundle-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
-        let files: [(&str, &str); 22] = [
+        let files: [(&str, &str); 24] = [
             (
                 "index.html",
                 "<!doctype html>\n<html>\n<head>\n    <link rel=\"icon\" href=\"/favicon.svg\">\n    <link rel=\"stylesheet\" href=\"/src/styles.css\">\n    <script type=\"importmap\">{\"imports\":{}}</script>\n</head>\n<body>\n    <div id=\"app\"></div>\n    <script type=\"module\" src=\"/src/main.ts\"></script>\n</body>\n</html>\n",
@@ -990,7 +990,15 @@ mod tests {
             ("public/favicon.svg", "<svg></svg>"),
             (
                 "node_modules/zerolith/package.json",
-                "{\"name\":\"zerolith\",\"type\":\"module\",\"exports\":{\".\":{\"development\":\"./dist/index.js\",\"default\":\"./dist/production/index.js\"}}}",
+                "{\"name\":\"zerolith\",\"type\":\"module\",\"exports\":{\".\":{\"development\":\"./dist/index.js\",\"default\":\"./dist/production/index.js\"},\"./internal\":{\"development\":\"./dist/internal.js\",\"default\":\"./dist/production/internal.js\"}}}",
+            ),
+            (
+                "node_modules/zerolith/dist/internal.js",
+                "export * from \"./production/internal.js\";\n",
+            ),
+            (
+                "node_modules/zerolith/dist/production/internal.js",
+                "export { prepared } from \"./template.js\";\n",
             ),
             (
                 "node_modules/zerolith/dist/index.js",

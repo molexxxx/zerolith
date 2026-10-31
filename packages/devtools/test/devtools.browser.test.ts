@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { type DevtoolsHandle, describeValue, mountDevtools } from "@zerolith/devtools";
-import { type DevtoolsHook, type Root, html, render, signal } from "zerolith";
+import { type Root, html, render, signal } from "zerolith";
+import { type DevtoolsHook } from "zerolith/internal";
 
 let handle: DevtoolsHandle | undefined;
 let root: Root | undefined;

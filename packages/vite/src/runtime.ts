@@ -6,6 +6,7 @@
  * in a production build, which the plugin leaves untouched.
  */
 import * as core from "zerolith";
+import { type DevtoolsHook, devtoolsSaveRestore } from "zerolith/internal";
 
 /** The part of `import.meta.hot` the runtime relies on: the object that survives a module's replacement. */
 export interface HotContext
@@ -133,7 +134,7 @@ export function save(): void
     {
         entry.fresh = false;
     }
-    const hook = (globalThis as { __ZEROLITH_DEVTOOLS__?: core.DevtoolsHook }).__ZEROLITH_DEVTOOLS__;
+    const hook = (globalThis as { __ZEROLITH_DEVTOOLS__?: DevtoolsHook }).__ZEROLITH_DEVTOOLS__;
     if (hook === undefined)
     {
         return;
@@ -146,7 +147,7 @@ export function save(): void
             state[node.name] = node.value;
         }
     }
-    core.devtoolsSaveRestore(state);
+    devtoolsSaveRestore(state);
 }
 
 /**
@@ -170,5 +171,5 @@ export function accept(): void
         entry.root.dispose();
         entry.root = core.render(view, container);
     }
-    core.devtoolsSaveRestore({});
+    devtoolsSaveRestore({});
 }

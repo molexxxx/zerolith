@@ -5,7 +5,8 @@
  */
 import { relative } from "node:path";
 import { type Plugin, parseSync, perEnvironmentState } from "vite";
-import { DIAGNOSTIC_URL, scan } from "zerolith";
+import { DIAGNOSTIC_URL } from "zerolith";
+import { scan } from "zerolith/internal";
 import { type JsxOutput, lowerJsx } from "./jsx.js";
 import { lintModule, position } from "./lint.js";
 import { PrepareError, prepareModule } from "./prepare.js";

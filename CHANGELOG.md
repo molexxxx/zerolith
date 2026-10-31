@@ -4,6 +4,10 @@ Every package in this repository is released together and carries the same versi
 
 ## Unreleased
 
+### Breaking
+
+- `zerolith`: the hooks build tools and the dev tools use moved from `zerolith` to a new `zerolith/internal` entry, which the API freeze will not cover: `prepared`, `scan`, `Scanned`, `PartSpec`, `PreparedPart`, `SCOPE_MARKER`, `devtoolsInternal`, `devtoolsSaveRestore`, `DevtoolsHook`, `DevtoolsEvent`, `NodeSnapshot`, and `RootSnapshot`. `@zerolith/vite`, the command line, and `@zerolith/devtools` import them from there; applications never needed them.
+
 ### Added
 
 - `@zerolith/cli` and the `zerolith` crate: `zerolith dev`, `serve`, and `preview` forward requests under a path to a backend, with `--proxy /api=http://127.0.0.1:3000` or a `proxy` entry in `zerolith.json`, so a page reaches its API on its own origin with no CORS to configure. Bodies stream both ways, server-sent events included; WebSocket connections are joined end to end; the backend receives its own `Host` with `X-Forwarded-Host`, `-Proto`, and `-For`; a redirect to the backend's own address comes back as a path; `stripPrefix` removes the matched prefix; and an unreachable backend answers 502 with the reason in the terminal. Only `http://` backends are supported for now.

@@ -61,6 +61,7 @@ beforeAll(async () =>
         resolve: {
             alias: {
                 "@zerolith/vite/runtime": join(repoRoot, "packages/vite/src/runtime.ts"),
+                "zerolith/internal": join(repoRoot, "packages/zerolith/src/internal.ts"),
                 zerolith: join(repoRoot, "packages/zerolith/src/index.ts")
             }
         },

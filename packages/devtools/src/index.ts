@@ -3,7 +3,8 @@
  * reads the hook the core publishes in development and renders a dock
  * with the reactive graph, the mounted roots, and the diagnostics feed.
  */
-import { type Diagnostic, type DevtoolsHook, type NodeSnapshot, type RootSnapshot, computed, css, devtoolsInternal, each, html, render, signal, when } from "zerolith";
+import { type Diagnostic, computed, css, each, html, render, signal, when } from "zerolith";
+import { type DevtoolsHook, type NodeSnapshot, type RootSnapshot, devtoolsInternal } from "zerolith/internal";
 
 export type { DevtoolsHandle, DevtoolsOptions } from "./noop.js";
 import type { DevtoolsHandle, DevtoolsOptions } from "./noop.js";

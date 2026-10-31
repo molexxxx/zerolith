@@ -1,6 +1,6 @@
 import { parseSync } from "vite";
 import { describe, expect, it } from "vitest";
-import { scan } from "zerolith";
+import { scan } from "zerolith/internal";
 import { type ModuleParser, PrepareError, prepareModule } from "@zerolith/vite";
 
 const parse: ModuleParser = (filename, code) => parseSync(filename, code, { sourceType: "module", lang: filename.endsWith(".ts") ? "ts" : "js" });
@@ -39,7 +39,7 @@ describe("prepareModule", () =>
     it("hoists the scan next to the literal and calls html with it", () =>
     {
         const out = prepare("import { html } from \"zerolith\";\nexport const view = (cls, name) => html`<p class=\"${cls}\">${name}</p>`;\n");
-        expect(out).toMatch(/^import \{ prepared as __zl_prepared \} from "zerolith";import \{ html \} from "zerolith";\n/);
+        expect(out).toMatch(/^import \{ prepared as __zl_prepared \} from "zerolith\/internal";import \{ html \} from "zerolith";\n/);
         expect(out).toContain("const __zl_t0 = __zl_prepared([\"<p class=\\\"\",\"\\\">\",\"</p>\"], \"<p zl$0><!--zl$--></p>\", [[1,\"class\",[\"\",\"\"]],[0,\"\",[]]]);");
         expect(out).toContain("export const view = (cls, name) => html(__zl_t0, cls, name);");
     });

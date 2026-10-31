@@ -250,7 +250,7 @@ pub fn prepare_source(source: &str, source_type: SourceType) -> Result<String, T
     let mut edits = vec![Edit {
         start: 0,
         end: 0,
-        text: format!("import {{ prepared as {PREPARED_BINDING} }} from \"{SPECIFIER}\";"),
+        text: format!("import {{ prepared as {PREPARED_BINDING} }} from \"zerolith/internal\";"),
     }];
     let mut hoisted = String::new();
     for (index, template) in finder.templates.iter().enumerate() {
@@ -336,7 +336,7 @@ mod tests {
     fn hoists_the_scan_and_calls_html_with_it() {
         let out = prepare("import { html } from \"zerolith\";\nexport const view = (cls, name) => html`<p class=\"${cls}\">${name}</p>`;\n").unwrap();
         assert!(out.starts_with(
-            "import { prepared as __zl_prepared } from \"zerolith\";import { html } from \"zerolith\";\n"
+            "import { prepared as __zl_prepared } from \"zerolith/internal\";import { html } from \"zerolith\";\n"
         ));
         assert!(out.contains("const __zl_t0 = __zl_prepared([\"<p class=\\\"\",\"\\\">\",\"</p>\"], \"<p zl$0><!--zl$--></p>\", [[1,\"class\",[\"\",\"\"]],[0,\"\",[]]]);"));
         assert!(out.contains("export const view = (cls, name) => html(__zl_t0, cls, name);"));

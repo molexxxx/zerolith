@@ -13,6 +13,7 @@
             "zerolith": ["./packages/zerolith/src/index.ts"],
             "zerolith/ssr": ["./packages/zerolith/src/ssr.ts"],
             "zerolith/element": ["./packages/zerolith/src/element.ts"],
+            "zerolith/internal": ["./packages/zerolith/src/internal.ts"],
             "zerolith/jsx-runtime": ["./packages/zerolith/src/jsx-runtime.ts"],
             "zerolith/jsx-dev-runtime": ["./packages/zerolith/src/jsx-runtime.ts"],
             "@zerolith/router": ["./packages/router/src/index.ts"],

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { type DevtoolsEvent, type DevtoolsHook, type ReadableSignal, computed, devtoolsInternal, effect, onDispose, signal } from "zerolith";
+import { type ReadableSignal, computed, effect, onDispose, signal } from "zerolith";
+import { type DevtoolsEvent, type DevtoolsHook, devtoolsInternal } from "zerolith/internal";
 
 function hook(): DevtoolsHook
 {

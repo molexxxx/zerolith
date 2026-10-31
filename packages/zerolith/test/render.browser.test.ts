@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Diagnostic, type Root, ZerolithError, computed, each, effect, html, onDiagnostic, prepared, render, scan, signal, when } from "zerolith";
+import { type Diagnostic, type Root, ZerolithError, computed, each, effect, html, onDiagnostic, render, signal, when } from "zerolith";
+import { prepared, scan } from "zerolith/internal";
 
 let root: Root | undefined;
 let host: HTMLElement | undefined;

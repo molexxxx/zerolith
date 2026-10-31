@@ -53,6 +53,11 @@
             "development": "./dist/jsx-runtime.js",
             "default": "./dist/production/jsx-runtime.js"
         },
+        "./internal": {
+            "types": "./dist/internal.d.ts",
+            "development": "./dist/internal.js",
+            "default": "./dist/production/internal.js"
+        },
         "./package.json": "./package.json"
     },
     "files": [
