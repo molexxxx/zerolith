@@ -36,15 +36,41 @@ html
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     scroll-padding-top: calc(var(--docs-header) + var(--zl-space-6));
-    scrollbar-color: var(--zl-control-line) var(--zl-bg);
+    scrollbar-gutter: stable;
 }
 
-.code pre,
-.editor pre,
-.editor textarea,
-.command code
+::-webkit-scrollbar
 {
-    scrollbar-color: var(--zl-basalt-600) var(--zl-code-bg);
+    width: 10px;
+    height: 10px;
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb
+{
+    border: var(--zl-rule) solid transparent;
+    background: var(--zl-control-line) padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover
+{
+    background-color: var(--zl-text-muted);
+}
+
+::-webkit-scrollbar-button,
+::-webkit-scrollbar-corner
+{
+    display: none;
+    background: transparent;
+}
+
+@supports not selector(::-webkit-scrollbar)
+{
+    *
+    {
+        scrollbar-width: thin;
+        scrollbar-color: var(--zl-control-line) transparent;
+    }
 }
 
 body
@@ -262,6 +288,7 @@ svg
     top: calc(var(--docs-header) + var(--zl-rule));
     height: calc(100vh - var(--docs-header) - var(--zl-rule));
     overflow-y: auto;
+    scrollbar-gutter: stable;
     padding: var(--zl-space-6);
     border-right: var(--zl-rule) solid var(--zl-line);
 }
@@ -448,7 +475,7 @@ article blockquote > :last-child
     background: var(--zl-code-bg);
     color: var(--zl-code-text);
     font-family: var(--zl-font-mono);
-    font-size: var(--zl-text-sm);
+    font-size: 0.8125rem;
     line-height: 1.7;
     tab-size: 4;
 }
@@ -678,6 +705,7 @@ article blockquote > :last-child
     align-self: start;
     max-height: calc(100vh - var(--docs-header) - var(--zl-rule));
     overflow-y: auto;
+    scrollbar-gutter: stable;
     padding: var(--zl-space-12) var(--zl-space-6) var(--zl-space-6) 0;
 }
 
@@ -1459,7 +1487,7 @@ article blockquote > :last-child
     border: 0;
     overflow: auto;
     font-family: var(--zl-font-mono);
-    font-size: var(--zl-text-sm);
+    font-size: 0.8125rem;
     letter-spacing: normal;
     line-height: 1.7;
     tab-size: 4;

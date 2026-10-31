@@ -35,9 +35,9 @@ A chartreuse tile with the stele in basalt.
 
 Basalt carries every surface. Chartreuse `#AACF16` is spent on five things only: the mark, the primary action, the active navigation item, code keywords, and focus. On light grounds chartreuse is a fill only, and deep olive `#4B5E00` takes its text and focus roles. Status colors (danger, warning, hint) are for diagnostics; success is the text color with the check icon.
 
-Code sits on basalt-950 in both themes and has roles of its own: keywords in chartreuse, the live parts of a template (`${}` bindings and the `@` `.` `?` prefixes) in pale lichen `#C8E679`, tags in glacier `#8DC3F2`, attributes and properties in lilac `#BDB4F4`, numbers and literals in rose `#EFA3BD`, strings in basalt-300, and comments in basalt-400. Every one reads at 9:1 or better on the code ground, and the glacier, lilac, and rose hues appear in code and nowhere else.
+Code sits on a dark basalt plane set apart from the page in both themes, basalt-900 on the dark page and basalt-950 on the light one, and has roles of its own: keywords in chartreuse, the live parts of a template (`${}` bindings and the `@` `.` `?` prefixes) in pale lichen `#C8E679`, tags in glacier `#8DC3F2`, attributes and properties in lilac `#BDB4F4`, numbers and literals in rose `#EFA3BD`, strings in basalt-300, and comments in basalt-400. On either code ground the colored roles read at 8.8:1 or better and comments at 6.8:1, and the glacier, lilac, and rose hues appear in code and nowhere else.
 
-`tokens.css` holds the values as custom properties, with dark as the default and a light theme for `prefers-color-scheme: light` or `data-theme="light"`. `tokens.json` holds the same values in the Design Tokens Community Group format, plus the terminal mapping. Code blocks stay on basalt in both themes.
+`tokens.css` holds the values as custom properties, with dark as the default and a light theme for `prefers-color-scheme: light` or `data-theme="light"`. `tokens.json` holds the same values in the Design Tokens Community Group format, plus the terminal mapping. The code ground is basalt-900 in the dark theme and basalt-950 in the light one.
 
 ## Type
 

@@ -66,7 +66,7 @@ const libraries: Part[] = [
 const core: Part = { name: "zerolith", href: "/guide/", mark: "", text: "Signals, html and css templates, rendering, hydration, server rendering, custom elements, and coded diagnostics" };
 
 const tools: Part[] = [
-    { name: "@zerolith/cli", href: "/guide/command-line/", mark: icon("terminal"), text: "new, dev, build, preview, doctor" },
+    { name: "@zerolith/cli", href: "/guide/command-line/", mark: icon("terminal"), text: "new, dev, build, preview, doctor, skill" },
     { name: "@zerolith/vite", href: "/guide/vite/", mark: glyph("vite"), text: "The build passes and hot replacement" },
     { name: "@zerolith/test", href: "/guide/testing/", mark: glyph("test"), text: "Mount, settle, hydration checks" },
     { name: "@zerolith/devtools", href: "/guide/dev-tools/", mark: glyph("devtools"), text: "Inspector and Performance tracks" }
@@ -113,7 +113,7 @@ export function Home(data: HomeData): View
         <figure class="figure">
             <div class="code" data-language="js"><pre><code>${unsafeHtml(data.figureCode)}</code></pre></div>
             <div class="run" data-island="figure">${Figure()}</div>
-            <figcaption>Figure 1. This counter is running on this page: rendered by the docs build, hydrated in your browser, and measured with a MutationObserver. Press Add one: two text nodes change, and Counter() never runs again.</figcaption>
+            <figcaption>Figure 1. This counter is running on this page: rendered by the docs build, hydrated in your browser, and measured with a MutationObserver. Press Add one a few times: every click changes two text nodes and creates no elements, and Counter() never runs again.</figcaption>
         </figure>
         <section class="band">
             <h2>Everything an application needs</h2>

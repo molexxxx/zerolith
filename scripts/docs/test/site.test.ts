@@ -76,7 +76,7 @@ describe("documentation site", () =>
         await page.close();
     });
 
-    it("runs the home page's figure and measures what each update changed", { timeout: 60000 }, async () =>
+    it("runs the home page's figure and totals what the updates changed", { timeout: 60000 }, async () =>
     {
         const { page, errors } = await open("/");
         const readout = (): Promise<string[]> => page.$$eval(".readout dd", (values) => values.map((value) => value.textContent ?? ""));
@@ -86,6 +86,10 @@ describe("documentation site", () =>
         await page.waitForFunction(() => document.querySelector(".readout dd")?.textContent === "2");
         expect(await page.textContent(".run .output p")).toBe("Count: 2, doubled: 4");
         expect(await readout()).toEqual(["2", "0", "1"]);
+        await page.click(".run .output button");
+        await page.waitForFunction(() => document.querySelector(".readout dd")?.textContent === "4");
+        expect(await page.textContent(".run .output p")).toBe("Count: 3, doubled: 6");
+        expect(await readout()).toEqual(["4", "0", "1"]);
         expect(await page.locator(".figure code [data-signal]").count()).toBe(2);
         expect(errors).toEqual([]);
         await page.close();
@@ -107,6 +111,21 @@ describe("documentation site", () =>
             failures.push(...reported.map((line) => `${id}: ${line}`));
         }
         expect(failures).toEqual([]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("submits forms in the preview", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/#example=list");
+        await page.click("[data-action=\"run\"]");
+        const frame = page.frameLocator(".preview iframe");
+        await frame.locator("li").first().waitFor({ timeout: 15000 });
+        const before = await frame.locator("li").count();
+        await frame.locator("input[name=\"name\"]").fill("Sunscreen");
+        await frame.locator("button[type=\"submit\"], form button").first().click();
+        await frame.locator("li", { hasText: "Sunscreen" }).waitFor({ timeout: 5000 });
+        expect(await frame.locator("li").count()).toBe(before + 1);
         expect(errors).toEqual([]);
         await page.close();
     });

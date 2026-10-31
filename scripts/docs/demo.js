@@ -2,8 +2,8 @@
  * The home page's running figure: a counter the docs build renders on the
  * server and the browser hydrates from the production build. The page shows
  * the `figure` region of this file as the figure's code, and the readout
- * reports what each update changed in the DOM, measured by a
- * MutationObserver on the output, and how often the component ran.
+ * totals what the updates since the page loaded changed in the DOM, measured
+ * by a MutationObserver on the output, and how often the component ran.
  */
 import { computed, html, signal } from "zerolith";
 
@@ -103,8 +103,8 @@ export function watch(host)
                 }
             }
         }
-        textNodes.set(changed.size);
-        elements.set(created);
+        textNodes.set(textNodes.get() + changed.size);
+        elements.set(elements.get() + created);
         if (outputMarks === undefined || codeMarks === undefined)
         {
             return;

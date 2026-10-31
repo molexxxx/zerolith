@@ -2,6 +2,17 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
+## Unreleased
+
+### Changed
+
+- Brand and docs site: code sits on basalt-900 in the dark theme, a plane apart from the basalt-950 page, and stays on basalt-950 in the light theme, so code stands out from the page in both. Code is set at 13 px instead of 14, so more lines fit without scrolling, and scrollbars are thin and square in the brand's control color, with a stable gutter so pages no longer shift when one appears.
+- Docs site: the home page's figure totals what the updates changed since the page loaded, so each click adds two text nodes to the count while elements created stay at 0 and `Counter()` calls at 1.
+
+### Fixed
+
+- Docs site: forms submit in the playground's preview, so the Add button of the Packing list example works. The preview's sandbox lacked `allow-forms`, which stops a form before its `submit` event fires.
+
 ## 0.1.0-alpha.5 (2026-10-31)
 
 The docs site is now a place to learn zerolith, with a home page that runs a counter, a ten-step tutorial, a playground, and a guide for coding agents, and every new project comes with the zerolith skill. `zerolith new --example fullstack` writes an app with its own Node backend, which `zerolith dev` reaches through a proxy under the app's base path, and keyed lists render in about half the script time of 0.1.0-alpha.4. The packages that share `zerolith/internal` now require the same version of zerolith, so upgrade them together.

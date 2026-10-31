@@ -77,7 +77,7 @@ export function Playground(): View
                     ${unsafeHtml(editor)}
                 </div>
                 <div class="preview">
-                    <iframe title="Preview" sandbox="allow-scripts allow-modals"></iframe>
+                    <iframe title="Preview" sandbox="allow-scripts allow-forms allow-modals"></iframe>
                     <div class="console" role="log" aria-label="Console"></div>
                 </div>
             </div>
