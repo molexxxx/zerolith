@@ -23,11 +23,13 @@ Every package in this repository is released together and carries the same versi
 
 - `@zerolith/cli` and the `zerolith` crate: when the default port of `dev`, `serve`, or `preview` is taken or reserved, as 8080 often is on Windows, the next free port is used and the banner says so; a port given explicitly fails with a message that says why.
 - Docs: the introduction moved from the site root to `/guide/`; the root is the home page.
+- `zerolith`: keyed lists insert new rows once per run of new rows, clear a list that owns its parent in one step, keep rows that match at both ends without diffing them, and render a row whose view is a template without marker comments, and every binding allocates less. Measured side by side in one browser, script time to create, replace, or clear 1,000 rows fell by a quarter to a third.
 
 ### Fixed
 
 - `zerolith`: a keyed list and a condition no longer keep the owners of removed rows and branches alive in the owner around them, so a list that lives on while its rows come and go, or a condition that toggles, no longer grows the heap. A browser test measures the heap across churn.
 - `@zerolith/cli` and the `zerolith` crate: `zerolith build` keeps a stylesheet link to a file that is not in the project, such as one the host serves next to the app, with a warning, instead of failing.
+- `zerolith` and `@zerolith/devtools`: the inspector reads a computed value's last result instead of running it, so opening it never re-enters a computation in progress.
 
 ## 0.1.0-alpha.4 (2026-10-30)
 

@@ -51,6 +51,8 @@ In order:
 - [x] JSX as an alternative spelling of `html`.
 - [x] Mounting by element or CSS selector.
 - [x] Templates prepared ahead of time by a build tool, with the scanner left out of the bundle.
+- [x] Keyed lists that insert new rows once per run, clear in one step, keep matching rows at both ends without diffing them, and render template rows without markers, with less allocated per binding.
+- [ ] A prepared template format that locates parts by path instead of walking the clone and gives text bindings their own text node, for the per-row work that remains above hand-written DOM code.
 - [ ] Streaming server rendering.
 - [ ] Islands as a public API: server-rendered pages that hydrate only their interactive parts. The docs search already runs this way.
 - [ ] Form-associated custom elements through `ElementInternals`.
@@ -71,6 +73,17 @@ In order:
 - [ ] An in-process transport that calls a handler directly, for tests.
 - [ ] Signals the server pushes over Server-Sent Events, resuming from `Last-Event-ID` after a reconnect.
 - [ ] WebSocket for two-way and binary traffic, and WebTransport behind feature detection.
+
+## Application utilities
+
+The everyday helpers applications otherwise write by hand, each with one form, full types, a diagnostic code where it can fail, examples that run as tests, and coverage in the Agent Skill. They add to the API rather than change it, so they arrive in minor versions after 1.0.
+
+- [ ] `@zerolith/state`: a signal kept in storage and in step across tabs, undo and redo for a signal, debounced and throttled signals, and a selector that tells only the rows whose selection changed.
+- [ ] `@zerolith/browser`: the page as signals, such as online status, visibility, an element's size and whether it is in view, and the window size.
+- [ ] Retry with backoff and a timeout for `resource`.
+- [ ] A plain fetch client in `@zerolith/client` for backends without an OpenAPI document: a base URL, headers, JSON in and out, timeouts, and problems as errors.
+- [ ] Enter and leave transitions for `when` and `each` that follow the reduced-motion preference.
+- [ ] Router guards that can hold a navigation, such as for unsaved changes, and a hash mode for hosts with no fallback to `index.html`.
 
 ## Build path
 
