@@ -483,6 +483,12 @@ class Computed<T> implements ReadableSignal<T>, Source, Consumer
         return this.value as T;
     }
 
+    /** The last result without computing, for the dev tools: absent before the first run and while the last run threw. */
+    cached(): { value?: unknown }
+    {
+        return this.version === 0 || this.flags & HAS_ERROR ? {} : { value: this.value };
+    }
+
     refresh(): boolean
     {
         this.flags &= ~NOTIFIED;
@@ -731,6 +737,12 @@ function inspectSource(node: Source & ReadableSignal<unknown>): { value: unknown
     return { value: untracked(() => node.get()), observers: countTargets(node) };
 }
 
+/** Reads a computed value's last result for the dev tools without running it, so inspecting never re-enters or changes a computation. */
+function inspectComputed<T>(node: Computed<T>): { value?: unknown; observers: number }
+{
+    return { ...node.cached(), observers: countTargets(node) };
+}
+
 function inspectEffect(): { observers: number }
 {
     return { observers: 0 };
@@ -740,7 +752,7 @@ function inspectEffect(): { observers: number }
 export function computed<T>(fn: () => T, options?: SignalOptions<T>): ReadableSignal<T>
 {
     const node = new Computed(fn, options?.equals ?? Object.is);
-    trackNode(node, "computed", options?.name ?? (fn.name === "" ? undefined : fn.name), inspectSource);
+    trackNode(node, "computed", options?.name ?? (fn.name === "" ? undefined : fn.name), inspectComputed);
     return node;
 }
 
@@ -807,8 +819,13 @@ export function untracked<T>(fn: () => T): T
     }
 }
 
-/** Creates an owner, itself owned by the current effect or scope. */
-export function createOwner(): Owner
+/**
+ * Creates an owner, itself owned by the current effect or scope. A
+ * `detached` owner is not: whoever creates it disposes it, as a keyed list
+ * does for its rows, so an owner disposed on its own leaves nothing behind
+ * in the owner around it.
+ */
+export function createOwner(detached = false): Owner
 {
     const node: OwnerNode = { children: undefined };
     const inside = isInternal();
@@ -839,7 +856,10 @@ export function createOwner(): Owner
             }
         }
     };
-    adopt(() => handle.dispose());
+    if (!detached)
+    {
+        adopt(() => handle.dispose());
+    }
     return handle;
 }
 

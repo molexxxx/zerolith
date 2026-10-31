@@ -1098,7 +1098,7 @@ class Keyed<T> extends Directive
         {
             const start = adopt?.start ?? anchorBefore(end);
             const rowPart = new ChildPart(adopt?.end ?? anchorBefore(end));
-            const row: Row<T> = { start, part: rowPart, item: signal(value), index: signal(index), owner: createOwner() };
+            const row: Row<T> = { start, part: rowPart, item: signal(value), index: signal(index), owner: createOwner(true) };
             row.owner.run(() =>
             {
                 rowPart.set(this.row(row.item, row.index), adopt === undefined ? undefined : adopt.start.nextSibling ?? adopt.end);
@@ -1211,6 +1211,10 @@ class Keyed<T> extends Directive
             dispose(): void
             {
                 owner.dispose();
+                for (let i = order.length - 1; i >= 0; i--)
+                {
+                    (order[i] as Row<T>).owner.dispose();
+                }
                 for (const row of order)
                 {
                     row.part.destroy();
@@ -1271,7 +1275,7 @@ class Conditional extends Directive
             owner.run(() =>
             {
                 shown = Boolean(untracked(() => read(this.condition)));
-                branch = createOwner();
+                branch = createOwner(true);
                 branch.run(() =>
                 {
                     inner.set(shown ? this.whenTrue() : this.whenFalse?.(), cursor.nextSibling ?? innerEnd);
@@ -1305,7 +1309,7 @@ class Conditional extends Directive
                 owner.run(() =>
                 {
                     branch?.dispose();
-                    branch = createOwner();
+                    branch = createOwner(true);
                     branch.run(() =>
                     {
                         inner.set(next ? this.whenTrue() : this.whenFalse?.());
@@ -1317,6 +1321,7 @@ class Conditional extends Directive
             dispose(): void
             {
                 owner.dispose();
+                branch?.dispose();
                 inner.destroy();
             }
         };
