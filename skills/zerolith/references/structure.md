@@ -8,6 +8,8 @@ One layout serves every path: an application that runs from an import map, one t
 my-app/
     index.html              the page: an import map, or a module script that Vite serves
     AGENTS.md               the map and the rules, for coding agents and new contributors
+    .agents/skills/         the zerolith skill, for Codex, Cursor, GitHub Copilot, and most agents
+    .claude/skills/         the same skill, for Claude Code
     package.json            scripts: dev, build, check, typecheck, lint, test
     openapi.json            the server's contract, when it publishes one
     messages/               message catalogs, one <locale>.json per language
@@ -52,13 +54,13 @@ An agent reads one file before touching a project. The scaffold writes this one 
 ```markdown
 # <name>: guide for coding agents
 
-A zerolith application. The project develops and builds on the zerolith command line; packages load from `node_modules` with no import map, and there is no Vite config. This file holds what is specific to this project. zerolith's own rules and patterns are in the zerolith skill, which `npx skills add molexxxx/zerolith` installs, and in the guides at https://molexxxx.github.io/zerolith/guide/.
+A zerolith application. The project develops and builds on the zerolith command line; packages load from `node_modules` with no import map, and there is no Vite config. This file holds what is specific to this project. zerolith's own rules and patterns are in the zerolith skill in `.agents/skills/zerolith/`, also at `.claude/skills/zerolith/` for Claude Code; `npx zerolith skill` brings it to the installed version after an upgrade. The guides at https://molexxxx.github.io/zerolith/guide/ cover each concept in full.
 
 ## Commands
 
 - `npm run dev` serves the app with live reload; `npm run build` writes `dist/`; `npm run preview` serves `dist/`.
 - `npm run check` is the gate: typecheck, lint, browser tests, and the build.
-- `npx zerolith-client openapi.json --out src/api.ts` and `npx zerolith-i18n messages --out src/messages` regenerate the generated files once the project has a contract or catalogs.
+- With `@zerolith/client` installed, `npx zerolith-client openapi.json --out src/api.ts` regenerates the typed client from the API contract; with `@zerolith/i18n` installed, `npx zerolith-i18n messages --out src/messages` regenerates the message modules.
 
 ## Rules
 
@@ -66,7 +68,7 @@ A zerolith application. The project develops and builds on the zerolith command 
 - Components are capitalized functions returning `html` templates, one per file under `src/components/`, with their `css` literal next to the markup.
 - State that must survive an edit is a named signal: `signal(0, { name: "count" })`.
 - `src/api.ts` and `src/messages/` are generated when they exist; change their inputs and regenerate, never edit them.
-- A new page is a route in `src/routes.ts` and a component; shared state goes in `src/store.ts`.
+- A new page is a route in `src/routes.ts` and a component; shared state goes in `src/store.ts`, created with the first piece of it.
 - Files served as they are, such as data, icons, and `robots.txt`, go in `public/`.
 - Only `.env` variables named `PUBLIC_*` reach the browser, as `import.meta.env.PUBLIC_*`.
 
@@ -76,12 +78,12 @@ A zerolith application. The project develops and builds on the zerolith command 
 | --- | --- |
 | A page | `src/routes.ts` and `src/components/<page>.ts` |
 | Shared state or a request | `src/store.ts` |
-| A message | `messages/<locale>.json`, then regenerate |
+| A message, once the project uses `@zerolith/i18n` | `messages/<locale>.json`, then regenerate |
 | A style token | `src/styles.css`; component styles stay in the component |
 | A static file | `public/` |
 ```
 
-The framework's rules live in the zerolith skill rather than in this file, so the file stays about the project. The [coding agents guide](agents.md) covers setting up both.
+The framework's rules live in the zerolith skill rather than in this file, so the file stays about the project. The [coding agents guide](agents.md) covers what an agent reads and when.
 
 ## Scaffolding
 
@@ -96,4 +98,4 @@ zerolith new my-app --buildless            deploys the modules behind an import 
 zerolith new my-app --example fullstack    the fullstack example: an app under /app/ with its own Node backend
 ```
 
-By default the command writes the layout with three working pages, a browser test, the scripts, a README on developing and deploying, and the `AGENTS.md`, pinning the tool versions this repository tests with, and installs the dependencies. `cd my-app && npm run dev` starts it.
+By default the command writes the layout with three working pages, a browser test, the scripts, a README on developing and deploying, the `AGENTS.md`, and the zerolith skill, pinning the tool versions this repository tests with, and installs the dependencies. `cd my-app && npm run dev` starts it.

@@ -2,7 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { referencesFolder, relink, skillReferences } from "../skills/generate.ts";
+import { crateCopy, crateFolder, referencesFolder, relink, skillReferences } from "../skills/generate.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 
@@ -20,6 +20,20 @@ describe("the zerolith Agent Skill", () =>
         const expected = await skillReferences(root);
         const written = (await readdir(join(root, referencesFolder))).toSorted();
         expect(written).toEqual([...expected.keys()].map((path) => path.slice(referencesFolder.length + 1)).toSorted());
+        for (const [path, content] of expected)
+        {
+            expect(await readFile(join(root, path), "utf8"), `${path} is stale; run npm run skills`).toBe(content);
+        }
+    });
+
+    it("is built into the command line as it is in the repository", async () =>
+    {
+        const expected = await crateCopy(root, await skillReferences(root));
+        const written = (await readdir(join(root, crateFolder), { recursive: true, withFileTypes: true }))
+            .filter((entry) => entry.isFile())
+            .map((entry) => join(entry.parentPath, entry.name).slice(root.length).replaceAll("\\", "/"))
+            .toSorted();
+        expect(written).toEqual([...expected.keys()].toSorted());
         for (const [path, content] of expected)
         {
             expect(await readFile(join(root, path), "utf8"), `${path} is stale; run npm run skills`).toBe(content);

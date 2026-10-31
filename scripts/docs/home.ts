@@ -43,7 +43,7 @@ const features = [
     { href: "/guide/server-rendering/", name: "Server rendering and hydration", text: "on Request and Response." },
     { href: "/e/", name: "Coded diagnostics", text: "every error names its cause and fix." },
     { href: "/guide/command-line/", name: "One command line", text: "start, develop, bundle, and preview." },
-    { href: "/guide/agents/", name: "Ready for coding agents", text: "an AGENTS.md in every project and one skill to install." }
+    { href: "/guide/agents/", name: "Ready for coding agents", text: "every new project holds an AGENTS.md and the zerolith skill." }
 ];
 
 interface Part
@@ -77,7 +77,7 @@ const ways = [
     { href: "/guide/", name: "Guide", text: "Every concept with its one pattern and an example that runs as a test." },
     { href: "/playground/", name: "Playground", text: "Edit zerolith in the browser, see it run, and share a link to what you made." },
     { href: "/reference/zerolith/", name: "Reference", text: "Every export of every package, generated from the source." },
-    { href: "/guide/agents/", name: "Coding agents", text: "Set up an agent for a zerolith app: the project's AGENTS.md and one command for the skill." }
+    { href: "/guide/agents/", name: "Coding agents", text: "What an agent reads in a zerolith app, the AGENTS.md and the zerolith skill, and when." }
 ];
 
 /** One cell of the block diagram; the core's cell carries no glyph, since the header already shows the mark. */

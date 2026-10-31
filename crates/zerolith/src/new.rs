@@ -13,7 +13,7 @@ use std::io::{self, BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::term;
+use crate::{skill, term};
 
 /// What `dev`, `build`, and `preview` run in the new project.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -56,6 +56,8 @@ pub struct Choice {
     pub jsx: bool,
     /// Mount the inspector from `@zerolith/devtools`.
     pub devtools: bool,
+    /// Write the zerolith skill for coding agents into `.agents/skills` and `.claude/skills`.
+    pub skill: bool,
 }
 
 impl Choice {
@@ -66,6 +68,7 @@ impl Choice {
         typescript: true,
         jsx: true,
         devtools: true,
+        skill: true,
     };
 
     /// The fullstack example as it is: TypeScript with `html` templates on the command line, without the inspector.
@@ -75,6 +78,7 @@ impl Choice {
         typescript: true,
         jsx: false,
         devtools: false,
+        skill: true,
     };
 
     fn ext(self) -> &'static str {
@@ -974,22 +978,35 @@ fn steps(tool: Tool) -> (&'static str, &'static str, &'static str) {
     }
 }
 
+/// Where the project's AGENTS.md sends an agent for zerolith's own rules: the skill in the project, or the command that adds it.
+fn skill_pointer(choice: Choice) -> String {
+    if choice.skill {
+        "zerolith's own rules and patterns are in the zerolith skill in `.agents/skills/zerolith/`, also at `.claude/skills/zerolith/` for Claude Code; `npx zerolith skill` brings it to the installed version after an upgrade. The guides at https://molexxxx.github.io/zerolith/guide/ cover each concept in full.".to_string()
+    } else {
+        "zerolith's own rules and patterns are in the zerolith skill, which `npx zerolith skill` adds to the project. The guides at https://molexxxx.github.io/zerolith/guide/ cover each concept in full.".to_string()
+    }
+}
+
 fn agents_md(name: &str, choice: Choice) -> String {
     let ext = choice.ext();
     let component = choice.component_ext();
     let tool = match choice.tool {
         Tool::Vite => "The project develops and builds on Vite with `@zerolith/vite`.",
-        _ => {
+        Tool::Unbundled => {
+            "The project develops on the zerolith command line, with packages loaded from `node_modules`, and `npm run build` writes the modules as they are, with the packages vendored behind an import map, instead of a bundle; there is no Vite config."
+        }
+        Tool::CommandLine => {
             "The project develops and builds on the zerolith command line; packages load from `node_modules` with no import map, and there is no Vite config."
         }
     };
+    let skill = skill_pointer(choice);
     let syntax = if choice.jsx {
         "Components are capitalized functions written in JSX, one per file under `src/components/`, with their `css` literal next to the markup. JSX is a spelling of `html` templates: `class`, not `className`; `on:click` for events, `prop:value` for properties, `bool:disabled` for boolean attributes; lists and conditions are `each` and `when`."
     } else {
         "Components are capitalized functions returning `html` templates, one per file under `src/components/`, with their `css` literal next to the markup."
     };
     format!(
-        "# {name}: guide for coding agents\n\nA zerolith application. {tool} This file holds what is specific to this project. zerolith's own rules and patterns are in the zerolith skill, which `npx skills add molexxxx/zerolith` installs, and in the guides at https://molexxxx.github.io/zerolith/guide/.\n\n## Commands\n\n- `npm run dev` serves the app with live reload; `npm run build` writes `dist/`; `npm run preview` serves `dist/`.\n- `npm run check` is the gate: typecheck, lint, browser tests, and the build.\n- `npx zerolith-client openapi.json --out src/api.{ext}` and `npx zerolith-i18n messages --out src/messages` regenerate the generated files once the project has a contract or catalogs.\n\n## Rules\n\n- Bind the signal, not its value: a live binding takes `count`, never `count.get()`, which freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.\n- {syntax}\n- State that must survive an edit is a named signal: `signal(0, {{ name: \"count\" }})`.\n- `src/api.{ext}` and `src/messages/` are generated when they exist; change their inputs and regenerate, never edit them.\n- A new page is a route in `src/routes.{ext}` and a component; shared state goes in `src/store.{ext}`.\n- Files served as they are, such as data, icons, and `robots.txt`, go in `public/`.\n- Only `.env` variables named `PUBLIC_*` reach the browser, as `import.meta.env.PUBLIC_*`.\n\n## Where things go\n\n| Change | Location |\n| --- | --- |\n| A page | `src/routes.{ext}` and `src/components/<page>.{component}` |\n| Shared state or a request | `src/store.{ext}` |\n| A message | `messages/<locale>.json`, then regenerate |\n| A style token | `src/styles.css`; component styles stay in the component |\n| A static file | `public/` |\n"
+        "# {name}: guide for coding agents\n\nA zerolith application. {tool} This file holds what is specific to this project. {skill}\n\n## Commands\n\n- `npm run dev` serves the app with live reload; `npm run build` writes `dist/`; `npm run preview` serves `dist/`.\n- `npm run check` is the gate: typecheck, lint, browser tests, and the build.\n- With `@zerolith/client` installed, `npx zerolith-client openapi.json --out src/api.{ext}` regenerates the typed client from the API contract; with `@zerolith/i18n` installed, `npx zerolith-i18n messages --out src/messages` regenerates the message modules.\n\n## Rules\n\n- Bind the signal, not its value: a live binding takes `count`, never `count.get()`, which freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.\n- {syntax}\n- State that must survive an edit is a named signal: `signal(0, {{ name: \"count\" }})`.\n- `src/api.{ext}` and `src/messages/` are generated when they exist; change their inputs and regenerate, never edit them.\n- A new page is a route in `src/routes.{ext}` and a component; shared state goes in `src/store.{ext}`, created with the first piece of it.\n- Files served as they are, such as data, icons, and `robots.txt`, go in `public/`.\n- Only `.env` variables named `PUBLIC_*` reach the browser, as `import.meta.env.PUBLIC_*`.\n\n## Where things go\n\n| Change | Location |\n| --- | --- |\n| A page | `src/routes.{ext}` and `src/components/<page>.{component}` |\n| Shared state or a request | `src/store.{ext}` |\n| A message, once the project uses `@zerolith/i18n` | `messages/<locale>.json`, then regenerate |\n| A style token | `src/styles.css`; component styles stay in the component |\n| A static file | `public/` |\n"
     )
 }
 
@@ -1164,12 +1181,12 @@ src/env.d.ts             the types of import.meta.env
 test/                    the backend's tests and the page's
 ```
 
-`AGENTS.md` is the same map for coding agents.
+`AGENTS.md` is the same map for coding agents, and it points them at the zerolith skill.
 "##;
 
 const FULLSTACK_AGENTS: &str = r##"# __NAME__: guide for coding agents
 
-A zerolith application with its own backend, written from the fullstack example. The app is served under `/app/` and calls a JSON API under `/api`; `server.ts` is the backend, plain Node with no dependencies, and serves the build in production. The app develops and builds on the zerolith command line; packages load from `node_modules` with no import map, and there is no Vite config. This file holds what is specific to this project. zerolith's own rules and patterns are in the zerolith skill, which `npx skills add molexxxx/zerolith` installs, and in the guides at https://molexxxx.github.io/zerolith/guide/.
+A zerolith application with its own backend, written from the fullstack example. The app is served under `/app/` and calls a JSON API under `/api`; `server.ts` is the backend, plain Node with no dependencies, and serves the build in production. The app develops and builds on the zerolith command line; packages load from `node_modules` with no import map, and there is no Vite config. This file holds what is specific to this project. __SKILL__
 
 ## Commands
 
@@ -1195,7 +1212,7 @@ A zerolith application with its own backend, written from the fullstack example.
 | A style token or a global style | `src/styles.css`; component styles stay in the component |
 | The base path or the backend's port | `zerolith.json` and `server.ts`, together |
 | A test | `test/*.test.ts` runs in Node, `test/*.browser.test.ts` in Chromium |
-| A static file | `public/` |
+| A static file | `public/`, which the build copies into `dist/` |
 "##;
 
 const FULLSTACK_VITEST_CONFIG: &str = r#"import { playwright } from "@vitest/browser-playwright";
@@ -1461,7 +1478,7 @@ pub fn scaffold(root: &Path, name: &str, choice: Choice) -> io::Result<Vec<Strin
     let shown = display_name(name);
     let files = match choice.start {
         Start::Starter => starter_files(name, &shown, choice),
-        Start::Fullstack => fullstack_files(name, &shown),
+        Start::Fullstack => fullstack_files(name, &shown, choice),
     };
     for (relative, content) in &files {
         write(root, relative, content)?;
@@ -1470,7 +1487,7 @@ pub fn scaffold(root: &Path, name: &str, choice: Choice) -> io::Result<Vec<Strin
 }
 
 /// The fullstack example's application files as the example has them, with the manifest, configuration, tests, README, and AGENTS.md of a project of its own.
-fn fullstack_files(name: &str, shown: &str) -> Vec<(String, String)> {
+fn fullstack_files(name: &str, shown: &str, choice: Choice) -> Vec<(String, String)> {
     let mut files = vec![
         ("package.json".to_string(), fullstack_package_json(name)),
         (
@@ -1479,7 +1496,9 @@ fn fullstack_files(name: &str, shown: &str) -> Vec<(String, String)> {
         ),
         (
             "AGENTS.md".to_string(),
-            FULLSTACK_AGENTS.replace("__NAME__", shown),
+            FULLSTACK_AGENTS
+                .replace("__NAME__", shown)
+                .replace("__SKILL__", &skill_pointer(choice)),
         ),
         ("tsconfig.json".to_string(), tsconfig(Choice::FULLSTACK)),
         (".oxlintrc.json".to_string(), OXLINTRC.to_string()),
@@ -1583,6 +1602,7 @@ pub struct Answers {
     pub template: Option<String>,
     pub tool: Option<Tool>,
     pub devtools: Option<bool>,
+    pub skill: Option<bool>,
     pub install: Option<bool>,
 }
 
@@ -1706,6 +1726,12 @@ fn settle_from(
         Start::Fullstack => Choice::FULLSTACK,
         Start::Starter => starter_choice(input, &answers, interactive)?,
     };
+    let skill = match answers.skill {
+        Some(skill) => skill,
+        None if interactive => confirm(input, "Add the zerolith skill for coding agents")?,
+        None => true,
+    };
+    let choice = Choice { skill, ..choice };
     let install = match answers.install {
         Some(install) => install,
         None if interactive => confirm(
@@ -1773,6 +1799,7 @@ fn starter_choice(
         typescript,
         jsx,
         devtools,
+        skill: Choice::DEFAULT.skill,
     })
 }
 
@@ -1817,6 +1844,20 @@ pub fn run(root: &Path, choice: Choice, install_dependencies: bool) -> io::Resul
             format!("{} files to {}", files.len(), term::bold(root.display()))
         )
     );
+    if choice.skill {
+        skill::write(root)?;
+        anstream::println!(
+            "{}",
+            term::row(
+                "wrote",
+                term::done,
+                format!(
+                    "the zerolith skill for coding agents to {}",
+                    skill::FOLDERS.join(" and ")
+                )
+            )
+        );
+    }
     let manager = package_manager();
     let mut installed = false;
     if install_dependencies {
@@ -1938,10 +1979,7 @@ mod tests {
             },
         );
         assert!(
-            guide.contains(&format!(
-                "```markdown
-{written}```"
-            )),
+            guide.contains(&format!("```markdown\n{written}```")),
             "docs/guide/structure.md should show the AGENTS.md a TypeScript starter gets:
 {written}"
         );
@@ -2309,6 +2347,47 @@ mod tests {
     }
 
     #[test]
+    fn writes_the_skill_unless_told_not_to_and_points_agents_md_at_it() {
+        let base = std::env::temp_dir().join(format!("zerolith-new-skill-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        for start in [Start::Starter, Start::Fullstack] {
+            let choice = if start == Start::Fullstack {
+                Choice::FULLSTACK
+            } else {
+                Choice::DEFAULT
+            };
+            let with = base.join(format!("{start:?}-with"));
+            super::run(&with, choice, false).unwrap();
+            for folder in crate::skill::FOLDERS {
+                let skill = fs::read_to_string(with.join(folder).join("SKILL.md")).unwrap();
+                assert_eq!(
+                    crate::skill::version_of(&skill),
+                    Some(env!("CARGO_PKG_VERSION"))
+                );
+            }
+            let agents = fs::read_to_string(with.join("AGENTS.md")).unwrap();
+            assert!(agents.contains("in the zerolith skill in `.agents/skills/zerolith/`, also at `.claude/skills/zerolith/` for Claude Code"), "{agents}");
+            let without = base.join(format!("{start:?}-without"));
+            super::run(
+                &without,
+                Choice {
+                    skill: false,
+                    ..choice
+                },
+                false,
+            )
+            .unwrap();
+            assert!(!without.join(".agents").exists() && !without.join(".claude").exists());
+            let agents = fs::read_to_string(without.join("AGENTS.md")).unwrap();
+            assert!(
+                agents.contains("which `npx zerolith skill` adds to the project"),
+                "{agents}"
+            );
+        }
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
     fn settles_flags_and_defaults_without_asking() {
         let (root, choice, install) = settle(
             Answers {
@@ -2329,7 +2408,8 @@ mod tests {
                 tool: Tool::Vite,
                 typescript: false,
                 jsx: false,
-                devtools: false
+                devtools: false,
+                skill: true
             }
         );
         assert!(!install);
@@ -2349,17 +2429,17 @@ mod tests {
         )
         .unwrap();
         assert_eq!(choice.start, Start::Starter);
-        let mut input = Cursor::new("2\nnotes\nn\n");
+        let mut input = Cursor::new("2\nnotes\n\nn\n");
         assert_eq!(
             settle_from(&mut input, Answers::default(), true).unwrap(),
             (PathBuf::from("notes"), Choice::FULLSTACK, false)
         );
-        let mut input = Cursor::new("\n\n\n\n\n\n");
+        let mut input = Cursor::new("\n\n\n\n\n\n\n");
         assert_eq!(
             settle_from(&mut input, Answers::default(), true).unwrap(),
             (PathBuf::from("zerolith-app"), Choice::DEFAULT, true)
         );
-        let mut input = Cursor::new("2\n\n\n");
+        let mut input = Cursor::new("2\n\n\n\n");
         let (_, choice, _) = settle_from(
             &mut input,
             Answers {

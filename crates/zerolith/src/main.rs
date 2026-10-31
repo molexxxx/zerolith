@@ -23,6 +23,7 @@ mod prepare;
 mod proxy;
 mod scan;
 mod server;
+mod skill;
 mod split;
 mod term;
 mod transform;
@@ -84,6 +85,11 @@ enum Command {
         #[arg(long)]
         html: Option<PathBuf>,
     },
+    /// Write the zerolith skill for coding agents into a project, describing this version: into .agents/skills, which Codex, Cursor, GitHub Copilot, Gemini CLI, and most other agents read, and .claude/skills, which Claude Code reads. Run it again after upgrading zerolith.
+    Skill {
+        #[arg(default_value = ".")]
+        root: PathBuf,
+    },
     /// Check a project: index.html, its import map, the files it points at, and their integrity, then the templates in its sources.
     Doctor {
         #[arg(default_value = ".")]
@@ -141,6 +147,9 @@ enum Command {
         /// Leave out the inspector from @zerolith/devtools.
         #[arg(long)]
         no_devtools: bool,
+        /// Leave out the zerolith skill for coding agents, which `zerolith skill` adds later.
+        #[arg(long)]
+        no_skill: bool,
         /// Write the files without installing the dependencies.
         #[arg(long)]
         no_install: bool,
@@ -236,6 +245,7 @@ async fn main() -> ExitCode {
             html,
         } => importmap::run(&root, &out, development, html.as_deref()),
         Command::Doctor { root, json } => return doctor::run(&root, json),
+        Command::Skill { root } => skill::run(&root),
         Command::Build {
             root,
             out,
@@ -289,6 +299,7 @@ async fn main() -> ExitCode {
             vite,
             buildless,
             no_devtools,
+            no_skill,
             no_install,
             yes,
         } => {
@@ -311,6 +322,7 @@ async fn main() -> ExitCode {
                         None
                     },
                     devtools: no_devtools.then_some(false),
+                    skill: no_skill.then_some(false),
                     install: no_install.then_some(false),
                 },
                 !yes,

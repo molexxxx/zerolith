@@ -654,7 +654,7 @@ for (const section of ["Learn", "Guide", "Reference", "Diagnostics"] as const)
     }
     llms.push("");
 }
-llms.push("## Agent Skills", "", "- [zerolith](/skills/zerolith/SKILL.md): the rules, the pattern for each concept, the commands, and a checklist for finishing a change, with every guide as a reference; install with `npx skills add molexxxx/zerolith`", "");
+llms.push("## Agent Skills", "", "- [zerolith](/skills/zerolith/SKILL.md): the rules, the pattern for each concept, the commands, and a checklist for finishing a change, with every guide as a reference; `zerolith new` writes it into every project, and `npx zerolith skill` adds or updates it", "");
 llms.push("## Optional", "", `- [Playground](/playground.md): ${playgroundDescription}`, "- [API manifest](/api.json): every export with its kind, module, and documentation, as JSON", "");
 await write("llms.txt", rebaseMarkdown(llms.join("\n"), base));
 await write("llms-full.txt", rebaseMarkdown([homeMarkdown(homeData), ...pages.map((page) => page.markdown)].join("\n\n\n"), base) + "\n");

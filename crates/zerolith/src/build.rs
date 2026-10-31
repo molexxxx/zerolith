@@ -184,7 +184,7 @@ fn failure(message: String) -> io::Error {
 }
 
 /// The version of `package` as Node resolves it from `root`: from the nearest `node_modules` folder that holds it.
-fn installed_version(root: &Path, package: &str) -> Option<String> {
+pub fn installed_version(root: &Path, package: &str) -> Option<String> {
     root.ancestors().find_map(|folder| {
         let text = fs::read_to_string(
             folder

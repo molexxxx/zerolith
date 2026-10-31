@@ -10,7 +10,7 @@ use serde::Serialize;
 
 use crate::importmap::{ImportMap, PACKAGES, integrity};
 use crate::scan::DIAGNOSTIC_URL;
-use crate::{lint, term, transform};
+use crate::{build, lint, skill, term, transform};
 
 /// Folders the template lint does not enter, besides hidden ones.
 const SKIPPED: [&str; 6] = ["node_modules", "vendor", "dist", "target", "test", "tests"];
@@ -153,7 +153,28 @@ fn preload_links(html: &str) -> Vec<&str> {
 pub fn check(root: &Path) -> Vec<Finding> {
     let mut findings = page_checks(root);
     findings.extend(lint_sources(root));
+    findings.extend(skill_checks(root));
     findings
+}
+
+/// The zerolith skill a project holds for coding agents, when `zerolith new` or `zerolith skill` wrote it for another version than the installed zerolith, or this command line when zerolith is not installed.
+fn skill_checks(root: &Path) -> Vec<Finding> {
+    let installed = build::installed_version(root, "zerolith")
+        .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
+    skill::FOLDERS
+        .iter()
+        .filter_map(|folder| {
+            let text = fs::read_to_string(root.join(folder).join("SKILL.md")).ok()?;
+            let written = skill::version_of(&text)?;
+            (written != installed).then(|| {
+                warning(
+                    "skill_outdated",
+                    format!("{folder}/SKILL.md describes zerolith {written}, and {installed} is installed, so an agent follows the rules of the other version"),
+                    "Run `npx zerolith skill` to write the skill for the installed version.",
+                )
+            })
+        })
+        .collect()
 }
 
 /// The checks of `index.html` and, when it has an import map, the map, the files it points at, and the vendored packages. A page without a map is complete: `zerolith dev` resolves the packages and `zerolith build` bundles them.
@@ -337,6 +358,62 @@ pub fn run(root: &Path, json: bool) -> ExitCode {
 mod tests {
     use super::{check, import_map_of};
     use std::fs;
+
+    #[test]
+    fn reports_a_skill_written_for_another_version() {
+        let root =
+            std::env::temp_dir().join(format!("zerolith-doctor-skill-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("node_modules/zerolith")).unwrap();
+        fs::write(
+            root.join("index.html"),
+            "<script type=\"module\" src=\"/src/main.ts\"></script>",
+        )
+        .unwrap();
+        fs::write(
+            root.join("node_modules/zerolith/package.json"),
+            "{\"name\":\"zerolith\",\"version\":\"0.1.0-alpha.9\"}",
+        )
+        .unwrap();
+        crate::skill::write(&root).unwrap();
+        let codes = |root: &std::path::Path| {
+            check(root)
+                .into_iter()
+                .map(|finding| (finding.code, finding.cause))
+                .collect::<Vec<_>>()
+        };
+        let found = codes(&root);
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert!(
+            found.iter().all(|(code, cause)| *code == "skill_outdated"
+                && cause.contains(&format!(
+                    "describes zerolith {}, and 0.1.0-alpha.9 is installed",
+                    env!("CARGO_PKG_VERSION")
+                ))),
+            "{found:?}"
+        );
+        fs::write(
+            root.join("node_modules/zerolith/package.json"),
+            format!(
+                "{{\"name\":\"zerolith\",\"version\":\"{}\"}}",
+                env!("CARGO_PKG_VERSION")
+            ),
+        )
+        .unwrap();
+        assert!(codes(&root).is_empty());
+        fs::write(
+            root.join(".claude/skills/zerolith/SKILL.md"),
+            "---\nname: zerolith\n---\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("node_modules/zerolith/package.json"),
+            "{\"name\":\"zerolith\",\"version\":\"0.1.0-alpha.9\"}",
+        )
+        .unwrap();
+        assert_eq!(codes(&root).len(), 1);
+        let _ = fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn lints_templates_in_sources_and_skips_dependencies_and_tests() {

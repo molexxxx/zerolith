@@ -83,7 +83,7 @@ Every night that the code changed, every package is also published under the `ca
 - **Clear patterns, coded diagnostics.** Each concept has one documented form, and every runtime error carries a stable code, its cause, and the fix, with a page per code. See [diagnostics](docs/guide/diagnostics.md).
 - **Buildless or bundled, same files.** Plain JavaScript and `html` templates run from an import map with no build step, and `zerolith build` bundles the same files into minified, hashed chunks with the Rust command line alone. See the [command line guide](docs/guide/command-line.md).
 - **Docs that cannot drift.** Every example in the guides is application code that runs as a test in CI, and the API reference is generated from the source.
-- **Ready for coding agents.** A project from `zerolith new` comes with an `AGENTS.md` its agent reads, and `npx skills add molexxxx/zerolith` adds the zerolith skill, with every guide as a reference. That is the whole setup; see [coding agents](docs/guide/agents.md).
+- **Ready for coding agents.** `zerolith new` writes an `AGENTS.md` and the zerolith skill, with every guide as a reference, into each project, for the version it installs, so there is nothing to set up; `npx zerolith skill` updates the skill after an upgrade. See [coding agents](docs/guide/agents.md).
 - **Dev tools wherever it runs.** The inspector is a plain module, so it works under any dev server, a static server, electron-vite, or `file://`, with no browser extension. See [dev tools](docs/guide/dev-tools.md).
 
 ## What works today

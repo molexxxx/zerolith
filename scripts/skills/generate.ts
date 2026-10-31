@@ -17,6 +17,9 @@ export const docsUrl: string = DOCS_URL;
 /** The folder of the skill's generated references, relative to the repository. */
 export const referencesFolder = "skills/zerolith/references";
 
+/** The copy of the skill built into the command line, which `zerolith new` and `zerolith skill` write into projects, relative to the repository. */
+export const crateFolder = "crates/zerolith/templates/skill";
+
 /** The reference file a guide becomes: the introduction is `introduction.md`, every other guide keeps its name. */
 export function referenceName(guide: string): string
 {
@@ -72,5 +75,16 @@ export async function skillReferences(root: string): Promise<Map<string, string>
         diagnostics.push("", `## ${code}`, "", `Cause: ${entry?.cause ?? ""}`, "", `Fix: ${entry?.fix ?? ""}`);
     }
     files.set(`${referencesFolder}/diagnostic-codes.md`, diagnostics.join("\n") + "\n");
+    return files;
+}
+
+/** Every file of the command line's copy of the skill, by its path relative to the repository: the hand-written SKILL.md and the generated references. */
+export async function crateCopy(root: string, references: ReadonlyMap<string, string>): Promise<Map<string, string>>
+{
+    const files = new Map<string, string>([[`${crateFolder}/SKILL.md`, await readFile(join(root, "skills/zerolith/SKILL.md"), "utf8")]]);
+    for (const [path, content] of references)
+    {
+        files.set(`${crateFolder}/references/${path.slice(referencesFolder.length + 1)}`, content);
+    }
     return files;
 }

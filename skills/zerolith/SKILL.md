@@ -11,7 +11,7 @@ zerolith is a standalone frontend framework. A component is a function that runs
 ## Before changing code
 
 1. Read the project's `AGENTS.md`. It names the commands and where things go, and it wins over this file where they differ.
-2. Check the installed `zerolith` version in `package.json`. The API may change between alpha versions, and the references describe the repository's main branch, which can be ahead of the latest release. When a reference shows something the installed version lacks, the changelog at https://github.com/molexxxx/zerolith/blob/main/CHANGELOG.md says which release brings it.
+2. Check the installed `zerolith` version in `package.json`; the API may change between alpha versions. A copy of this skill written by `zerolith new` or `zerolith skill` records the version it describes under `metadata` above, and `npx zerolith skill` replaces it with the installed version's when they differ. A copy without that record came from the repository's main branch, which can be ahead of the latest release; when a reference shows something the installed version lacks, the changelog at https://github.com/molexxxx/zerolith/blob/main/CHANGELOG.md says which release brings it.
 3. Know the layout: pages are components in `src/components/` with a route in `src/routes.ts`; shared state is in `src/store.ts`; the router is in `src/router.ts`; files served as they are go in `public/`. `src/api.ts` and `src/messages/` are generated: change their inputs and regenerate, never edit them.
 
 ## Rules
@@ -68,6 +68,7 @@ Every error and warning carries a stable code and a page at `https://molexxxx.gi
 | `npm run check` | The project's gate, where the starter defines it: typecheck, lint, browser tests, and the build |
 | `npm test` | Browser tests with Vitest |
 | `npx zerolith doctor` | Check the page, the import map, and template mistakes before running anything |
+| `npx zerolith skill` | Replace this skill with the one for the installed zerolith, after an upgrade |
 | `npm run build` | Bundle and minify into `dist/` |
 | `npm run preview` | Serve `dist/` as a static host would |
 
