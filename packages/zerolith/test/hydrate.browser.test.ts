@@ -83,6 +83,34 @@ describe("hydrate", () =>
         expect(el.querySelector("p")?.textContent).toBe("hidden");
     });
 
+    it("removes an adopted branch's edge bindings with the branch", () =>
+    {
+        const show = signal(true);
+        const greeting = signal<unknown>("hi");
+        const items = signal([{ id: 1, name: "a" }, { id: 2, name: "b" }]);
+        const view = () => html`
+            <div id="branch">${when(show, () => html`${greeting}<b>!</b>${greeting}`, () => html`<i>off</i>`)}</div>
+            <div id="rows">${each(items, (item) => item.id, (item) => html`${computed(() => item.get().name)}<hr>`)}</div>`;
+
+        const el = serverThenClient(view());
+        expect(result?.mismatches).toEqual([]);
+        const branch = el.querySelector("#branch") as HTMLElement;
+        const rows = el.querySelector("#rows") as HTMLElement;
+        expect(branch.textContent).toBe("hi!hi");
+        expect(rows.textContent).toBe("ab");
+
+        greeting.set(html`<em>yo</em>`);
+        expect(branch.textContent).toBe("yo!yo");
+        show.set(false);
+        expect(branch.textContent).toBe("off");
+
+        items.set([{ id: 3, name: "c" }, { id: 2, name: "b" }]);
+        expect(rows.textContent).toBe("cb");
+        items.set([{ id: 2, name: "b" }]);
+        expect(rows.textContent).toBe("b");
+        expect(rows.querySelectorAll("hr")).toHaveLength(1);
+    });
+
     it("repairs a differing text node and records the mismatch", () =>
     {
         const seen: Diagnostic[] = [];

@@ -233,14 +233,17 @@ class Instance
     readonly nodes: readonly ChildNode[];
     private readonly parts: readonly BoundPart[];
     private readonly cursors: ReadonlyMap<BoundPart, ChildNode> | undefined;
+    /** The child parts among the template's top-level nodes, whose content `nodes` does not hold. */
+    private readonly edges: readonly ChildPart[] | undefined;
 
-    constructor(strings: TemplateStringsArray, parts: readonly BoundPart[], nodes: readonly ChildNode[], fragment: DocumentFragment | undefined, cursors: ReadonlyMap<BoundPart, ChildNode> | undefined)
+    constructor(strings: TemplateStringsArray, parts: readonly BoundPart[], nodes: readonly ChildNode[], fragment: DocumentFragment | undefined, cursors: ReadonlyMap<BoundPart, ChildNode> | undefined, edges: readonly ChildPart[] | undefined)
     {
         this.strings = strings;
         this.parts = parts;
         this.nodes = nodes;
         this.fragment = fragment;
         this.cursors = cursors;
+        this.edges = edges;
     }
 
     /** Clones the template and binds its parts. */
@@ -264,7 +267,7 @@ class Instance
             node = walk.nextNode();
             index++;
         }
-        return new Instance(strings, parts, Array.from(fragment.childNodes), fragment, undefined);
+        return new Instance(strings, parts, Array.from(fragment.childNodes), fragment, undefined, prepared.edges ? edgesOf(parts, fragment) : undefined);
     }
 
     /** Binds the template's parts to server-rendered nodes between `cursor` and `anchor`, or returns undefined when they do not line up. */
@@ -356,7 +359,7 @@ class Instance
         {
             return undefined;
         }
-        return new Instance(strings, parts, nodes, undefined, cursors);
+        return new Instance(strings, parts, nodes, undefined, cursors, prepared.edges ? edgesOf(parts, cursor.parentNode) : undefined);
     }
 
     update(values: readonly unknown[]): void
@@ -379,11 +382,24 @@ class Instance
 
     remove(): void
     {
+        if (this.edges !== undefined)
+        {
+            for (const part of this.edges)
+            {
+                part.clear();
+            }
+        }
         for (const node of this.nodes)
         {
             node.remove();
         }
     }
+}
+
+/** The child parts whose anchors are direct children of `parent`. */
+function edgesOf(parts: readonly BoundPart[], parent: ParentNode | null): ChildPart[]
+{
+    return parts.filter((part): part is ChildPart => part instanceof ChildPart && part.anchor.parentNode === parent);
 }
 
 /** A position between two nodes that displays one value. */
@@ -1027,7 +1043,7 @@ interface Row<T>
     readonly key: unknown;
     /** The row's first node, which the rows before it are inserted ahead of. */
     readonly start: ChildNode;
-    /** A row that renders a template holds the template's own nodes, with no markers around them. */
+    /** A row that renders a template with no binding at its top level holds the template's own nodes, with no markers around them. */
     readonly nodes: readonly ChildNode[] | undefined;
     /** Any other row holds its view in a part between its start marker and the part's anchor. */
     readonly part: ChildPart | undefined;
@@ -1169,9 +1185,9 @@ class Keyed<T> extends Directive
 
         /**
          * Creates a row in `parent` before `before`, which may be a fragment the
-         * caller inserts later. A row whose view is a template keeps the
-         * template's nodes; any other view, and a row hydrated from markers,
-         * goes in a part between markers.
+         * caller inserts later. A row whose view is a template with no binding
+         * at its top level keeps the template's nodes; any other view, and a
+         * row hydrated from markers, goes in a part between markers.
          */
         const create = (key: unknown, value: T, index: number, parent: Node, before: Node | null, adopt?: { start: Comment; end: Comment }): Row<T> =>
         {
@@ -1184,7 +1200,7 @@ class Keyed<T> extends Directive
                 if (adopt === undefined && view instanceof TemplateResult)
                 {
                     const prepared = prepare(view.strings);
-                    if (prepared.content.firstChild !== null)
+                    if (prepared.content.firstChild !== null && !prepared.edges)
                     {
                         const instance = Instance.create(view.strings, prepared);
                         instance.update(view.values);

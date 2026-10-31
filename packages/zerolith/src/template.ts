@@ -17,6 +17,8 @@ export interface Prepared
 {
     content: DocumentFragment;
     parts: readonly PartSpec[];
+    /** Whether a child part sits at the top level, where its content lands among the template's own nodes. */
+    edges: boolean;
 }
 
 interface Policy
@@ -98,6 +100,7 @@ export function prepare(strings: TemplateStringsArray): Prepared
     const walk = walker(template.content);
     let index = 0;
     let child = 0;
+    let edges = false;
     for (let node = walk.nextNode(); node !== null; node = walk.nextNode(), index++)
     {
         if (node.nodeType === 1)
@@ -123,6 +126,10 @@ export function prepare(strings: TemplateStringsArray): Prepared
         }
         else if ((node as Comment).data === MARK)
         {
+            if (node.parentNode === template.content)
+            {
+                edges = true;
+            }
             while (child < parts.length && parts[child]?.kind !== CHILD)
             {
                 child++;
@@ -136,7 +143,7 @@ export function prepare(strings: TemplateStringsArray): Prepared
         }
     }
     parts.sort((a, b) => a.index - b.index);
-    const result: Prepared = { content: template.content, parts };
+    const result: Prepared = { content: template.content, parts, edges };
     templates.set(strings, result);
     return result;
 }

@@ -287,6 +287,19 @@ describe("each", () =>
         expect(runs).toHaveBeenCalledTimes(1);
     });
 
+    it("moves and removes rows whose template starts or ends with a binding", () =>
+    {
+        const items = signal<Item[]>([{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }]);
+        const el = mount(html`<div>${each(items, (item) => item.id, (item) => html`${computed(() => item.get().name)}<hr>${item.get().id}`)}</div>`);
+        expect(el.textContent).toBe("a1b2c3");
+        items.set([{ id: 3, name: "c" }, { id: 1, name: "A" }]);
+        expect(el.textContent).toBe("c3A1");
+        expect(el.querySelectorAll("hr")).toHaveLength(2);
+        items.set([]);
+        expect(el.textContent).toBe("");
+        expect(el.querySelectorAll("hr")).toHaveLength(0);
+    });
+
     it("rejects duplicate and undefined keys", () =>
     {
         const dupes = [{ id: 1, name: "a" }, { id: 1, name: "b" }];
@@ -310,5 +323,28 @@ describe("when", () =>
         expect(thenFactory).toHaveBeenCalledTimes(1);
         user.set(null);
         expect(el.textContent).toBe("sign in");
+    });
+
+    it("removes the content of bindings at a branch's edges when the branch changes", () =>
+    {
+        const user = signal<string | null>("ann");
+        const greeting = signal("hi");
+        const el = mount(html`<div>${when(user, () => html`${greeting} <b>${user}</b> ${greeting}`, () => html`${"sign"} in`)}</div>`);
+        expect(el.textContent).toBe("hi ann hi");
+        user.set(null);
+        expect(el.textContent).toBe("sign in");
+        greeting.set("hello");
+        expect(el.textContent).toBe("sign in");
+        user.set("bob");
+        expect(el.textContent).toBe("hello bob hello");
+    });
+
+    it("removes a template's leading binding content when the view changes", () =>
+    {
+        const view = signal<unknown>(html`${"first"}<i>one</i>`);
+        const el = mount(html`<div>${view}</div>`);
+        expect(el.textContent).toBe("firstone");
+        view.set(html`<i>two</i>`);
+        expect(el.textContent).toBe("two");
     });
 });
