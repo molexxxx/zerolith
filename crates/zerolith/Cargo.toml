@@ -39,7 +39,7 @@ rolldown_common = { version = "1.2.16", default-features = false }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 sha2 = "0.11.1"
-tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "net", "fs", "sync", "time", "signal"] }
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "net", "fs", "io-util", "sync", "time", "signal"] }
 tokio-stream = { version = "0.1.19", features = ["sync"] }
 
 [lints]
