@@ -75,3 +75,8 @@ export function measure<T>(_track: string, _name: string, fn: () => T): T
 {
     return fn();
 }
+
+export function measureRun(_track: string, _name: string, target: { run(): void }): void
+{
+    target.run();
+}

@@ -11,7 +11,7 @@
 import { URL_ATTRIBUTES, describe, isNothing, isText, join, safeUrl } from "./binding.js";
 import { measure, trackRoot, untrackRoot } from "./devtools.js";
 import { diagnostic, fail, report } from "./diagnostics.js";
-import { type Owner, type ReadableSignal, type Signal, createOwner, effect, isSignal, onDispose, signal, untracked } from "./signals.js";
+import { type Disposable, type Owner, type ReadableSignal, type Signal, createOwner, isSignal, onDispose, signal, startEffect, untracked } from "./signals.js";
 import { ATTRIBUTE, BOOLEAN, CHILD, EVENT, type PartSpec, type Prepared, REF, prepare, trusted, walker } from "./template.js";
 
 /** Brand carried by every value the renderer accepts as a description of UI. */
@@ -392,7 +392,7 @@ class ChildPart implements BoundPart
 {
     readonly count: number = 1;
     readonly anchor: Comment;
-    private owner: Owner | undefined = undefined;
+    private owner: Disposable | undefined = undefined;
     private instance: Instance | undefined = undefined;
     private text: Text | undefined = undefined;
     private node: ChildNode | undefined = undefined;
@@ -414,28 +414,43 @@ class ChildPart implements BoundPart
     set(value: unknown, cursor?: ChildNode): void
     {
         this.owner?.dispose();
-        this.owner = createOwner();
-        this.owner.run(() =>
+        this.owner = undefined;
+        if (isSignal(value))
         {
-            if (isSignal(value))
+            let adopt = cursor;
+            this.owner = startEffect(() =>
             {
-                let adopt = cursor;
-                effect(() =>
+                const current = value.get();
+                if (adopt !== undefined)
                 {
-                    const current = value.get();
-                    if (adopt !== undefined)
-                    {
-                        const start = adopt;
-                        adopt = undefined;
-                        this.adopt(current, start);
-                    }
-                    else
-                    {
-                        this.apply(current);
-                    }
-                });
+                    const start = adopt;
+                    adopt = undefined;
+                    this.adopt(current, start);
+                }
+                else
+                {
+                    this.apply(current);
+                }
+            });
+            return;
+        }
+        if (isNothing(value) || isText(value))
+        {
+            if (cursor !== undefined)
+            {
+                this.adopt(value, cursor);
             }
-            else if (cursor !== undefined)
+            else
+            {
+                this.apply(value);
+            }
+            return;
+        }
+        const owner = createOwner();
+        this.owner = owner;
+        owner.run(() =>
+        {
+            if (cursor !== undefined)
             {
                 this.adopt(value, cursor);
             }
@@ -561,7 +576,7 @@ class ChildPart implements BoundPart
         if (isSignal(value))
         {
             let first = true;
-            effect(() =>
+            startEffect(() =>
             {
                 const current = value.get();
                 if (first)
@@ -662,7 +677,7 @@ class ChildPart implements BoundPart
         }
         if (isSignal(value))
         {
-            effect(() =>
+            startEffect(() =>
             {
                 this.apply(value.get());
             });
@@ -706,7 +721,7 @@ class AttributePart implements BoundPart
     readonly count: number;
     private readonly element: Element;
     private readonly spec: PartSpec;
-    private owner: Owner | undefined = undefined;
+    private owner: Disposable | undefined = undefined;
     private listener: EventListenerOrEventListenerObject | undefined = undefined;
     private listenerOptions: AddEventListenerOptions | undefined = undefined;
     private target: unknown = undefined;
@@ -731,21 +746,26 @@ class AttributePart implements BoundPart
             return;
         }
         this.owner?.dispose();
-        this.owner = createOwner();
-        this.owner.run(() =>
+        this.owner = undefined;
+        if (values.length === 1 && isSignal(values[0]))
         {
-            if (values.some(isSignal))
+            const value = values[0];
+            this.owner = startEffect(() =>
             {
-                effect(() =>
-                {
-                    this.apply(values.map((value) => (isSignal(value) ? value.get() : value)));
-                });
-            }
-            else
+                this.apply([value.get()]);
+            });
+        }
+        else if (values.some(isSignal))
+        {
+            this.owner = startEffect(() =>
             {
-                this.apply(values);
-            }
-        });
+                this.apply(values.map((value) => (isSignal(value) ? value.get() : value)));
+            });
+        }
+        else
+        {
+            this.apply(values);
+        }
     }
 
     private apply(values: readonly unknown[]): void
@@ -793,8 +813,9 @@ class AttributePart implements BoundPart
         }
         this.target = target;
         this.owner?.dispose();
-        this.owner = createOwner();
-        this.owner.run(() =>
+        const owner = createOwner();
+        this.owner = owner;
+        owner.run(() =>
         {
             const { element } = this;
             if (typeof target === "function")
@@ -992,6 +1013,7 @@ export type RowOf<T> = (item: ReadableSignal<T>, index: ReadableSignal<number>) 
 
 interface Row<T>
 {
+    readonly key: unknown;
     readonly start: Comment;
     readonly part: ChildPart;
     readonly item: Signal<T>;
@@ -1093,12 +1115,23 @@ class Keyed<T> extends Directive
         const rows = new Map<unknown, Row<T>>();
         let order: Row<T>[] = [];
         const end = part.anchor;
-
-        const create = (key: unknown, value: T, index: number, adopt?: { start: Comment; end: Comment }): Row<T> =>
+        owner.run(() =>
         {
-            const start = adopt?.start ?? anchorBefore(end);
-            const rowPart = new ChildPart(adopt?.end ?? anchorBefore(end));
-            const row: Row<T> = { start, part: rowPart, item: signal(value), index: signal(index), owner: createOwner(true) };
+            onDispose(() =>
+            {
+                for (let i = order.length - 1; i >= 0; i--)
+                {
+                    (order[i] as Row<T>).owner.dispose();
+                }
+            });
+        });
+
+        /** Creates a row and its anchors in `parent` before `before`, which may be a fragment the caller inserts later. */
+        const create = (key: unknown, value: T, index: number, parent: Node, before: Node | null, adopt?: { start: Comment; end: Comment }): Row<T> =>
+        {
+            const start = adopt?.start ?? parent.insertBefore(document.createComment(""), before);
+            const rowPart = new ChildPart(adopt?.end ?? parent.insertBefore(document.createComment(""), before));
+            const row: Row<T> = { key, start, part: rowPart, item: signal(value), index: signal(index), owner: createOwner(true) };
             row.owner.run(() =>
             {
                 rowPart.set(this.row(row.item, row.index), adopt === undefined ? undefined : adopt.start.nextSibling ?? adopt.end);
@@ -1107,10 +1140,36 @@ class Keyed<T> extends Directive
             return row;
         };
 
+        /** Removes every current row at once when the list owns all of its parent's children, as a table body usually does. */
+        const clearAll = (parent: ParentNode & Node): boolean =>
+        {
+            if (parent.firstChild !== order[0]?.start || parent.lastChild !== end)
+            {
+                return false;
+            }
+            for (let i = order.length - 1; i >= 0; i--)
+            {
+                (order[i] as Row<T>).owner.dispose();
+            }
+            parent.textContent = "";
+            parent.appendChild(end);
+            rows.clear();
+            order = [];
+            return true;
+        };
+
         const reconcile = (list: readonly T[]): void =>
         {
+            const parent = end.parentNode;
+            if (parent === null)
+            {
+                return;
+            }
             const next: Row<T>[] = [];
             const keys = new Set<unknown>();
+            const created = new Map<Row<T>, DocumentFragment>();
+            let fragment: DocumentFragment | undefined;
+            let survivors = 0;
             for (let i = 0; i < list.length; i++)
             {
                 const value = list[i] as T;
@@ -1121,20 +1180,35 @@ class Keyed<T> extends Directive
                     existing.item.set(value);
                     existing.index.set(i);
                     next.push(existing);
+                    survivors++;
+                    fragment = undefined;
                 }
                 else
                 {
-                    next.push(create(key, value, i));
+                    fragment ??= document.createDocumentFragment();
+                    const row = create(key, value, i, fragment, null);
+                    created.set(row, fragment);
+                    next.push(row);
                 }
             }
-            for (const [key, row] of rows)
+            if (survivors === 0 && order.length > 0 && clearAll(parent))
             {
-                if (!keys.has(key))
+                for (const row of created.keys())
                 {
-                    row.owner.dispose();
-                    row.part.destroy();
-                    row.start.remove();
-                    rows.delete(key);
+                    rows.set(row.key, row);
+                }
+            }
+            else
+            {
+                for (const row of order)
+                {
+                    if (!keys.has(row.key))
+                    {
+                        row.owner.dispose();
+                        row.part.destroy();
+                        row.start.remove();
+                        rows.delete(row.key);
+                    }
                 }
             }
             const previousIndex = new Map<Row<T>, number>();
@@ -1142,13 +1216,20 @@ class Keyed<T> extends Directive
             {
                 previousIndex.set(order[i] as Row<T>, i);
             }
-            const positions = next.map((row) => previousIndex.get(row) ?? -1);
-            const kept = longestIncreasing(positions);
+            const kept = longestIncreasing(next.map((row) => previousIndex.get(row) ?? -1));
             let before: Node = end;
             for (let i = next.length - 1; i >= 0; i--)
             {
                 const row = next[i] as Row<T>;
-                if (!kept.has(i))
+                const run = created.get(row);
+                if (run !== undefined)
+                {
+                    if (run.firstChild !== null)
+                    {
+                        parent.insertBefore(run, before);
+                    }
+                }
+                else if (!kept.has(i))
                 {
                     moveRow(row, before);
                 }
@@ -1174,10 +1255,10 @@ class Keyed<T> extends Directive
                     if (rowStart === undefined || rowEnd === undefined)
                     {
                         mismatch("missing", "row", node === end ? "" : node.nodeName);
-                        adopted.push(create(key, value, i));
+                        adopted.push(create(key, value, i, end.parentNode as Node, end));
                         continue;
                     }
-                    adopted.push(create(key, value, i, { start: rowStart, end: rowEnd }));
+                    adopted.push(create(key, value, i, end.parentNode as Node, end, { start: rowStart, end: rowEnd }));
                     node = rowEnd.nextSibling ?? end;
                 }
                 if (node !== end)
@@ -1192,7 +1273,7 @@ class Keyed<T> extends Directive
         let initial = cursor !== undefined;
         owner.run(() =>
         {
-            effect(() =>
+            startEffect(() =>
             {
                 const list = read(this.items);
                 if (initial)
@@ -1211,10 +1292,6 @@ class Keyed<T> extends Directive
             dispose(): void
             {
                 owner.dispose();
-                for (let i = order.length - 1; i >= 0; i--)
-                {
-                    (order[i] as Row<T>).owner.dispose();
-                }
                 for (const row of order)
                 {
                     row.part.destroy();
@@ -1268,6 +1345,10 @@ class Conditional extends Directive
         let inner: ChildPart;
         let shown: boolean | undefined;
         let branch: Owner | undefined;
+        owner.run(() =>
+        {
+            onDispose(() => branch?.dispose());
+        });
         const innerEnd = cursor !== undefined && isStart(cursor) ? matchingEnd(cursor) : undefined;
         if (cursor !== undefined && innerEnd !== undefined)
         {
@@ -1298,7 +1379,7 @@ class Conditional extends Directive
         }
         owner.run(() =>
         {
-            effect(() =>
+            startEffect(() =>
             {
                 const next = Boolean(read(this.condition));
                 if (next === shown)
@@ -1321,7 +1402,6 @@ class Conditional extends Directive
             dispose(): void
             {
                 owner.dispose();
-                branch?.dispose();
                 inner.destroy();
             }
         };

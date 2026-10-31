@@ -13,7 +13,7 @@
  * version counter, which keeps it correct without keeping it alive in its
  * sources' subscriber lists.
  */
-import { internal, isInternal, measure, trackFlush, trackNode } from "./devtools.js";
+import { internal, isInternal, measureRun, trackFlush, trackNode } from "./devtools.js";
 import { fail } from "./diagnostics.js";
 
 const RUNNING = 1;
@@ -80,9 +80,15 @@ interface Consumer
     notify(): void;
 }
 
+/** Something an owner disposes: an effect, a nested owner, or a cleanup callback. Internal to the runtime packages. */
+export interface Disposable
+{
+    dispose(): void;
+}
+
 interface OwnerNode
 {
-    children: Array<() => void> | undefined;
+    children: Disposable[] | undefined;
 }
 
 /**
@@ -583,7 +589,7 @@ class Effect implements Consumer, OwnerNode
     flags = TRACKING;
     sources: Edge | undefined = undefined;
     next: Effect | undefined = undefined;
-    children: Array<() => void> | undefined = undefined;
+    children: Disposable[] | undefined = undefined;
     private fn: EffectFunction | undefined;
     private cleanup: (() => void) | undefined = undefined;
 
@@ -703,15 +709,15 @@ class Effect implements Consumer, OwnerNode
     }
 }
 
-function disposeAll(children: Array<() => void>): void
+function disposeAll(children: Disposable[]): void
 {
     while (children.length > 0)
     {
-        children.pop()?.();
+        children.pop()?.dispose();
     }
 }
 
-function adopt(dispose: () => void): void
+function adopt(child: Disposable): void
 {
     if (owner !== undefined)
     {
@@ -719,7 +725,7 @@ function adopt(dispose: () => void): void
         {
             owner.children = [];
         }
-        owner.children.push(dispose);
+        owner.children.push(child);
     }
 }
 
@@ -764,26 +770,33 @@ export function computed<T>(fn: () => T, options?: SignalOptions<T>): ReadableSi
  */
 export function effect(fn: EffectFunction): () => void
 {
+    const node = startEffect(fn);
+    return () =>
+    {
+        node.dispose();
+    };
+}
+
+/**
+ * Starts an effect as `effect` does and returns the effect itself, which
+ * the runtime's own bindings hold instead of a dispose function. Internal
+ * to the runtime packages.
+ */
+export function startEffect(fn: EffectFunction): Disposable
+{
     const node = new Effect(fn);
     trackNode(node, "effect", fn.name === "" ? undefined : fn.name, inspectEffect);
     try
     {
-        measure("Signals", "effect", () =>
-        {
-            node.run();
-        });
+        measureRun("Signals", "effect", node);
     }
     catch (error)
     {
         node.dispose();
         throw error;
     }
-    const dispose = (): void =>
-    {
-        node.dispose();
-    };
-    adopt(dispose);
-    return dispose;
+    adopt(node);
+    return node;
 }
 
 /** Applies several writes and runs the affected effects once, after `fn` returns. */
@@ -858,7 +871,7 @@ export function createOwner(detached = false): Owner
     };
     if (!detached)
     {
-        adopt(() => handle.dispose());
+        adopt(handle);
     }
     return handle;
 }
@@ -896,5 +909,5 @@ export function onDispose(fn: () => void): void
     {
         throw fail("on_dispose_outside_scope");
     }
-    adopt(fn);
+    adopt({ dispose: fn });
 }

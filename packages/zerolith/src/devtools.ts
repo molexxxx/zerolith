@@ -300,3 +300,29 @@ export function measure<T>(track: string, name: string, fn: () => T): T
         }
     }
 }
+
+/** Times `target.run()` as `measure` times a function, without a closure per call. */
+export function measureRun(track: string, name: string, target: { run(): void }): void
+{
+    if (typeof performance === "undefined" || typeof performance.measure !== "function")
+    {
+        target.run();
+        return;
+    }
+    const start = performance.now();
+    try
+    {
+        target.run();
+    }
+    finally
+    {
+        try
+        {
+            performance.measure(name, { start, end: performance.now(), detail: { devtools: { dataType: "track-entry", track, trackGroup: "zerolith" } } });
+        }
+        catch
+        {
+            // Some runtimes reject the options form; the measurement is only a convenience.
+        }
+    }
+}
