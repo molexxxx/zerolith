@@ -493,7 +493,7 @@ export function Search()
             {
                 event.preventDefault();
                 close();
-                location.assign(href(hit.entry));
+                document.getElementById(optionId(hit.entry))?.click();
             }
         }
     };

@@ -31,6 +31,15 @@ function counted()
     return Counter();
 }
 
+/** Puts the counter and the readout back where the server renders them, before the figure hydrates again on a later visit. */
+export function reset()
+{
+    count.set(1);
+    calls.set(0);
+    textNodes.set(0);
+    elements.set(0);
+}
+
 /** The figure: the counter in its output pane and the readout under it. */
 export function Figure()
 {
@@ -49,7 +58,7 @@ export function Figure()
  * figure's code. Marks use the CSS Custom Highlight API and are skipped where
  * a browser lacks it; the readout works either way.
  * @param {Element} host
- * @returns {void}
+ * @returns {() => void} what stops the measuring and removes the marks
  */
 export function watch(host)
 {
@@ -57,7 +66,7 @@ export function watch(host)
     const figure = host.closest("figure");
     if (output === null)
     {
-        return;
+        return () => undefined;
     }
     /** @type {Map<Node, string>} */
     const bound = new Map();
@@ -80,7 +89,7 @@ export function watch(host)
         highlights.set("live-output", outputMarks);
         highlights.set("live-code", codeMarks);
     }
-    new MutationObserver((records) =>
+    const observer = new MutationObserver((records) =>
     {
         /** @type {Set<Node>} */
         const changed = new Set();
@@ -120,7 +129,14 @@ export function watch(host)
                 codeMarks.add(rangeOf(token));
             }
         }
-    }).observe(output, { characterData: true, childList: true, subtree: true });
+    });
+    observer.observe(output, { characterData: true, childList: true, subtree: true });
+    return () =>
+    {
+        observer.disconnect();
+        highlights?.delete("live-output");
+        highlights?.delete("live-code");
+    };
 }
 
 /**

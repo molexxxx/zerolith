@@ -69,7 +69,7 @@ export function Playground(): View
                 <button class="button primary" type="button" data-action="run">${unsafeHtml(icon("arrow-right"))}Run</button>
                 <button class="button" type="button" data-action="share"><span class="idle">${unsafeHtml(icon("link"))}Copy link</span><span class="done">${unsafeHtml(icon("check"))}Link copied</span></button>
                 <button class="button" type="button" data-action="reset">Reset</button>
-                <p class="hint" id="editor-hint">Runs as you type. Tab indents; press Escape, then Tab, to leave the editor.</p>
+                <p class="hint" id="editor-hint">Press Run or Ctrl+Enter to run your changes. Tab indents; press Escape, then Tab, to leave the editor.</p>
             </div>
             <div class="panes">
                 <div class="editor">
@@ -94,7 +94,7 @@ function escapeText(text: string): string
 /** The playground as Markdown: what it does and every example's code. */
 export async function playgroundMarkdown(root: string): Promise<string>
 {
-    const parts = ["# Playground", "", "Edit a zerolith app in the browser and see it run as you type. The code runs in a sandboxed frame with the development builds of `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/a11y`, and `@zerolith/i18n`, so diagnostics carry their full text. A view renders into `<main id=\"app\">`, and `console` output shows under the preview. Copy link puts the code in the address, so a link opens with your code in the editor.", "", "## Examples"];
+    const parts = ["# Playground", "", "Edit a zerolith app in the browser and run it with one key. The code runs in a sandboxed frame with the development builds of `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/a11y`, and `@zerolith/i18n`, so diagnostics carry their full text. A view renders into `<main id=\"app\">`, and `console` output shows under the preview. Copy link puts the code in the address, so a link opens with your code in the editor.", "", "## Examples"];
     for (const example of examples)
     {
         const code = (await readFile(join(root, "scripts", "docs", "playground", `${example.id}.js`), "utf8")).trim();

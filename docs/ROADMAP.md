@@ -15,7 +15,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 | Command line | Published with prebuilt binaries for six targets; writes a starter or the fullstack example with the zerolith skill, develops, bundles, and previews a project on its own, forwards an API to its backend, and serves under a base path |
 | Dev tools and testing | Shipped; the browser extension adapter remains |
 | Accessibility, i18n, observability | Shipped; the conformance report and the MessageFormat 1 import remain |
-| Docs | Published to GitHub Pages, their permanent home, by each release: a home page that runs and measures zerolith, a tutorial, a playground, the guides, the reference, and a page per diagnostic, every example run as a test |
+| Docs | Published to GitHub Pages, their permanent home, by each release, and run as a single-page application on `@zerolith/router` over prerendered pages: a home page that runs and measures zerolith, a tutorial, a playground, the guides, the reference, and a page per diagnostic, every example run as a test |
 | Coding agents | Every new project holds an `AGENTS.md` and the zerolith skill for its version, which `zerolith skill` keeps current; an interface skill, MCP servers, and evals remain |
 | Adoption | No production application yet; the first migration is under way |
 | Project and supply chain | Policies, provenance, GitHub releases, npm and crates.io publishing through trusted publishing alone, and nightly canaries |
@@ -147,6 +147,7 @@ See the [command line guide](guide/command-line.md).
 - [x] The site on [GitHub Pages](https://molexxxx.github.io/zerolith/), deployed by each release from the commit it published, and by hand from `main` when only the site changes.
 - [x] Links that work on GitHub and on the site alike: pages link each other by file, the docs build checks every link, and a test checks every relative link in the repository's Markdown.
 - [x] A home page that runs a counter and measures its DOM updates, a ten-step tutorial whose every file is a test, and a playground that runs zerolith in a sandboxed frame and shares code through a link.
+- [x] The site as a single-page application on `@zerolith/router`: every page prerendered for a first load and for readers without JavaScript, links that load the next page without a reload, and each page's islands started when it commits and stopped when the reader leaves.
 - [x] Code colored by the brand's code tokens, reading `html` and `css` templates and JSX as markup and styles, on the site and in the playground.
 - [ ] A domain of the project's own, if one is registered later. Every published version links its diagnostics to the GitHub Pages address, so those links have to keep working.
 - [ ] A versioned API manifest that feeds the agent index and editor tooling.

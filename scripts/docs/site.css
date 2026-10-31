@@ -1061,6 +1061,29 @@ article blockquote > :last-child
     background: var(--zl-lichen-200);
 }
 
+.button[data-stale]::after
+{
+    content: "";
+    width: 8px;
+    height: 8px;
+    background: currentColor;
+}
+
+main[tabindex="-1"]:focus
+{
+    outline: none;
+}
+
+.visually-hidden
+{
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
 .button svg
 {
     width: 20px;

@@ -4,16 +4,23 @@ Every package in this repository is released together and carries the same versi
 
 ## Unreleased
 
+### Added
+
+- `@zerolith/router`: `observe` receives a `cancel` event for a navigation that a newer one replaced before it committed, so every `start` has an end. `@zerolith/otel` ends that navigation's span with `zerolith.navigation.canceled` and no error status.
+
 ### Changed
 
 - Brand and docs site: code follows the theme like every other surface. It sits on the surface plane, basalt-900 on the dark page and white on the light one, with a value of each code role for each theme, so the light theme no longer shows dark code blocks, a dark command bar, or a dark playground editor. The playground's preview follows the theme too, including when the reader switches it, which the preview's sandboxed frame could not see before. Code is set at 13 px instead of 14, so more lines fit without scrolling, and scrollbars are thin and square in the brand's control color, with a stable gutter so pages no longer shift when one appears.
 - Docs: the roadmap marks what 0.1.0-alpha.5 shipped and what remains next, and the READMEs, the contributing guide, the release policy, the tutorial, and the guides name the `skill` command, the skill a new project holds, and the `--no-skill` choice of `zerolith new`.
 - Docs site: the home page's figure totals what the updates changed since the page loaded, so each click adds two text nodes to the count while elements created stay at 0 and `Counter()` calls at 1.
 - Docs site: search opens in a dialog from its button in the sidebar, Ctrl+K, or /, instead of a list the sidebar cut off. Results are grouped by section, the words that matched are marked, the arrow keys move through them and Enter opens one, and a few pages to start from show before anything is typed. A term that starts a title or a word of it, camel-case parts included, ranks above one inside a word, a page shows at most three results, and a heading many pages share, such as a diagnostic's What to do, shows only as that page's best. On a phone the dialog fills the screen.
+- Docs site: the site is a single-page application on `@zerolith/router`. Every page is still prerendered, so a first load, a search engine, and a reader without JavaScript get the whole page, and from there links load the next page's content without reloading: the router sets the title and description, scrolls, restores the position on back and forward, and starts and stops each page's islands. Links to files that are not pages, such as a page's Markdown twin, load as before.
+- Docs site: the playground runs the code when the reader presses Run or Ctrl+Enter, picks an example, or resets one, instead of after every pause in typing; the Run button and the hint show when the editor holds changes that have not run.
 - Docs site: a Markdown file a guide shows, such as the `AGENTS.md` in the structure guide, appears rendered under its file name, with a Source tab for the exact text an agent reads and a button that copies it.
 
 ### Fixed
 
+- `@zerolith/router`: a navigation that a newer one replaced no longer calls `onError` when its loader rejects on the abort signal, as `fetch` does, which made an application that falls back to a full page load on error leave for the replaced URL. Back and forward between entries of the page shown that differ only in the hash move to the hash instead of loading and rendering the page again.
 - Docs site: forms submit in the playground's preview, so the Add button of the Packing list example works. The preview's sandbox lacked `allow-forms`, which stops a form before its `submit` event fires.
 - Docs site: the API reference, `api.json`, and `llms-full.txt` print every signature as the published types declare it. A parameter with a default value showed as `_` instead of its name and type, such as `createAnnouncer(_)` for `createAnnouncer(doc?: Document)`, template literal types carried terminal color codes in place of their backticks, interface methods lost their type parameters, the `~standard` property of `StandardSchema` lost its quotes, and the `JSX` namespace listed none of its members. The API reports in `api/` had the same faults and are now one TypeScript block each, which GitHub shows as code.
 - Docs site: headings whose names differ only in case, such as the `signal` function and the `Signal` interface in the reference, get ids of their own (`#signal` and `#signal-2`), so each can be linked. They shared one id before, and a search that matched both stopped updating its results. The search index also no longer lists headings from inside code blocks, such as the sections of the `AGENTS.md` sample, which had no place on the page to land.

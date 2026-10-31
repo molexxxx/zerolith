@@ -205,11 +205,11 @@ function integrityOf(page: PageData, path: string): string
     return hash === undefined ? "" : ` integrity="${hash}"`;
 }
 
-/** The import map: `zerolith` resolves to the production build, and every module the page can load carries its hash. */
+/** The import map: `zerolith` and `@zerolith/router` resolve to their production builds, and every module the page can load carries its hash. */
 function importMap(page: PageData): string
 {
     const integrity = Object.fromEntries(Object.entries(page.integrity).filter(([path]) => path.endsWith(".js") && path !== "/theme.js"));
-    return JSON.stringify({ imports: { zerolith: "/zerolith/index.js" }, integrity });
+    return JSON.stringify({ imports: { "zerolith": "/zerolith/index.js", "@zerolith/router": "/router/index.js" }, integrity });
 }
 
 /** The full HTML document for a page. */

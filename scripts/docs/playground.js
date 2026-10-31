@@ -1,16 +1,14 @@
 /**
  * The playground in the browser: the editor's code is a signal, an effect
- * keeps the highlighted copy under the text in step, and each change runs
- * the code in a sandboxed frame after a short pause. The frame has an opaque
- * origin, loads the development builds through its own import map, and
- * reports console output and errors back with postMessage. Copy link puts
- * the code, compressed, in the address's fragment, which never reaches a
- * server.
+ * keeps the highlighted copy under the text in step, and the code runs in a
+ * sandboxed frame when the reader presses Run or Ctrl+Enter, picks an
+ * example, or resets one. The frame has an opaque origin, loads the
+ * development builds through its own import map, and reports console output
+ * and errors back with postMessage. Copy link puts the code, compressed, in
+ * the address's fragment, which never reaches a server.
  */
-import { effect, signal } from "zerolith";
+import { computed, effect, scope, signal } from "zerolith";
 import { highlight } from "./highlight.js";
-
-const RUN_DELAY_MS = 400;
 
 /**
  * Compresses text into a URL-safe string.
@@ -111,11 +109,14 @@ function frameDocument(code, imports, theme)
 }
 
 /**
- * Wires the playground inside `host`.
+ * Wires the playground inside `host` and returns what stops it, for the
+ * site's router to call when the reader leaves the page. While the editor
+ * holds changes that have not run, the Run button carries `data-stale` and
+ * the hint says so.
  * @param {HTMLElement} host
- * @returns {Promise<void>}
+ * @returns {() => void}
  */
-async function start(host)
+export function start(host)
 {
     const select = /** @type {HTMLSelectElement} */ (host.querySelector("select[name=\"example\"]"));
     const editor = /** @type {HTMLTextAreaElement} */ (host.querySelector("textarea[name=\"code\"]"));
@@ -123,6 +124,9 @@ async function start(host)
     const shadowFrame = /** @type {HTMLElement} */ (host.querySelector(".editor pre"));
     const frame = /** @type {HTMLIFrameElement} */ (host.querySelector("iframe"));
     const output = /** @type {HTMLElement} */ (host.querySelector(".console"));
+    const runButton = host.querySelector("[data-action=\"run\"]");
+    const hint = host.querySelector(".hint");
+    const idle = hint?.textContent ?? "";
     /** @type {Record<string, string>} */
     const examples = JSON.parse(host.getAttribute("data-examples") ?? "{}");
     /** @type {Record<string, string>} */
@@ -130,29 +134,47 @@ async function start(host)
     const imports = Object.fromEntries(Object.entries(relative).map(([specifier, path]) => [specifier, new URL(path, document.baseURI).href]));
 
     const fragment = new URLSearchParams(location.hash.slice(1));
-    const shared = fragment.has("code") ? await unpack(fragment.get("code") ?? "") : undefined;
     const named = fragment.get("example");
     if (named !== null && named in examples)
     {
         select.value = named;
     }
-    const code = signal(shared ?? examples[select.value] ?? editor.value);
+    const code = signal(examples[select.value] ?? editor.value);
+    const ran = signal(code.get());
     editor.value = code.get();
+    let stopped = false;
 
-    effect(() =>
+    const owner = scope(() =>
     {
-        shadow.innerHTML = highlight(code.get() + "\n", "js");
+        effect(() =>
+        {
+            shadow.innerHTML = highlight(code.get() + "\n", "js");
+        });
+        const stale = computed(() => code.get() !== ran.get());
+        effect(() =>
+        {
+            runButton?.toggleAttribute("data-stale", stale.get());
+            if (hint !== null)
+            {
+                hint.textContent = stale.get() ? "Changes not run yet: press Run or Ctrl+Enter." : idle;
+            }
+        });
     });
 
-    /** @type {ReturnType<typeof setTimeout> | undefined} */
-    let pending;
     function run()
     {
-        clearTimeout(pending);
         output.replaceChildren();
+        ran.set(code.get());
         const theme = siteTheme();
         frame.style.colorScheme = theme;
         frame.srcdoc = frameDocument(code.get(), imports, theme);
+    }
+    /** @param {string} text */
+    function load(text)
+    {
+        editor.value = text;
+        code.set(text);
+        run();
     }
     function followTheme()
     {
@@ -160,14 +182,10 @@ async function start(host)
         frame.style.colorScheme = theme;
         frame.contentWindow?.postMessage({ playgroundTheme: theme }, "*");
     }
-    new MutationObserver(followTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    matchMedia("(prefers-color-scheme: light)").addEventListener("change", followTheme);
-    effect(() =>
-    {
-        code.get();
-        clearTimeout(pending);
-        pending = setTimeout(run, RUN_DELAY_MS);
-    });
+    const themes = new MutationObserver(followTheme);
+    themes.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    const preference = matchMedia("(prefers-color-scheme: light)");
+    preference.addEventListener("change", followTheme);
 
     editor.addEventListener("input", () => code.set(editor.value));
     editor.addEventListener("scroll", () =>
@@ -200,19 +218,15 @@ async function start(host)
 
     select.addEventListener("change", () =>
     {
-        const example = examples[select.value] ?? "";
-        editor.value = example;
-        code.set(example);
-        history.replaceState(null, "", `#example=${select.value}`);
+        load(examples[select.value] ?? "");
+        history.replaceState(history.state, "", `#example=${select.value}`);
     });
 
-    host.querySelector("[data-action=\"run\"]")?.addEventListener("click", run);
+    runButton?.addEventListener("click", run);
     host.querySelector("[data-action=\"reset\"]")?.addEventListener("click", () =>
     {
-        const example = examples[select.value] ?? "";
-        editor.value = example;
-        code.set(example);
-        history.replaceState(null, "", location.pathname);
+        load(examples[select.value] ?? "");
+        history.replaceState(history.state, "", location.pathname);
     });
 
     const share = host.querySelector("[data-action=\"share\"]");
@@ -220,7 +234,7 @@ async function start(host)
     {
         const link = new URL(location.href);
         link.hash = `code=${await pack(code.get())}`;
-        history.replaceState(null, "", link.hash);
+        history.replaceState(history.state, "", link.hash);
         try
         {
             await navigator.clipboard.writeText(link.href);
@@ -233,7 +247,8 @@ async function start(host)
         setTimeout(() => share.removeAttribute("data-copied"), 1500);
     });
 
-    addEventListener("message", (event) =>
+    /** @param {MessageEvent} event */
+    const onMessage = (event) =>
     {
         if (event.source !== frame.contentWindow || typeof event.data !== "object" || event.data === null || event.data.playground !== true)
         {
@@ -243,13 +258,30 @@ async function start(host)
         line.className = String(event.data.level);
         line.textContent = String(event.data.text);
         output.append(line);
-    });
+    };
+    addEventListener("message", onMessage);
 
-    run();
-}
+    if (fragment.has("code"))
+    {
+        void unpack(fragment.get("code") ?? "").then((shared) =>
+        {
+            if (!stopped)
+            {
+                load(shared ?? code.get());
+            }
+        });
+    }
+    else
+    {
+        run();
+    }
 
-const host = document.querySelector("[data-playground]");
-if (host instanceof HTMLElement)
-{
-    await start(host);
+    return () =>
+    {
+        stopped = true;
+        owner.dispose();
+        themes.disconnect();
+        preference.removeEventListener("change", followTheme);
+        removeEventListener("message", onMessage);
+    };
 }

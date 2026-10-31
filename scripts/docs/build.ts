@@ -47,6 +47,9 @@ const brandAssets: Record<string, string> = {
 };
 /** The site's own scripts, copied from scripts/docs. */
 const siteScripts = ["theme.js", "island.js", "search.js", "demo.js", "playground.js"];
+/** The router's modules the site runs on, copied from its build to /router/. */
+const routerModules = ["index.js", "router.js", "match.js"];
+const routerBuild = join(root, "packages", "router", "dist");
 /** The guides' groups, in reading order; every guide names one in its front matter. */
 const guideGroups = ["Basics", "Building apps", "Tooling"];
 /** The packages that ship to the browser, whose dependencies the home page counts. */
@@ -626,6 +629,7 @@ async function copyAssets(production: string, modules: string[]): Promise<void>
         ...modules.map((name) => copyFile(join(production, name), join(out, "zerolith", name))),
         ...Object.entries(brandAssets).map(([path, source]) => copyFile(join(root, "brand", source), join(out, path))),
         ...siteScripts.map((name) => copyFile(join(root, "scripts", "docs", name), join(out, name))),
+        mkdir(join(out, "router"), { recursive: true }).then(() => Promise.all(routerModules.map((name) => copyFile(join(routerBuild, name), join(out, "router", name))))),
         ...playgroundModules(root).map(({ from, to }) => cp(from, join(out, to), { recursive: true, filter: (source) => !source.endsWith(".map") && !source.endsWith(".d.ts") && !/[\\/]production$/.test(source) })),
         cp(join(root, "skills"), join(out, "skills"), { recursive: true })
     ]);
@@ -688,6 +692,10 @@ for (const name of modules)
 {
     integrity[`/zerolith/${name}`] = sri(await readFile(join(production, name)));
 }
+for (const name of routerModules)
+{
+    integrity[`/router/${name}`] = sri(await readFile(join(routerBuild, name)));
+}
 const shared = { version, integrity, image: new URL("social-card.png", siteUrl).href };
 const absolute = (path: string): string => new URL(path.slice(1), siteUrl).href;
 const rendered = new Map<string, string>();
@@ -723,7 +731,7 @@ await Promise.all(pages.map(async (page) =>
 const homeData = { version, figureCode: await figureCode(), characteristics: await characteristics(manifest), revisions: await revisions() };
 const homeDescription = "A full frontend framework with clear patterns for you and your agent: signals, HTML templates with no compiler, routing, forms, server rendering, and i18n.";
 await publish({ ...shared, title: "zerolith", description: homeDescription, path: "/", url: absolute("/"), layout: "wide", view: Home(homeData) }, homeMarkdown(homeData));
-const playgroundDescription = "Edit a zerolith app in the browser, see it run as you type, and share a link to what you made.";
+const playgroundDescription = "Edit a zerolith app in the browser, run it with Ctrl+Enter, and share a link to what you made.";
 await publish({ ...shared, title: "Playground", description: playgroundDescription, path: "/playground/", url: absolute("/playground/"), layout: "wide", view: Playground() }, await playgroundMarkdown(root));
 
 const known = new Set<string>(["/styles.css", "/highlight.js", "/llms.txt", "/llms-full.txt", "/api.json", "/search.json", "/sitemap.xml", "/zerolith/index.js"]);

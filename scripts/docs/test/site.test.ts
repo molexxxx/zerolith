@@ -217,12 +217,63 @@ describe("documentation site", () =>
         expect(last).toContain("href=\"/guide/\" rel=\"next\"");
     });
 
+    it("moves between pages on the router without reloading, and starts each page's islands", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/guide/");
+        const loads: string[] = [];
+        page.on("request", (request) =>
+        {
+            if (request.resourceType() === "document")
+            {
+                loads.push(new URL(request.url()).pathname);
+            }
+        });
+        await page.evaluate(() =>
+        {
+            (window as Window & { kept?: boolean }).kept = true;
+        });
+        const kept = (): Promise<boolean> => page.evaluate(() => (window as Window & { kept?: boolean }).kept === true);
+
+        await page.click("#sidebar a[href=\"/guide/signals/\"]");
+        await page.waitForFunction(() => document.querySelector("h1")?.textContent === "Signals");
+        expect(await page.title()).toBe("Signals | zerolith");
+        expect(await page.locator("header .sections a[aria-current=\"true\"]").textContent()).toBe("Guide");
+        expect(await kept()).toBe(true);
+
+        await page.keyboard.press("Control+k");
+        await page.locator("[data-island=\"search\"] [role=\"option\"]").first().waitFor();
+        await page.keyboard.press("Escape");
+
+        await page.goBack();
+        await page.waitForFunction(() => document.querySelector("h1")?.textContent === "Introduction");
+        expect(await kept()).toBe(true);
+
+        await page.click("header a[href=\"/playground/\"]");
+        await page.frameLocator(".preview iframe").locator("#app button").first().waitFor({ timeout: 15000 });
+        expect(await page.locator("[data-action=\"run\"]").getAttribute("data-stale")).toBeNull();
+        await page.fill("textarea[name=\"code\"]", "import { html, render } from \"zerolith\";\nrender(html`<p>edited</p>`, \"#app\");\n");
+        expect(await page.locator("[data-action=\"run\"]").getAttribute("data-stale")).toBe("");
+        expect(await page.frameLocator(".preview iframe").locator("#app p").first().textContent()).not.toBe("edited");
+        await page.click("[data-action=\"run\"]");
+        await expect.poll(() => page.frameLocator(".preview iframe").locator("#app p").first().textContent()).toBe("edited");
+
+        await page.click("header a.home");
+        await page.waitForFunction(() => document.querySelector(".run .output p")?.textContent === "Count: 1, doubled: 2");
+        await page.click(".run .output button");
+        await page.waitForFunction(() => document.querySelector(".readout dd")?.textContent === "2");
+        expect(await kept()).toBe(true);
+        expect(loads).toEqual([]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
     it("pins every module the pages load with an integrity hash", async () =>
     {
         const home = await readFile(join(site, "index.html"), "utf8");
         const map = JSON.parse(/<script type="importmap">([\s\S]*?)<\/script>/.exec(home)?.[1] ?? "{}") as { imports: Record<string, string>; integrity: Record<string, string> };
         expect(map.imports["zerolith"]).toBe("/zerolith/index.js");
-        for (const path of ["/zerolith/index.js", "/island.js", "/search.js", "/demo.js", "/playground.js", "/highlight.js"])
+        expect(map.imports["@zerolith/router"]).toBe("/router/index.js");
+        for (const path of ["/zerolith/index.js", "/router/index.js", "/router/router.js", "/router/match.js", "/island.js", "/search.js", "/demo.js", "/playground.js", "/highlight.js"])
         {
             expect(map.integrity[path], path).toMatch(/^sha384-/);
         }
