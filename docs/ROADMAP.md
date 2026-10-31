@@ -14,7 +14,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 | Command line | Published with prebuilt binaries for six targets; writes a starter, develops, bundles, and previews a project on its own, forwards an API to its backend, and serves under a base path |
 | Dev tools and testing | Shipped; the browser extension adapter remains |
 | Accessibility, i18n, observability | Shipped; the conformance report and the MessageFormat 1 import remain |
-| Docs | Published to GitHub Pages by each release in the brand's theme, every example run as a test; the project domain is not registered yet |
+| Docs | Published to GitHub Pages, their permanent home, by each release in the brand's theme, every example run as a test |
 | Coding agents | In-repo context shipped; MCP servers, Skills, and evals remain |
 | Adoption | No production application yet; the first migration is next |
 | Project and supply chain | Policies, provenance, GitHub releases, npm and crates.io publishing through trusted publishing alone, and nightly canaries |
@@ -25,14 +25,13 @@ In order:
 
 1. Migrate the first production site onto zerolith.
 2. Review the core, templates, and router API through an RFC and freeze it for 1.0.
-3. Register the project domain and move the docs there from GitHub Pages. Every diagnostic links to its page on the docs site, so the address has to be permanent before 1.0.
 
 ## 1.0
 
 1.0 ships when all of these hold. The API of the core, templates, and router is then supported for 24 months under the [support policy](policy/support.md).
 
 - [ ] The API of the core, templates, and router is frozen through an RFC.
-- [ ] The docs site is live at the project's own domain, built with zerolith itself, and every diagnostic code's page resolves there.
+- [x] The docs site is live at a permanent address, https://molexxxx.github.io/zerolith/, built with zerolith itself, and every diagnostic code's page resolves there.
 - [ ] A production site runs on zerolith, served buildless with an import map and integrity hashes, with a Lighthouse budget enforced in CI.
 - [ ] A keyed entry is submitted to js-framework-benchmark, with the core inside its 10 kB compressed budget.
 - [x] Every npm package publishes through trusted publishing with provenance, and the canary channel runs.
@@ -125,7 +124,7 @@ See the [command line guide](guide/command-line.md).
 - [x] A Markdown twin of every page, indexed by `llms.txt` and `llms-full.txt`.
 - [x] A page for every diagnostic code.
 - [x] The site on [GitHub Pages](https://molexxxx.github.io/zerolith/), deployed by each release from the commit it published.
-- [ ] The site at the project's own domain.
+- [ ] A domain of the project's own, if one is registered later. Every published version links its diagnostics to the GitHub Pages address, so those links have to keep working.
 - [ ] A versioned API manifest that feeds the agent index and editor tooling.
 - [ ] Type-checked code samples on every page.
 - [ ] Link, prose, and spelling checks in CI.

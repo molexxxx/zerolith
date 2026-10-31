@@ -107,7 +107,7 @@ Three example applications show it end to end: [notes](examples/notes), plain Ja
 
 ## Where it's going
 
-Next come a permanent domain for the docs, the first production site, and a frozen API for the core, templates, and router. After that come signals the server can push, agent tooling with MCP servers and a public eval suite, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
+Next come the first production site and a frozen API for the core, templates, and router. After that come signals the server can push, agent tooling with MCP servers and a public eval suite, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
 
 ## Documentation
 
