@@ -122,10 +122,13 @@ enum Command {
         #[arg(long, conflicts_with_all = ["empty_out_dir", "base", "mode", "sourcemap", "no_minify"])]
         unbundled: bool,
     },
-    /// Write a starter application and install its dependencies, asking for what the flags leave open: TSX on the command line, with the inspector, by default.
+    /// Write a starter application, or an example as a project of its own, and install its dependencies, asking for what the flags leave open: the starter in TSX on the command line, with the inspector, by default.
     New {
         /// The folder to create; its name becomes the application's name.
         root: Option<PathBuf>,
+        /// Start from an example instead of the starter: fullstack, an app under /app/ with its own Node backend. It is TypeScript on the command line, so it takes no --template, --vite, or --buildless.
+        #[arg(long, value_parser = ["fullstack"])]
+        example: Option<String>,
         /// The language and syntax: tsx, ts with html templates, jsx, or js with html templates.
         #[arg(long, value_parser = ["tsx", "ts", "jsx", "js"])]
         template: Option<String>,
@@ -281,6 +284,7 @@ async fn main() -> ExitCode {
         },
         Command::New {
             root,
+            example,
             template,
             vite,
             buildless,
@@ -288,10 +292,16 @@ async fn main() -> ExitCode {
             no_install,
             yes,
         } => {
-            anstream::println!("{}", term::heading("new", "a starter application"));
+            let start = example.as_deref().and_then(new::Start::example);
+            let detail = match start {
+                Some(new::Start::Fullstack) => "the fullstack example",
+                _ => "a starter application",
+            };
+            anstream::println!("{}", term::heading("new", detail));
             new::settle(
                 new::Answers {
                     root,
+                    start,
                     template,
                     tool: if vite {
                         Some(new::Tool::Vite)

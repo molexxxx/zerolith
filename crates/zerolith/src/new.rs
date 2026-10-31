@@ -3,8 +3,10 @@
 //! patterns a project grows from, a browser test, a README that walks
 //! through developing, building, previewing, and deploying, and an
 //! AGENTS.md, then installs its dependencies. It asks for what the flags
-//! leave open, with a default for every question: TSX on the command line,
-//! the inspector included, and the dependencies installed.
+//! leave open, with a default for every question: the starter, TSX on the
+//! command line, the inspector included, and the dependencies installed.
+//! `--example fullstack` writes the fullstack example instead, an app with
+//! its own Node backend, as a project of its own.
 
 use std::fs;
 use std::io::{self, BufRead, IsTerminal, Write};
@@ -24,9 +26,30 @@ pub enum Tool {
     Vite,
 }
 
+/// What the new project starts from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Start {
+    /// The starter, written in the language and for the tools chosen.
+    Starter,
+    /// The fullstack example: a notes app under `/app/` with its own Node backend.
+    Fullstack,
+}
+
+impl Start {
+    /// The example `--example` names.
+    pub fn example(name: &str) -> Option<Start> {
+        match name {
+            "fullstack" => Some(Start::Fullstack),
+            _ => None,
+        }
+    }
+}
+
 /// The project to write.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Choice {
+    /// The starter or an example; an example fixes the other fields.
+    pub start: Start,
     pub tool: Tool,
     pub typescript: bool,
     /// Components written in JSX, in `.tsx` or `.jsx` files, instead of `html` templates.
@@ -36,12 +59,22 @@ pub struct Choice {
 }
 
 impl Choice {
-    /// TSX on the command line, with the inspector: what every question defaults to.
+    /// The starter in TSX on the command line, with the inspector: what every question defaults to.
     pub const DEFAULT: Choice = Choice {
+        start: Start::Starter,
         tool: Tool::CommandLine,
         typescript: true,
         jsx: true,
         devtools: true,
+    };
+
+    /// The fullstack example as it is: TypeScript with `html` templates on the command line, without the inspector.
+    pub const FULLSTACK: Choice = Choice {
+        start: Start::Fullstack,
+        tool: Tool::CommandLine,
+        typescript: true,
+        jsx: false,
+        devtools: false,
     };
 
     fn ext(self) -> &'static str {
@@ -64,6 +97,42 @@ const TOOL_VERSIONS: &str = include_str!("../versions.json");
 
 /// The favicon from `brand/app-icon`, copied into the crate so the published crate carries it; a test keeps the two in step.
 const FAVICON: &str = include_str!("../templates/favicon.svg");
+
+/// The application files of `examples/fullstack`, copied into the crate so the published crate carries them. The example's README and its test, which runs this repository's build of the command line, stay behind; the scaffold writes its own. A test keeps the copy in step with the example, apart from the schema path in `zerolith.json`, which points into `node_modules` in a project of its own.
+const FULLSTACK_FILES: [(&str, &str); 8] = [
+    (
+        "index.html",
+        include_str!("../templates/examples/fullstack/index.html"),
+    ),
+    (
+        "server.ts",
+        include_str!("../templates/examples/fullstack/server.ts"),
+    ),
+    (
+        "zerolith.json",
+        include_str!("../templates/examples/fullstack/zerolith.json"),
+    ),
+    (
+        "src/env.d.ts",
+        include_str!("../templates/examples/fullstack/src/env.d.ts"),
+    ),
+    (
+        "src/main.ts",
+        include_str!("../templates/examples/fullstack/src/main.ts"),
+    ),
+    (
+        "src/notes.ts",
+        include_str!("../templates/examples/fullstack/src/notes.ts"),
+    ),
+    (
+        "src/router.ts",
+        include_str!("../templates/examples/fullstack/src/router.ts"),
+    ),
+    (
+        "src/styles.css",
+        include_str!("../templates/examples/fullstack/src/styles.css"),
+    ),
+];
 
 fn version_of(name: &str) -> String {
     let versions: serde_json::Value = serde_json::from_str(TOOL_VERSIONS).unwrap_or_default();
@@ -111,29 +180,76 @@ fn package_name(name: &str) -> String {
     }
 }
 
+/// One entry of a dependency list in package.json.
+fn dependency(name: &str, version: &str) -> String {
+    format!("        \"{name}\": \"{version}\"")
+}
+
+/// The scripts every project ends with: the gate and the checks it runs.
+const CHECKS: [(&str, &str); 4] = [
+    (
+        "check",
+        "npm run typecheck && npm run lint && npm test && npm run build",
+    ),
+    ("typecheck", "tsc -p tsconfig.json"),
+    ("lint", "oxlint"),
+    ("test", "vitest run"),
+];
+
+/// A package.json: the project's own scripts, then the checks, and each dependency list sorted by name.
+fn manifest(
+    name: &str,
+    scripts: &[(&str, &str)],
+    mut dependencies: Vec<String>,
+    mut dev: Vec<String>,
+) -> String {
+    dependencies.sort();
+    dev.sort();
+    let scripts: Vec<String> = scripts
+        .iter()
+        .chain(CHECKS.iter())
+        .map(|(script, command)| format!("        \"{script}\": \"{command}\""))
+        .collect();
+    format!(
+        "{{\n    \"name\": \"{}\",\n    \"version\": \"0.0.0\",\n    \"private\": true,\n    \"type\": \"module\",\n    \"scripts\": {{\n{}\n    }},\n    \"dependencies\": {{\n{}\n    }},\n    \"devDependencies\": {{\n{}\n    }}\n}}\n",
+        package_name(name),
+        scripts.join(",\n"),
+        dependencies.join(",\n"),
+        dev.join(",\n")
+    )
+}
+
+/// The development dependencies every project has: the command line, the test helpers, and the tools the checks run.
+fn tools() -> Vec<String> {
+    let framework = framework_version();
+    let mut dev = vec![
+        dependency("@zerolith/cli", framework),
+        dependency("@zerolith/test", framework),
+    ];
+    for tool in [
+        "@vitest/browser-playwright",
+        "oxlint",
+        "playwright",
+        "typescript",
+        "vitest",
+    ] {
+        dev.push(dependency(tool, &version_of(tool)));
+    }
+    dev
+}
+
 fn package_json(name: &str, choice: Choice) -> String {
     let framework = framework_version();
     let mut dependencies = vec![
-        format!("        \"zerolith\": \"{framework}\""),
-        format!("        \"@zerolith/router\": \"{framework}\""),
+        dependency("zerolith", framework),
+        dependency("@zerolith/router", framework),
     ];
     if choice.devtools {
-        dependencies.push(format!("        \"@zerolith/devtools\": \"{framework}\""));
+        dependencies.push(dependency("@zerolith/devtools", framework));
     }
-    let mut dev = vec![
-        format!("        \"@zerolith/cli\": \"{framework}\""),
-        format!("        \"@zerolith/test\": \"{framework}\""),
-        format!(
-            "        \"@vitest/browser-playwright\": \"{}\"",
-            version_of("@vitest/browser-playwright")
-        ),
-        format!("        \"oxlint\": \"{}\"", version_of("oxlint")),
-        format!("        \"playwright\": \"{}\"", version_of("playwright")),
-        format!("        \"typescript\": \"{}\"", version_of("typescript")),
-        format!("        \"vitest\": \"{}\"", version_of("vitest")),
-    ];
+    let mut dev = tools();
     if choice.jsx || choice.tool == Tool::Vite {
-        dev.push(format!("        \"@zerolith/vite\": \"{framework}\""));
+        dev.push(dependency("@zerolith/vite", framework));
     }
     let (develop, build, preview) = match choice.tool {
         Tool::CommandLine => ("zerolith dev", "zerolith build", "zerolith preview"),
@@ -143,28 +259,36 @@ fn package_json(name: &str, choice: Choice) -> String {
             "zerolith preview",
         ),
         Tool::Vite => {
-            dev.push(format!("        \"vite\": \"{}\"", version_of("vite")));
+            dev.push(dependency("vite", &version_of("vite")));
             ("vite", "vite build", "vite preview")
         }
     };
-    dependencies.sort();
-    dev.sort();
-    let scripts = [
-        format!("        \"dev\": \"{develop}\""),
-        format!("        \"build\": \"{build}\""),
-        format!("        \"preview\": \"{preview}\""),
-        "        \"check\": \"npm run typecheck && npm run lint && npm test && npm run build\""
-            .to_string(),
-        "        \"typecheck\": \"tsc -p tsconfig.json\"".to_string(),
-        "        \"lint\": \"oxlint\"".to_string(),
-        "        \"test\": \"vitest run\"".to_string(),
-    ];
-    format!(
-        "{{\n    \"name\": \"{}\",\n    \"version\": \"0.0.0\",\n    \"private\": true,\n    \"type\": \"module\",\n    \"scripts\": {{\n{}\n    }},\n    \"dependencies\": {{\n{}\n    }},\n    \"devDependencies\": {{\n{}\n    }}\n}}\n",
-        package_name(name),
-        scripts.join(",\n"),
-        dependencies.join(",\n"),
-        dev.join(",\n")
+    manifest(
+        name,
+        &[("dev", develop), ("build", build), ("preview", preview)],
+        dependencies,
+        dev,
+    )
+}
+
+/// The fullstack example's package.json: `dev` and `build` on the command line, `api` running the backend, and `start` running it over the build.
+fn fullstack_package_json(name: &str) -> String {
+    let framework = framework_version();
+    let mut dev = tools();
+    dev.push(dependency("@types/node", &version_of("@types/node")));
+    manifest(
+        name,
+        &[
+            ("dev", "zerolith dev"),
+            ("api", "node server.ts"),
+            ("build", "zerolith build"),
+            ("start", "node server.ts --production"),
+        ],
+        vec![
+            dependency("zerolith", framework),
+            dependency("@zerolith/router", framework),
+        ],
+        dev,
     )
 }
 
@@ -802,10 +926,17 @@ const VITE_CONFIG: &str = "import { defineConfig } from \"vite\";\nimport { zero
 const OXLINTRC: &str = "{\n    \"plugins\": [\"typescript\", \"unicorn\", \"import\"],\n    \"categories\": { \"correctness\": \"error\", \"suspicious\": \"error\" },\n    \"rules\": { \"eqeqeq\": \"error\", \"no-var\": \"error\", \"prefer-const\": \"error\" },\n    \"ignorePatterns\": [\"dist\", \"node_modules\"]\n}\n";
 
 fn tsconfig(choice: Choice) -> String {
-    let files = if choice.tool == Tool::Vite {
-        "\"src\", \"test\", \"vite.config.ts\", \"vitest.config.ts\""
+    let files = match (choice.start, choice.tool) {
+        (Start::Fullstack, _) => "\"server.ts\", \"src\", \"test\", \"vitest.config.ts\"",
+        (Start::Starter, Tool::Vite) => {
+            "\"src\", \"test\", \"vite.config.ts\", \"vitest.config.ts\""
+        }
+        (Start::Starter, _) => "\"src\", \"test\", \"vitest.config.ts\"",
+    };
+    let node = if choice.start == Start::Fullstack {
+        "        \"types\": [\"node\"],\n"
     } else {
-        "\"src\", \"test\", \"vitest.config.ts\""
+        ""
     };
     let js = if choice.typescript {
         ""
@@ -818,7 +949,7 @@ fn tsconfig(choice: Choice) -> String {
         ""
     };
     format!(
-        "{{\n    \"compilerOptions\": {{\n        \"target\": \"es2024\",\n        \"lib\": [\"es2024\", \"dom\", \"dom.iterable\"],\n        \"module\": \"nodenext\",\n        \"moduleResolution\": \"nodenext\",\n        \"strict\": true,\n        \"noUncheckedIndexedAccess\": true,\n        \"erasableSyntaxOnly\": true,\n        \"verbatimModuleSyntax\": true,\n        \"allowImportingTsExtensions\": true,\n        \"noEmit\": true,\n{js}{jsx}        \"skipLibCheck\": true\n    }},\n    \"include\": [{files}]\n}}\n"
+        "{{\n    \"compilerOptions\": {{\n        \"target\": \"es2024\",\n        \"lib\": [\"es2024\", \"dom\", \"dom.iterable\"],\n        \"module\": \"nodenext\",\n        \"moduleResolution\": \"nodenext\",\n        \"strict\": true,\n        \"noUncheckedIndexedAccess\": true,\n        \"erasableSyntaxOnly\": true,\n        \"verbatimModuleSyntax\": true,\n        \"allowImportingTsExtensions\": true,\n        \"noEmit\": true,\n{js}{jsx}{node}        \"skipLibCheck\": true\n    }},\n    \"include\": [{files}]\n}}\n"
     )
 }
 
@@ -953,6 +1084,250 @@ fn readme(name: &str, choice: Choice) -> String {
     )
 }
 
+const FULLSTACK_README: &str = r##"# __NAME__
+
+A zerolith application with its own backend, written from the fullstack example: a notes page under `/app/` that lists and adds notes through a JSON API under `/api`. The backend is `server.ts`, plain Node with no dependencies, which Node 24 or newer runs as TypeScript with no build step.
+
+The commands below are the project's npm scripts: `dev` and `build` run the zerolith command line that `npm install` put in `node_modules`, and `api` and `start` run the backend.
+
+## Develop
+
+While you develop, two processes run side by side. Start the backend in one terminal:
+
+```
+npm run api
+```
+
+It serves the API at http://127.0.0.1:3001/api/notes. Then start the app in a second terminal:
+
+```
+npm run dev
+```
+
+`zerolith dev` serves the app at http://127.0.0.1:8080/app/ with live reload, or on the next free port when 8080 is taken, as its banner says, and the site root redirects to `/app/`. It forwards every request under `/api` to the backend, as `zerolith.json` says, so the page calls `fetch("/api/notes")` on its own origin, with no CORS to configure, and cookies work as they will in production:
+
+```json
+{
+    "$schema": "./node_modules/@zerolith/cli/zerolith.schema.json",
+    "base": "/app/",
+    "proxy": {
+        "/api": "http://127.0.0.1:3001"
+    }
+}
+```
+
+An edit under `src/` reloads the page; an edit to `server.ts` needs the backend restarted. To run the backend on another port, set `PORT`, as in `PORT=4000 npm run api`, and point the proxy at it.
+
+## Build
+
+```
+npm run build
+```
+
+`zerolith build` bundles and minifies the app into `dist/` for the base in `zerolith.json`, so every URL in `dist/index.html` starts with `/app/`, such as `/app/assets/index-<hash>.js`. The router follows the same base through `import.meta.env.BASE_URL`, so its links are `/app/` and `/app/about` while developing and in production alike.
+
+## Run the build
+
+```
+npm start
+```
+
+`npm start` runs `node server.ts --production`: one server answers the API and serves `dist/` under `/app/`, at http://127.0.0.1:3001/app/. The hashed files under `assets/` are cached for a year, and every other path under `/app/` gets `index.html`, uncached, so a route such as `/app/about` loads directly and a new build is picked up at once.
+
+To check the build without the backend serving it, `npx zerolith preview` serves `dist/` under the same base and forwards `/api` the same way, with `npm run api` running.
+
+## Deploy
+
+The project deploys as one Node application on Node 24 or newer: install the dependencies, run `npm run build`, and start it with `npm start`, with `PORT` set to the port it should listen on. The server listens on 127.0.0.1, so put a reverse proxy such as nginx or Caddy in front of it, or change the address in `server.ts` to `0.0.0.0` on a host that routes traffic to the port directly. The notes live in memory and start over when the server restarts; move them to a database before relying on them.
+
+To serve `dist/` from a static host or another web server instead, give it the same rules: `index.html` for every path under `/app/` that names no file, a year of caching for `assets/`, and `/api` forwarded to the backend. The [building and serving guide](https://molexxxx.github.io/zerolith/guide/deploying/) has the setup for static hosts, nginx, IIS, Express, and ASP.NET Core.
+
+## Environment variables
+
+Variables in `.env` whose names start with `PUBLIC_` reach the app's code as `import.meta.env.PUBLIC_NAME`; any other variable stays out of the browser. `.env.local` overrides `.env` and stays out of git. The backend reads the environment it runs in through `process.env`, as it reads `PORT`.
+
+## Tests and checks
+
+`npm test` runs the tests in `test/`: `server.test.ts` starts the backend on a free port and checks the API and how it serves a build, in Node, and `notes.browser.test.ts` renders the notes page against an API kept in memory, in headless Chromium; run `npx playwright install chromium` once first. `npm run check` runs the type check, the linter, the tests, and the build.
+
+## Layout
+
+```
+server.ts                the backend: the API, and the built app with --production
+zerolith.json            the base, /app/, and the proxy from /api to the backend
+index.html               the page: the stylesheet and the entry module
+src/main.ts              the entry: navigation and the current page
+src/router.ts            the routes, under the base from zerolith.json
+src/notes.ts             the notes page, which calls the API
+src/styles.css           the global styles
+src/env.d.ts             the types of import.meta.env
+test/                    the backend's tests and the page's
+```
+
+`AGENTS.md` is the same map for coding agents.
+"##;
+
+const FULLSTACK_AGENTS: &str = r##"# __NAME__: guide for coding agents
+
+A zerolith application with its own backend, written from the fullstack example. The app is served under `/app/` and calls a JSON API under `/api`; `server.ts` is the backend, plain Node with no dependencies, and serves the build in production. The app develops and builds on the zerolith command line; packages load from `node_modules` with no import map, and there is no Vite config. The framework's structure guide describes the layout; this file holds what is specific to this project.
+
+## Commands
+
+- Development runs two processes: `npm run api` starts the backend on port 3001, and `npm run dev` serves the app under `/app/` with live reload, forwarding `/api` to the backend as `zerolith.json` says. Restart `npm run api` after changing `server.ts`.
+- `npm run build` writes `dist/` for the base `/app/`; `npm start` serves the API and `dist/` from the backend.
+- `npm run check` is the gate: typecheck, lint, the backend's tests in Node and the page's in Chromium, and the build.
+
+## Rules
+
+- Bind the signal, not its value: a live binding takes `count`, never `count.get()`, which freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.
+- Components are capitalized functions returning `html` templates, with their `css` literal next to the markup.
+- The page calls the API by path on its own origin, such as `fetch("/api/notes")`, never by host and port: the proxy forwards the request while developing, and the backend answers it in production.
+- The base `/app/` is set in `zerolith.json` and served by `server.ts`; change the two together. Links come from `router.href`, never a written-out `/app/` path.
+- `server.ts` runs on Node with its types stripped, so it uses erasable TypeScript only: no `enum`, `namespace`, or parameter properties.
+- Only `.env` variables named `PUBLIC_*` reach the browser, as `import.meta.env.PUBLIC_*`.
+
+## Where things go
+
+| Change | Location |
+| --- | --- |
+| An API route | `server.ts`, under `/api`, with a test in `test/server.test.ts` |
+| A page | A route in `src/router.ts` and a component in `src/` |
+| A style token or a global style | `src/styles.css`; component styles stay in the component |
+| The base path or the backend's port | `zerolith.json` and `server.ts`, together |
+| A test | `test/*.test.ts` runs in Node, `test/*.browser.test.ts` in Chromium |
+| A static file | `public/` |
+"##;
+
+const FULLSTACK_VITEST_CONFIG: &str = r#"import { playwright } from "@vitest/browser-playwright";
+import { defineConfig } from "vitest/config";
+
+// The backend's tests run in Node, and the page's in headless Chromium.
+export default defineConfig({
+    test: {
+        projects: [
+            {
+                test: { name: "server", include: ["test/**/*.test.ts"], exclude: ["test/**/*.browser.test.ts"] }
+            },
+            {
+                test: {
+                    name: "browser",
+                    include: ["test/**/*.browser.test.ts"],
+                    browser: { enabled: true, headless: true, provider: playwright(), instances: [{ browser: "chromium" }] }
+                }
+            }
+        ]
+    }
+});
+"#;
+
+const FULLSTACK_SERVER_TEST: &str = r#"import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import type { Server } from "node:http";
+import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, expect, it } from "vitest";
+import { createBackend } from "../server.ts";
+
+const servers: Server[] = [];
+const dist = mkdtempSync(join(tmpdir(), "dist-"));
+
+/** Starts a backend on a free port and resolves with its origin. */
+function listen(server: Server): Promise<string>
+{
+    servers.push(server);
+    return new Promise((resolve) =>
+    {
+        server.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}`));
+    });
+}
+
+afterAll(() =>
+{
+    for (const server of servers)
+    {
+        server.close();
+    }
+    rmSync(dist, { recursive: true, force: true });
+});
+
+it("lists the notes and adds one", async () =>
+{
+    const origin = await listen(createBackend());
+    const listed = await fetch(`${origin}/api/notes`);
+    const before = (await listed.json()) as unknown[];
+    const added = await fetch(`${origin}/api/notes`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: "Test the API" })
+    });
+    expect(added.status).toBe(201);
+    expect(await added.json()).toMatchObject({ text: "Test the API" });
+    const after = await fetch(`${origin}/api/notes`);
+    expect(await after.json()).toHaveLength(before.length + 1);
+});
+
+it("refuses a note without text", async () =>
+{
+    const origin = await listen(createBackend());
+    const response = await fetch(`${origin}/api/notes`, { method: "POST", body: JSON.stringify({ text: " " }) });
+    expect(response.status).toBe(400);
+});
+
+// A stand-in for what npm run build writes, so the test needs no build first.
+it("serves the build under /app/, with index.html for routes and the hashed files cached", async () =>
+{
+    mkdirSync(join(dist, "assets"));
+    writeFileSync(join(dist, "index.html"), "<!doctype html><title>Notes</title>");
+    writeFileSync(join(dist, "assets", "index-1a2b3c4d.js"), "");
+    const origin = await listen(createBackend({ dist }));
+    const home = await fetch(`${origin}/`, { redirect: "manual" });
+    expect(home.headers.get("location")).toBe("/app/");
+    const route = await fetch(`${origin}/app/about`);
+    expect(route.headers.get("cache-control")).toBe("no-cache");
+    expect(await route.text()).toContain("<title>Notes</title>");
+    const asset = await fetch(`${origin}/app/assets/index-1a2b3c4d.js`);
+    expect(asset.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    const missing = await fetch(`${origin}/app/assets/missing.js`);
+    expect(missing.status).toBe(404);
+});
+"#;
+
+const FULLSTACK_PAGE_TEST: &str = r#"import { afterEach, expect, it, vi } from "vitest";
+import { cleanup, mount, settle } from "@zerolith/test";
+import type { Note } from "../src/notes.ts";
+
+// The notes page against an API kept in memory. The page asks for the notes
+// as soon as its module runs, so fetch is replaced before it is imported.
+const saved: Note[] = [{ id: 1, text: "Write the first note" }];
+
+vi.stubGlobal("fetch", (_url: string, init?: RequestInit) =>
+{
+    if (init?.method === "POST")
+    {
+        const note = { id: saved.length + 1, text: (JSON.parse(String(init.body)) as { text: string }).text };
+        saved.push(note);
+        return Promise.resolve(Response.json(note, { status: 201 }));
+    }
+    return Promise.resolve(Response.json(saved));
+});
+
+const { Notes } = await import("../src/notes.ts");
+
+afterEach(cleanup);
+
+it("lists the notes from the API and adds one through the form", async () =>
+{
+    const { container } = mount(Notes());
+    await settle();
+    expect(container.querySelectorAll("li")).toHaveLength(1);
+    const input = container.querySelector("input") as HTMLInputElement;
+    input.value = "Add a second note";
+    input.form?.requestSubmit();
+    await settle();
+    expect(Array.from(container.querySelectorAll("li"), (item) => item.textContent)).toEqual(["Write the first note", "Add a second note"]);
+});
+"#;
+
 /// Fills a template's placeholders for the project.
 fn fill(template: &str, choice: Choice, name: &str) -> String {
     let (develop, build, preview) = steps(choice.tool);
@@ -1073,7 +1448,9 @@ fn write(root: &Path, relative: &str, content: &str) -> io::Result<()> {
     fs::write(path, content)
 }
 
-/// Writes the starter for `name` into `root`, which must not exist yet or must be empty, and returns the files it wrote.
+const GITIGNORE: &str = "node_modules/\ndist/\n.env.local\n.env.*.local\n";
+
+/// Writes the project for `name` into `root`, which must not exist yet or must be empty: the starter, or the example the choice names. Returns the files it wrote.
 pub fn scaffold(root: &Path, name: &str, choice: Choice) -> io::Result<Vec<String>> {
     if root.exists() && fs::read_dir(root)?.next().is_some() {
         return Err(io::Error::other(format!(
@@ -1082,12 +1459,60 @@ pub fn scaffold(root: &Path, name: &str, choice: Choice) -> io::Result<Vec<Strin
         )));
     }
     let shown = display_name(name);
+    let files = match choice.start {
+        Start::Starter => starter_files(name, &shown, choice),
+        Start::Fullstack => fullstack_files(name, &shown),
+    };
+    for (relative, content) in &files {
+        write(root, relative, content)?;
+    }
+    Ok(files.into_iter().map(|(relative, _)| relative).collect())
+}
+
+/// The fullstack example's application files as the example has them, with the manifest, configuration, tests, README, and AGENTS.md of a project of its own.
+fn fullstack_files(name: &str, shown: &str) -> Vec<(String, String)> {
+    let mut files = vec![
+        ("package.json".to_string(), fullstack_package_json(name)),
+        (
+            "README.md".to_string(),
+            FULLSTACK_README.replace("__NAME__", shown),
+        ),
+        (
+            "AGENTS.md".to_string(),
+            FULLSTACK_AGENTS.replace("__NAME__", shown),
+        ),
+        ("tsconfig.json".to_string(), tsconfig(Choice::FULLSTACK)),
+        (".oxlintrc.json".to_string(), OXLINTRC.to_string()),
+        (
+            "vitest.config.ts".to_string(),
+            FULLSTACK_VITEST_CONFIG.to_string(),
+        ),
+        (".gitignore".to_string(), GITIGNORE.to_string()),
+        (
+            "test/server.test.ts".to_string(),
+            FULLSTACK_SERVER_TEST.to_string(),
+        ),
+        (
+            "test/notes.browser.test.ts".to_string(),
+            FULLSTACK_PAGE_TEST.to_string(),
+        ),
+    ];
+    files.extend(
+        FULLSTACK_FILES
+            .iter()
+            .map(|(relative, content)| (relative.to_string(), content.to_string())),
+    );
+    files
+}
+
+/// The starter's files for the language and tools of the choice.
+fn starter_files(name: &str, shown: &str, choice: Choice) -> Vec<(String, String)> {
     let ext = choice.ext();
     let mut files = vec![
         ("package.json".to_string(), package_json(name, choice)),
-        ("index.html".to_string(), fill(INDEX_HTML, choice, &shown)),
-        ("README.md".to_string(), readme(&shown, choice)),
-        ("AGENTS.md".to_string(), agents_md(&shown, choice)),
+        ("index.html".to_string(), fill(INDEX_HTML, choice, shown)),
+        ("README.md".to_string(), readme(shown, choice)),
+        ("AGENTS.md".to_string(), agents_md(shown, choice)),
         ("tsconfig.json".to_string(), tsconfig(choice)),
         (".oxlintrc.json".to_string(), OXLINTRC.to_string()),
         (
@@ -1099,10 +1524,7 @@ pub fn scaffold(root: &Path, name: &str, choice: Choice) -> io::Result<Vec<Strin
             }
             .to_string(),
         ),
-        (
-            ".gitignore".to_string(),
-            "node_modules/\ndist/\n.env.local\n.env.*.local\n".to_string(),
-        ),
+        (".gitignore".to_string(), GITIGNORE.to_string()),
         ("public/favicon.svg".to_string(), FAVICON.to_string()),
         (
             "public/data/packages.json".to_string(),
@@ -1114,7 +1536,7 @@ pub fn scaffold(root: &Path, name: &str, choice: Choice) -> io::Result<Vec<Strin
             fill(
                 if choice.devtools { MAIN_DEVTOOLS } else { MAIN },
                 choice,
-                &shown,
+                shown,
             ),
         ),
         (
@@ -1126,19 +1548,19 @@ pub fn scaffold(root: &Path, name: &str, choice: Choice) -> io::Result<Vec<Strin
                     ROUTER_JS
                 },
                 choice,
-                &shown,
+                shown,
             ),
         ),
-        (format!("src/routes.{ext}"), fill(ROUTES, choice, &shown)),
+        (format!("src/routes.{ext}"), fill(ROUTES, choice, shown)),
         (
             format!("test/counter.browser.test.{ext}"),
-            fill(TEST, choice, &shown),
+            fill(TEST, choice, shown),
         ),
     ];
     for (component, source) in components(choice) {
         files.push((
             format!("src/components/{component}.{}", choice.component_ext()),
-            fill(&source, choice, &shown),
+            fill(&source, choice, shown),
         ));
     }
     if choice.tool == Tool::Vite {
@@ -1148,16 +1570,15 @@ pub fn scaffold(root: &Path, name: &str, choice: Choice) -> io::Result<Vec<Strin
         files.push(("src/env.d.ts".to_string(), ENV_TYPES.to_string()));
         files.push(("zerolith.json".to_string(), PROJECT_CONFIG.to_string()));
     }
-    for (relative, content) in &files {
-        write(root, relative, content)?;
-    }
-    Ok(files.into_iter().map(|(relative, _)| relative).collect())
+    files
 }
 
 /// What the command line settled before any question: each `None` is asked, or takes its default.
 #[derive(Debug, Default)]
 pub struct Answers {
     pub root: Option<PathBuf>,
+    /// The starter or an example; `--example` sets it.
+    pub start: Option<Start>,
     /// `tsx`, `ts`, `jsx`, or `js`.
     pub template: Option<String>,
     pub tool: Option<Tool>,
@@ -1218,22 +1639,97 @@ fn confirm(input: &mut impl BufRead, question: &str) -> io::Result<bool> {
     Ok(!matches!(answer.to_ascii_lowercase().as_str(), "n" | "no"))
 }
 
+/// The flags given that only the starter takes, as they were written, since an example is TypeScript on the command line.
+fn starter_flags(answers: &Answers) -> Vec<String> {
+    let mut flags = Vec::new();
+    if let Some(template) = &answers.template {
+        flags.push(format!("--template {template}"));
+    }
+    match answers.tool {
+        Some(Tool::Vite) => flags.push("--vite".to_string()),
+        Some(Tool::Unbundled) => flags.push("--buildless".to_string()),
+        Some(Tool::CommandLine) | None => {}
+    }
+    flags
+}
+
 /// Fills in what the flags left open: asked on a terminal, or the defaults elsewhere and with `--yes`.
-pub fn settle(mut answers: Answers, interactive: bool) -> io::Result<(PathBuf, Choice, bool)> {
+pub fn settle(answers: Answers, interactive: bool) -> io::Result<(PathBuf, Choice, bool)> {
     let interactive = interactive && io::stdin().is_terminal() && io::stdout().is_terminal();
-    let stdin = io::stdin();
-    let mut input = stdin.lock();
+    settle_from(&mut io::stdin().lock(), answers, interactive)
+}
+
+/// `settle`, reading the answers to its questions from `input`. The starting point comes first, unless a flag only the starter takes already settled it.
+fn settle_from(
+    input: &mut impl BufRead,
+    mut answers: Answers,
+    interactive: bool,
+) -> io::Result<(PathBuf, Choice, bool)> {
+    let starter_only = starter_flags(&answers);
+    let start = match answers.start {
+        Some(Start::Fullstack) if !starter_only.is_empty() => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!(
+                    "--example fullstack takes no {}, since the example is TypeScript on the zerolith command line; leave {} out, or drop --example to write the starter",
+                    starter_only.join(" or "),
+                    if starter_only.len() == 1 {
+                        "the flag"
+                    } else {
+                        "the flags"
+                    }
+                ),
+            ));
+        }
+        Some(start) => start,
+        None if interactive && starter_only.is_empty() => match pick(
+            input,
+            "Starting point",
+            &[
+                "The starter: three pages in the brand style, in the language and with the tools you pick next",
+                "The fullstack example: a notes app under /app/ with its own Node backend, in TypeScript on the command line",
+            ],
+        )? {
+            1 => Start::Fullstack,
+            _ => Start::Starter,
+        },
+        None => Start::Starter,
+    };
     if answers.root.is_none() {
         answers.root = Some(PathBuf::from(if interactive {
-            ask(&mut input, "Project folder", "zerolith-app")?
+            ask(input, "Project folder", "zerolith-app")?
         } else {
             "zerolith-app".to_string()
         }));
     }
+    let choice = match start {
+        Start::Fullstack => Choice::FULLSTACK,
+        Start::Starter => starter_choice(input, &answers, interactive)?,
+    };
+    let install = match answers.install {
+        Some(install) => install,
+        None if interactive => confirm(
+            input,
+            &format!("Install the dependencies with {}", package_manager()),
+        )?,
+        None => true,
+    };
+    if interactive {
+        anstream::println!();
+    }
+    Ok((answers.root.unwrap_or_default(), choice, install))
+}
+
+/// The starter's language, tools, and inspector: from the flags, asked on a terminal, or the defaults.
+fn starter_choice(
+    input: &mut impl BufRead,
+    answers: &Answers,
+    interactive: bool,
+) -> io::Result<Choice> {
     let (typescript, jsx) = match &answers.template {
         Some(template) => template_choice(template),
         None if interactive => match pick(
-            &mut input,
+            input,
             "Language",
             &[
                 "TSX: TypeScript components written in JSX",
@@ -1252,7 +1748,7 @@ pub fn settle(mut answers: Answers, interactive: bool) -> io::Result<(PathBuf, C
     let tool = match answers.tool {
         Some(tool) => tool,
         None if interactive => match pick(
-            &mut input,
+            input,
             "Dev server and build",
             &[
                 "The zerolith command line: dev, build, and preview with nothing else",
@@ -1268,33 +1764,16 @@ pub fn settle(mut answers: Answers, interactive: bool) -> io::Result<(PathBuf, C
     };
     let devtools = match answers.devtools {
         Some(devtools) => devtools,
-        None if interactive => {
-            confirm(&mut input, "Include the inspector from @zerolith/devtools")?
-        }
+        None if interactive => confirm(input, "Include the inspector from @zerolith/devtools")?,
         None => Choice::DEFAULT.devtools,
     };
-    let install = match answers.install {
-        Some(install) => install,
-        None if interactive => confirm(
-            &mut input,
-            &format!("Install the dependencies with {}", package_manager()),
-        )?,
-        None => true,
-    };
-    if interactive {
-        anstream::println!();
-    }
-    let root = answers.root.unwrap_or_default();
-    Ok((
-        root,
-        Choice {
-            tool,
-            typescript,
-            jsx,
-            devtools,
-        },
-        install,
-    ))
+    Ok(Choice {
+        start: Start::Starter,
+        tool,
+        typescript,
+        jsx,
+        devtools,
+    })
 }
 
 /// The package manager that ran the command, from the user agent npm, pnpm, Yarn, and Bun set, or npm.
@@ -1322,7 +1801,7 @@ fn install(root: &Path, manager: &str) -> io::Result<bool> {
     Ok(status.success())
 }
 
-/// Runs the `new` command: writes the starter and, when asked to, installs its dependencies.
+/// Runs the `new` command: writes the starter or the example and, when asked to, installs its dependencies.
 pub fn run(root: &Path, choice: Choice, install_dependencies: bool) -> io::Result<()> {
     let name = root
         .file_name()
@@ -1365,34 +1844,62 @@ pub fn run(root: &Path, choice: Choice, install_dependencies: bool) -> io::Resul
             );
         }
     }
+    anstream::println!("\n  {}", term::muted("Next:"));
+    anstream::println!("    {}", term::bold(format!("cd {}", root.display())));
+    if !installed {
+        anstream::println!("    {}", term::bold(format!("{manager} install")));
+    }
+    let steps = next_steps(choice);
+    let width = steps
+        .iter()
+        .map(|(command, _)| command.len())
+        .max()
+        .unwrap_or(0)
+        + 3;
+    for (command, what) in &steps {
+        let padding = " ".repeat(width.saturating_sub(command.len()));
+        anstream::println!("    {}{padding}{}", term::bold(command), term::muted(what));
+    }
+    anstream::println!();
+    Ok(())
+}
+
+/// The commands the new project runs on, each with what it does, as the closing lines list them.
+fn next_steps(choice: Choice) -> Vec<(String, &'static str)> {
+    if choice.start == Start::Fullstack {
+        return vec![
+            (
+                "npm run api".to_string(),
+                "start the backend, which answers /api",
+            ),
+            (
+                "npm run dev".to_string(),
+                "in a second terminal, serve the app and forward /api to the backend",
+            ),
+            (
+                "npm run build".to_string(),
+                "write the production build to dist/",
+            ),
+            (
+                "npm start".to_string(),
+                "serve the API and the build from the backend",
+            ),
+        ];
+    }
     let (develop, build, preview) = commands(choice.tool);
     let prefix = if choice.tool == Tool::Vite || on_path("zerolith") {
         ""
     } else {
         "npx "
     };
-    anstream::println!("\n  {}", term::muted("Next:"));
-    anstream::println!("    {}", term::bold(format!("cd {}", root.display())));
-    if !installed {
-        anstream::println!("    {}", term::bold(format!("{manager} install")));
-    }
-    let width = [develop, build, preview]
-        .iter()
-        .map(|command| prefix.len() + command.len())
-        .max()
-        .unwrap_or(0)
-        + 3;
-    for (command, what) in [
-        (develop, "serve the app while you work"),
-        (build, "write the production build to dist/"),
-        (preview, "serve dist/ to check it"),
-    ] {
-        let shown = format!("{prefix}{command}");
-        let padding = " ".repeat(width.saturating_sub(shown.len()));
-        anstream::println!("    {}{padding}{}", term::bold(&shown), term::muted(what));
-    }
-    anstream::println!();
-    Ok(())
+    vec![
+        (format!("{prefix}{develop}"), "serve the app while you work"),
+        (
+            format!("{prefix}{build}"),
+            "write the production build to dist/",
+        ),
+        (format!("{prefix}{preview}"), "serve dist/ to check it"),
+    ]
 }
 
 /// True when a program of this name is on `PATH` for good, as a global npm install puts the command line there; the folders npx and npm scripts add for one run do not count.
@@ -1413,12 +1920,27 @@ fn on_path(program: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        Answers, Choice, FAVICON, TOOL_VERSIONS, Tool, ask, confirm, package_name, pick, scaffold,
-        settle,
+        Answers, Choice, FAVICON, FULLSTACK_FILES, Start, TOOL_VERSIONS, Tool, ask, confirm,
+        package_json, package_name, pick, scaffold, settle, settle_from,
     };
     use std::fs;
-    use std::io::Cursor;
+    use std::io::{self, Cursor};
     use std::path::{Path, PathBuf};
+
+    /// The files under `folder` as paths relative to `prefix`, leaving out build output and installed packages.
+    fn files_under(folder: &Path, prefix: &str, found: &mut Vec<String>) {
+        for entry in fs::read_dir(folder).unwrap() {
+            let entry = entry.unwrap();
+            let name = entry.file_name().to_string_lossy().to_string();
+            if entry.path().is_dir() {
+                if !matches!(name.as_str(), "dist" | "node_modules") {
+                    files_under(&entry.path(), &format!("{prefix}{name}/"), found);
+                }
+            } else {
+                found.push(format!("{prefix}{name}"));
+            }
+        }
+    }
 
     #[test]
     fn writes_each_choice_with_the_name_and_pinned_versions() {
@@ -1571,6 +2093,202 @@ mod tests {
     }
 
     #[test]
+    fn writes_the_fullstack_example_as_a_project_of_its_own() {
+        let root =
+            std::env::temp_dir().join(format!("zerolith-new-fullstack-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let mut files = scaffold(&root, "My Notes", Choice::FULLSTACK).unwrap();
+        files.sort();
+        let mut found = Vec::new();
+        files_under(&root, "", &mut found);
+        found.sort();
+        assert_eq!(files, found);
+        assert_eq!(
+            files,
+            [
+                ".gitignore",
+                ".oxlintrc.json",
+                "AGENTS.md",
+                "README.md",
+                "index.html",
+                "package.json",
+                "server.ts",
+                "src/env.d.ts",
+                "src/main.ts",
+                "src/notes.ts",
+                "src/router.ts",
+                "src/styles.css",
+                "test/notes.browser.test.ts",
+                "test/server.test.ts",
+                "tsconfig.json",
+                "vitest.config.ts",
+                "zerolith.json",
+            ]
+        );
+        for (relative, content) in FULLSTACK_FILES {
+            assert_eq!(
+                fs::read_to_string(root.join(relative)).unwrap(),
+                content,
+                "{relative}"
+            );
+        }
+
+        let manifest: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(root.join("package.json")).unwrap()).unwrap();
+        assert_eq!(manifest["name"], "my-notes");
+        let scripts = manifest["scripts"].as_object().unwrap();
+        let mut names: Vec<&str> = scripts.keys().map(String::as_str).collect();
+        names.sort_unstable();
+        assert_eq!(
+            names,
+            [
+                "api",
+                "build",
+                "check",
+                "dev",
+                "lint",
+                "start",
+                "test",
+                "typecheck"
+            ]
+        );
+        assert_eq!(scripts["dev"], "zerolith dev");
+        assert_eq!(scripts["api"], "node server.ts");
+        assert_eq!(scripts["build"], "zerolith build");
+        assert_eq!(scripts["start"], "node server.ts --production");
+        let starter: serde_json::Value =
+            serde_json::from_str(&package_json("starter", Choice::DEFAULT)).unwrap();
+        for script in ["check", "typecheck", "lint", "test"] {
+            assert_eq!(scripts[script], starter["scripts"][script], "{script}");
+        }
+
+        let framework = env!("CARGO_PKG_VERSION");
+        let versions: serde_json::Value = serde_json::from_str(TOOL_VERSIONS).unwrap();
+        let pinned = |list: &str| -> Vec<(String, String)> {
+            let mut pinned: Vec<(String, String)> = manifest[list]
+                .as_object()
+                .unwrap()
+                .iter()
+                .map(|(name, version)| (name.clone(), version.as_str().unwrap().to_string()))
+                .collect();
+            pinned.sort();
+            pinned
+        };
+        assert_eq!(
+            pinned("dependencies"),
+            [
+                ("@zerolith/router".to_string(), framework.to_string()),
+                ("zerolith".to_string(), framework.to_string()),
+            ]
+        );
+        let dev = pinned("devDependencies");
+        assert_eq!(
+            dev.iter()
+                .map(|(name, _)| name.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "@types/node",
+                "@vitest/browser-playwright",
+                "@zerolith/cli",
+                "@zerolith/test",
+                "oxlint",
+                "playwright",
+                "typescript",
+                "vitest",
+            ]
+        );
+        for (name, version) in &dev {
+            let expected = if name.starts_with("@zerolith/") {
+                framework
+            } else {
+                versions[name].as_str().unwrap()
+            };
+            assert_eq!(version, expected, "{name}");
+        }
+
+        let config = crate::config::Config::load(&root).unwrap();
+        assert_eq!(config.base.as_deref(), Some("/app/"));
+        let rules = config.proxy_rules(&[]).unwrap();
+        assert_eq!(
+            (rules[0].prefix.as_str(), rules[0].target.port),
+            ("/api", 3001)
+        );
+        let tsconfig = fs::read_to_string(root.join("tsconfig.json")).unwrap();
+        assert!(
+            tsconfig.contains("\"types\": [\"node\"]")
+                && tsconfig.contains(
+                    "\"include\": [\"server.ts\", \"src\", \"test\", \"vitest.config.ts\"]"
+                ),
+            "{tsconfig}"
+        );
+        assert!(crate::doctor::lint_sources(&root).is_empty());
+        for relative in &files {
+            let text = fs::read_to_string(root.join(relative)).unwrap();
+            assert!(
+                !text.contains("../../")
+                    && !text.contains("examples/fullstack")
+                    && !text.contains("scripts/zerolith")
+                    && !text.contains("npm run fullstack")
+                    && !text.contains("__"),
+                "{relative} refers to the repository or keeps a placeholder"
+            );
+        }
+        let readme = fs::read_to_string(root.join("README.md")).unwrap();
+        assert!(readme.starts_with("# My Notes\n"));
+        for section in ["## Develop", "## Build", "## Run the build", "## Deploy"] {
+            assert!(readme.contains(section), "README.md lacks {section}");
+        }
+        assert!(readme.contains("npm run api") && readme.contains("npm run dev"));
+        let agents = fs::read_to_string(root.join("AGENTS.md")).unwrap();
+        assert!(agents.starts_with("# My Notes: guide for coding agents\n"));
+        assert!(agents.contains("two processes"));
+        assert!(scaffold(&root, "My Notes", Choice::FULLSTACK).is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_fullstack_copy_matches_the_example() {
+        let example = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/fullstack");
+        if !example.is_dir() {
+            return;
+        }
+        let adaptations = [(
+            "zerolith.json",
+            "\"../../packages/cli/zerolith.schema.json\"",
+            "\"./node_modules/@zerolith/cli/zerolith.schema.json\"",
+        )];
+        let mut found = Vec::new();
+        files_under(&example, "", &mut found);
+        found.retain(|relative| relative != "README.md" && !relative.starts_with("test/"));
+        found.sort();
+        let mut copied: Vec<&str> = FULLSTACK_FILES
+            .iter()
+            .map(|(relative, _)| *relative)
+            .collect();
+        copied.sort();
+        assert_eq!(
+            found, copied,
+            "examples/fullstack and its copy in templates/examples/fullstack hold different files"
+        );
+        for (relative, copy) in FULLSTACK_FILES {
+            let mut source = fs::read_to_string(example.join(relative)).unwrap();
+            for (file, from, to) in adaptations {
+                if file == relative {
+                    assert!(
+                        source.contains(from),
+                        "examples/fullstack/{file} no longer has {from}"
+                    );
+                    source = source.replace(from, to);
+                }
+            }
+            assert_eq!(
+                copy, source,
+                "templates/examples/fullstack/{relative} drifted from examples/fullstack/{relative}"
+            );
+        }
+    }
+
+    #[test]
     fn settles_flags_and_defaults_without_asking() {
         let (root, choice, install) = settle(
             Answers {
@@ -1587,6 +2305,7 @@ mod tests {
         assert_eq!(
             choice,
             Choice {
+                start: Start::Starter,
                 tool: Tool::Vite,
                 typescript: false,
                 jsx: false,
@@ -1597,6 +2316,89 @@ mod tests {
         let (_, defaults, install) = settle(Answers::default(), false).unwrap();
         assert_eq!(defaults, Choice::DEFAULT);
         assert!(install);
+    }
+
+    #[test]
+    fn keeps_the_starter_under_yes_and_asks_for_the_starting_point_first() {
+        let (_, choice, _) = settle(
+            Answers {
+                install: Some(false),
+                ..Answers::default()
+            },
+            false,
+        )
+        .unwrap();
+        assert_eq!(choice.start, Start::Starter);
+        let mut input = Cursor::new("2\nnotes\nn\n");
+        assert_eq!(
+            settle_from(&mut input, Answers::default(), true).unwrap(),
+            (PathBuf::from("notes"), Choice::FULLSTACK, false)
+        );
+        let mut input = Cursor::new("\n\n\n\n\n\n");
+        assert_eq!(
+            settle_from(&mut input, Answers::default(), true).unwrap(),
+            (PathBuf::from("zerolith-app"), Choice::DEFAULT, true)
+        );
+        let mut input = Cursor::new("2\n\n\n");
+        let (_, choice, _) = settle_from(
+            &mut input,
+            Answers {
+                root: Some(PathBuf::from("site")),
+                template: Some("ts".to_string()),
+                ..Answers::default()
+            },
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            (choice.start, choice.tool, choice.jsx),
+            (Start::Starter, Tool::Vite, false)
+        );
+    }
+
+    #[test]
+    fn takes_the_example_with_its_own_settings_and_refuses_starter_flags() {
+        let (_, choice, install) = settle(
+            Answers {
+                start: Some(Start::Fullstack),
+                devtools: Some(false),
+                ..Answers::default()
+            },
+            false,
+        )
+        .unwrap();
+        assert_eq!(choice, Choice::FULLSTACK);
+        assert!(install);
+        assert_eq!(Start::example("fullstack"), Some(Start::Fullstack));
+        assert_eq!(Start::example("starter"), None);
+        for (template, tool, named) in [
+            (Some("ts"), None, "takes no --template ts, since"),
+            (None, Some(Tool::Vite), "takes no --vite, since"),
+            (None, Some(Tool::Unbundled), "takes no --buildless, since"),
+            (
+                Some("js"),
+                Some(Tool::Vite),
+                "takes no --template js or --vite, since",
+            ),
+        ] {
+            let error = settle(
+                Answers {
+                    start: Some(Start::Fullstack),
+                    template: template.map(str::to_string),
+                    tool,
+                    ..Answers::default()
+                },
+                false,
+            )
+            .unwrap_err();
+            assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+            let message = error.to_string();
+            assert!(
+                message.contains(named)
+                    && message.contains("TypeScript on the zerolith command line"),
+                "{message}"
+            );
+        }
     }
 
     #[test]
