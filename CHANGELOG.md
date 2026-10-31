@@ -35,6 +35,7 @@ Every package in this repository is released together and carries the same versi
 - `@zerolith/cli` and the `zerolith` crate: `zerolith build` keeps a stylesheet link to a file that is not in the project, such as one the host serves next to the app, with a warning, instead of failing.
 - `zerolith` and `@zerolith/devtools`: the inspector reads a computed value's last result instead of running it, so opening it never re-enters a computation in progress.
 - `zerolith`: a template that starts or ends with a binding, such as `` html`${name}<hr>` ``, takes that binding's content with it when it is replaced, hidden, moved, or removed. Before, the content stayed behind in a condition that switched branches, a value that switched templates, and a keyed row that moved or left the list.
+- `@zerolith/router`: each page renders inside an owner of its own, so the effects and `onDispose` cleanups a view registers end when the route changes. Before, a page reached by client-side navigation ran without an owner, and its effects outlived it.
 
 ## 0.1.0-alpha.4 (2026-10-30)
 

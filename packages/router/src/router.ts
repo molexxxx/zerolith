@@ -3,7 +3,7 @@
  * through the History API, delegated handling of plain anchors, loaders
  * that run before the URL changes, head metadata, and scroll restoration.
  */
-import { type ReadableSignal, type View, batch, computed, signal, untracked } from "zerolith";
+import { type ReadableSignal, type View, batch, computed, each, signal, untracked } from "zerolith";
 import { type ParamsOf, type Pattern, build, compile, match } from "./match.js";
 
 /** Document metadata a route contributes. */
@@ -487,18 +487,27 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
     }
     const ready = win === undefined ? Promise.resolve() : go(initial, "replace");
 
-    const outlet = computed<unknown>(() =>
+    /**
+     * The current page as a list of one entry per committed navigation, so
+     * each page renders inside its own owner, as a list row does, and the
+     * previous page's effects and cleanups end when the route changes.
+     */
+    let shown = 0;
+    const pages = computed(() =>
     {
         const matched = current.get();
-        return untracked(() =>
-        {
-            if (matched === undefined || matchedView === undefined)
-            {
-                return options.fallback?.(url.get());
-            }
-            return matchedView({ params: matched.params, data: matched.data, url: matched.url });
-        });
+        shown++;
+        return [{ id: shown, matched, view: matchedView }];
     });
+    const outlet = each(pages, (page) => page.id, (page) => untracked(() =>
+    {
+        const { matched, view } = page.get();
+        if (matched === undefined || view === undefined)
+        {
+            return options.fallback?.(url.get());
+        }
+        return view({ params: matched.params, data: matched.data, url: matched.url });
+    }));
 
     return {
         current,

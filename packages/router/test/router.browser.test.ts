@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Root, effect, html, render } from "zerolith";
+import { type Root, effect, html, onDispose, render, signal } from "zerolith";
 import { type RouteTable, type Router, createRouter, defineRoutes, lazy, route } from "@zerolith/router";
 
 let root: Root | undefined;
@@ -190,6 +190,47 @@ describe("router", () =>
         history.back();
         await back;
         expect(seen).toEqual([false, true, false]);
+    });
+
+    it("gives each page an owner that ends when the route changes", async () =>
+    {
+        history.replaceState(null, "", "/");
+        const ticks = signal(0);
+        const runs: string[] = [];
+        const disposed: string[] = [];
+        const owned = defineRoutes({
+            home: route({ path: "/", view: () => html`<p>home</p>` }),
+            clock: route({
+                path: "/clock/:id",
+                view: ({ params }) =>
+                {
+                    effect(() =>
+                    {
+                        runs.push(`${params.id}:${ticks.get()}`);
+                    });
+                    onDispose(() => disposed.push(params.id));
+                    return html`<p>clock ${params.id}</p>`;
+                }
+            })
+        });
+        router = createRouter(owned, { window });
+        await settled(router);
+        const el = mount(html`<main>${router.outlet()}</main>`);
+
+        await router.navigate("/clock/a");
+        expect(el.textContent).toBe("clock a");
+        ticks.set(1);
+        expect(runs).toEqual(["a:0", "a:1"]);
+
+        await router.navigate("/clock/b");
+        expect(el.textContent).toBe("clock b");
+        expect(disposed).toEqual(["a"]);
+
+        await router.navigate("/");
+        expect(el.textContent).toBe("home");
+        expect(disposed).toEqual(["a", "b"]);
+        ticks.set(2);
+        expect(runs).toEqual(["a:0", "a:1", "b:1"]);
     });
 
     it("reports loader errors through onError and ignores stale navigations", async () =>
