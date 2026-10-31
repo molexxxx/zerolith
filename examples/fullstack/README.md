@@ -44,7 +44,7 @@ npm run fullstack
 The first runs `node examples/fullstack/server.ts`, which serves the API at http://127.0.0.1:3001/api/notes. The second runs `zerolith dev examples/fullstack`:
 
 ```
- zerolith  dev server  v0.1.0-alpha.4, ready in 2 ms
+ zerolith  dev server  v0.1.0-alpha.5, ready in 2 ms
 
   Local     http://127.0.0.1:8080/app/
   Root      C:\Users\you\zerolith\examples\fullstack

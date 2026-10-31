@@ -43,7 +43,7 @@ Each example's README walks through what it shows and what the build writes.
 | --- | --- |
 | `packages/zerolith` | The core runtime: signals, `html` and `css` tags, rendering, hydration, diagnostics |
 | `packages/*` | First-party packages under the `@zerolith/*` scope: router, forms, client, i18n, a11y, test, devtools, otel, vite, and cli, which ships the command line with one prebuilt platform package per target under `packages/cli/platforms` |
-| `crates/zerolith` | The Rust command line: `new`, `dev`, `serve`, `build`, `preview`, `importmap`, `doctor`; published on npm as `@zerolith/cli` and on crates.io |
+| `crates/zerolith` | The Rust command line: `new`, `dev`, `serve`, `build`, `preview`, `skill`, `importmap`, `doctor`; published on npm as `@zerolith/cli` and on crates.io |
 | `examples/` | Applications built on the packages; their tests run in `npm run check` |
 | `docs/guide` | The guides; examples are pulled from tests with `@include` |
 | `docs/learn` | The tutorial; every file it shows is a fixture under `packages/zerolith/test/fixtures/tutorial` that a test runs |
@@ -68,12 +68,12 @@ Each example's README walks through what it shows and what the build writes.
 | `npm run size` | Check the compressed size budget |
 | `npm run docs` | Build the docs site into `site/`; fails on an undocumented export, a missing example, or a broken link. `ZEROLITH_DOCS_BASE=/zerolith/` builds it for a subpath, as GitHub Pages serves it |
 | `npm run docs:serve` | Serve the built docs site on port 8081 |
-| `npm run skills` | Regenerate the Agent Skill's references from the guides; a test fails while they are stale |
+| `npm run skills` | Regenerate the Agent Skill's references from the guides, and the copy of the whole skill the command line builds in; a test fails while either is stale |
 | `npm run api` | Accept a change to the public API by rewriting the reports in `api/`; the docs build fails while the API differs from them |
 | `npm run bench` | Run the keyed-table benchmark |
 | `npm run sbom` | Emit a CycloneDX SBOM of the runtime dependency graph |
 | `npm run brand` | Render the brand PNG and ICO files from their SVG sources |
-| `node scripts/version.ts <version>` | Set one version on every package, the platform packages, the ranges between them, and the crate, for a release commit; [releases.md](docs/policy/releases.md) has the rest of the steps |
+| `node scripts/version.ts <version>` | Set one version on every package, the platform packages, the ranges between them, the packages' version constants, and the crate, for a release commit; [releases.md](docs/policy/releases.md) has the rest of the steps |
 
 ## What to work on
 

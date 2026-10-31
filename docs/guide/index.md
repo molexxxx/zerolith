@@ -38,6 +38,7 @@ zerolith dev
 | Dev server and build | The zerolith command line | `--vite` for Vite with `@zerolith/vite` |
 | Production output | One minified bundle | `--buildless` for the modules behind an import map |
 | Inspector | Included | `--no-devtools` |
+| Skill for coding agents | Included | `--no-skill` |
 | Dependencies | Installed | `--no-install` |
 
 In the project:

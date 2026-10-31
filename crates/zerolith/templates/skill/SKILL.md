@@ -96,7 +96,7 @@ Read only the reference the task needs. Each is a guide from the docs, with test
 - [references/i18n.md](references/i18n.md): locales, formatters, and compiled messages.
 - [references/accessibility.md](references/accessibility.md): focus, announcements, and preference signals.
 - [references/testing.md](references/testing.md): mounting, settling, hydration and accessibility checks.
-- [references/command-line.md](references/command-line.md): `new`, `dev`, `build`, `preview`, `importmap`, `doctor`, `zerolith.json`.
+- [references/command-line.md](references/command-line.md): `new`, `dev`, `build`, `preview`, `skill`, `importmap`, `doctor`, `zerolith.json`.
 - [references/deploying.md](references/deploying.md): serving a build, base paths, caching, a backend's proxy.
 - [references/vite.md](references/vite.md): projects on Vite.
 - [references/dev-tools.md](references/dev-tools.md): the in-page inspector and Performance tracks.

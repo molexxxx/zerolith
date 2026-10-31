@@ -62,6 +62,7 @@ zerolith dev
 | Dev server and build | The zerolith command line | `--vite` for Vite with `@zerolith/vite` |
 | Production output | One minified bundle | `--buildless` for the modules behind an import map |
 | Inspector | Included | `--no-devtools` |
+| Skill for coding agents | Included | `--no-skill` |
 | Dependencies | Installed | `--no-install` |
 
 In the project:
@@ -101,14 +102,14 @@ Everything below runs, is tested in this repository, and is published under the 
 | Testing | `@zerolith/test` | `mount`, `cleanup`, `settle`, and hydration and accessibility checks |
 | Dev tools | `@zerolith/devtools` | The in-page inspector, named signals, and Performance panel tracks |
 | Observability | `@zerolith/otel` | OpenTelemetry spans for navigation, hydration, and requests |
-| Command line | `@zerolith/cli` | The Rust command line with prebuilt binaries: `new`, `dev` with packages resolved from `node_modules`, a proxy to backends, and a base path, `build`, which bundles and minifies with templates prepared ahead of time, `preview`, `importmap` with integrity hashes, and `doctor`, with shared settings in `zerolith.json` |
+| Command line | `@zerolith/cli` | The Rust command line with prebuilt binaries: `new`, `dev` with packages resolved from `node_modules`, a proxy to backends, and a base path, `build`, which bundles and minifies with templates prepared ahead of time, `preview`, `skill`, which writes the zerolith skill for coding agents, `importmap` with integrity hashes, and `doctor`, with shared settings in `zerolith.json` |
 | Vite | `@zerolith/vite` | For projects on Vite: JSX lowering, hot replacement that keeps named state, transform-time warnings, templates prepared at build time, and a production build check |
 
 Three example applications show it end to end: [notes](examples/notes), plain JavaScript on `zerolith dev` and `zerolith build`; [tasks](examples/tasks), TypeScript with a backend API, a typed client, and compiled messages, developed on Vite and bundled by `zerolith build`; and [fullstack](examples/fullstack), an app under `/app/` with a Node backend, reached through the dev server's proxy while developing and serving the build in production.
 
 ## Where it's going
 
-Next come the first production site, faster keyed lists measured on js-framework-benchmark, and a frozen API for the core, templates, and router. After 1.0 come the application utilities, signals kept in storage, undo, sensors, retry, and transitions among them, signals the server can push, richer dev tools with an MCP server for agents, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
+Next come the first production site, the js-framework-benchmark entry, already measured next to seven popular frameworks in [benchmarks](benchmarks/README.md), and a frozen API for the core, templates, and router. After 1.0 come the application utilities, signals kept in storage, undo, sensors, retry, and transitions among them, signals the server can push, richer dev tools with an MCP server for agents, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
 
 ## Documentation
 

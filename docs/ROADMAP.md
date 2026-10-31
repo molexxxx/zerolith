@@ -4,18 +4,19 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 
 ## Where it stands
 
-`0.1.0-alpha.4` was published on 2026-10-30, the fourth alpha since `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, which writes a starter and develops, bundles, and previews a project with no other build tool. It is on npm under the `alpha` dist-tag with provenance, published through trusted publishing with no npm token anywhere, on crates.io, and a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://molexxxx.github.io/zerolith/) is published from the same commit. The API is not frozen, and minor versions may change it until 1.0.
+`0.1.0-alpha.5` was published on 2026-10-31, the fifth alpha since `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, which writes a starter or the fullstack example, each with the zerolith skill for coding agents, and develops, bundles, and previews a project with no other build tool. It is on npm under the `alpha` dist-tag with provenance, published through trusted publishing with no npm token anywhere, on crates.io, and a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://molexxxx.github.io/zerolith/) is published from the same commit, and redeployed from `main` when only the site changes. The API is not frozen, and minor versions may change it until 1.0.
 
 | Area | State |
 | --- | --- |
 | Runtime | Feature-complete for 1.0; the API freeze is next |
+| Performance | Measured on js-framework-benchmark next to seven popular frameworks and hand-written JavaScript, with the results in [benchmarks](../benchmarks/README.md); the keyed entry is ready to submit |
 | Router, forms, typed client | Feature-complete for 1.0; real-time data follows 1.0 |
 | Build path | Template preparation with static hoisting, the split check, and the template lint, in the Vite plugin and the command line alike |
-| Command line | Published with prebuilt binaries for six targets; writes a starter, develops, bundles, and previews a project on its own, forwards an API to its backend, and serves under a base path |
+| Command line | Published with prebuilt binaries for six targets; writes a starter or the fullstack example with the zerolith skill, develops, bundles, and previews a project on its own, forwards an API to its backend, and serves under a base path |
 | Dev tools and testing | Shipped; the browser extension adapter remains |
 | Accessibility, i18n, observability | Shipped; the conformance report and the MessageFormat 1 import remain |
 | Docs | Published to GitHub Pages, their permanent home, by each release: a home page that runs and measures zerolith, a tutorial, a playground, the guides, the reference, and a page per diagnostic, every example run as a test |
-| Coding agents | In-repo context and the zerolith Agent Skill shipped; an interface skill, MCP servers, and evals remain |
+| Coding agents | Every new project holds an `AGENTS.md` and the zerolith skill for its version, which `zerolith skill` keeps current; an interface skill, MCP servers, and evals remain |
 | Adoption | No production application yet; the first migration is under way |
 | Project and supply chain | Policies, provenance, GitHub releases, npm and crates.io publishing through trusted publishing alone, and nightly canaries |
 
@@ -24,7 +25,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 In order:
 
 1. Migrate the first production site onto zerolith, served buildless with a Lighthouse budget in CI.
-2. Cut the per-row cost of keyed lists in the core, measured on js-framework-benchmark, before the API is frozen, since the fastest designs can touch how `each` hands rows to a component.
+2. Submit the keyed entry to js-framework-benchmark, which is pinned to `0.1.0-alpha.5` and passes the benchmark's checks, and settle the per-row work that remains before the API is frozen: bindings as effects of their own, and whether `@` event bindings delegate to the root, the one choice there that users would notice.
 3. Review the core, templates, and router API through an RFC, with what the migration and the performance work found, and freeze it for 1.0.
 
 ## 1.0
@@ -51,8 +52,9 @@ In order:
 - [x] JSX as an alternative spelling of `html`.
 - [x] Mounting by element or CSS selector.
 - [x] Templates prepared ahead of time by a build tool, with the scanner left out of the bundle.
-- [x] Keyed lists that insert new rows once per run, clear in one step, keep matching rows at both ends without diffing them, and render template rows without markers, with less allocated per binding.
-- [ ] A prepared template format that locates parts by path instead of walking the clone and gives text bindings their own text node, for the per-row work that remains above hand-written DOM code.
+- [x] Keyed lists that create, append, replace, remove, and clear rows without the general diff, exchange two rows by moving only those two, keep matching rows at both ends without diffing them, update rows that keep their places without a set of keys, render template rows without markers, and create a row's index signal only for a row function that takes one.
+- [x] Templates cloned from a copy prepared once in the page's document, with bindings located by path and text bindings filling a text node the copy already holds; a template with a custom element or an element that fetches is imported on each use instead.
+- [ ] Bindings as effects of their own, without a closure each, and no marker where a binding is an element's only child, for the per-row allocation and node count that remain above hand-written DOM code.
 - [ ] Streaming server rendering.
 - [ ] Islands as a public API: server-rendered pages that hydrate only their interactive parts. The docs search already runs this way.
 - [ ] Form-associated custom elements through `ElementInternals`.
@@ -94,13 +96,14 @@ See the [Vite guide](guide/vite.md).
 - [x] A size budget for the core and for a built example, enforced in CI.
 - [x] Static hoisting of templates with no bindings.
 - [x] A check that fails a client build when a lazy route view or a compiled locale is also imported statically, which would merge it into the importing chunk, in `vite build` and in `zerolith build`.
+- [x] The Vite plugin, the inspector, and `zerolith build` require the `zerolith` of their own version, which they share `zerolith/internal` with, and stop with `package_version_mismatch` when they meet another.
 - [ ] Adapters for Rolldown, esbuild, Rspack, and webpack, each as it is asked for.
 
 ## Command line
 
 See the [command line guide](guide/command-line.md).
 
-- [x] `new`, `dev`, `serve`, `build`, `preview`, `importmap`, and `doctor`.
+- [x] `new`, `dev`, `serve`, `build`, `preview`, `skill`, `importmap`, and `doctor`.
 - [x] `dev` and `build` serve and write TypeScript and JSX through oxc with no other tool.
 - [x] `@zerolith/cli` on npm with prebuilt binaries for Linux, macOS, and Windows on x64 and arm64, and the crate on crates.io.
 - [x] `doctor` reports the same template warnings as the Vite plugin.
@@ -109,6 +112,7 @@ See the [command line guide](guide/command-line.md).
 - [x] `preview` serves a build's output as a static host would.
 - [x] `new` writes a starter in the brand style: TSX on the command line by default, asking for the language, Vite, and the inspector, with a browser test, a README on deploying, and the dependencies installed.
 - [x] `new --example fullstack` writes the fullstack example as a project of its own, an app with its Node backend, with tests of both and a README on developing with two processes and on deploying.
+- [x] `new` writes the zerolith skill for coding agents into `.agents/skills` and `.claude/skills` for its version, `skill` writes or updates it in any project, and `doctor` reports a copy written for another version.
 - [x] A proxy from `dev`, `serve`, and `preview` to backends, streaming bodies and joining WebSocket connections, a base path for all three and the router, and `zerolith.json` for the settings they share, with a schema.
 - [ ] A proxy to `https://` backends.
 - [ ] `zerolith migrate`, with codemods between versions.
@@ -140,19 +144,20 @@ See the [command line guide](guide/command-line.md).
 - [x] Guides whose examples are tests, a reference generated from the source, and search built with zerolith.
 - [x] A Markdown twin of every page, indexed by `llms.txt` and `llms-full.txt`.
 - [x] A page for every diagnostic code.
-- [x] The site on [GitHub Pages](https://molexxxx.github.io/zerolith/), deployed by each release from the commit it published.
+- [x] The site on [GitHub Pages](https://molexxxx.github.io/zerolith/), deployed by each release from the commit it published, and by hand from `main` when only the site changes.
+- [x] Links that work on GitHub and on the site alike: pages link each other by file, the docs build checks every link, and a test checks every relative link in the repository's Markdown.
 - [x] A home page that runs a counter and measures its DOM updates, a ten-step tutorial whose every file is a test, and a playground that runs zerolith in a sandboxed frame and shares code through a link.
 - [x] Code colored by the brand's code tokens, reading `html` and `css` templates and JSX as markup and styles, on the site and in the playground.
 - [ ] A domain of the project's own, if one is registered later. Every published version links its diagnostics to the GitHub Pages address, so those links have to keep working.
 - [ ] A versioned API manifest that feeds the agent index and editor tooling.
 - [ ] Type-checked code samples on every page.
-- [ ] Link, prose, and spelling checks in CI.
+- [ ] Prose and spelling checks in CI.
 - [ ] A VS Code extension for templates, generated from the manifest.
 
 ## Coding agents
 
 - [x] An `AGENTS.md` in this repository and in every project `zerolith new` writes.
-- [x] The zerolith Agent Skill, with every guide and every diagnostic code as a reference, generated from the guides and checked by a test.
+- [x] The zerolith Agent Skill, with every guide and every diagnostic code as a reference, generated from the guides and checked by a test, written into every new project for its version by `zerolith new` and kept current by `zerolith skill`.
 - [ ] An interface skill for building accessible, well-made UI with zerolith, its platform guidance regenerated from web platform data at each release so it stays current.
 - [ ] An MCP server for the docs.
 - [ ] An MCP server inside the dev server that exposes the reactive graph, with a read-only mode.

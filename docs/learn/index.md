@@ -43,6 +43,7 @@ The starter is a small routed application, and its files are the layout every ze
 | `test/` | A browser test for the counter, run with `npm test` |
 | `zerolith.json` | Settings the dev server, the build, and the preview share |
 | `AGENTS.md` | The conventions, written for a coding agent working in the project |
+| `.agents/skills/`, `.claude/skills/` | The zerolith skill, which coding agents load when a task involves zerolith |
 
 Open `src/components/counter.ts`. It is the whole idea of zerolith in a dozen lines: a signal holds a number, the template binds it, and a click sets it. You will build the same way, one step further each page.
 

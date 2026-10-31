@@ -8,7 +8,7 @@
 
 ## Versions and tags
 
-Every package in the repository, the crate included, carries the same version and is released together. A release commit sets that version with `node scripts/version.ts <version>`, which writes every `packages/*/package.json`, the platform packages of the command line, the ranges the packages declare on each other, the root `package.json`, and `Cargo.toml`; `npm install` and `cargo update --workspace` refresh the lockfiles, and the commit adds the version's `CHANGELOG.md` section. A test fails CI while any of these disagree, and while the release workflow's package lists miss a package.
+Every package in the repository, the crate included, carries the same version and is released together. A release commit sets that version with `node scripts/version.ts <version>`, which writes every `packages/*/package.json`, the platform packages of the command line, the ranges the packages declare on each other, caret ranges as carets and the exact ranges of the packages that use `zerolith/internal` as exact versions, the version constants in `packages/*/src/version.ts`, the root `package.json`, and `Cargo.toml`; `npm install` and `cargo update --workspace` refresh the lockfiles, and the commit adds the version's `CHANGELOG.md` section. A test fails CI while any of these disagree, and while the release workflow's package lists miss a package.
 
 The platform packages under `packages/cli/platforms` are not workspaces, since npm refuses to install a workspace whose `os` and `cpu` do not match the machine; the workflow publishes each from its directory with the binary built for it, then runs `scripts/platforms.ts` to add them as optional dependencies of `@zerolith/cli` and publishes that.
 
