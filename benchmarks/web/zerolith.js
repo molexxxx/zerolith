@@ -9,16 +9,17 @@ function remove(id)
     rows.set(rows.get().filter((row) => row.id !== id));
 }
 
+/** One table row, as in the js-framework-benchmark entry: the id is read once, since `each` keys the rows by it, and the label and the selection stay live. */
 function Row(row)
 {
-    const id = computed(() => row.get().id);
+    const { id } = row.get();
     const label = computed(() => row.get().label);
-    const className = computed(() => (selected.get() === id.get() ? "danger" : ""));
+    const className = computed(() => (selected.get() === id ? "danger" : ""));
     return html`
         <tr class=${className}>
             <td class="col-md-1">${id}</td>
-            <td class="col-md-4"><a @click=${() => selected.set(id.get())}>${label}</a></td>
-            <td class="col-md-1"><a @click=${() => remove(id.get())}><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>
+            <td class="col-md-4"><a @click=${() => selected.set(id)}>${label}</a></td>
+            <td class="col-md-1"><a @click=${() => remove(id)}><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>
             <td class="col-md-6"></td>
         </tr>`;
 }
