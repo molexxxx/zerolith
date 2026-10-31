@@ -300,6 +300,111 @@ describe("each", () =>
         expect(el.querySelectorAll("hr")).toHaveLength(0);
     });
 
+    for (const alone of [true, false])
+    {
+        it(`follows any sequence of changes ${alone ? "as the only content of its parent" : "between other nodes"}`, () =>
+        {
+            let seed = 7;
+            const random = (limit: number): number =>
+            {
+                seed = (seed * 16807) % 2147483647;
+                return seed % limit;
+            };
+            let next = 1;
+            const fresh = (count: number): Item[] => Array.from({ length: count }, () => ({ id: next, name: `n${next++}` }));
+            const items = signal<Item[]>([]);
+            const rows = each(items, (item) => item.id, (item, index) => html`<li data-index=${index}>${computed(() => item.get().name)}</li>`);
+            const el = mount(alone ? html`<ul>${rows}</ul>` : html`<ul><li>first</li>${rows}<li>last</li></ul>`);
+            for (let step = 0; step < 300; step++)
+            {
+                const list = items.get().slice();
+                const operation = random(7);
+                if (operation === 0)
+                {
+                    list.length = 0;
+                }
+                else if (operation === 1)
+                {
+                    list.push(...fresh(random(4) + 1));
+                }
+                else if (operation === 2)
+                {
+                    list.unshift(...fresh(random(4) + 1));
+                }
+                else if (operation === 3)
+                {
+                    list.splice(random(list.length + 1), 0, ...fresh(random(3) + 1));
+                }
+                else if (operation === 4 && list.length > 0)
+                {
+                    list.splice(random(list.length), random(3) + 1);
+                }
+                else if (operation === 5)
+                {
+                    list.splice(0, list.length, ...fresh(random(6)));
+                }
+                else
+                {
+                    for (let i = list.length - 1; i > 0; i--)
+                    {
+                        const j = random(i + 1);
+                        [list[i], list[j]] = [list[j] as Item, list[i] as Item];
+                    }
+                }
+                items.set(list);
+                const shown = Array.from(el.querySelectorAll("li")).map((li) => li.textContent);
+                expect(shown).toEqual([...(alone ? [] : ["first"]), ...list.map((item) => item.name), ...(alone ? [] : ["last"])]);
+                expect(Array.from(el.querySelectorAll("li[data-index]")).map((li) => li.getAttribute("data-index"))).toEqual(list.map((_, i) => String(i)));
+            }
+        });
+    }
+
+    it("swaps two rows by moving only those two", () =>
+    {
+        const items = signal<Item[]>(Array.from({ length: 6 }, (_, i) => ({ id: i, name: `r${i}` })));
+        const el = mount(html`<ul>${each(items, (item) => item.id, (item, index) => html`<li data-index=${index}>${computed(() => item.get().name)}</li>`)}</ul>`);
+        const before = Array.from(el.querySelectorAll("li"));
+        const moved: Node[] = [];
+        const observer = new MutationObserver((records) =>
+        {
+            for (const record of records)
+            {
+                moved.push(...record.addedNodes);
+            }
+        });
+        observer.observe(el.querySelector("ul") as Node, { childList: true });
+        const list = items.get().slice();
+        [list[1], list[4]] = [list[4] as Item, list[1] as Item];
+        list[2] = { id: 2, name: "two" };
+        items.set(list);
+        observer.takeRecords().forEach((record) => moved.push(...record.addedNodes));
+        observer.disconnect();
+        const after = Array.from(el.querySelectorAll("li"));
+        expect(after.map((li) => li.textContent)).toEqual(["r0", "r4", "two", "r3", "r1", "r5"]);
+        expect(after.map((li) => li.getAttribute("data-index"))).toEqual(["0", "1", "2", "3", "4", "5"]);
+        expect(after[1]).toBe(before[4]);
+        expect(after[4]).toBe(before[1]);
+        expect(new Set(moved)).toEqual(new Set([before[1], before[4]]));
+    });
+
+    it("creates the index signal only for a row function that takes it", () =>
+    {
+        const indexes: unknown[] = [];
+        const list = [{ id: 1, name: "a" }];
+        const without = each(list, (item) => item.id, (...args: unknown[]) =>
+        {
+            indexes.push(args[1]);
+            return html`<li></li>`;
+        });
+        const taking = each(list, (item) => item.id, (item, index) =>
+        {
+            indexes.push(index.get());
+            return html`<li>${item.get().name}</li>`;
+        });
+        mount(html`<ul>${without}</ul><ul>${taking}</ul>`);
+        expect(indexes).toEqual([undefined, 0]);
+    });
+
     it("rejects duplicate and undefined keys", () =>
     {
         const dupes = [{ id: 1, name: "a" }, { id: 1, name: "b" }];

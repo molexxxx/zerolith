@@ -229,19 +229,20 @@ function removeUntil(from: ChildNode, until: Node): void
 class Instance
 {
     readonly strings: TemplateStringsArray;
-    readonly fragment: DocumentFragment | undefined;
+    /** What inserting a created instance puts in the page: its one top-level node, or a fragment holding several. */
+    readonly content: Node | undefined;
     readonly nodes: readonly ChildNode[];
     private readonly parts: readonly BoundPart[];
     private readonly cursors: ReadonlyMap<BoundPart, ChildNode> | undefined;
     /** The child parts among the template's top-level nodes, whose content `nodes` does not hold. */
     private readonly edges: readonly ChildPart[] | undefined;
 
-    constructor(strings: TemplateStringsArray, parts: readonly BoundPart[], nodes: readonly ChildNode[], fragment: DocumentFragment | undefined, cursors: ReadonlyMap<BoundPart, ChildNode> | undefined, edges: readonly ChildPart[] | undefined)
+    constructor(strings: TemplateStringsArray, parts: readonly BoundPart[], nodes: readonly ChildNode[], content: Node | undefined, cursors: ReadonlyMap<BoundPart, ChildNode> | undefined, edges: readonly ChildPart[] | undefined)
     {
         this.strings = strings;
         this.parts = parts;
         this.nodes = nodes;
-        this.fragment = fragment;
+        this.content = content;
         this.cursors = cursors;
         this.edges = edges;
     }
@@ -249,25 +250,53 @@ class Instance
     /** Clones the template and binds its parts. */
     static create(strings: TemplateStringsArray, prepared: Prepared): Instance
     {
-        const fragment = document.importNode(prepared.content, true);
-        const walk = walker(fragment);
-        const parts: BoundPart[] = [];
-        let index = 0;
-        let next = 0;
-        let node = walk.nextNode();
-        while (next < prepared.parts.length && node !== null)
+        const firstChild = firstChildOf ??= getter("firstChild");
+        const nextSibling = nextSiblingOf ??= getter("nextSibling");
+        const { master, parts: specs, paths } = prepared;
+        let top: Node;
+        let from = 0;
+        let nodes: ChildNode[];
+        let content: Node;
+        let fragment: DocumentFragment | undefined;
+        if (master !== undefined && master.nodeType !== 11)
         {
-            const spec = prepared.parts[next];
-            if (spec !== undefined && spec.index === index)
-            {
-                parts.push(spec.kind === CHILD ? new ChildPart(node as Comment) : new AttributePart(node as Element, spec));
-                next++;
-                continue;
-            }
-            node = walk.nextNode();
-            index++;
+            const root = master.cloneNode(true) as ChildNode;
+            top = root;
+            from = 1;
+            nodes = [root];
+            content = root;
         }
-        return new Instance(strings, parts, Array.from(fragment.childNodes), fragment, undefined, prepared.edges ? edgesOf(parts, fragment) : undefined);
+        else
+        {
+            fragment = (master === undefined ? document.importNode(prepared.content, true) : master.cloneNode(true)) as DocumentFragment;
+            top = fragment;
+            const first = fragment.firstChild;
+            nodes = first === null ? [] : first.nextSibling === null ? [first] : Array.from(fragment.childNodes);
+            content = first !== null && nodes.length === 1 ? first : fragment;
+        }
+        const parts = new Array<BoundPart>(specs.length);
+        let node: Node = top;
+        let last: readonly number[] | undefined;
+        for (let next = 0; next < specs.length; next++)
+        {
+            const path = paths[next] as readonly number[];
+            if (path !== last)
+            {
+                node = top;
+                for (let depth = from; depth < path.length; depth++)
+                {
+                    node = firstChild.call(node) as Node;
+                    for (let step = path[depth] as number; step > 0; step--)
+                    {
+                        node = nextSibling.call(node) as Node;
+                    }
+                }
+                last = path;
+            }
+            const spec = specs[next] as PartSpec;
+            parts[next] = spec.kind === CHILD ? new ChildPart(node as Comment, node.previousSibling as Text) : new AttributePart(node as Element, spec);
+        }
+        return new Instance(strings, parts, nodes, content, undefined, prepared.edges && fragment !== undefined ? edgesOf(parts, fragment) : undefined);
     }
 
     /** Binds the template's parts to server-rendered nodes between `cursor` and `anchor`, or returns undefined when they do not line up. */
@@ -396,6 +425,18 @@ class Instance
     }
 }
 
+type Step = (this: Node) => ChildNode | null;
+
+let firstChildOf: Step | undefined;
+
+let nextSiblingOf: Step | undefined;
+
+/** A getter of `Node.prototype`, called directly in a walk, where a property read would meet a different node type at every step. */
+function getter(name: "firstChild" | "nextSibling"): Step
+{
+    return (Object.getOwnPropertyDescriptor(Node.prototype, name) as PropertyDescriptor).get as Step;
+}
+
 /** The child parts whose anchors are direct children of `parent`. */
 function edgesOf(parts: readonly BoundPart[], parent: ParentNode | null): ChildPart[]
 {
@@ -415,9 +456,11 @@ class ChildPart implements BoundPart
     private items: ChildPart[] | undefined = undefined;
     private controller: Controller | undefined = undefined;
 
-    constructor(anchor: Comment)
+    /** With `text`, the part starts with that empty text node before the anchor, which a text value fills. */
+    constructor(anchor: Comment, text?: Text)
     {
         this.anchor = anchor;
+        this.text = text;
     }
 
     bind(values: readonly unknown[], offset: number): void
@@ -667,9 +710,9 @@ class ChildPart implements BoundPart
             this.clear();
             const instance = Instance.create(value.strings, prepare(value.strings));
             instance.update(value.values);
-            if (instance.fragment !== undefined)
+            if (instance.content !== undefined)
             {
-                this.anchor.parentNode?.insertBefore(instance.fragment, this.anchor);
+                this.anchor.parentNode?.insertBefore(instance.content, this.anchor);
             }
             this.instance = instance;
             return;
@@ -740,8 +783,6 @@ class AttributePart implements BoundPart
     private listener: EventListenerOrEventListenerObject | undefined = undefined;
     private listenerOptions: AddEventListenerOptions | undefined = undefined;
     private target: unknown = undefined;
-    /** The one value of a single-expression part, reused for every update so applying it allocates nothing. */
-    private readonly single: unknown[] = [undefined];
 
     constructor(element: Element, spec: PartSpec)
     {
@@ -767,18 +808,15 @@ class AttributePart implements BoundPart
         if (this.count === 1)
         {
             const value = values[offset];
-            const single = this.single;
             if (isSignal(value))
             {
                 this.owner = startEffect(() =>
                 {
-                    single[0] = value.get();
-                    this.apply(single);
+                    this.applyOne(value.get());
                 });
                 return;
             }
-            single[0] = value;
-            this.apply(single);
+            this.applyOne(value);
             return;
         }
         const own = values.slice(offset, offset + this.count);
@@ -795,10 +833,16 @@ class AttributePart implements BoundPart
         }
     }
 
+    /** Applies the values of an attribute with several expressions. */
     private apply(values: readonly unknown[]): void
     {
+        this.write(join(this.spec.strings, values));
+    }
+
+    /** Applies the value of a part with one expression. */
+    private applyOne(value: unknown): void
+    {
         const { element, spec } = this;
-        const value = values[0];
         if (spec.kind === BOOLEAN)
         {
             if (value)
@@ -813,22 +857,30 @@ class AttributePart implements BoundPart
         }
         if (spec.kind === ATTRIBUTE)
         {
-            if (spec.count === 1 && (value === null || value === undefined))
+            if (value === null || value === undefined)
             {
                 element.removeAttribute(spec.name);
                 return;
             }
-            const text = join(spec.strings, values);
-            if (URL_ATTRIBUTES.has(spec.name.toLowerCase()) && !safeUrl(text))
-            {
-                element.removeAttribute(spec.name);
-                report(diagnostic("unsafe_url_blocked", "warning", { attribute: spec.name, value: text }));
-                return;
-            }
-            element.setAttribute(spec.name, text);
+            const before = spec.strings[0] ?? "";
+            const after = spec.strings[1] ?? "";
+            this.write(before === "" && after === "" ? String(value) : before + String(value) + after);
             return;
         }
         (element as unknown as Record<string, unknown>)[spec.name] = value;
+    }
+
+    /** Sets the attribute, or removes it and reports `unsafe_url_blocked` for a URL attribute with an unsafe scheme. */
+    private write(text: string): void
+    {
+        const { element, spec } = this;
+        if (URL_ATTRIBUTES.has(spec.name.toLowerCase()) && !safeUrl(text))
+        {
+            element.removeAttribute(spec.name);
+            report(diagnostic("unsafe_url_blocked", "warning", { attribute: spec.name, value: text }));
+            return;
+        }
+        element.setAttribute(spec.name, text);
     }
 
     /** Hands the element to a writable signal or a callback; the signal is reset when the element's template is removed. */
@@ -1035,7 +1087,7 @@ function read<T>(value: ReadableSignal<T> | T): T
 /** The key function for `each()`. */
 export type KeyOf<T> = (item: T, index: number) => string | number | bigint | boolean | symbol | object;
 
-/** The row renderer for `each()`; the item and index are signals that update in place. */
+/** The row renderer for `each()`. The item is a signal that updates in place; the index is a signal too, created only when the function declares a second parameter. */
 export type RowOf<T> = (item: ReadableSignal<T>, index: ReadableSignal<number>) => unknown;
 
 interface Row<T>
@@ -1048,7 +1100,8 @@ interface Row<T>
     /** Any other row holds its view in a part between its start marker and the part's anchor. */
     readonly part: ChildPart | undefined;
     readonly item: Signal<T>;
-    readonly index: Signal<number>;
+    /** Undefined when the row function declares no index parameter. */
+    readonly index: Signal<number> | undefined;
     readonly owner: Owner;
 }
 
@@ -1071,7 +1124,7 @@ function removeRow(row: Row<unknown>): void
 function longestIncreasing(positions: readonly number[]): Set<number>
 {
     const tails: number[] = [];
-    const previous: number[] = Array.from({ length: positions.length }, () => -1);
+    const previous = new Int32Array(positions.length).fill(-1);
     for (let i = 0; i < positions.length; i++)
     {
         const value = positions[i] ?? -1;
@@ -1105,6 +1158,13 @@ function longestIncreasing(positions: readonly number[]): Set<number>
         cursor = previous[cursor] ?? -1;
     }
     return kept;
+}
+
+/** The node right after a row's last node; the list's end marker follows every row, so there always is one. */
+function nodeAfter(row: Row<unknown>): Node
+{
+    const last = row.nodes === undefined ? (row.part as ChildPart).anchor : (row.nodes[row.nodes.length - 1] as ChildNode);
+    return last.nextSibling as Node;
 }
 
 function moveRow(row: Row<unknown>, before: Node): void
@@ -1192,11 +1252,11 @@ class Keyed<T> extends Directive
         const create = (key: unknown, value: T, index: number, parent: Node, before: Node | null, adopt?: { start: Comment; end: Comment }): Row<T> =>
         {
             const item = signal(value);
-            const position = signal(index);
+            const position = this.row.length > 1 ? signal(index) : undefined;
             const rowOwner = createOwner(true);
             const row = rowOwner.run((): Row<T> =>
             {
-                const view = this.row(item, position);
+                const view = this.row(item, position as ReadableSignal<number>);
                 if (adopt === undefined && view instanceof TemplateResult)
                 {
                     const prepared = prepare(view.strings);
@@ -1204,7 +1264,7 @@ class Keyed<T> extends Directive
                     {
                         const instance = Instance.create(view.strings, prepared);
                         instance.update(view.values);
-                        parent.insertBefore(instance.fragment as DocumentFragment, before);
+                        parent.insertBefore(instance.content as Node, before);
                         return { key, start: instance.nodes[0] as ChildNode, nodes: instance.nodes, part: undefined, item, index: position, owner: rowOwner };
                     }
                 }
@@ -1235,6 +1295,23 @@ class Keyed<T> extends Directive
             return true;
         };
 
+        /** Whether the new items between `head` and `tail` are the old rows with only the first and last exchanged. */
+        const swapped = (list: readonly T[], old: readonly Row<T>[], head: number, tail: number): boolean =>
+        {
+            if (this.key(list[head] as T, head) !== (old[tail - 1] as Row<T>).key || this.key(list[tail - 1] as T, tail - 1) !== (old[head] as Row<T>).key)
+            {
+                return false;
+            }
+            for (let i = head + 1; i < tail - 1; i++)
+            {
+                if (this.key(list[i] as T, i) !== (old[i] as Row<T>).key)
+                {
+                    return false;
+                }
+            }
+            return true;
+        };
+
         const reconcile = (list: readonly T[]): void =>
         {
             const parent = end.parentNode;
@@ -1243,6 +1320,20 @@ class Keyed<T> extends Directive
                 return;
             }
             const old = order;
+            if (list.length === 0)
+            {
+                if (old.length > 0 && !clearAll(parent))
+                {
+                    for (const row of old)
+                    {
+                        row.owner.dispose();
+                        removeRow(row);
+                    }
+                    rows.clear();
+                    order = [];
+                }
+                return;
+            }
             const keys = new Set<unknown>();
             let head = 0;
             while (head < list.length && head < old.length)
@@ -1271,9 +1362,42 @@ class Keyed<T> extends Directive
                     break;
                 }
                 row.item.set(value);
-                row.index.set(newTail - 1);
+                row.index?.set(newTail - 1);
                 newTail--;
                 oldTail--;
+            }
+            if (newTail - head > 1 && newTail === oldTail && swapped(list, old, head, newTail))
+            {
+                const first = old[head] as Row<T>;
+                const last = old[newTail - 1] as Row<T>;
+                for (let i = head + 1; i < newTail - 1; i++)
+                {
+                    (old[i] as Row<T>).item.set(list[i] as T);
+                }
+                first.item.set(list[newTail - 1] as T);
+                first.index?.set(newTail - 1);
+                last.item.set(list[head] as T);
+                last.index?.set(head);
+                const after = nodeAfter(last);
+                moveRow(last, first.start);
+                moveRow(first, after);
+                const next = old.slice();
+                next[head] = last;
+                next[newTail - 1] = first;
+                order = next;
+                return;
+            }
+            if (head === oldTail)
+            {
+                const before = oldTail < old.length ? (old[oldTail] as Row<T>).start : end;
+                const added = new Array<Row<T>>(newTail - head);
+                for (let i = head; i < newTail; i++)
+                {
+                    const value = list[i] as T;
+                    added[i - head] = create(this.keyOf(value, i, keys), value, i, parent, before);
+                }
+                order = old.length === 0 ? added : old.slice(0, head).concat(added, old.slice(oldTail));
+                return;
             }
             const middle: Row<T>[] = [];
             const created = new Map<Row<T>, DocumentFragment>();
@@ -1287,7 +1411,7 @@ class Keyed<T> extends Directive
                 if (existing !== undefined)
                 {
                     existing.item.set(value);
-                    existing.index.set(i);
+                    existing.index?.set(i);
                     middle.push(existing);
                     survivors++;
                     fragment = undefined;
@@ -1300,12 +1424,15 @@ class Keyed<T> extends Directive
                     middle.push(row);
                 }
             }
-            if (survivors === 0 && old.length > 0 && clearAll(parent))
+            if (survivors === 0 && clearAll(parent))
             {
-                for (const row of created.keys())
+                for (const row of middle)
                 {
                     rows.set(row.key, row);
                 }
+                parent.insertBefore(fragment as DocumentFragment, end);
+                order = middle;
+                return;
             }
             else
             {
@@ -1425,7 +1552,9 @@ class Keyed<T> extends Directive
 
 /**
  * Renders one row per item, keyed, updating rows in place when their key
- * survives and moving the fewest nodes when the order changes.
+ * survives and moving the fewest nodes when the order changes. The row
+ * function receives the item as a signal and, when it declares a second
+ * parameter, the position as a signal.
  */
 export function each<T>(items: ReadableSignal<readonly T[]> | readonly T[], key: KeyOf<T>, row: RowOf<T>): View
 {

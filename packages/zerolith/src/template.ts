@@ -17,8 +17,22 @@ export interface Prepared
 {
     content: DocumentFragment;
     parts: readonly PartSpec[];
+    /**
+     * The child indexes from `content` down to each part's node, in the order
+     * of `parts`, one array shared by the parts of an element. A template
+     * with a part whose node was not found, such as one inside a nested
+     * `<template>` element, binds no parts.
+     */
+    paths: readonly (readonly number[])[];
     /** Whether a child part sits at the top level, where its content lands among the template's own nodes. */
     edges: boolean;
+    /**
+     * A copy of `content` owned by the page's document, which instances clone:
+     * the one top-level node, or a fragment holding several. Undefined when
+     * the template holds a custom element or an element that fetches, whose
+     * copy would construct or load once more, so instances import `content`.
+     */
+    master: Node | undefined;
 }
 
 interface Policy
@@ -79,13 +93,71 @@ export function scanned(strings: readonly string[]): Scanned
 
 const SHOW: number = 1 | 128;
 
+/** Elements that construct something or start a request as soon as the page's document owns them. */
+const EAGER: ReadonlySet<string> = new Set(["audio", "embed", "iframe", "image", "img", "input", "link", "object", "picture", "script", "source", "track", "use", "video"]);
+
+/** Whether copying `content` into the page's document once has no effect beyond the copy. */
+function inert(content: DocumentFragment): boolean
+{
+    const walk = document.createTreeWalker(content, 1);
+    for (let node = walk.nextNode(); node !== null; node = walk.nextNode())
+    {
+        const element = node as Element;
+        if (element.localName.includes("-") || element.hasAttribute("is") || EAGER.has(element.localName))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 /** Walks elements and comments in document order, the order parts are listed in. */
 export function walker(root: Node): TreeWalker
 {
     return document.createTreeWalker(root, SHOW);
 }
 
-/** Parses a template literal's strings once and locates its parts. */
+/**
+ * The child indexes from `root` down to each part's node, one array shared
+ * by the parts of a node, or undefined when a part has no node.
+ */
+function pathsOf(parts: readonly PartSpec[], targets: ReadonlyMap<PartSpec, Node>, root: Node): number[][] | undefined
+{
+    const shared = new Map<Node, number[]>();
+    const paths: number[][] = [];
+    for (const spec of parts)
+    {
+        const target = targets.get(spec);
+        if (target === undefined)
+        {
+            return undefined;
+        }
+        let path = shared.get(target);
+        if (path === undefined)
+        {
+            path = [];
+            for (let node: Node = target; node !== root; node = node.parentNode as Node)
+            {
+                let position = 0;
+                for (let sibling = node.previousSibling; sibling !== null; sibling = sibling.previousSibling)
+                {
+                    position++;
+                }
+                path.push(position);
+            }
+            path.reverse();
+            shared.set(target, path);
+        }
+        paths.push(path);
+    }
+    return paths;
+}
+
+/**
+ * Parses a template literal's strings once and locates its parts. Each
+ * child part's marker gets an empty text node before it, which the part
+ * fills when its value is text instead of creating and inserting one.
+ */
 export function prepare(strings: TemplateStringsArray): Prepared
 {
     const cached = templates.get(strings);
@@ -101,6 +173,8 @@ export function prepare(strings: TemplateStringsArray): Prepared
     let index = 0;
     let child = 0;
     let edges = false;
+    const targets = new Map<PartSpec, Node>();
+    const markers: Node[] = [];
     for (let node = walk.nextNode(); node !== null; node = walk.nextNode(), index++)
     {
         if (node.nodeType === 1)
@@ -120,6 +194,7 @@ export function prepare(strings: TemplateStringsArray): Prepared
                 if (spec !== undefined)
                 {
                     spec.index = index;
+                    targets.set(spec, element);
                 }
                 element.removeAttribute(name);
             }
@@ -130,6 +205,7 @@ export function prepare(strings: TemplateStringsArray): Prepared
             {
                 edges = true;
             }
+            markers.push(node);
             while (child < parts.length && parts[child]?.kind !== CHILD)
             {
                 child++;
@@ -138,12 +214,24 @@ export function prepare(strings: TemplateStringsArray): Prepared
             if (spec !== undefined)
             {
                 spec.index = index;
+                targets.set(spec, node);
             }
             child++;
         }
     }
+    for (const marker of markers)
+    {
+        marker.parentNode?.insertBefore(document.createTextNode(""), marker);
+    }
     parts.sort((a, b) => a.index - b.index);
-    const result: Prepared = { content: template.content, parts, edges };
+    const paths = pathsOf(parts, targets, template.content);
+    let master: Node | undefined;
+    if (paths !== undefined && inert(template.content))
+    {
+        const copy = document.importNode(template.content, true);
+        master = copy.firstChild !== null && copy.firstChild.nextSibling === null ? copy.firstChild : copy;
+    }
+    const result: Prepared = paths === undefined ? { content: template.content, parts: [], paths: [], edges, master } : { content: template.content, parts, paths, edges, master };
     templates.set(strings, result);
     return result;
 }

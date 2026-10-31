@@ -30,7 +30,7 @@ Values are inserted as text. Markup in a string is never parsed, so there is not
 
 @include packages/zerolith/test/examples/guide.example.browser.test.ts#lists
 
-A key must be unique and defined; otherwise the render fails with `each_key_duplicate` or `each_key_undefined`.
+A key must be unique and defined; otherwise the render fails with `each_key_duplicate` or `each_key_undefined`. The row function's second parameter, when it declares one, is the row's position as a signal that follows moves; a row function without it skips that signal. The key itself never changes for a row, so the row function can read it once at its top, as `const { id } = item.get();`, and bind `id` as a plain value; every other field stays a binding of the item signal.
 
 ## Conditions
 

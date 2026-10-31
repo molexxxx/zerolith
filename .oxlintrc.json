@@ -52,6 +52,12 @@
                 "no-console": "off",
                 "unicorn/consistent-function-scoping": "off"
             }
+        },
+        {
+            "files": ["packages/zerolith/src/render.ts"],
+            "rules": {
+                "unicorn/no-new-array": "off"
+            }
         }
     ],
     "ignorePatterns": ["dist", "coverage", "node_modules", "docs/research", "packages/vite/test/fixture-prepare", "packages/vite/test/fixture-lint"]

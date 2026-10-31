@@ -62,7 +62,7 @@ render(html`
 tasks.set([{ id: 2, text: "test" }, { id: 1, text: "write, edited" }]);
 ```
 
-A key must be unique and defined; otherwise the render fails with `each_key_duplicate` or `each_key_undefined`.
+A key must be unique and defined; otherwise the render fails with `each_key_duplicate` or `each_key_undefined`. The row function's second parameter, when it declares one, is the row's position as a signal that follows moves; a row function without it skips that signal. The key itself never changes for a row, so the row function can read it once at its top, as `const { id } = item.get();`, and bind `id` as a plain value; every other field stays a binding of the item signal.
 
 ## Conditions
 
