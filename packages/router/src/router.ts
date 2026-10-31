@@ -117,6 +117,24 @@ export interface RouterOptions
     window?: Window | null;
     /** Receives one event when a navigation starts and one when it commits or fails; the hook tracing and logging attach to. */
     observe?: (event: NavigationEvent) => void;
+    /**
+     * The path the application is served under, such as `"/app/"`, or `import.meta.env.BASE_URL` to follow the build.
+     * Route paths are relative to it, `href()` includes it, and links outside it are left to the browser.
+     * Defaults to `"/"`; a relative base such as `"./"` counts as `"/"`.
+     */
+    base?: string;
+}
+
+/** A base path with one leading and one trailing slash; an empty or relative base is the root. */
+function normalizeBase(base: string | undefined): string
+{
+    const trimmed = (base ?? "/").trim();
+    if (trimmed === "" || trimmed.startsWith("."))
+    {
+        return "/";
+    }
+    const inner = trimmed.replace(/^\/+|\/+$/g, "");
+    return inner === "" ? "/" : `/${inner}/`;
 }
 
 /** The router returned by `createRouter`, typed by its route table. */
@@ -232,11 +250,41 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
     let generation = 0;
     const scrollPositions = new Map<string, number>();
 
+    const base = normalizeBase(options.base);
+    const bare = base.slice(0, -1);
+    /** The path within the application for a URL path, or undefined when it lies outside the base. */
+    const local = (pathname: string): string | undefined =>
+    {
+        if (base === "/")
+        {
+            return pathname;
+        }
+        if (pathname === bare)
+        {
+            return "/";
+        }
+        return pathname.startsWith(base) ? pathname.slice(bare.length) : undefined;
+    };
+    /** A root-relative path under the base: one that already starts with it is taken as it is. */
+    const within = (path: string): string =>
+    {
+        if (base === "/" || !path.startsWith("/") || path.startsWith("//") || path === bare || path.startsWith(base))
+        {
+            return path;
+        }
+        return bare + path;
+    };
+
     const find = (pathname: string): { compiled: Compiled; params: Record<string, string> } | undefined =>
     {
+        const path = local(pathname);
+        if (path === undefined)
+        {
+            return undefined;
+        }
         for (const compiled of compiledRoutes)
         {
-            const params = match(compiled.pattern, pathname);
+            const params = match(compiled.pattern, path);
             if (params !== undefined)
             {
                 return { compiled, params };
@@ -402,7 +450,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             return;
         }
         const target = new URL(anchor.href, win.location.href);
-        if (target.origin !== win.location.origin)
+        if (target.origin !== win.location.origin || local(target.pathname) === undefined)
         {
             return;
         }
@@ -463,20 +511,21 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             const entry = byName.get(name);
             if (entry === undefined)
             {
-                return "/";
+                return base;
             }
-            return build(entry.route.path, (args[0] ?? {}) as Record<string, string>);
+            return bare + build(entry.route.path, (args[0] ?? {}) as Record<string, string>);
         },
         navigate(to, navigation = {})
         {
-            return go(toUrl(to), navigation.replace === true ? "replace" : "push");
+            return go(toUrl(within(to)), navigation.replace === true ? "replace" : "push");
         },
         matches(path, matching = {})
         {
+            const full = within(path);
             return computed(() =>
             {
                 const { pathname } = url.get();
-                return pathname === path || (matching.exact !== true && pathname.startsWith(path.endsWith("/") ? path : path + "/"));
+                return pathname === full || (matching.exact !== true && pathname.startsWith(full.endsWith("/") ? full : full + "/"));
             });
         },
         outlet()

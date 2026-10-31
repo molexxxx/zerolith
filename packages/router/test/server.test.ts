@@ -41,6 +41,29 @@ describe("the router without a window", () =>
         router.dispose();
     });
 
+    it("serves under a base path, with route paths relative to it", async () =>
+    {
+        const router = createRouter(routes, { base: "/app", fallback: (url) => html`<p>Nothing at ${url.pathname}</p>` });
+        expect(router.href("home")).toBe("/app/");
+        expect(router.href("note", { id: "7" })).toBe("/app/notes/7");
+
+        await router.navigate("/app/notes/7");
+        expect(router.current.get()?.name).toBe("note");
+        await router.navigate("/notes/8");
+        expect(router.url.get().pathname).toBe("/app/notes/8");
+        expect(router.current.get()?.params).toEqual({ id: "8" });
+        expect(router.matches("/notes").get()).toBe(true);
+        await router.navigate("/app");
+        expect(router.current.get()?.name).toBe("home");
+        await router.navigate("http://localhost/notes/9");
+        expect(router.current.get()).toBeUndefined();
+        expect(renderToString(router.outlet()).replace(/<!--\/?zl:p-->/g, "")).toBe("<p>Nothing at /notes/9</p>");
+        router.dispose();
+        const relative = createRouter(routes, { base: "./" });
+        expect(relative.href("note", { id: "1" })).toBe("/notes/1");
+        relative.dispose();
+    });
+
     it("renders head metadata with escaping", async () =>
     {
         const router = createRouter(routes);

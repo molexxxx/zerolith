@@ -127,6 +127,40 @@ describe("router", () =>
         expect(el.querySelector("h1")?.textContent).toBe("Release v1: One");
     });
 
+    it("serves under a base path and leaves links outside it to the browser", async () =>
+    {
+        history.replaceState(null, "", "/app/");
+        const app = createRouter(table(), { window, base: "/app/" });
+        router = app;
+        await settled(app);
+        const releaseHref = app.href("release", { tag: "v1" });
+        expect(releaseHref).toBe("/app/releases/v1");
+        const el = mount(html`
+            <main>
+                ${app.outlet()}
+                <a id="inside" href=${releaseHref}>one</a>
+                <a id="outside" href="/elsewhere">elsewhere</a>
+            </main>`);
+        expect(el.querySelector("h1")?.textContent).toBe("Home");
+        let byRouter = false;
+        document.addEventListener("click", (event) =>
+        {
+            byRouter = event.defaultPrevented;
+            event.preventDefault();
+        }, { once: true });
+        el.querySelector("#outside")?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+        expect(byRouter).toBe(false);
+        el.querySelector("#inside")?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+        await vi.waitFor(() => expect(el.querySelector("h1")?.textContent).toBe("Release v1: One"));
+        expect(location.pathname).toBe("/app/releases/v1");
+        await app.navigate("/releases/v2");
+        expect(location.pathname).toBe("/app/releases/v2");
+        expect(app.matches("/releases").get()).toBe(true);
+        history.back();
+        await vi.waitFor(() => expect(location.pathname).toBe("/app/releases/v1"));
+        await vi.waitFor(() => expect(el.querySelector("h1")?.textContent).toBe("Release v1: One"));
+    });
+
     it("exposes matches() as a signal and follows history navigation", async () =>
     {
         history.replaceState(null, "", "/");
