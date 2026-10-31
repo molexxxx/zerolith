@@ -150,7 +150,7 @@ enum Command {
 /// The flags `dev`, `serve`, and `preview` share; each overrides the project's zerolith.json.
 #[derive(clap::Args)]
 struct ServerFlags {
-    /// The port to listen on: 8080 for dev and serve and 4173 for preview, unless zerolith.json sets one.
+    /// The port to listen on: 8080 for dev and serve and 4173 for preview, or the next free one when that is taken, unless zerolith.json sets one.
     #[arg(long)]
     port: Option<u16>,
     /// The public path the app is served under, such as /app/, unless zerolith.json sets base.
@@ -176,6 +176,7 @@ impl ServerFlags {
             Kind::Preview(_) => (&config.preview, 4173),
             Kind::Dev | Kind::Serve => (&config.dev, 8080),
         };
+        let port_fixed = self.port.is_some() || section.port.is_some();
         let port = self.port.or(section.port).unwrap_or(default_port);
         let base = build::normalize_base(
             &self
@@ -204,6 +205,7 @@ impl ServerFlags {
             modules: !matches!(kind, Kind::Preview(_)),
             base,
             proxy,
+            port_fixed,
         })
     }
 }

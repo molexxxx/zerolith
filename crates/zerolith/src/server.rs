@@ -40,6 +40,8 @@ pub struct Options {
     pub base: String,
     /// Paths forwarded to a backend, longest prefix first.
     pub proxy: Vec<ProxyRule>,
+    /// True when the port was asked for; otherwise a taken default moves to the next free port.
+    pub port_fixed: bool,
 }
 
 struct AppState {
@@ -469,23 +471,39 @@ pub async fn run(options: Options) -> std::io::Result<()> {
     } else {
         (None, None)
     };
-    let listener = match tokio::net::TcpListener::bind(SocketAddr::from((
-        Ipv4Addr::LOCALHOST,
-        options.port,
-    )))
-    .await
-    {
-        Ok(listener) => listener,
-        Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
-            return Err(std::io::Error::new(
-                error.kind(),
-                format!(
-                    "port {} is already in use; stop the server using it, or pass --port with another number",
-                    options.port
-                ),
-            ));
+    let mut port = options.port;
+    let listener = loop {
+        match tokio::net::TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, port))).await {
+            Ok(listener) => break listener,
+            Err(error)
+                if !options.port_fixed
+                    && port != 0
+                    && port < options.port.saturating_add(20)
+                    && matches!(
+                        error.kind(),
+                        std::io::ErrorKind::AddrInUse | std::io::ErrorKind::PermissionDenied
+                    ) =>
+            {
+                port += 1;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
+                return Err(std::io::Error::new(
+                    error.kind(),
+                    format!(
+                        "port {port} is already in use; stop the server using it, or pass --port with another number"
+                    ),
+                ));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+                return Err(std::io::Error::new(
+                    error.kind(),
+                    format!(
+                        "port {port} is reserved by the system or held by another program; pass --port with another number"
+                    ),
+                ));
+            }
+            Err(error) => return Err(error),
         }
-        Err(error) => return Err(error),
     };
     let address = listener.local_addr()?;
     let title = match (options.reload, options.modules) {
@@ -507,6 +525,16 @@ pub async fn run(options: Options) -> std::io::Result<()> {
             term::success(format!("http://{address}{}", options.base))
         )
     );
+    if port != options.port {
+        anstream::println!(
+            "{}",
+            term::row(
+                "Port",
+                term::label,
+                format!("{port}, since {} was taken", options.port)
+            )
+        );
+    }
     anstream::println!("{}", term::row("Root", term::label, display(&root)));
     for (index, rule) in options.proxy.iter().enumerate() {
         let shown = format!(
