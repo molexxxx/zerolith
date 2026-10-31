@@ -26,6 +26,12 @@ The commands are documented in the [command line guide](https://molexxxx.github.
 
 Status: alpha. The commands and their flags may change before 1.0.
 
+## Documentation
+
+- The [command line guide](https://molexxxx.github.io/zerolith/guide/command-line/) covers every command and option, and `zerolith.json`.
+- [Building and serving](https://molexxxx.github.io/zerolith/guide/deploying/) covers what the build writes and how to serve it from a static host, a web server, or a backend.
+- New to zerolith? The [tutorial](https://molexxxx.github.io/zerolith/learn/) builds an app step by step, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs code in the browser.
+
 ## License
 
 Apache-2.0. See `LICENSE`.

@@ -82,7 +82,7 @@ Every night that the code changed, every package is also published under the `ca
 - **Clear patterns, coded diagnostics.** Each concept has one documented form, and every runtime error carries a stable code, its cause, and the fix, with a page per code. See [diagnostics](docs/guide/diagnostics.md).
 - **Buildless or bundled, same files.** Plain JavaScript and `html` templates run from an import map with no build step, and `zerolith build` bundles the same files into minified, hashed chunks with the Rust command line alone. See the [command line guide](docs/guide/command-line.md).
 - **Docs that cannot drift.** Every example in the guides is application code that runs as a test in CI, and the API reference is generated from the source.
-- **Ready for coding agents.** An always-on [AGENTS.md](AGENTS.md), a Markdown twin of every docs page indexed by `llms.txt`, and template checks in `zerolith doctor` that flag mistakes such as frozen reads before the code runs.
+- **Ready for coding agents.** An always-on [AGENTS.md](AGENTS.md) in every project, the zerolith [Agent Skill](skills/zerolith/SKILL.md) (`npx skills add molexxxx/zerolith`) with every guide as a reference, a Markdown twin of every docs page indexed by `llms.txt`, and template checks in `zerolith doctor` that flag mistakes such as frozen reads before the code runs. See [coding agents](docs/guide/agents.md).
 - **Dev tools wherever it runs.** The inspector is a plain module, so it works under any dev server, a static server, electron-vite, or `file://`, with no browser extension. See [dev tools](docs/guide/dev-tools.md).
 
 ## What works today
@@ -107,11 +107,11 @@ Three example applications show it end to end: [notes](examples/notes), plain Ja
 
 ## Where it's going
 
-Next come the first production site and a frozen API for the core, templates, and router. After that come signals the server can push, agent tooling with MCP servers and a public eval suite, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
+Next come the first production site, faster keyed lists measured on js-framework-benchmark, and a frozen API for the core, templates, and router. After 1.0 come the application utilities, signals kept in storage, undo, sensors, retry, and transitions among them, signals the server can push, richer dev tools with an MCP server for agents, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
 
 ## Documentation
 
-- The [docs site](https://molexxxx.github.io/zerolith/), rebuilt with every release: the guides, the API reference generated from the source, and a page for every diagnostic code.
+- The [docs site](https://molexxxx.github.io/zerolith/), rebuilt with every release: a [tutorial](https://molexxxx.github.io/zerolith/learn/) that builds an app step by step, the guides, a [playground](https://molexxxx.github.io/zerolith/playground/) that runs zerolith in the browser, the API reference generated from the source, and a page for every diagnostic code.
 - [Guides](docs/guide/index.md), from [application structure](docs/guide/structure.md) and [building and serving](docs/guide/deploying.md) to [testing](docs/guide/testing.md). `npm run docs` builds them into a site with the generated reference.
 - The [roadmap](docs/ROADMAP.md), the [changelog](CHANGELOG.md), and the [releases](https://github.com/molexxxx/zerolith/releases) with their SBOMs.
 - [Support window and channels](docs/policy/support.md), [releases](docs/policy/releases.md), and [versioning](docs/policy/versioning.md).

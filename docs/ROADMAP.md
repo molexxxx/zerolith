@@ -119,6 +119,8 @@ See the [command line guide](guide/command-line.md).
 - [x] Render and signal tracks in Chrome's Performance panel.
 - [x] Chrome DevTools workspace support from `zerolith dev`.
 - [x] `@zerolith/test`: mount with cleanup, settle, hydration mismatches, and accessibility issues.
+- [ ] A bolder, more useful inspector: search and filters, editing a writable signal's value, each signal's sources and dependents, a log of what each update changed and re-ran, an element picker that finds the part of the view behind an element, the router's state, and diagnostics linked to their pages.
+- [ ] The same hook served to agents through an MCP server in `zerolith dev`, with the configuration for common agents written by `zerolith new`.
 - [ ] A thin browser extension panel over the same hook.
 - [ ] The inspector verified in a packaged Electron build.
 

@@ -43,6 +43,12 @@ Both forms type-check, and the runtime cannot tell a frozen read from a delibera
 - Zero runtime dependencies and no install scripts, enforced by tests.
 - Works under a strict `script-src 'self'` CSP and with Trusted Types enforced.
 
+## Documentation
+
+- The [introduction](https://molexxxx.github.io/zerolith/guide/) starts a project, and the [signals](https://molexxxx.github.io/zerolith/guide/signals/) and [templates](https://molexxxx.github.io/zerolith/guide/templates/) guides explain the core, every example run as a test.
+- The [reference](https://molexxxx.github.io/zerolith/reference/zerolith/) lists every export, generated from the source.
+- New to zerolith? The [tutorial](https://molexxxx.github.io/zerolith/learn/) builds an app step by step, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs code in the browser.
+
 ## License
 
 Apache-2.0. See `LICENSE`.

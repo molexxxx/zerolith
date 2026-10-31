@@ -16,6 +16,12 @@ The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/dev-to
 
 Status: alpha. Install with `npm install @zerolith/devtools@alpha`; the API may change before 1.0.
 
+## Documentation
+
+- The [dev tools guide](https://molexxxx.github.io/zerolith/guide/dev-tools/) explains it with examples that run as tests.
+- The [reference](https://molexxxx.github.io/zerolith/reference/zerolith-devtools/) lists every export, generated from the source.
+- New to zerolith? The [tutorial](https://molexxxx.github.io/zerolith/learn/) builds an app step by step, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs code in the browser.
+
 ## License
 
 Apache-2.0. See `LICENSE`.
