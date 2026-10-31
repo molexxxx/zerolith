@@ -405,6 +405,14 @@ describe("each", () =>
         expect(indexes).toEqual([undefined, 0]);
     });
 
+    it("rejects a key an update repeats from a row it keeps in place", () =>
+    {
+        const items = signal<Item[]>([{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }]);
+        mount(html`<ul>${each(items, (item) => item.id, (item) => html`<li>${computed(() => item.get().name)}</li>`)}</ul>`);
+        expect(() => items.set([{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 1, name: "again" }])).toThrow(/each_key_duplicate/);
+        expect(() => items.set([{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }, { id: 2, name: "again" }])).toThrow(/each_key_duplicate/);
+    });
+
     it("rejects duplicate and undefined keys", () =>
     {
         const dupes = [{ id: 1, name: "a" }, { id: 1, name: "b" }];

@@ -1334,31 +1334,30 @@ class Keyed<T> extends Directive
                 }
                 return;
             }
-            const keys = new Set<unknown>();
             let head = 0;
             while (head < list.length && head < old.length)
             {
                 const value = list[head] as T;
-                const key = this.keyOf(value, head, keys);
                 const row = old[head] as Row<T>;
-                if (row.key !== key)
+                if (this.key(value, head) !== row.key)
                 {
-                    keys.delete(key);
                     break;
                 }
                 row.item.set(value);
                 head++;
+            }
+            if (head === list.length && head === old.length)
+            {
+                return;
             }
             let newTail = list.length;
             let oldTail = old.length;
             while (newTail > head && oldTail > head)
             {
                 const value = list[newTail - 1] as T;
-                const key = this.keyOf(value, newTail - 1, keys);
                 const row = old[oldTail - 1] as Row<T>;
-                if (row.key !== key)
+                if (this.key(value, newTail - 1) !== row.key)
                 {
-                    keys.delete(key);
                     break;
                 }
                 row.item.set(value);
@@ -1386,6 +1385,27 @@ class Keyed<T> extends Directive
                 next[newTail - 1] = first;
                 order = next;
                 return;
+            }
+            if (newTail === head)
+            {
+                for (let i = head; i < oldTail; i++)
+                {
+                    const row = old[i] as Row<T>;
+                    row.owner.dispose();
+                    removeRow(row);
+                    rows.delete(row.key);
+                }
+                order = old.slice(0, head).concat(old.slice(oldTail));
+                return;
+            }
+            const keys = new Set<unknown>();
+            for (let i = 0; i < head; i++)
+            {
+                keys.add((old[i] as Row<T>).key);
+            }
+            for (let i = oldTail; i < old.length; i++)
+            {
+                keys.add((old[i] as Row<T>).key);
             }
             if (head === oldTail)
             {
