@@ -17,7 +17,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 | Docs | Published to GitHub Pages by each release in the brand's theme, every example run as a test; the project domain is not registered yet |
 | Coding agents | In-repo context shipped; MCP servers, Skills, and evals remain |
 | Adoption | No production application yet; the first migration is next |
-| Project and supply chain | Policies, provenance, GitHub releases, and npm publishing through trusted publishing alone; canaries remain |
+| Project and supply chain | Policies, provenance, GitHub releases, npm and crates.io publishing through trusted publishing alone, and nightly canaries |
 
 ## Next
 
@@ -35,7 +35,7 @@ In order:
 - [ ] The docs site is live at the project's own domain, built with zerolith itself, and every diagnostic code's page resolves there.
 - [ ] A production site runs on zerolith, served buildless with an import map and integrity hashes, with a Lighthouse budget enforced in CI.
 - [ ] A keyed entry is submitted to js-framework-benchmark, with the core inside its 10 kB compressed budget.
-- [ ] Every npm package publishes through trusted publishing with provenance, and the canary channel runs.
+- [x] Every npm package publishes through trusted publishing with provenance, and the canary channel runs.
 - [x] The test suite passes unbundled under a CSP without `unsafe-eval` and bundled with Vite.
 - [x] Every docs example is a test, so a broken example fails CI.
 - [x] Every public export is documented; the docs build fails on an undocumented one.
@@ -154,8 +154,8 @@ See the [command line guide](guide/command-line.md).
 - [x] Private vulnerability reporting and secret scanning with push protection.
 - [x] One version across every package and the crate, set by a script and checked by a test, and a dry run of the release workflow before each publish.
 - [x] GitHub releases created by the release workflow, with the version's changelog section and the SBOM attached.
-- [x] Trusted publishing for every npm package, with no npm token left anywhere, since `0.1.0-alpha.4`. The crate keeps publishing with a crates.io token scoped to it.
-- [ ] Canary releases on every merge under the `canary` dist-tag.
+- [x] Trusted publishing for every npm package since `0.1.0-alpha.4` and for the crate on crates.io, with no registry token stored anywhere.
+- [x] Nightly canary releases of every npm package under the `canary` dist-tag, when the code changed since the last.
 - [ ] The OpenSSF Best Practices badge, passing and then silver.
 - [ ] A trademark search for the name.
 
