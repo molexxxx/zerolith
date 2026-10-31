@@ -1226,12 +1226,44 @@ class Keyed<T> extends Directive
             {
                 return;
             }
-            const next: Row<T>[] = [];
+            const old = order;
             const keys = new Set<unknown>();
+            let head = 0;
+            while (head < list.length && head < old.length)
+            {
+                const value = list[head] as T;
+                const key = this.keyOf(value, head, keys);
+                const row = old[head] as Row<T>;
+                if (row.key !== key)
+                {
+                    keys.delete(key);
+                    break;
+                }
+                row.item.set(value);
+                head++;
+            }
+            let newTail = list.length;
+            let oldTail = old.length;
+            while (newTail > head && oldTail > head)
+            {
+                const value = list[newTail - 1] as T;
+                const key = this.keyOf(value, newTail - 1, keys);
+                const row = old[oldTail - 1] as Row<T>;
+                if (row.key !== key)
+                {
+                    keys.delete(key);
+                    break;
+                }
+                row.item.set(value);
+                row.index.set(newTail - 1);
+                newTail--;
+                oldTail--;
+            }
+            const middle: Row<T>[] = [];
             const created = new Map<Row<T>, DocumentFragment>();
             let fragment: DocumentFragment | undefined;
-            let survivors = 0;
-            for (let i = 0; i < list.length; i++)
+            let survivors = head + old.length - oldTail;
+            for (let i = head; i < newTail; i++)
             {
                 const value = list[i] as T;
                 const key = this.keyOf(value, i, keys);
@@ -1240,7 +1272,7 @@ class Keyed<T> extends Directive
                 {
                     existing.item.set(value);
                     existing.index.set(i);
-                    next.push(existing);
+                    middle.push(existing);
                     survivors++;
                     fragment = undefined;
                 }
@@ -1249,10 +1281,10 @@ class Keyed<T> extends Directive
                     fragment ??= document.createDocumentFragment();
                     const row = create(key, value, i, fragment, null);
                     created.set(row, fragment);
-                    next.push(row);
+                    middle.push(row);
                 }
             }
-            if (survivors === 0 && order.length > 0 && clearAll(parent))
+            if (survivors === 0 && old.length > 0 && clearAll(parent))
             {
                 for (const row of created.keys())
                 {
@@ -1261,8 +1293,9 @@ class Keyed<T> extends Directive
             }
             else
             {
-                for (const row of order)
+                for (let i = head; i < oldTail; i++)
                 {
+                    const row = old[i] as Row<T>;
                     if (!keys.has(row.key))
                     {
                         row.owner.dispose();
@@ -1272,15 +1305,15 @@ class Keyed<T> extends Directive
                 }
             }
             const previousIndex = new Map<Row<T>, number>();
-            for (let i = 0; i < order.length; i++)
+            for (let i = head; i < oldTail; i++)
             {
-                previousIndex.set(order[i] as Row<T>, i);
+                previousIndex.set(old[i] as Row<T>, i);
             }
-            const kept = longestIncreasing(next.map((row) => previousIndex.get(row) ?? -1));
-            let before: Node = end;
-            for (let i = next.length - 1; i >= 0; i--)
+            const kept = longestIncreasing(middle.map((row) => previousIndex.get(row) ?? -1));
+            let before: Node = oldTail < old.length ? (old[oldTail] as Row<T>).start : end;
+            for (let i = middle.length - 1; i >= 0; i--)
             {
-                const row = next[i] as Row<T>;
+                const row = middle[i] as Row<T>;
                 const run = created.get(row);
                 if (run !== undefined)
                 {
@@ -1295,7 +1328,7 @@ class Keyed<T> extends Directive
                 }
                 before = row.start;
             }
-            order = next;
+            order = old.slice(0, head).concat(middle, old.slice(oldTail));
         };
 
         if (cursor !== undefined)

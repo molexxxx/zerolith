@@ -840,40 +840,51 @@ export function untracked<T>(fn: () => T): T
  */
 export function createOwner(detached = false): Owner
 {
-    const node: OwnerNode = { children: undefined };
-    const inside = isInternal();
-    const handle: Owner = {
-        run<T>(fn: () => T): T
-        {
-            const previousOwner = owner;
-            const previousConsumer = consumer;
-            owner = node;
-            consumer = undefined;
-            try
-            {
-                return inside ? internal(fn) : fn();
-            }
-            finally
-            {
-                owner = previousOwner;
-                consumer = previousConsumer;
-            }
-        },
-        dispose(): void
-        {
-            const children = node.children;
-            node.children = undefined;
-            if (children !== undefined)
-            {
-                disposeAll(children);
-            }
-        }
-    };
+    const scope = new OwnerScope(isInternal());
     if (!detached)
     {
-        adopt(handle);
+        adopt(scope);
     }
-    return handle;
+    return scope;
+}
+
+/** An owner as one object, its children and its methods together, so creating one per row allocates once. */
+class OwnerScope implements Owner, OwnerNode, Disposable
+{
+    children: Disposable[] | undefined = undefined;
+    private readonly inside: boolean;
+
+    constructor(inside: boolean)
+    {
+        this.inside = inside;
+    }
+
+    run<T>(fn: () => T): T
+    {
+        const previousOwner = owner;
+        const previousConsumer = consumer;
+        owner = this;
+        consumer = undefined;
+        try
+        {
+            return this.inside ? internal(fn) : fn();
+        }
+        finally
+        {
+            owner = previousOwner;
+            consumer = previousConsumer;
+        }
+    }
+
+    dispose(): void
+    {
+        const children = this.children;
+        this.children = undefined;
+        if (children !== undefined)
+        {
+            disposeAll(children);
+        }
+    }
 }
 
 /**
