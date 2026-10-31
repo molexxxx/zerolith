@@ -76,7 +76,7 @@ describe("locate", () =>
     it("names the missing platform package and the alternatives", () =>
     {
         expect(() => locate({ platform: "darwin", arch: "arm64", resolve: missing })).toThrow(
-            /@zerolith\/cli-darwin-arm64.*--omit=optional.*cargo install zerolith/s,
+            /@zerolith\/cli-darwin-arm64.*--omit=optional.*_npx folder in npm's cache.*cargo install zerolith/s,
         );
     });
 

@@ -64,7 +64,7 @@ export function locate(host: Host): string
     catch
     {
         throw new Error(
-            `${name}, the package that carries the zerolith binary for this platform, is not installed. Install @zerolith/cli without --omit=optional (its optional dependencies hold the binaries), or install ${name} directly. ${CARGO_HINT}`,
+            `${name}, the package that carries the zerolith binary for this platform, is not installed. Install @zerolith/cli without --omit=optional (its optional dependencies hold the binaries), or install ${name} directly. When npx ran this from a copy it cached before ${name} reached the registry, that copy lacks it: delete the _npx folder in npm's cache, which \`npm config get cache\` prints, and run the command again. ${CARGO_HINT}`,
         );
     }
 }

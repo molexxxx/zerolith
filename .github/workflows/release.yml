@@ -272,6 +272,19 @@ jobs:
                 (cd "$directory" && npm publish $flags)
                 ;;
               @zerolith/cli)
+                if [ "$DRY_RUN" != "true" ]; then
+                  for platform in $platforms; do
+                    attempt=0
+                    until npm view "$platform@$version" version >/dev/null 2>&1; do
+                      attempt=$((attempt + 1))
+                      if [ "$attempt" -ge 60 ]; then
+                        echo "::error::$platform@$version did not resolve from the registry within 30 minutes, so @zerolith/cli was not published; an install of it now would lack that binary"
+                        exit 1
+                      fi
+                      sleep 30
+                    done
+                  done
+                fi
                 node scripts/platforms.ts
                 # shellcheck disable=SC2086
                 npm publish --workspace "$package" $flags
