@@ -28,11 +28,13 @@
         "zerolith": "dist/bin.js"
     },
     "exports": {
-        "./package.json": "./package.json"
+        "./package.json": "./package.json",
+        "./zerolith.schema.json": "./zerolith.schema.json"
     },
     "files": [
         "dist",
         "src",
+        "zerolith.schema.json",
         "LICENSE",
         "README.md"
     ],

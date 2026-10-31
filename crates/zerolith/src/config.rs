@@ -301,6 +301,41 @@ mod tests {
     }
 
     #[test]
+    fn the_schema_the_parser_and_the_starter_agree() {
+        let starter: Config = serde_json::from_str(crate::new::PROJECT_CONFIG).unwrap();
+        assert!(starter.proxy.is_empty());
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../packages/cli/zerolith.schema.json"
+        );
+        let Ok(text) = fs::read_to_string(path) else {
+            return;
+        };
+        let schema: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let keys = |value: &serde_json::Value| -> Vec<String> {
+            let mut keys: Vec<String> = value["properties"]
+                .as_object()
+                .unwrap()
+                .keys()
+                .cloned()
+                .collect();
+            keys.sort();
+            keys
+        };
+        assert_eq!(
+            keys(&schema),
+            ["$schema", "base", "build", "dev", "preview", "proxy"]
+        );
+        assert_eq!(keys(&schema["properties"]["dev"]), ["port"]);
+        assert_eq!(keys(&schema["properties"]["preview"]), ["port"]);
+        assert_eq!(keys(&schema["properties"]["build"]), ["out"]);
+        let detailed = &schema["properties"]["proxy"]["additionalProperties"]["oneOf"][1];
+        assert_eq!(keys(detailed), ["stripPrefix", "target"]);
+        let everything = r#"{ "$schema": "x", "base": "/", "proxy": { "/a": "http://h:1", "/b": { "target": "http://h:2", "stripPrefix": true } }, "dev": { "port": 1 }, "preview": { "port": 2 }, "build": { "out": "dist" } }"#;
+        serde_json::from_str::<Config>(everything).unwrap();
+    }
+
+    #[test]
     fn matches_whole_segments_and_forwards_the_path() {
         let rule = ProxyRule::new("/api", "http://127.0.0.1:3000", false).unwrap();
         assert!(rule.matches("/api"));

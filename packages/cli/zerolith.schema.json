@@ -1,0 +1,89 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://molexxxx.github.io/zerolith/zerolith.schema.json",
+    "title": "zerolith.json",
+    "description": "The settings zerolith dev, serve, build, and preview share. A flag given on the command line overrides the file.",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "description": "The schema an editor validates this file against."
+        },
+        "base": {
+            "type": "string",
+            "description": "The public path the application is served under, such as /app/, for dev, build, and preview alike. ./ makes every URL the build writes relative to the page.",
+            "examples": ["/", "/app/", "./"]
+        },
+        "proxy": {
+            "type": "object",
+            "description": "Paths dev, serve, and preview forward to a backend, by the path prefix they start with, such as \"/api\": \"http://127.0.0.1:3000\".",
+            "propertyNames": {
+                "pattern": "^/"
+            },
+            "additionalProperties": {
+                "oneOf": [
+                    {
+                        "type": "string",
+                        "pattern": "^http://",
+                        "description": "The backend's address. The request's whole path is forwarded."
+                    },
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["target"],
+                        "properties": {
+                            "target": {
+                                "type": "string",
+                                "pattern": "^http://",
+                                "description": "The backend's address, with an optional path the forwarded path goes under."
+                            },
+                            "stripPrefix": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Remove the matched prefix before forwarding, so /api/notes reaches the backend as /notes."
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "dev": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "port": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535,
+                    "default": 8080,
+                    "description": "The port zerolith dev and serve listen on."
+                }
+            }
+        },
+        "preview": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "port": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535,
+                    "default": 4173,
+                    "description": "The port zerolith preview listens on."
+                }
+            }
+        },
+        "build": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "out": {
+                    "type": "string",
+                    "default": "dist",
+                    "description": "The output folder, relative to the project unless absolute, such as the static folder of a backend next to it."
+                }
+            }
+        }
+    }
+}

@@ -323,22 +323,30 @@ mountDevtools();
 "##;
 
 const ROUTER_TS: &str = r#"// The router, in its own module so components can import it for typed
-// links while the route table imports the components.
+// links while the route table imports the components. It follows the base
+// path the app is served under, which zerolith.json or --base sets.
 import { createRouter } from "@zerolith/router";
 import { NotFound } from "./components/not-found.__CEXT__";
 import { routes } from "./routes.__EXT__";
 
-export const router = createRouter(routes, { fallback: (url) => NotFound({ path: url.pathname }) });
+export const router = createRouter(routes, {
+    base: import.meta.env.BASE_URL,
+    fallback: (url) => NotFound({ path: url.pathname })
+});
 "#;
 
 const ROUTER_JS: &str = r#"// The router, in its own module so components can import it for typed
-// links while the route table imports the components.
+// links while the route table imports the components. It follows the base
+// path the app is served under, which zerolith.json or --base sets.
 import { createRouter } from "@zerolith/router";
 import { NotFound } from "./components/not-found.__CEXT__";
 import { routes } from "./routes.__EXT__";
 
 /** @type {import("@zerolith/router").Router<typeof routes>} */
-export const router = createRouter(routes, { fallback: (url) => NotFound({ path: url.pathname }) });
+export const router = createRouter(routes, {
+    base: import.meta.env.BASE_URL,
+    fallback: (url) => NotFound({ path: url.pathname })
+});
 "#;
 
 const ROUTES: &str = r#"// The route table: one entry per page. Parameters are inferred from each
@@ -733,7 +741,7 @@ const CATALOG_TS: &str = r#"interface Package
 }
 
 const catalog = resource({
-    params: () => "/data/packages.json",
+    params: () => `${import.meta.env.BASE_URL}data/packages.json`,
     loader: async ({ params, abort }) =>
     {
         const response = await fetch(params, { signal: abort });
@@ -749,7 +757,7 @@ const CATALOG_JS: &str = r#"/** @typedef {import("zerolith").View} View */
 /** @typedef {{ name: string, description: string }} Package */
 
 const catalog = resource({
-    params: () => "/data/packages.json",
+    params: () => `${import.meta.env.BASE_URL}data/packages.json`,
     loader: async ({ params, abort }) =>
     {
         const response = await fetch(params, { signal: abort });
@@ -797,7 +805,7 @@ import { type View, html } from "zerolith";
 
 export function NotFound({ path }: { path: string }): View
 {
-    return html`<section><h1>Not found</h1><p>Nothing lives at <code>${path}</code>. <a href="/">Go home</a>.</p></section>`;
+    return html`<section><h1>Not found</h1><p>Nothing lives at <code>${path}</code>. <a href=${import.meta.env.BASE_URL}>Go home</a>.</p></section>`;
 }
 "#;
 
@@ -810,7 +818,7 @@ import { html } from "zerolith";
  */
 export function NotFound({ path })
 {
-    return html`<section><h1>Not found</h1><p>Nothing lives at <code>${path}</code>. <a href="/">Go home</a>.</p></section>`;
+    return html`<section><h1>Not found</h1><p>Nothing lives at <code>${path}</code>. <a href=${import.meta.env.BASE_URL}>Go home</a>.</p></section>`;
 }
 "#;
 
@@ -819,7 +827,7 @@ import type { View } from "zerolith";
 
 export function NotFound({ path }: { path: string }): View
 {
-    return <section><h1>Not found</h1><p>Nothing lives at <code>{path}</code>. <a href="/">Go home</a>.</p></section>;
+    return <section><h1>Not found</h1><p>Nothing lives at <code>{path}</code>. <a href={import.meta.env.BASE_URL}>Go home</a>.</p></section>;
 }
 "#;
 
@@ -831,7 +839,19 @@ const NOT_FOUND_JSX: &str = r#"// Shown for a URL that no route matches.
  */
 export function NotFound({ path })
 {
-    return <section><h1>Not found</h1><p>Nothing lives at <code>{path}</code>. <a href="/">Go home</a>.</p></section>;
+    return <section><h1>Not found</h1><p>Nothing lives at <code>{path}</code>. <a href={import.meta.env.BASE_URL}>Go home</a>.</p></section>;
+}
+"#;
+
+const VITE_ENV_TYPES: &str = r#"// The values import.meta.env carries under Vite, such as the base path the
+// router follows.
+/// <reference types="vite/client" />
+"#;
+
+/// The settings zerolith dev, build, and preview share; an editor completes them from the schema.
+pub const PROJECT_CONFIG: &str = r#"{
+    "$schema": "./node_modules/@zerolith/cli/zerolith.schema.json",
+    "proxy": {}
 }
 "#;
 
@@ -1001,9 +1021,28 @@ fn readme(name: &str, choice: Choice) -> String {
         "serves `dist/` at http://127.0.0.1:4173/"
     };
     let base = match choice.tool {
-        Tool::CommandLine => "build it with `zerolith build --base /app/`",
-        Tool::Unbundled => "bundle it with `zerolith build --base /app/`",
-        Tool::Vite => "build it with `npm run build -- --base /app/`",
+        Tool::CommandLine => {
+            "set `\"base\": \"/app/\"` in `zerolith.json`: `zerolith dev`, `build`, and `preview` then serve and write the app under that path, and the router follows it"
+        }
+        Tool::Unbundled => {
+            "set `\"base\": \"/app/\"` in `zerolith.json` and bundle it with `zerolith build`, which applies it; the unbundled output is served from the root"
+        }
+        Tool::Vite => {
+            "build it with `npm run build -- --base /app/`; the router follows the base Vite builds with"
+        }
+    };
+    let backend = match choice.tool {
+        Tool::Vite => {
+            "To reach an API while developing, add `server.proxy` to `vite.config.ts`, such as `{ \"/api\": \"http://127.0.0.1:3000\" }`, so the page calls `fetch(\"/api/notes\")` on its own origin."
+        }
+        _ => {
+            "To reach an API while developing, add it to the proxy in `zerolith.json`: `\"proxy\": { \"/api\": \"http://127.0.0.1:3000\" }` forwards every request under `/api` to the backend on port 3000, so the page calls `fetch(\"/api/notes\")` on its own origin with no CORS to set up, and cookies work as they will in production. `zerolith preview` forwards the same paths, and `--proxy /api=http://127.0.0.1:3000` does it for one run."
+        }
+    };
+    let config = if choice.tool == Tool::Vite {
+        ""
+    } else {
+        "zerolith.json            the settings dev, build, and preview share\n"
     };
     let inspector = if choice.devtools {
         " Press Alt+Shift+Z, or the launcher button in the corner, to open the inspector: every signal with its value, the mounted roots, and the diagnostics."
@@ -1024,7 +1063,7 @@ fn readme(name: &str, choice: Choice) -> String {
         }
     };
     format!(
-        "# {name}\n\n{intro}{syntax}\n\n## Develop\n\n```\n{run_dev}\n```\n\n`{run_dev}` {develop}{inspector}\n\n## Build\n\n```\n{run_build}\n```\n\n`{run_build}` {build}\n\n## Preview\n\n```\n{run_preview}\n```\n\n`{run_preview}` {preview} as a host would, to check the build before deploying it.\n\n## Deploy\n\n`dist/` is static files. Upload it to any static host, such as GitHub Pages, Netlify, Cloudflare Pages, or a storage bucket, or serve it from the static file handler of any backend. Answer every path that names no file with `index.html`, so routes such as `/counter` load directly. To serve the app under a path such as `/app/`, {base}.\n\n## Environment variables\n\nVariables in `.env` whose names start with `PUBLIC_` reach the code as `import.meta.env.PUBLIC_NAME`; any other variable stays out of the browser. `.env.local` overrides `.env` and stays out of git.\n\n## Tests and checks\n\n`npm test` runs the browser tests in `test/` in headless Chromium; run `npx playwright install chromium` once first. `npm run check` runs the type check, the linter, the tests, and the build.\n\n## Vite\n\n{vite}\n\n## Layout\n\n```\nindex.html               the page: the stylesheet and the entry module\npublic/                  files served and copied as they are\nsrc/main.{ext}             the entry\nsrc/routes.{ext}           the route table\nsrc/router.{ext}           the router the components share\nsrc/components/*.{component}   one component per file, its styles next to its markup\nsrc/styles.css           the design tokens and global styles\ntest/                    browser tests\n```\n\n`AGENTS.md` is the same map for coding agents.\n"
+        "# {name}\n\n{intro}{syntax}\n\n## Develop\n\n```\n{run_dev}\n```\n\n`{run_dev}` {develop}{inspector}\n\n## Build\n\n```\n{run_build}\n```\n\n`{run_build}` {build}\n\n## Preview\n\n```\n{run_preview}\n```\n\n`{run_preview}` {preview} as a host would, to check the build before deploying it.\n\n## Deploy\n\n`dist/` is static files. Upload it to any static host, such as GitHub Pages, Netlify, Cloudflare Pages, or a storage bucket, or serve it from the static file handler of any backend. Answer every path that names no file with `index.html`, so routes such as `/counter` load directly. To serve the app under a path such as `/app/`, {base}.\n\n## Backend\n\n{backend}\n\n## Environment variables\n\nVariables in `.env` whose names start with `PUBLIC_` reach the code as `import.meta.env.PUBLIC_NAME`; any other variable stays out of the browser. `.env.local` overrides `.env` and stays out of git.\n\n## Tests and checks\n\n`npm test` runs the browser tests in `test/` in headless Chromium; run `npx playwright install chromium` once first. `npm run check` runs the type check, the linter, the tests, and the build.\n\n## Vite\n\n{vite}\n\n## Layout\n\n```\nindex.html               the page: the stylesheet and the entry module\npublic/                  files served and copied as they are\nsrc/main.{ext}             the entry\nsrc/routes.{ext}           the route table\nsrc/router.{ext}           the router the components share\nsrc/components/*.{component}   one component per file, its styles next to its markup\nsrc/styles.css           the design tokens and global styles\ntest/                    browser tests\n{config}```\n\n`AGENTS.md` is the same map for coding agents.\n"
     )
 }
 
@@ -1218,8 +1257,10 @@ pub fn scaffold(root: &Path, name: &str, choice: Choice) -> io::Result<Vec<Strin
     }
     if choice.tool == Tool::Vite {
         files.push(("vite.config.ts".to_string(), VITE_CONFIG.to_string()));
+        files.push(("src/env.d.ts".to_string(), VITE_ENV_TYPES.to_string()));
     } else {
         files.push(("src/env.d.ts".to_string(), ENV_TYPES.to_string()));
+        files.push(("zerolith.json".to_string(), PROJECT_CONFIG.to_string()));
     }
     for (relative, content) in &files {
         write(root, relative, content)?;
