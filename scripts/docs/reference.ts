@@ -215,6 +215,29 @@ export function symbolsOf(doc: DocJson, root: string, entry: Entry): ManifestSym
 }
 
 /** The Markdown page for one entry. */
+/**
+ * The public API of one entry as a plain text report: every export's
+ * signature and, for interfaces and classes, its members, in a stable order
+ * and without documentation, so a change to what users can call shows up as
+ * a change to this text.
+ */
+export function apiReport(entry: Entry, symbols: ManifestSymbol[]): string
+{
+    const lines: string[] = [`# ${entry.specifier}`, ""];
+    for (const kind of ORDER)
+    {
+        for (const symbol of symbols.filter((candidate) => candidate.kind === kind).toSorted((a, b) => a.name.localeCompare(b.name)))
+        {
+            lines.push(symbol.signature.replace(/\s+/g, " "));
+            for (const member of symbol.members ?? [])
+            {
+                lines.push(`    ${member.signature.replace(/\s+/g, " ")}`);
+            }
+        }
+    }
+    return lines.join("\n") + "\n";
+}
+
 export function referencePage(entry: Entry, symbols: ManifestSymbol[]): string
 {
     const lines: string[] = [`# ${entry.title}`, "", `Import from \`${entry.specifier}\`. Generated from the source; every signature below is what the published types declare.`, ""];

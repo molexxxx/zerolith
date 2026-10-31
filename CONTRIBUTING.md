@@ -69,6 +69,7 @@ Each example's README walks through what it shows and what the build writes.
 | `npm run docs` | Build the docs site into `site/`; fails on an undocumented export, a missing example, or a broken link. `ZEROLITH_DOCS_BASE=/zerolith/` builds it for a subpath, as GitHub Pages serves it |
 | `npm run docs:serve` | Serve the built docs site on port 8081 |
 | `npm run skills` | Regenerate the Agent Skill's references from the guides; a test fails while they are stale |
+| `npm run api` | Accept a change to the public API by rewriting the reports in `api/`; the docs build fails while the API differs from them |
 | `npm run bench` | Run the keyed-table benchmark |
 | `npm run sbom` | Emit a CycloneDX SBOM of the runtime dependency graph |
 | `npm run brand` | Render the brand PNG and ICO files from their SVG sources |

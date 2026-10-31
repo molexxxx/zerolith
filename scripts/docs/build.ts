@@ -22,7 +22,7 @@ import { highlight } from "./highlight.ts";
 import { type Characteristic, Home, NotFound, homeMarkdown } from "./home.ts";
 import { type Link, type NavGroup, type PageData, fontFaces, icon, markdownTwin, renderPage, siteStyles } from "./layout.ts";
 import { Playground, playgroundMarkdown, playgroundModules } from "./playground.ts";
-import { type Entry, type ManifestSymbol, extract, referencePage, symbolsOf } from "./reference.ts";
+import { type Entry, type ManifestSymbol, apiReport, extract, referencePage, symbolsOf } from "./reference.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const out = join(root, "site");
@@ -198,15 +198,17 @@ async function collect(folder: "learn" | "guide", section: Section): Promise<Pag
     return pages.toSorted((a, b) => groupOf(a) - groupOf(b) || a.order - b.order || a.title.localeCompare(b.title));
 }
 
-async function reference(): Promise<{ pages: Page[]; manifest: ManifestSymbol[] }>
+async function reference(): Promise<{ pages: Page[]; manifest: ManifestSymbol[]; reports: Map<string, string> }>
 {
     const doc = await extract(root, entries);
     const pages: Page[] = [];
     const manifest: ManifestSymbol[] = [];
+    const reports = new Map<string, string>();
     for (const [index, entry] of entries.entries())
     {
         const symbols = symbolsOf(doc, root, entry);
         manifest.push(...symbols);
+        reports.set(`${slug(entry.specifier)}.api.md`, apiReport(entry, symbols));
         pages.push({
             path: `/reference/${slug(entry.specifier)}/`,
             title: entry.title,
@@ -216,7 +218,7 @@ async function reference(): Promise<{ pages: Page[]; manifest: ManifestSymbol[] 
             order: index
         });
     }
-    return { pages, manifest };
+    return { pages, manifest, reports };
 }
 
 /** Catalog text as Markdown: element names such as <button> are shown as code instead of read as markup. */
@@ -296,6 +298,56 @@ function pagerOf(page: Page, pages: Page[]): { previous?: Link; next?: Link } | 
         ...(previous === undefined ? {} : { previous: linkOf(previous) }),
         ...(next === undefined ? {} : { next: linkOf(next) })
     };
+}
+
+/**
+ * Holds the public API to the reports checked in under api/: a build fails
+ * while an export or a member was added, removed, or changed without its
+ * report being updated, so every change to what users call is a reviewed
+ * change. `--update-api` writes the reports instead.
+ */
+async function checkApi(reports: Map<string, string>): Promise<void>
+{
+    const folder = join(root, "api");
+    if (process.argv.includes("--update-api"))
+    {
+        await rm(folder, { recursive: true, force: true });
+        await mkdir(folder, { recursive: true });
+        await Promise.all([...reports].map(([name, text]) => writeFile(join(folder, name), text)));
+        console.log(`docs: wrote ${reports.size} API reports to api/`);
+        return;
+    }
+    let present: string[] = [];
+    try
+    {
+        present = (await readdir(folder)).filter((name) => name.endsWith(".api.md"));
+    }
+    catch
+    {
+        present = [];
+    }
+    const changed: string[] = [];
+    for (const [name, text] of reports)
+    {
+        let current: string | undefined;
+        try
+        {
+            current = await readFile(join(folder, name), "utf8");
+        }
+        catch
+        {
+            current = undefined;
+        }
+        if (current !== text)
+        {
+            changed.push(current === undefined ? `${name} (new)` : name);
+        }
+    }
+    changed.push(...present.filter((name) => !reports.has(name)).map((name) => `${name} (removed)`));
+    if (changed.length > 0)
+    {
+        throw new Error(`the public API differs from the reports in api/: ${changed.join(", ")}. Review the change, then run \`npm run api\` to accept it; the API of the core, templates, and router changes only through an RFC once frozen.`);
+    }
 }
 
 function checkLinks(known: Set<string>, rendered: Map<string, string>): void
@@ -493,7 +545,8 @@ catch
 
 const learnPages = await collect("learn", "Learn");
 const guidePages = await collect("guide", "Guide");
-const { pages: referencePages, manifest } = await reference();
+const { pages: referencePages, manifest, reports } = await reference();
+await checkApi(reports);
 const pages = [...learnPages, ...guidePages, ...referencePages, ...diagnostics()];
 const styles = siteStyles();
 const highlighter = await browserModule("scripts/docs/highlight.ts");
