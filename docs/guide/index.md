@@ -9,7 +9,7 @@ group: Basics
 
 zerolith is a standalone frontend framework. Fine-grained signals drive HTML templates that need no compiler, a typed router handles navigation, and one command line serves the app while you work and builds it for production. It talks to any backend over plain HTTP.
 
-The guides explain one concept each, with the one pattern zerolith uses for it and an example that runs as a test. New to zerolith? The [tutorial](/learn/) builds a small app from an empty folder, one idea per step, and the [playground](/playground/) runs the code in your browser.
+The guides explain one concept each, with the one pattern zerolith uses for it and an example that runs as a test. New to zerolith? The [tutorial](../learn/index.md) builds a small app from an empty folder, one idea per step, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs the code in your browser.
 
 Status: alpha. Every package is published under the `alpha` dist-tag, and the API may change until it is frozen for 1.0.
 
@@ -48,7 +48,7 @@ In the project:
 | `zerolith build` | Bundles and minifies it into `dist/`, static files for any host or backend |
 | `zerolith preview` | Serves `dist/` the way a host will, to check the build |
 
-The starter's README walks through its files, deploying, and environment variables, and the [command line guide](/guide/command-line/) has every option.
+The starter's README walks through its files, deploying, and environment variables, and the [command line guide](command-line.md) has every option.
 
 ## The one rule to learn first
 
@@ -72,7 +72,7 @@ A click sets `count`, and only the two text nodes bound to `count` and `doubled`
 
 ## Putting it on the page
 
-`render` mounts a view at the end of an element, named by a CSS selector or passed as the element itself, and returns a root: `container` is the element it mounted into, and `dispose()` removes the view and stops its effects. A selector that matches nothing fails with [`mount_target_missing`](/e/mount_target_missing/). `hydrate` takes the same targets for markup the server rendered; see [Server rendering](/guide/server-rendering/).
+`render` mounts a view at the end of an element, named by a CSS selector or passed as the element itself, and returns a root: `container` is the element it mounted into, and `dispose()` removes the view and stops its effects. A selector that matches nothing fails with [`mount_target_missing`](https://molexxxx.github.io/zerolith/e/mount_target_missing/). `hydrate` takes the same targets for markup the server rendered; see [Server rendering](server-rendering.md).
 
 @include packages/zerolith/test/examples/guide.example.browser.test.ts#mount
 
@@ -85,23 +85,23 @@ The page itself is plain HTML with one element to mount into and one module scri
 
 ## Where to go next
 
-- [Application structure](/guide/structure/): the layout every zerolith application uses, what each file owns, and the AGENTS.md that lets an agent work in it.
-- [Signals](/guide/signals/): state, derived values, effects, and async values.
-- [Templates](/guide/templates/): the `html` tag, bindings, lists, conditions, and what the renderer refuses.
-- [Styles](/guide/styles/): scoped component styles with the `css` tag.
-- [Routing](/guide/routing/): the typed route table and plain anchors.
-- [Forms](/guide/forms/): native forms, enhanced with fetch, pending state, and field errors that share one wire shape with the server.
-- [Typed client](/guide/client/): a route table and types generated from an OpenAPI document, checked calls, and problems for failures.
-- [Server rendering](/guide/server-rendering/): rendering views to HTML with no DOM.
-- [Diagnostics](/guide/diagnostics/): the error record, stable codes, and production builds.
-- [Dev tools](/guide/dev-tools/): the in-page inspector, named signals, and Performance tracks.
-- [Command line](/guide/command-line/): the starter, the dev server, the production build, preview, `zerolith.json`, and project checks.
-- [Building and serving](/guide/deploying/): what the build writes and how to serve it from a static host, a web server, or a backend, under a path, and next to a backend while developing.
-- [Vite](/guide/vite/): for projects already on Vite, hot module replacement that keeps named state, JSX, and templates prepared at build time.
-- [Testing](/guide/testing/): mount with cleanup, settle async work, and check hydration and accessibility in tests.
-- [Accessibility](/guide/accessibility/): focus trap, roving tabindex, live announcer, focus origin, hidden text, and preference signals.
-- [Custom elements](/guide/elements/): mount a view inside a tree another framework owns, with attributes and properties as signals.
-- [Internationalization](/guide/i18n/): locale negotiation and state on Intl, formatters that follow the locale, and compiled MessageFormat 2 catalogs.
-- [Observability](/guide/observability/): spans for navigations, hydration, and requests through the OpenTelemetry API.
-- [Coding agents](/guide/agents/): what an agent reads in a zerolith project and on this site, and how to give it the zerolith Skills.
-- [Reference](/reference/zerolith/): every export, generated from the source.
+- [Application structure](structure.md): the layout every zerolith application uses, what each file owns, and the AGENTS.md that lets an agent work in it.
+- [Signals](signals.md): state, derived values, effects, and async values.
+- [Templates](templates.md): the `html` tag, bindings, lists, conditions, and what the renderer refuses.
+- [Styles](styles.md): scoped component styles with the `css` tag.
+- [Routing](routing.md): the typed route table and plain anchors.
+- [Forms](forms.md): native forms, enhanced with fetch, pending state, and field errors that share one wire shape with the server.
+- [Typed client](client.md): a route table and types generated from an OpenAPI document, checked calls, and problems for failures.
+- [Server rendering](server-rendering.md): rendering views to HTML with no DOM.
+- [Diagnostics](diagnostics.md): the error record, stable codes, and production builds.
+- [Dev tools](dev-tools.md): the in-page inspector, named signals, and Performance tracks.
+- [Command line](command-line.md): the starter, the dev server, the production build, preview, `zerolith.json`, and project checks.
+- [Building and serving](deploying.md): what the build writes and how to serve it from a static host, a web server, or a backend, under a path, and next to a backend while developing.
+- [Vite](vite.md): for projects already on Vite, hot module replacement that keeps named state, JSX, and templates prepared at build time.
+- [Testing](testing.md): mount with cleanup, settle async work, and check hydration and accessibility in tests.
+- [Accessibility](accessibility.md): focus trap, roving tabindex, live announcer, focus origin, hidden text, and preference signals.
+- [Custom elements](elements.md): mount a view inside a tree another framework owns, with attributes and properties as signals.
+- [Internationalization](i18n.md): locale negotiation and state on Intl, formatters that follow the locale, and compiled MessageFormat 2 catalogs.
+- [Observability](observability.md): spans for navigations, hydration, and requests through the OpenTelemetry API.
+- [Coding agents](agents.md): what an agent reads in a zerolith project and on this site, and how to give it the zerolith Skills.
+- [Reference](https://molexxxx.github.io/zerolith/reference/zerolith/): every export, generated from the source.

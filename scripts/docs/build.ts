@@ -17,6 +17,7 @@ import { rolldown } from "rolldown";
 import { diagnosticCatalog } from "zerolith";
 import { CORE_BUDGET_GZIP_BYTES, measure } from "../measure.ts";
 import { normalizeBase, rebaseHtml, rebaseMarkdown, rebasePath } from "./base.ts";
+import { mapLinks, sitePath } from "./links.ts";
 import { exampleCode, includeExamples } from "./examples.ts";
 import { highlight } from "./highlight.ts";
 import { type Characteristic, Home, NotFound, homeMarkdown } from "./home.ts";
@@ -188,7 +189,8 @@ async function collect(folder: "learn" | "guide", section: Section): Promise<Pag
             throw new Error(`${file}: front matter needs a group, one of ${guideGroups.join(", ")}`);
         }
         const path = name === "index.md" ? `/${folder}/` : `/${folder}/${name.slice(0, -3)}/`;
-        const page: Page = { path, title, description, markdown: await includeExamples(body, file, root), section, order, source: file };
+        const markdown = mapLinks(await includeExamples(body, file, root), (target) => sitePath(target, folder, file));
+        const page: Page = { path, title, description, markdown, section, order, source: file };
         if (group !== undefined)
         {
             page.group = group;

@@ -48,14 +48,14 @@ Open `src/components/counter.ts`. It is the whole idea of zerolith in a dozen li
 
 ## The steps
 
-1. [Add a page](/learn/page/): a component and a route of its own.
-2. [State and lists](/learn/state/): the items in a signal, one row per item.
-3. [Events and updates](/learn/events/): check items off and add new ones.
-4. [Components](/learn/components/): split the page into parts that each run once.
-5. [Derived state and conditions](/learn/derived/): progress, filters, and an empty state.
-6. [Saving with effects](/learn/effects/): keep the list between visits.
-7. [Styles](/learn/styles/): styles that belong to one component.
-8. [Testing](/learn/testing/): a test that clicks through the page.
-9. [Build and ship](/learn/ship/): the production build and where to put it.
+1. [Add a page](page.md): a component and a route of its own.
+2. [State and lists](state.md): the items in a signal, one row per item.
+3. [Events and updates](events.md): check items off and add new ones.
+4. [Components](components.md): split the page into parts that each run once.
+5. [Derived state and conditions](derived.md): progress, filters, and an empty state.
+6. [Saving with effects](effects.md): keep the list between visits.
+7. [Styles](styles.md): styles that belong to one component.
+8. [Testing](testing.md): a test that clicks through the page.
+9. [Build and ship](ship.md): the production build and where to put it.
 
-If you get stuck, every error zerolith reports carries a code and a link to a page that explains the cause and the fix, and the [playground](/playground/) runs small pieces of code without a project.
+If you get stuck, every error zerolith reports carries a code and a link to a page that explains the cause and the fix, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs small pieces of code without a project.

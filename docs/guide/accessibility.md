@@ -7,7 +7,7 @@ group: Building apps
 
 # Accessibility
 
-A framework cannot make an application accessible, but it can refuse to leave the hard parts to each project. `@zerolith/a11y` ships the pieces that Angular CDK exposes and React Aria is built on, as plain functions over the DOM with no dependency beyond `zerolith`. Most of them are `ref` callbacks: they attach when the element is created and clean up when its template is removed, so there is nothing to remember to tear down. `@zerolith/test` checks the defects a test can see; the guide on [testing](/guide/testing/) covers it.
+A framework cannot make an application accessible, but it can refuse to leave the hard parts to each project. `@zerolith/a11y` ships the pieces that Angular CDK exposes and React Aria is built on, as plain functions over the DOM with no dependency beyond `zerolith`. Most of them are `ref` callbacks: they attach when the element is created and clean up when its template is removed, so there is nothing to remember to tear down. `@zerolith/test` checks the defects a test can see; the guide on [testing](testing.md) covers it.
 
 ## Dialogs: focus trap
 

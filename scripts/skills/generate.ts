@@ -9,9 +9,10 @@ import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { diagnosticCatalog } from "zerolith";
 import { includeExamples } from "../docs/examples.ts";
+import { DOCS_URL, mapLinks, sitePath } from "../docs/links.ts";
 
 /** Where the docs site lives, for links a reference cannot resolve locally. */
-export const docsUrl = "https://molexxxx.github.io/zerolith/";
+export const docsUrl: string = DOCS_URL;
 
 /** The folder of the skill's generated references, relative to the repository. */
 export const referencesFolder = "skills/zerolith/references";
@@ -22,38 +23,24 @@ export function referenceName(guide: string): string
     return guide === "index.md" ? "introduction.md" : guide;
 }
 
-/** Points a guide's root-relative links at sibling references, or at the docs site when no reference holds the target. */
-export function relink(markdown: string, guides: ReadonlySet<string>): string
+/** Points a guide's links to other guides at sibling references, and every other docs link at the docs site. */
+export function relink(markdown: string, guides: ReadonlySet<string>, file = "docs/guide"): string
 {
-    let fenced = false;
-    return markdown
-        .split("\n")
-        .map((line) =>
+    return mapLinks(markdown, (target) =>
+    {
+        const path = sitePath(target, "guide", file);
+        if (!path.startsWith("/"))
         {
-            if (line.trimStart().startsWith("```"))
-            {
-                fenced = !fenced;
-                return line;
-            }
-            if (fenced)
-            {
-                return line;
-            }
-            return line.replace(/\]\(\/([^)\s]*)\)/g, (_, target: string) =>
-            {
-                const match = /^guide\/(?:([a-z0-9-]+)\/)?(#.*)?$/.exec(target);
-                if (match !== null)
-                {
-                    const guide = `${match[1] ?? "index"}.md`;
-                    if (guides.has(guide))
-                    {
-                        return `](${referenceName(guide)}${match[2] ?? ""})`;
-                    }
-                }
-                return `](${docsUrl}${target})`;
-            });
-        })
-        .join("\n");
+            return path;
+        }
+        const match = /^\/guide\/(?:([a-z0-9-]+)\/)?(#.*)?$/.exec(path);
+        const guide = `${match?.[1] ?? "index"}.md`;
+        if (match !== null && guides.has(guide))
+        {
+            return `${referenceName(guide)}${match[2] ?? ""}`;
+        }
+        return `${docsUrl}${path.slice(1)}`;
+    });
 }
 
 /** Every generated reference file, by its path relative to the repository. */
@@ -69,7 +56,7 @@ export async function skillReferences(root: string): Promise<Map<string, string>
         const body = source.replace(/^---\n[\s\S]*?\n---\n+/, "");
         const expanded = await includeExamples(body, `docs/guide/${name}`, root);
         const header = `<!-- Generated from docs/guide/${name} by npm run skills. Edit the guide, then regenerate. -->`;
-        files.set(`${referencesFolder}/${referenceName(name)}`, `${header}\n\n${relink(expanded, guides).trim()}\n`);
+        files.set(`${referencesFolder}/${referenceName(name)}`, `${header}\n\n${relink(expanded, guides, `docs/guide/${name}`).trim()}\n`);
     }
     const codes = Object.keys(diagnosticCatalog).toSorted();
     const diagnostics = [

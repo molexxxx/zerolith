@@ -34,7 +34,7 @@ Now `src/components/packing.ts` puts the parts together:
 
 @include packages/zerolith/test/fixtures/tutorial/components/src/components/packing.ts
 
-A component call goes straight into a slot: `${AddItem()}`. Call the function; passing `AddItem` without calling it is reported as [`unrenderable_value`](/e/unrenderable_value/), since a function is not something a page can show.
+A component call goes straight into a slot: `${AddItem()}`. Call the function; passing `AddItem` without calling it is reported as [`unrenderable_value`](https://molexxxx.github.io/zerolith/e/unrenderable_value/), since a function is not something a page can show.
 
 ## Why components run once
 

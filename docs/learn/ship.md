@@ -28,13 +28,13 @@ npm run preview
 
 `dist/` is static files: an HTML page, scripts, a style sheet, and the files from `public/`. Any static host serves it, as does any web server or the static files of your own backend. The one thing every host needs is that fallback: an address that matches no file should answer with `index.html`.
 
-[Building and serving](/guide/deploying/) covers each kind of host, serving under a path such as `/app/`, caching, and running the dev server next to a backend that answers your API calls.
+[Building and serving](../guide/deploying.md) covers each kind of host, serving under a path such as `/app/`, caching, and running the dev server next to a backend that answers your API calls.
 
 ## Where to go next
 
 You have used every part of a zerolith application: components, signals, lists, events, derived values, effects, styles, routes, and tests. From here:
 
-- The [guide](/guide/) explains each idea in depth, one page per concept, starting from the [introduction](/guide/).
-- [Forms](/guide/forms/) turns the add form into a form that posts to a server, with pending state and field errors.
-- [Server rendering](/guide/server-rendering/) renders pages to HTML on a server and hydrates them in the browser.
-- The [reference](/reference/zerolith/) lists every export with its documentation.
+- The [guide](../guide/index.md) explains each idea in depth, one page per concept, starting from the [introduction](../guide/index.md).
+- [Forms](../guide/forms.md) turns the add form into a form that posts to a server, with pending state and field errors.
+- [Server rendering](../guide/server-rendering.md) renders pages to HTML on a server and hydrates them in the browser.
+- The [reference](https://molexxxx.github.io/zerolith/reference/zerolith/) lists every export with its documentation.

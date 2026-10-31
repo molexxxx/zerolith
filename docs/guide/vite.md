@@ -7,7 +7,7 @@ group: Tooling
 
 # Vite
 
-[Vite](https://vite.dev) is a separate tool from the wider JavaScript ecosystem, run with Node, that does two jobs for a web project: a development server that serves the source files to the browser while you work and updates the page as you edit, and a production build that bundles and minifies them. Many frameworks are built on it. A zerolith project does not need it: `zerolith dev` and `zerolith build` in the [command line](/guide/command-line/) do both jobs, and the build runs Rolldown, the bundler Vite itself uses. This guide is for a project that already uses Vite, or that wants a Vite plugin such as Tailwind's: the zerolith plugin brings the same JSX lowering, template preparation, and build checks into Vite, and adds hot replacement that swaps components in place.
+[Vite](https://vite.dev) is a separate tool from the wider JavaScript ecosystem, run with Node, that does two jobs for a web project: a development server that serves the source files to the browser while you work and updates the page as you edit, and a production build that bundles and minifies them. Many frameworks are built on it. A zerolith project does not need it: `zerolith dev` and `zerolith build` in the [command line](command-line.md) do both jobs, and the build runs Rolldown, the bundler Vite itself uses. This guide is for a project that already uses Vite, or that wants a Vite plugin such as Tailwind's: the zerolith plugin brings the same JSX lowering, template preparation, and build checks into Vite, and adds hot replacement that swaps components in place.
 
 zerolith runs under Vite without a plugin. The packages are plain ES modules, and Vite's default `development` condition selects the build with diagnostic text and the inspector while developing and the lean build for production. What the plugin adds is hot module replacement that understands components, so an edit lands in the page without a reload and without losing the state you were looking at.
 
@@ -21,7 +21,7 @@ export default defineConfig({
 });
 ```
 
-The plugin and `zerolith` are released together and share the `zerolith/internal` entry, so install them at one version. The plugin declares that exact version of `zerolith` as a peer dependency, so npm refuses an installation that mixes versions, and it stops with [`package_version_mismatch`](/e/package_version_mismatch/) if it meets another anyway.
+The plugin and `zerolith` are released together and share the `zerolith/internal` entry, so install them at one version. The plugin declares that exact version of `zerolith` as a peer dependency, so npm refuses an installation that mixes versions, and it stops with [`package_version_mismatch`](https://molexxxx.github.io/zerolith/e/package_version_mismatch/) if it meets another anyway.
 
 ## What an edit does
 
@@ -67,11 +67,11 @@ For `vite build`, the plugin runs the template prepare pass ahead of every other
 
 The output is then checked: a module of the development build of the core, anything under `zerolith/dist/` that is not under `production/`, that reaches a build in production mode fails the build with the module that leaked, because it means the `production` export condition did not apply, through a `resolve.conditions` override or an alias. The size of this repository's tasks example, built for production, is measured in CI next to the core's budget, so the built path is held to a number the same way the runtime is.
 
-Every client build also keeps lazy modules apart. A view declared with `lazy()` from `@zerolith/router`, and a locale module of a message index compiled by `zerolith-i18n`, are meant to load as chunks of their own; when another module imports one of them statically as well, the bundler puts it in the importing chunk, so the build fails with [`lazy_module_not_split`](/e/lazy_module_not_split/), naming the module and every static importer. A type-only import, `import type`, is erased before bundling and does not count. Server builds are not checked, since a server bundle has no chunks to keep apart.
+Every client build also keeps lazy modules apart. A view declared with `lazy()` from `@zerolith/router`, and a locale module of a message index compiled by `zerolith-i18n`, are meant to load as chunks of their own; when another module imports one of them statically as well, the bundler puts it in the importing chunk, so the build fails with [`lazy_module_not_split`](https://molexxxx.github.io/zerolith/e/lazy_module_not_split/), naming the module and every static importer. A type-only import, `import type`, is erased before bundling and does not count. Server builds are not checked, since a server bundle has no chunks to keep apart.
 
 ## JSX
 
-Ahead of every other transform, the plugin lowers each JSX expression in a `.jsx` or `.tsx` file to the `html` call it stands for: elements become template markup, the `prop:`, `on:`, and `bool:` namespaces become the other binding forms, and capitalized tags become component calls with a `children` prop. The lowered module keeps its line count, and nothing from JSX reaches the browser; `zerolith/jsx-runtime` exists for the types a `tsconfig` with `"jsxImportSource": "zerolith"` reads, and throws a `jsx_not_lowered` diagnostic if it is ever called. Pass `jsx: false` to leave JSX files to Vite's own transform. The [templates guide](/guide/templates/) shows the same component in both spellings.
+Ahead of every other transform, the plugin lowers each JSX expression in a `.jsx` or `.tsx` file to the `html` call it stands for: elements become template markup, the `prop:`, `on:`, and `bool:` namespaces become the other binding forms, and capitalized tags become component calls with a `children` prop. The lowered module keeps its line count, and nothing from JSX reaches the browser; `zerolith/jsx-runtime` exists for the types a `tsconfig` with `"jsxImportSource": "zerolith"` reads, and throws a `jsx_not_lowered` diagnostic if it is ever called. Pass `jsx: false` to leave JSX files to Vite's own transform. The [templates guide](templates.md) shows the same component in both spellings.
 
 ## Development warnings
 
@@ -80,6 +80,6 @@ The runtime cannot tell a frozen read from a deliberate one, and it does not rea
 - `template_frozen_read`: a `.get()` read is bound in a template, which the rule on the first page of this guide calls out as the mistake nothing else can catch. Bind the signal, or `computed(() => ...)`.
 - `image_without_alt`, `button_without_name`, `frame_without_title`: the accessibility defects visible in the template's static markup, the same codes `@zerolith/test` reports at run time.
 
-A project without Vite gets the same warnings from `zerolith doctor`, which runs the same checks over its sources; see [Command line](/guide/command-line/).
+A project without Vite gets the same warnings from `zerolith doctor`, which runs the same checks over its sources; see [Command line](command-line.md).
 
 They are warnings, not errors, because a template may read a value once on purpose. Pass `lint: false` to turn them off.

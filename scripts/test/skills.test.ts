@@ -49,8 +49,9 @@ describe("the zerolith Agent Skill", () =>
     it("points guide links at sibling references and other links at the docs site", () =>
     {
         const guides = new Set(["index.md", "signals.md"]);
-        expect(relink("See [signals](/guide/signals/#effects), [start](/guide/), [codes](/e/), and [forms](/guide/forms/).", guides))
-            .toBe("See [signals](signals.md#effects), [start](introduction.md), [codes](https://molexxxx.github.io/zerolith/e/), and [forms](https://molexxxx.github.io/zerolith/guide/forms/).");
+        expect(relink("See [signals](signals.md#effects), [start](index.md), [codes](https://molexxxx.github.io/zerolith/e/), [the tutorial](../learn/state.md), and [forms](forms.md).", guides))
+            .toBe("See [signals](signals.md#effects), [start](introduction.md), [codes](https://molexxxx.github.io/zerolith/e/), [the tutorial](https://molexxxx.github.io/zerolith/learn/state/), and [forms](https://molexxxx.github.io/zerolith/guide/forms/).");
         expect(relink("```md\n[kept](/guide/signals/)\n```", guides)).toBe("```md\n[kept](/guide/signals/)\n```");
+        expect(() => relink("[old](/guide/signals/)", guides)).toThrow(/resolves on the docs site only/);
     });
 });

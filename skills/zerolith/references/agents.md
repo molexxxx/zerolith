@@ -22,9 +22,9 @@ Or copy the [skills/zerolith](https://github.com/molexxxx/zerolith/tree/main/ski
 
 ## This site, for agents
 
-- **Markdown twins.** Every page has a Markdown version at the same path with `.md`, such as [/guide/signals.md](https://molexxxx.github.io/zerolith/guide/signals.md), and each page links its twin with `rel="alternate" type="text/markdown"`. The twin has the examples expanded, so it holds everything the page shows.
-- **llms.txt.** [/llms.txt](https://molexxxx.github.io/zerolith/llms.txt) lists every twin with a one-line description, the index an agent reads first, and [/llms-full.txt](https://molexxxx.github.io/zerolith/llms-full.txt) puts every page in one file.
-- **The API manifest.** [/api.json](https://molexxxx.github.io/zerolith/api.json) lists every export of every package with its module, its kind, and its documentation, generated from the source.
+- **Markdown twins.** Every page has a Markdown version at the same path with `.md`, such as [guide/signals.md](https://molexxxx.github.io/zerolith/guide/signals.md) for the signals guide, and each page links its twin with `rel="alternate" type="text/markdown"`. The twin has the examples expanded, so it holds everything the page shows.
+- **llms.txt.** [llms.txt](https://molexxxx.github.io/zerolith/llms.txt) lists every twin with a one-line description, the index an agent reads first, and [llms-full.txt](https://molexxxx.github.io/zerolith/llms-full.txt) puts every page in one file.
+- **The API manifest.** [api.json](https://molexxxx.github.io/zerolith/api.json) lists every export of every package with its module, its kind, and its documentation, generated from the source.
 
 ## Diagnostics an agent can act on
 
@@ -33,7 +33,7 @@ Every error and warning carries a stable code and a link to its page, which stat
 ## Working with an agent
 
 - Ask it to finish with `npm run check` where the project defines it, or with doctor, the tests, the typecheck, and the build.
-- Point it at `/llms.txt` when it needs the docs and cannot install the skill.
+- Point it at [llms.txt](https://molexxxx.github.io/zerolith/llms.txt) when it needs the docs and cannot install the skill.
 - When it gets something wrong twice, add the rule to `AGENTS.md`.
 
 Whether this context makes agents measurably better is a claim to be tested, not assumed: a public evaluation suite is on the [roadmap](https://github.com/molexxxx/zerolith/blob/main/docs/ROADMAP.md), along with an MCP server for the docs.

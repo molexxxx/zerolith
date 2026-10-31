@@ -28,7 +28,7 @@ Every file under `assets/` has a content hash in its name, so a changed file get
 | `assets/<name>-<hash>.<ext>` | Images, fonts, and other files the code or the stylesheets reference |
 | Everything from `public/` | Copied as it is, at the same paths |
 
-The [command line guide](/guide/command-line/) describes the build's options; `zerolith preview` serves `dist/` as a host would, which is the quickest check before deploying.
+The [command line guide](command-line.md) describes the build's options; `zerolith preview` serves `dist/` as a host would, which is the quickest check before deploying.
 
 ## A path under the domain
 
