@@ -15,9 +15,9 @@
         "build-prod": "zerolith build --base /frameworks/keyed/zerolith/dist/"
     },
     "dependencies": {
-        "zerolith": "0.1.0-alpha.4"
+        "zerolith": "0.1.0-alpha.5"
     },
     "devDependencies": {
-        "@zerolith/cli": "0.1.0-alpha.4"
+        "@zerolith/cli": "0.1.0-alpha.5"
     }
 }

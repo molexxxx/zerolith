@@ -21,4 +21,4 @@ When the root `npm ci` stops on a peer dependency conflict among the checkout's 
 
 ## Status
 
-`zerolith build` in 0.1.0-alpha.4 refuses the page's link to `/css/currentStyle.css`, the shared stylesheet the benchmark server serves from outside the entry. The main branch keeps such a link as written, with a warning, so the entry builds once its pins point at a release that includes that change. The results in [the benchmarks README](../README.md) come from building this entry against the core on the main branch.
+The entry pins 0.1.0-alpha.5, whose `zerolith build` keeps the page's link to `/css/currentStyle.css`, the shared stylesheet the benchmark server serves from outside the entry, as written, with a warning, so `npm run build-prod` succeeds. [The benchmarks README](../README.md) has the results of a local run next to the popular frameworks.
