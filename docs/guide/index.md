@@ -1,12 +1,15 @@
 ---
-title: zerolith
-description: A standalone frontend framework with fine-grained signals, HTML templates that need no compiler, typed routing, and one command line that serves and builds the app for any backend.
+title: Introduction
+description: What zerolith is, how to start a project, the one rule to learn first, and a map of the guides.
 order: 0
+group: Basics
 ---
 
-# zerolith
+# Introduction
 
-A standalone frontend framework. Fine-grained signals drive HTML templates that need no compiler, a typed router handles navigation, and one command line serves the app while you work and builds it for production. It talks to any backend over plain HTTP.
+zerolith is a standalone frontend framework. Fine-grained signals drive HTML templates that need no compiler, a typed router handles navigation, and one command line serves the app while you work and builds it for production. It talks to any backend over plain HTTP.
+
+The guides explain one concept each, with the one pattern zerolith uses for it and an example that runs as a test. New to zerolith? The [tutorial](/learn/) builds a small app from an empty folder, one idea per step, and the [playground](/playground/) runs the code in your browser.
 
 Status: alpha. Every package is published under the `alpha` dist-tag, and the API may change until it is frozen for 1.0.
 
@@ -99,4 +102,5 @@ The page itself is plain HTML with one element to mount into and one module scri
 - [Custom elements](/guide/elements/): mount a view inside a tree another framework owns, with attributes and properties as signals.
 - [Internationalization](/guide/i18n/): locale negotiation and state on Intl, formatters that follow the locale, and compiled MessageFormat 2 catalogs.
 - [Observability](/guide/observability/): spans for navigations, hydration, and requests through the OpenTelemetry API.
+- [Coding agents](/guide/agents/): what an agent reads in a zerolith project and on this site, and how to give it the zerolith Skills.
 - [Reference](/reference/zerolith/): every export, generated from the source.

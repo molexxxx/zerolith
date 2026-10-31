@@ -1,7 +1,8 @@
 ---
 title: Diagnostics
 description: The one record every error and warning uses, stable codes, documentation URLs, listeners, and production builds.
-order: 9
+order: 17
+group: Tooling
 ---
 
 # Diagnostics

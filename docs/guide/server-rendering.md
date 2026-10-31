@@ -2,6 +2,7 @@
 title: Server rendering
 description: Rendering views to HTML with no DOM, with the same escaping and URL rules as the browser.
 order: 8
+group: Building apps
 ---
 
 # Server rendering

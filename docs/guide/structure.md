@@ -2,6 +2,7 @@
 title: Application structure
 description: The layout a zerolith application uses, what each file owns, the conventions the tooling relies on, and the AGENTS.md that lets a coding agent work in it.
 order: 1
+group: Basics
 ---
 
 # Application structure

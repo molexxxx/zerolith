@@ -14,10 +14,20 @@ Every package in this repository is released together and carries the same versi
 - The fullstack example: an app under `/app/` with a dependency-free Node backend, reached through the proxy while developing, with the backend serving the build in production.
 - Docs: a guide to building and serving, with the routing and caching rules and the setup for Netlify, Vercel, Cloudflare Pages, GitHub Pages, nginx, IIS, Node, Express, and ASP.NET Core.
 - Nightly canaries of every npm package under the `canary` dist-tag, published by the release workflow when the code changed since the last canary.
+- Docs: a home page that runs a counter on the page and measures what each update changes in the DOM, with the packages, characteristics computed when the site is built, and the revision history; a ten-step tutorial that builds a packing list, every file it shows run as a test; a playground that runs zerolith in a sandboxed frame as you type and shares code through a link; the guides grouped, with previous and next links; a guide for coding agents; canonical links, social cards, a sitemap, and an integrity hash on every script and module the pages load.
+- The zerolith Agent Skill in `skills/zerolith`: the rules, one pattern per concept, the commands, and a checklist for finishing a change, with every guide and every diagnostic code as a reference. `npx skills add molexxxx/zerolith` installs it; `npm run skills` regenerates the references from the guides, and a test fails while they are stale.
+- Brand code tokens for the live parts of a template and for tags, attributes, and literals, and a highlighter on the docs site and in the playground that reads `html` and `css` templates and JSX as what they are.
+- Starters: the stylesheet styles every form control, selects, text areas, checkboxes, radios, and fieldsets included, with hover, focus, invalid, disabled, checked, and pressed states. The playground's preview uses the same stylesheet.
 
 ### Changed
 
 - `@zerolith/cli` and the `zerolith` crate: when the default port of `dev`, `serve`, or `preview` is taken or reserved, as 8080 often is on Windows, the next free port is used and the banner says so; a port given explicitly fails with a message that says why.
+- Docs: the introduction moved from the site root to `/guide/`; the root is the home page.
+
+### Fixed
+
+- `zerolith`: a keyed list and a condition no longer keep the owners of removed rows and branches alive in the owner around them, so a list that lives on while its rows come and go, or a condition that toggles, no longer grows the heap. A browser test measures the heap across churn.
+- `@zerolith/cli` and the `zerolith` crate: `zerolith build` keeps a stylesheet link to a file that is not in the project, such as one the host serves next to the app, with a warning, instead of failing.
 
 ## 0.1.0-alpha.4 (2026-10-30)
 

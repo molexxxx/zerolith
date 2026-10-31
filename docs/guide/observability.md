@@ -1,7 +1,8 @@
 ---
 title: Observability
 description: Spans for navigations, hydration, and requests through the OpenTelemetry API, with the tracer and the SDK left to the application.
-order: 17
+order: 18
+group: Tooling
 ---
 
 # Observability

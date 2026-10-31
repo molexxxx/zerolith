@@ -54,7 +54,7 @@ export default defineConfig({
                 test: {
                     name: "browser",
                     include: ["packages/*/test/**/*.browser.test.{ts,tsx}"],
-                    exclude: ["**/node_modules/**", "**/dist/**"],
+                    exclude: ["**/node_modules/**", "**/dist/**", "**/fixtures/**"],
                     browser: {
                         enabled: true,
                         headless: true,

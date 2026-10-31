@@ -2,6 +2,7 @@
 title: Styles
 description: Scoped component styles with the css tag, built on constructable stylesheets and the @scope rule, with no shadow DOM.
 order: 4
+group: Basics
 ---
 
 # Styles

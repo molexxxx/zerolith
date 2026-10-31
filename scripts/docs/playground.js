@@ -1,0 +1,221 @@
+/**
+ * The playground in the browser: the editor's code is a signal, an effect
+ * keeps the highlighted copy under the text in step, and each change runs
+ * the code in a sandboxed frame after a short pause. The frame has an opaque
+ * origin, loads the development builds through its own import map, and
+ * reports console output and errors back with postMessage. Copy link puts
+ * the code, compressed, in the address's fragment, which never reaches a
+ * server.
+ */
+import { effect, signal } from "zerolith";
+import { highlight } from "./highlight.js";
+
+const RUN_DELAY_MS = 400;
+
+/**
+ * Compresses text into a URL-safe string.
+ * @param {string} text
+ * @returns {Promise<string>}
+ */
+async function pack(text)
+{
+    const stream = new Blob([text]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+    const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+    let binary = "";
+    for (const byte of bytes)
+    {
+        binary += String.fromCharCode(byte);
+    }
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/**
+ * Reverses `pack`; a damaged fragment gives `undefined`.
+ * @param {string} packed
+ * @returns {Promise<string | undefined>}
+ */
+async function unpack(packed)
+{
+    try
+    {
+        const binary = atob(packed.replace(/-/g, "+").replace(/_/g, "/"));
+        const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+        return await new Response(stream).text();
+    }
+    catch
+    {
+        return undefined;
+    }
+}
+
+/**
+ * The document the preview frame runs: an import map for the packages, a
+ * reporter for console output and errors, and the code as a module.
+ * @param {string} code
+ * @param {Record<string, string>} imports
+ * @returns {string}
+ */
+function frameDocument(code, imports)
+{
+    const reporter = `
+        const send = (level, values) => parent.postMessage({ playground: true, level, text: values.map((value) => typeof value === "string" ? value : (() => { try { return JSON.stringify(value); } catch { return String(value); } })()).join(" ") }, "*");
+        for (const level of ["log", "info", "warn", "error"])
+        {
+            const original = console[level].bind(console);
+            console[level] = (...values) => { original(...values); send(level, values); };
+        }
+        addEventListener("error", (event) => send("error", [event.error?.message ?? event.message]));
+        addEventListener("unhandledrejection", (event) => send("error", [event.reason?.message ?? String(event.reason)]));`;
+    return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="${new URL("fonts.css", document.baseURI).href}">
+<link rel="stylesheet" href="${new URL("preview.css", document.baseURI).href}">
+<style>body { padding: 24px; }</style>
+<script type="importmap">${JSON.stringify({ imports })}</script>
+<script>${reporter}</script>
+</head>
+<body>
+<main id="app"></main>
+<script type="module">${code.replace(/<\/script/gi, "<\\/script")}</script>
+</body>
+</html>`;
+}
+
+/**
+ * Wires the playground inside `host`.
+ * @param {HTMLElement} host
+ * @returns {Promise<void>}
+ */
+async function start(host)
+{
+    const select = /** @type {HTMLSelectElement} */ (host.querySelector("select[name=\"example\"]"));
+    const editor = /** @type {HTMLTextAreaElement} */ (host.querySelector("textarea[name=\"code\"]"));
+    const shadow = /** @type {HTMLElement} */ (host.querySelector(".editor code"));
+    const shadowFrame = /** @type {HTMLElement} */ (host.querySelector(".editor pre"));
+    const frame = /** @type {HTMLIFrameElement} */ (host.querySelector("iframe"));
+    const output = /** @type {HTMLElement} */ (host.querySelector(".console"));
+    /** @type {Record<string, string>} */
+    const examples = JSON.parse(host.getAttribute("data-examples") ?? "{}");
+    /** @type {Record<string, string>} */
+    const relative = JSON.parse(host.getAttribute("data-imports") ?? "{}");
+    const imports = Object.fromEntries(Object.entries(relative).map(([specifier, path]) => [specifier, new URL(path, document.baseURI).href]));
+
+    const fragment = new URLSearchParams(location.hash.slice(1));
+    const shared = fragment.has("code") ? await unpack(fragment.get("code") ?? "") : undefined;
+    const named = fragment.get("example");
+    if (named !== null && named in examples)
+    {
+        select.value = named;
+    }
+    const code = signal(shared ?? examples[select.value] ?? editor.value);
+    editor.value = code.get();
+
+    effect(() =>
+    {
+        shadow.innerHTML = highlight(code.get() + "\n", "js");
+    });
+
+    /** @type {ReturnType<typeof setTimeout> | undefined} */
+    let pending;
+    function run()
+    {
+        clearTimeout(pending);
+        output.replaceChildren();
+        const root = document.documentElement;
+        frame.style.colorScheme = root.getAttribute("data-theme") ?? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+        frame.srcdoc = frameDocument(code.get(), imports);
+    }
+    effect(() =>
+    {
+        code.get();
+        clearTimeout(pending);
+        pending = setTimeout(run, RUN_DELAY_MS);
+    });
+
+    editor.addEventListener("input", () => code.set(editor.value));
+    editor.addEventListener("scroll", () =>
+    {
+        shadowFrame.scrollTop = editor.scrollTop;
+        shadowFrame.scrollLeft = editor.scrollLeft;
+    });
+
+    let escaped = false;
+    editor.addEventListener("keydown", (event) =>
+    {
+        if (event.key === "Escape")
+        {
+            escaped = true;
+            return;
+        }
+        if (event.key === "Tab" && !escaped && !event.shiftKey)
+        {
+            event.preventDefault();
+            editor.setRangeText("    ", editor.selectionStart, editor.selectionEnd, "end");
+            code.set(editor.value);
+        }
+        else if ((event.ctrlKey || event.metaKey) && event.key === "Enter")
+        {
+            event.preventDefault();
+            run();
+        }
+        escaped = false;
+    });
+
+    select.addEventListener("change", () =>
+    {
+        const example = examples[select.value] ?? "";
+        editor.value = example;
+        code.set(example);
+        history.replaceState(null, "", `#example=${select.value}`);
+    });
+
+    host.querySelector("[data-action=\"run\"]")?.addEventListener("click", run);
+    host.querySelector("[data-action=\"reset\"]")?.addEventListener("click", () =>
+    {
+        const example = examples[select.value] ?? "";
+        editor.value = example;
+        code.set(example);
+        history.replaceState(null, "", location.pathname);
+    });
+
+    const share = host.querySelector("[data-action=\"share\"]");
+    share?.addEventListener("click", async () =>
+    {
+        const link = new URL(location.href);
+        link.hash = `code=${await pack(code.get())}`;
+        history.replaceState(null, "", link.hash);
+        try
+        {
+            await navigator.clipboard.writeText(link.href);
+        }
+        catch
+        {
+            return;
+        }
+        share.setAttribute("data-copied", "");
+        setTimeout(() => share.removeAttribute("data-copied"), 1500);
+    });
+
+    addEventListener("message", (event) =>
+    {
+        if (event.source !== frame.contentWindow || typeof event.data !== "object" || event.data === null || event.data.playground !== true)
+        {
+            return;
+        }
+        const line = document.createElement("p");
+        line.className = String(event.data.level);
+        line.textContent = String(event.data.text);
+        output.append(line);
+    });
+
+    run();
+}
+
+const host = document.querySelector("[data-playground]");
+if (host instanceof HTMLElement)
+{
+    await start(host);
+}

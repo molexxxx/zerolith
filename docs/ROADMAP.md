@@ -14,17 +14,18 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 | Command line | Published with prebuilt binaries for six targets; writes a starter, develops, bundles, and previews a project on its own, forwards an API to its backend, and serves under a base path |
 | Dev tools and testing | Shipped; the browser extension adapter remains |
 | Accessibility, i18n, observability | Shipped; the conformance report and the MessageFormat 1 import remain |
-| Docs | Published to GitHub Pages, their permanent home, by each release in the brand's theme, every example run as a test |
-| Coding agents | In-repo context shipped; MCP servers, Skills, and evals remain |
-| Adoption | No production application yet; the first migration is next |
+| Docs | Published to GitHub Pages, their permanent home, by each release: a home page that runs and measures zerolith, a tutorial, a playground, the guides, the reference, and a page per diagnostic, every example run as a test |
+| Coding agents | In-repo context and the zerolith Agent Skill shipped; an interface skill, MCP servers, and evals remain |
+| Adoption | No production application yet; the first migration is under way |
 | Project and supply chain | Policies, provenance, GitHub releases, npm and crates.io publishing through trusted publishing alone, and nightly canaries |
 
 ## Next
 
 In order:
 
-1. Migrate the first production site onto zerolith.
-2. Review the core, templates, and router API through an RFC and freeze it for 1.0.
+1. Migrate the first production site onto zerolith, served buildless with a Lighthouse budget in CI.
+2. Cut the per-row cost of keyed lists in the core, measured on js-framework-benchmark, before the API is frozen, since the fastest designs can touch how `each` hands rows to a component.
+3. Review the core, templates, and router API through an RFC, with what the migration and the performance work found, and freeze it for 1.0.
 
 ## 1.0
 
@@ -124,6 +125,8 @@ See the [command line guide](guide/command-line.md).
 - [x] A Markdown twin of every page, indexed by `llms.txt` and `llms-full.txt`.
 - [x] A page for every diagnostic code.
 - [x] The site on [GitHub Pages](https://molexxxx.github.io/zerolith/), deployed by each release from the commit it published.
+- [x] A home page that runs a counter and measures its DOM updates, a ten-step tutorial whose every file is a test, and a playground that runs zerolith in a sandboxed frame and shares code through a link.
+- [x] Code colored by the brand's code tokens, reading `html` and `css` templates and JSX as markup and styles, on the site and in the playground.
 - [ ] A domain of the project's own, if one is registered later. Every published version links its diagnostics to the GitHub Pages address, so those links have to keep working.
 - [ ] A versioned API manifest that feeds the agent index and editor tooling.
 - [ ] Type-checked code samples on every page.
@@ -133,9 +136,10 @@ See the [command line guide](guide/command-line.md).
 ## Coding agents
 
 - [x] An `AGENTS.md` in this repository and in every project `zerolith new` writes.
+- [x] The zerolith Agent Skill, with every guide and every diagnostic code as a reference, generated from the guides and checked by a test.
+- [ ] An interface skill for building accessible, well-made UI with zerolith, its platform guidance regenerated from web platform data at each release so it stays current.
 - [ ] An MCP server for the docs.
 - [ ] An MCP server inside the dev server that exposes the reactive graph, with a read-only mode.
-- [ ] Agent Skills.
 - [ ] A public eval suite that measures whether the in-repo context helps agents, published with its method. No claim about agent results appears before it.
 
 ## Adoption

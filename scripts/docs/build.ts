@@ -1,25 +1,35 @@
 /**
- * Builds the documentation site into site/. Guides come from docs/guide,
- * executed examples from test files by region, the API reference from the
- * sources through deno doc, and the diagnostics pages from the runtime's
- * own catalog. Every page gets a Markdown twin, llms.txt indexes them, and
- * a broken internal link or a missing example fails the build.
+ * Builds the documentation site into site/. The tutorial comes from
+ * docs/learn, the guides from docs/guide, executed examples from test files
+ * by region, the API reference from the sources through deno doc, and the
+ * diagnostics pages from the runtime's own catalog. The home page and the
+ * playground are rendered from their own modules. Every page gets a Markdown
+ * twin, llms.txt indexes them, every script and module the pages load
+ * carries its integrity hash, and a broken internal link or a missing
+ * example fails the build.
  */
-import { copyFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { copyFile, cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { marked } from "marked";
+import { rolldown } from "rolldown";
 import { diagnosticCatalog } from "zerolith";
+import { CORE_BUDGET_GZIP_BYTES, measure } from "../measure.ts";
 import { normalizeBase, rebaseHtml, rebaseMarkdown, rebasePath } from "./base.ts";
-import { includeExamples } from "./examples.ts";
+import { exampleCode, includeExamples } from "./examples.ts";
 import { highlight } from "./highlight.ts";
-import { type NavSection, type PageData, icon, markdownTwin, renderPage, siteStyles } from "./layout.ts";
+import { type Characteristic, Home, NotFound, homeMarkdown } from "./home.ts";
+import { type Link, type NavGroup, type PageData, fontFaces, icon, markdownTwin, renderPage, siteStyles } from "./layout.ts";
+import { Playground, playgroundMarkdown, playgroundModules } from "./playground.ts";
 import { type Entry, type ManifestSymbol, extract, referencePage, symbolsOf } from "./reference.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const out = join(root, "site");
 /** Where the site is served: `ZEROLITH_DOCS_BASE`, `/` by default, `/zerolith/` on GitHub Pages. */
 const base = normalizeBase(process.env["ZEROLITH_DOCS_BASE"]);
+/** The site's public address, for canonical links, the social card, and the sitemap: `ZEROLITH_DOCS_URL`, or the GitHub Pages address. */
+const siteUrl = (process.env["ZEROLITH_DOCS_URL"] ?? "https://molexxxx.github.io/zerolith/").replace(/\/?$/, "/");
 /** The version the site describes, shown in its header. */
 const version = (JSON.parse(await readFile(join(root, "packages", "zerolith", "package.json"), "utf8")) as { version: string }).version;
 const copyIcon = icon("copy");
@@ -29,10 +39,17 @@ const brandAssets: Record<string, string> = {
     "favicon.svg": "app-icon/favicon.svg",
     "favicon.ico": "app-icon/favicon.ico",
     "apple-touch-icon.png": "app-icon/apple-touch-icon.png",
+    "social-card.png": "github/social-card.png",
     "fonts/unbounded-latin.woff2": "fonts/unbounded-latin.woff2",
     "fonts/onest-latin.woff2": "fonts/onest-latin.woff2",
     "fonts/martian-mono-latin.woff2": "fonts/martian-mono-latin.woff2"
 };
+/** The site's own scripts, copied from scripts/docs. */
+const siteScripts = ["theme.js", "island.js", "search.js", "demo.js", "playground.js"];
+/** The guides' groups, in reading order; every guide names one in its front matter. */
+const guideGroups = ["Basics", "Building apps", "Tooling"];
+/** The packages that ship to the browser, whose dependencies the home page counts. */
+const runtimePackages = ["zerolith", "router", "forms", "client", "a11y", "i18n", "devtools", "otel", "test"];
 
 const entries: Entry[] = [
     { specifier: "zerolith", file: "packages/zerolith/src/index.ts", title: "zerolith" },
@@ -55,13 +72,17 @@ const entries: Entry[] = [
     { specifier: "@zerolith/otel", file: "packages/otel/src/index.ts", title: "@zerolith/otel" }
 ];
 
+type Section = "Learn" | "Guide" | "Reference" | "Diagnostics";
+
 interface Page
 {
     path: string;
     title: string;
     description: string;
     markdown: string;
-    section: "Guide" | "Reference" | "Diagnostics";
+    section: Section;
+    /** The guide group the page sits in. */
+    group?: string;
     order: number;
     /** The repository path of a hand-written page's Markdown. */
     source?: string;
@@ -101,6 +122,7 @@ interface FrontMatter
     title: string;
     description: string;
     order: number;
+    group: string | undefined;
     body: string;
 }
 
@@ -148,20 +170,32 @@ function frontMatter(source: string, file: string): FrontMatter
     {
         throw new Error(`${file}: front matter needs title and description`);
     }
-    return { title, description, order: Number(fields.get("order") ?? 100), body: source.slice(match[0].length) };
+    return { title, description, order: Number(fields.get("order") ?? 100), group: fields.get("group"), body: source.slice(match[0].length) };
 }
 
-async function guides(): Promise<Page[]>
+/** The hand-written pages of one docs folder: `index.md` at `/<folder>/`, every other file below it. */
+async function collect(folder: "learn" | "guide", section: Section): Promise<Page[]>
 {
-    const folder = join(root, "docs", "guide");
-    const names = (await readdir(folder)).filter((name) => name.endsWith(".md"));
+    const directory = join(root, "docs", folder);
+    const names = (await readdir(directory)).filter((name) => name.endsWith(".md"));
     const pages = await Promise.all(names.map(async (name): Promise<Page> =>
     {
-        const { title, description, order, body } = frontMatter(await readFile(join(folder, name), "utf8"), `docs/guide/${name}`);
-        const path = name === "index.md" ? "/" : `/guide/${name.slice(0, -3)}/`;
-        return { path, title, description, markdown: await includeExamples(body, `docs/guide/${name}`, root), section: "Guide", order, source: `docs/guide/${name}` };
+        const file = `docs/${folder}/${name}`;
+        const { title, description, order, group, body } = frontMatter(await readFile(join(directory, name), "utf8"), file);
+        if (section === "Guide" && (group === undefined || !guideGroups.includes(group)))
+        {
+            throw new Error(`${file}: front matter needs a group, one of ${guideGroups.join(", ")}`);
+        }
+        const path = name === "index.md" ? `/${folder}/` : `/${folder}/${name.slice(0, -3)}/`;
+        const page: Page = { path, title, description, markdown: await includeExamples(body, file, root), section, order, source: file };
+        if (group !== undefined)
+        {
+            page.group = group;
+        }
+        return page;
     }));
-    return pages.toSorted((a, b) => a.order - b.order || a.title.localeCompare(b.title));
+    const groupOf = (page: Page): number => (page.group === undefined ? 0 : guideGroups.indexOf(page.group));
+    return pages.toSorted((a, b) => groupOf(a) - groupOf(b) || a.order - b.order || a.title.localeCompare(b.title));
 }
 
 async function reference(): Promise<{ pages: Page[]; manifest: ManifestSymbol[] }>
@@ -221,38 +255,51 @@ function diagnostics(): Page[]
     return [index, ...pages];
 }
 
-function navigation(pages: Page[]): NavSection[]
+const linkOf = (page: Page): Link => ({ title: page.title, href: page.path });
+
+/** The sidebar of a page: the tutorial's steps, the guides by group, or the reference with the diagnostics. */
+function sidebar(page: Page, pages: Page[]): { label: string; groups: NavGroup[] }
 {
-    const sections: NavSection[] = [];
-    for (const title of ["Guide", "Reference", "Diagnostics"] as const)
+    const of = (section: Section): Page[] => pages.filter((candidate) => candidate.section === section);
+    if (page.section === "Learn")
     {
-        const items = pages.filter((page) => page.section === title && (title !== "Diagnostics" || page.path === "/e/"));
-        sections.push({ title, pages: items.map((page) => ({ title: page.title, href: page.path })) });
+        return { label: "Tutorial", groups: [{ title: "Tutorial", pages: of("Learn").map(linkOf), numbered: true }] };
     }
-    return sections;
+    if (page.section === "Guide")
+    {
+        return { label: "Guide", groups: guideGroups.map((group) => ({ title: group, pages: of("Guide").filter((candidate) => candidate.group === group).map(linkOf) })) };
+    }
+    const codes = of("Diagnostics");
+    return {
+        label: "Reference",
+        groups: [
+            { title: "Modules", pages: of("Reference").map(linkOf) },
+            { title: "Diagnostics", pages: (page.section === "Diagnostics" ? codes : codes.slice(0, 1)).map(linkOf) }
+        ]
+    };
 }
 
-function checkLinks(pages: Page[], rendered: Map<string, string>): void
+/** The previous and next pages in reading order: the tutorial leads into the guide, and the guide reads in group order. */
+function pagerOf(page: Page, pages: Page[]): { previous?: Link; next?: Link } | undefined
 {
-    const known = new Set<string>();
-    for (const page of pages)
+    if (page.section === "Diagnostics")
     {
-        known.add(page.path);
-        known.add(markdownTwin(page.path));
+        return undefined;
     }
-    known.add("/styles.css");
-    known.add("/llms.txt");
-    known.add("/llms-full.txt");
-    known.add("/api.json");
-    known.add("/search.json");
-    known.add("/search.js");
-    known.add("/island.js");
-    known.add("/theme.js");
-    known.add("/zerolith/index.js");
-    for (const asset of Object.keys(brandAssets))
-    {
-        known.add(`/${asset}`);
-    }
+    const sequence = pages.filter((candidate) => candidate.section === page.section);
+    const index = sequence.indexOf(page);
+    const previous = sequence[index - 1];
+    const following = sequence[index + 1];
+    const guide = pages.find((candidate) => candidate.path === "/guide/");
+    const next = following ?? (page.section === "Learn" && guide !== undefined ? guide : undefined);
+    return {
+        ...(previous === undefined ? {} : { previous: linkOf(previous) }),
+        ...(next === undefined ? {} : { next: linkOf(next) })
+    };
+}
+
+function checkLinks(known: Set<string>, rendered: Map<string, string>): void
+{
     const broken: string[] = [];
     for (const [path, html] of rendered)
     {
@@ -327,24 +374,100 @@ function searchIndex(pages: Page[]): SearchEntry[]
     return found;
 }
 
-/** Copies the search island and the production build it hydrates from into the site. */
-async function copyIsland(): Promise<void>
+/** A subresource integrity value, the form both import maps and `integrity` attributes take. */
+function sri(content: string | Buffer): string
 {
-    const production = join(root, "packages", "zerolith", "dist", "production");
-    let modules: string[];
-    try
+    return `sha384-${createHash("sha384").update(content).digest("base64")}`;
+}
+
+/** A TypeScript module of the docs build compiled for the browser, so the playground highlights with the build's own code. */
+async function browserModule(file: string): Promise<string>
+{
+    const bundle = await rolldown({ input: join(root, file) });
+    const { output } = await bundle.generate({ format: "esm" });
+    await bundle.close();
+    const entry = output.find((item) => item.type === "chunk" && item.isEntry);
+    if (entry === undefined || entry.type !== "chunk")
     {
-        modules = (await readdir(production)).filter((name) => name.endsWith(".js"));
+        throw new Error(`rolldown produced no entry chunk for ${file}`);
     }
-    catch
+    return entry.code;
+}
+
+/** The figure's code from demo.js, highlighted, with the two bound expressions marked for the figure's readout. */
+async function figureCode(): Promise<string>
+{
+    const path = "scripts/docs/demo.js";
+    const { code } = exampleCode(await readFile(join(root, path), "utf8"), path, "figure", ["js"], "home page");
+    let found = 0;
+    const html = highlight(code, "js").replace(/<span class="b">\$\{<\/span>(count|doubled)<span class="b">\}/g, (_, name: string) =>
     {
-        throw new Error("packages/zerolith/dist/production is missing; run `npm run build` before `npm run docs`");
+        found++;
+        return `<span class="b">\${</span><span data-signal="${name}">${name}</span><span class="b">}`;
+    });
+    if (found !== 2)
+    {
+        throw new Error(`${path}: the figure's template should bind count and doubled once each; found ${found} marked bindings`);
     }
+    return html
+        .split("\n")
+        .map((line) =>
+        {
+            const indent = /^ */.exec(line)?.[0].length ?? 0;
+            return `<span class="line" style="--indent: ${indent}ch">${line.slice(indent)}</span>`;
+        })
+        .join("");
+}
+
+/** The released versions and their dates, from the changelog's headings. */
+async function revisions(): Promise<Array<{ version: string; date: string }>>
+{
+    const changelog = await readFile(join(root, "CHANGELOG.md"), "utf8");
+    return [...changelog.matchAll(/^## (\S+) \((\d{4}-\d{2}-\d{2})\)$/gm)].map((match) => ({ version: match[1] ?? "", date: match[2] ?? "" }));
+}
+
+/** A byte count as the characteristics table writes it. */
+function bytes(count: number): string
+{
+    return `${count.toLocaleString("en-US")} B`;
+}
+
+/** The home page's characteristics, each computed from the build or named for the check that holds it. */
+async function characteristics(manifest: ManifestSymbol[]): Promise<Characteristic[]>
+{
+    const core = await measure(join(root, "packages", "zerolith", "dist", "production", "index.js"));
+    let dependencies = 0;
+    for (const name of runtimePackages)
+    {
+        const manifestFile = JSON.parse(await readFile(join(root, "packages", name, "package.json"), "utf8")) as { dependencies?: Record<string, string> };
+        dependencies += Object.keys(manifestFile.dependencies ?? {}).length;
+    }
+    return [
+        { name: "Core size", value: `${bytes(core.gzip)} gzip, against a budget of ${bytes(CORE_BUDGET_GZIP_BYTES)}`, check: "`npm run size` bundles and minifies the production build and fails over budget" },
+        { name: "Runtime dependencies", value: String(dependencies), check: `Counted from the manifests of the ${runtimePackages.length} runtime packages when this site was built` },
+        { name: "Documented exports", value: `${manifest.length} across ${entries.length} modules`, check: "The docs build fails on an export without a doc comment" },
+        { name: "Diagnostic codes", value: `${Object.keys(diagnosticCatalog).length}, each with a page`, check: "Generated from the runtime's catalog" },
+        { name: "Build step", value: "Optional: an import map, or `zerolith build`", check: "The test suite runs the same files unbundled and bundled" },
+        { name: "Content Security Policy", value: "`script-src 'self'` with Trusted Types and no `unsafe-eval`", check: "A browser test runs both builds under that policy" },
+        { name: "Node", value: "24 or newer, for the command line and the build tools", check: "`engines` in every package" },
+        { name: "License", value: "Apache-2.0", check: "Every package and the crate" }
+    ];
+}
+
+/** Copies the site's scripts, the production build the islands hydrate from, the playground's modules, and the brand assets into the site. */
+async function copyAssets(production: string, modules: string[]): Promise<void>
+{
     await Promise.all([mkdir(join(out, "zerolith"), { recursive: true }), mkdir(join(out, "fonts"), { recursive: true })]);
     await Promise.all([
         ...modules.map((name) => copyFile(join(production, name), join(out, "zerolith", name))),
         ...Object.entries(brandAssets).map(([path, source]) => copyFile(join(root, "brand", source), join(out, path))),
-        ...["search.js", "island.js", "theme.js"].map((name) => copyFile(join(root, "scripts", "docs", name), join(out, name)))
+        ...siteScripts.map((name) => copyFile(join(root, "scripts", "docs", name), join(out, name))),
+        ...playgroundModules(root).map(({ from, to }) => cp(from, join(out, to), { recursive: true, filter: (source) => !source.endsWith(".map") && !source.endsWith(".d.ts") && !/[\\/]production$/.test(source) })),
+        cp(join(root, "skills"), join(out, "skills"), { recursive: true })
+    ]);
+    await Promise.all([
+        copyFile(join(root, "crates", "zerolith", "templates", "styles.css"), join(out, "playground", "preview.css")),
+        writeFile(join(out, "playground", "fonts.css"), fontFaces("../fonts/"))
     ]);
 }
 
@@ -357,36 +480,95 @@ async function write(path: string, content: string): Promise<void>
 
 const start = performance.now();
 await rm(out, { recursive: true, force: true });
-const guidePages = await guides();
+const production = join(root, "packages", "zerolith", "dist", "production");
+let modules: string[];
+try
+{
+    modules = (await readdir(production)).filter((name) => name.endsWith(".js"));
+}
+catch
+{
+    throw new Error("packages/zerolith/dist/production is missing; run `npm run build` before `npm run docs`");
+}
+
+const learnPages = await collect("learn", "Learn");
+const guidePages = await collect("guide", "Guide");
 const { pages: referencePages, manifest } = await reference();
-const pages = [...guidePages, ...referencePages, ...diagnostics()];
-const nav = navigation(pages);
+const pages = [...learnPages, ...guidePages, ...referencePages, ...diagnostics()];
+const styles = siteStyles();
+const highlighter = await browserModule("scripts/docs/highlight.ts");
+const integrity: Record<string, string> = { "/styles.css": sri(styles), "/highlight.js": sri(highlighter) };
+for (const name of siteScripts)
+{
+    integrity[`/${name}`] = sri(await readFile(join(root, "scripts", "docs", name)));
+}
+for (const name of modules)
+{
+    integrity[`/zerolith/${name}`] = sri(await readFile(join(production, name)));
+}
+const shared = { version, integrity, image: new URL("social-card.png", siteUrl).href };
+const absolute = (path: string): string => new URL(path.slice(1), siteUrl).href;
 const rendered = new Map<string, string>();
+
+async function publish(data: PageData, markdown: string): Promise<void>
+{
+    const html = renderPage(data);
+    rendered.set(data.path, html);
+    await Promise.all([
+        write(data.path === "/" ? "index.html" : `${data.path}index.html`, rebaseHtml(html, base)),
+        write(markdownTwin(data.path), rebaseMarkdown(markdown, base) + "\n")
+    ]);
+}
 
 await Promise.all(pages.map(async (page) =>
 {
     const content = await marked.parse(page.markdown);
-    const data: PageData = { title: page.title, description: page.description, path: page.path, content, nav, version, ...(page.source === undefined ? {} : { source: page.source }) };
-    const html = renderPage(data);
-    rendered.set(page.path, html);
-    await Promise.all([
-        write(page.path === "/" ? "index.html" : `${page.path}index.html`, rebaseHtml(html, base)),
-        write(markdownTwin(page.path), rebaseMarkdown(page.markdown, base) + "\n")
-    ]);
+    const pager = pagerOf(page, pages);
+    await publish({
+        ...shared,
+        title: page.title,
+        description: page.description,
+        path: page.path,
+        url: absolute(page.path),
+        layout: "docs",
+        content,
+        nav: sidebar(page, pages),
+        ...(pager === undefined ? {} : { pager }),
+        ...(page.source === undefined ? {} : { source: page.source })
+    }, page.markdown);
 }));
-checkLinks(pages, rendered);
+
+const homeData = { version, figureCode: await figureCode(), characteristics: await characteristics(manifest), revisions: await revisions() };
+const homeDescription = "A full frontend framework with clear patterns for you and your agent: signals, HTML templates with no compiler, routing, forms, server rendering, and i18n.";
+await publish({ ...shared, title: "zerolith", description: homeDescription, path: "/", url: absolute("/"), layout: "wide", view: Home(homeData) }, homeMarkdown(homeData));
+const playgroundDescription = "Edit a zerolith app in the browser, see it run as you type, and share a link to what you made.";
+await publish({ ...shared, title: "Playground", description: playgroundDescription, path: "/playground/", url: absolute("/playground/"), layout: "wide", view: Playground() }, await playgroundMarkdown(root));
+
+const known = new Set<string>(["/styles.css", "/highlight.js", "/llms.txt", "/llms-full.txt", "/api.json", "/search.json", "/sitemap.xml", "/zerolith/index.js"]);
+for (const path of rendered.keys())
+{
+    known.add(path);
+    known.add(markdownTwin(path));
+}
+for (const name of [...siteScripts, ...Object.keys(brandAssets)])
+{
+    known.add(`/${name}`);
+}
+checkLinks(known, rendered);
 
 const missing = renderPage({
+    ...shared,
     title: "Page not found",
     description: "This page does not exist.",
     path: "/404/",
-    content: "<h1>Page not found</h1><p>Nothing lives at this address. Try the search, or start from the <a href=\"/\">introduction</a>.</p>",
-    nav,
-    version
+    url: absolute("/404/"),
+    layout: "wide",
+    view: NotFound()
 });
 await write("404.html", rebaseHtml(missing, base));
 
-await write("styles.css", siteStyles());
+await write("styles.css", styles);
+await write("highlight.js", highlighter);
 await write("api.json", JSON.stringify({ generated: new Date().toISOString(), symbols: manifest }, null, 2) + "\n");
 const searchEntries = searchIndex(pages);
 for (const entry of searchEntries)
@@ -394,19 +576,31 @@ for (const entry of searchEntries)
     entry.path = rebasePath(entry.path, base);
 }
 await write("search.json", JSON.stringify(searchEntries));
-await copyIsland();
+await copyAssets(production, modules);
 
-const llms = ["# zerolith", "", "> A standalone frontend framework: fine-grained signals, HTML templates that need no compiler, typed routing, and tooling that works wherever the app is served.", ""];
-for (const section of ["Guide", "Reference", "Diagnostics"] as const)
+const sitemap = ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>", "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">", ...[...rendered.keys()].toSorted().map((path) => `<url><loc>${absolute(path)}</loc></url>`), "</urlset>"];
+await write("sitemap.xml", sitemap.join("\n") + "\n");
+
+const llms = [
+    "# zerolith",
+    "",
+    "> A full frontend framework with clear patterns for you and your agent: fine-grained signals, HTML templates that need no compiler, typed routing, forms, server rendering, i18n, and tooling that works wherever the app is served.",
+    "",
+    "Every page below is Markdown. The [home page](/index.md) summarizes the framework, the tutorial builds an app step by step, the guides teach one pattern per concept, the reference lists every export, and every diagnostic code has its own page.",
+    ""
+];
+for (const section of ["Learn", "Guide", "Reference", "Diagnostics"] as const)
 {
-    llms.push(`## ${section}`, "");
+    llms.push(`## ${section === "Learn" ? "Tutorial" : section}`, "");
     for (const page of pages.filter((candidate) => candidate.section === section))
     {
         llms.push(`- [${page.title}](${markdownTwin(page.path)}): ${page.description}`);
     }
     llms.push("");
 }
+llms.push("## Agent Skills", "", "- [zerolith](/skills/zerolith/SKILL.md): the rules, the pattern for each concept, the commands, and a checklist for finishing a change, with every guide as a reference; install with `npx skills add molexxxx/zerolith`", "");
+llms.push("## Optional", "", `- [Playground](/playground.md): ${playgroundDescription}`, "- [API manifest](/api.json): every export with its kind, module, and documentation, as JSON", "");
 await write("llms.txt", rebaseMarkdown(llms.join("\n"), base));
-await write("llms-full.txt", rebaseMarkdown(pages.map((page) => page.markdown).join("\n\n\n"), base) + "\n");
+await write("llms-full.txt", rebaseMarkdown([homeMarkdown(homeData), ...pages.map((page) => page.markdown)].join("\n\n\n"), base) + "\n");
 
-console.log(`docs: ${pages.length} pages, ${manifest.length} reference symbols, ${Math.round(performance.now() - start)} ms, written to site/ for ${base}`);
+console.log(`docs: ${rendered.size} pages, ${manifest.length} reference symbols, ${Math.round(performance.now() - start)} ms, written to site/ for ${base}`);

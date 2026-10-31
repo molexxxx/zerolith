@@ -2,6 +2,7 @@
 title: Routing
 description: The typed route table, plain anchors, loaders, head metadata, and the outlet.
 order: 5
+group: Building apps
 ---
 
 # Routing

@@ -45,7 +45,8 @@
         "docs:serve": "node scripts/serve.ts 8081 site",
         "brand": "node scripts/brand/render.ts",
         "check": "npm run build && npm run typecheck && npm run lint && npm run test:all && npm run size && npm run docs",
-        "sbom": "npm sbom --sbom-format cyclonedx --omit dev"
+        "sbom": "npm sbom --sbom-format cyclonedx --omit dev",
+        "skills": "node --conditions=development scripts/skills.ts"
     },
     "devDependencies": {
         "@opentelemetry/api": "1.9.1",

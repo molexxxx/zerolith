@@ -28,7 +28,15 @@
         {
             "files": ["**/scripts/**"],
             "rules": {
-                "no-console": "off"
+                "no-console": "off",
+                "no-await-in-loop": "off"
+            }
+        },
+        {
+            "files": ["**/test/fixtures/tutorial/**", "**/test/examples/**", "scripts/docs/playground/**"],
+            "rules": {
+                "unicorn/consistent-function-scoping": "off",
+                "oxc/no-map-spread": "off"
             }
         },
         {

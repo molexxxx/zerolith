@@ -1,7 +1,8 @@
 ---
 title: Vite
 description: "For projects that use Vite: the plugin brings zerolith's build passes into Vite and adds hot module replacement that swaps components in place and keeps named signal state."
-order: 12
+order: 14
+group: Tooling
 ---
 
 # Vite

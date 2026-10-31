@@ -1,7 +1,8 @@
 ---
 title: Building and serving
 description: "What zerolith build writes and how to serve it: static hosts, web servers, a backend's own static files, a path under a domain, caching, and a backend next to the dev server."
-order: 11.5
+order: 13
+group: Tooling
 ---
 
 # Building and serving

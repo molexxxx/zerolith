@@ -2,7 +2,9 @@
  * A static file server over the repository root for examples and tests:
  * `/packages/*\/dist` serves the built packages the import maps point at,
  * and an extensionless path under `/examples/<name>/` falls back to that
- * example's index.html so client-side routes load directly.
+ * example's index.html so client-side routes load directly. Every file is
+ * served to any origin, as GitHub Pages serves the docs, so the playground's
+ * sandboxed frame can load its modules here too.
  */
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
@@ -59,7 +61,7 @@ export function createStaticServer(root: string = repositoryRoot): Server
             {
                 throw new Error("not a file");
             }
-            response.writeHead(200, { "content-type": types[extname(file)] ?? "application/octet-stream", "cache-control": "no-cache" });
+            response.writeHead(200, { "content-type": types[extname(file)] ?? "application/octet-stream", "cache-control": "no-cache", "access-control-allow-origin": "*" });
             createReadStream(file).pipe(response);
         }
         catch

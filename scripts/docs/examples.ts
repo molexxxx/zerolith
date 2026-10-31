@@ -101,14 +101,14 @@ export function regionParts(source: string, region: string): string[]
 const languages = new Set(["ts", "tsx", "js", "jsx", "html", "css", "json", "sh"]);
 
 /**
- * The fenced block an include stands for, from the included file's text. The
- * code is application code: a region that shows a test check is refused, the
- * imports the code uses are added, and the code is dedented. Options after
- * the region change that: `test` shows a test as a test, `excerpt` shows the
- * text verbatim with no imports added, and a language name sets the fence's
- * language. Without a region, the whole file is shown verbatim.
+ * The code an include stands for, from the included file's text, with its
+ * language. The code is application code: a region that shows a test check
+ * is refused, the imports the code uses are added, and the code is dedented.
+ * Options after the region change that: `test` shows a test as a test,
+ * `excerpt` shows the text verbatim with no imports added, and a language
+ * name sets the language. Without a region, the whole file is shown verbatim.
  */
-export function renderExample(source: string, path: string, region: string | undefined, options: string[], file: string): string
+export function exampleCode(source: string, path: string, region: string | undefined, options: string[], file: string): { language: string; code: string }
 {
     const unknown = options.filter((option) => option !== "test" && option !== "excerpt" && !languages.has(option));
     if (unknown.length > 0)
@@ -119,7 +119,7 @@ export function renderExample(source: string, path: string, region: string | und
     const language = options.find((option) => languages.has(option)) ?? extension;
     if (region === undefined)
     {
-        return "```" + language + "\n" + source.trim() + "\n```";
+        return { language, code: source.trim() };
     }
     const parts = regionParts(source, region);
     if (parts.length === 0)
@@ -135,7 +135,14 @@ export function renderExample(source: string, path: string, region: string | und
         throw new Error(`${file}: ${path}#${region} shows a test check; keep checks outside the region, or include it with \`test\``);
     }
     const imports = options.includes("excerpt") ? [] : importsFor(code, source, test);
-    return "```" + language + "\n" + (imports.length > 0 ? imports.join("\n") + "\n\n" : "") + code + "\n```";
+    return { language, code: (imports.length > 0 ? imports.join("\n") + "\n\n" : "") + code };
+}
+
+/** The fenced block an include stands for; see `exampleCode` for what the options do. */
+export function renderExample(source: string, path: string, region: string | undefined, options: string[], file: string): string
+{
+    const { language, code } = exampleCode(source, path, region, options, file);
+    return "```" + language + "\n" + code + "\n```";
 }
 
 /** Replaces every `@include path#region options` line of a guide with the example it names, reading files under `root`. */

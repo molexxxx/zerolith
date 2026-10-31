@@ -2,6 +2,7 @@
 title: Forms
 description: Native forms that post FormData and work without JavaScript, enhanced with fetch, pending state, and RFC 9457 field errors, with validation written once for the browser and the server.
 order: 6
+group: Building apps
 ---
 
 # Forms

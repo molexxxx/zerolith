@@ -27,6 +27,12 @@ describe("the docs base path", () =>
         expect(rebaseHtml(page, "/")).toBe(page);
     });
 
+    it("rebases the integrity keys of an import map with its addresses", () =>
+    {
+        const page = "<script type=\"importmap\">{\"imports\":{\"zerolith\":\"/zerolith/index.js\"},\"integrity\":{\"/zerolith/index.js\":\"sha384-a\",\"/island.js\":\"sha384-b\"}}</script>";
+        expect(rebaseHtml(page, "/zerolith/")).toBe("<script type=\"importmap\">{\"imports\":{\"zerolith\":\"/zerolith/zerolith/index.js\"},\"integrity\":{\"/zerolith/zerolith/index.js\":\"sha384-a\",\"/zerolith/island.js\":\"sha384-b\"}}</script>");
+    });
+
     it("rebases Markdown links outside fenced code", () =>
     {
         const markdown = "See [forms](/guide/forms/) and [out](https://x.dev/).\n\n```ts\nconst link = \"[a](/b)\";\n```\n[after](/e/)";

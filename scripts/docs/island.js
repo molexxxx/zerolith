@@ -1,17 +1,12 @@
 /**
- * Hydrates the search island and wires the page's other controls: the theme
- * toggle, the menu on narrow screens, and the copy button on each code block.
- * The page's import map resolves `zerolith` to the production build the docs
- * build copied next to this file.
+ * Wires the page's controls, the theme toggle, the menu on narrow screens,
+ * and the copy buttons, then hydrates the page's islands: the search, the
+ * home page's running figure, and the playground, each loaded only on a page
+ * that has it. The page's import map resolves `zerolith` to the production
+ * build the docs build copied next to this file.
  */
 import { hydrate } from "zerolith";
 import { Search } from "./search.js";
-
-const host = document.querySelector("[data-island=\"search\"]");
-if (host !== null)
-{
-    hydrate(Search(), host);
-}
 
 const root = document.documentElement;
 const prefersLight = matchMedia("(prefers-color-scheme: light)");
@@ -43,22 +38,23 @@ document.querySelector(".theme-toggle")?.addEventListener("click", () =>
 });
 
 const menu = document.querySelector(".menu-toggle");
-const sidebar = document.getElementById("sidebar");
 menu?.addEventListener("click", () =>
 {
     const open = menu.getAttribute("aria-expanded") !== "true";
     menu.setAttribute("aria-expanded", String(open));
-    sidebar?.classList.toggle("open", open);
+    root.toggleAttribute("data-menu-open", open);
 });
 
 /**
- * Copies a code block's text and shows the check icon for a moment.
+ * Copies the text a copy button names, or its code block's text, and shows
+ * the check icon for a moment.
  * @param {HTMLButtonElement} button
  * @returns {Promise<void>}
  */
 async function copy(button)
 {
-    const text = button.closest(".code")?.querySelector("pre")?.textContent ?? "";
+    const label = button.getAttribute("data-label") ?? "Copy";
+    const text = button.getAttribute("data-copy") ?? button.closest(".code")?.querySelector("pre")?.textContent ?? "";
     try
     {
         await navigator.clipboard.writeText(text);
@@ -72,11 +68,31 @@ async function copy(button)
     setTimeout(() =>
     {
         button.removeAttribute("data-copied");
-        button.setAttribute("aria-label", "Copy code");
+        button.setAttribute("aria-label", label);
     }, 1500);
 }
 
-for (const button of document.querySelectorAll(".code .copy"))
+for (const button of document.querySelectorAll(".copy"))
 {
+    button.setAttribute("data-label", button.getAttribute("aria-label") ?? "Copy");
     button.addEventListener("click", () => copy(/** @type {HTMLButtonElement} */ (button)));
+}
+
+const search = document.querySelector("[data-island=\"search\"]");
+if (search !== null)
+{
+    hydrate(Search(), search);
+}
+
+const figure = document.querySelector("[data-island=\"figure\"]");
+if (figure !== null)
+{
+    const { Figure, watch } = await import("./demo.js");
+    hydrate(Figure(), figure);
+    watch(figure);
+}
+
+if (document.querySelector("[data-playground]") !== null)
+{
+    await import("./playground.js");
 }

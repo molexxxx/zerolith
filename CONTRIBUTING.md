@@ -46,6 +46,8 @@ Each example's README walks through what it shows and what the build writes.
 | `crates/zerolith` | The Rust command line: `new`, `dev`, `serve`, `build`, `preview`, `importmap`, `doctor`; published on npm as `@zerolith/cli` and on crates.io |
 | `examples/` | Applications built on the packages; their tests run in `npm run check` |
 | `docs/guide` | The guides; examples are pulled from tests with `@include` |
+| `docs/learn` | The tutorial; every file it shows is a fixture under `packages/zerolith/test/fixtures/tutorial` that a test runs |
+| `skills/` | Agent Skills; the references of `skills/zerolith` are generated from the guides |
 | `docs/policy` | Support window, release channels, versioning and deprecation rules |
 | `docs/ROADMAP.md` | What is shipped, next, and planned |
 | `brand/` | The brand system; `brand/README.md` describes the rules |
@@ -66,6 +68,7 @@ Each example's README walks through what it shows and what the build writes.
 | `npm run size` | Check the compressed size budget |
 | `npm run docs` | Build the docs site into `site/`; fails on an undocumented export, a missing example, or a broken link. `ZEROLITH_DOCS_BASE=/zerolith/` builds it for a subpath, as GitHub Pages serves it |
 | `npm run docs:serve` | Serve the built docs site on port 8081 |
+| `npm run skills` | Regenerate the Agent Skill's references from the guides; a test fails while they are stale |
 | `npm run bench` | Run the keyed-table benchmark |
 | `npm run sbom` | Emit a CycloneDX SBOM of the runtime dependency graph |
 | `npm run brand` | Render the brand PNG and ICO files from their SVG sources |

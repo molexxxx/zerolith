@@ -1,7 +1,8 @@
 ---
 title: Custom elements
 description: Mount a zerolith view inside a page or a tree another framework owns, through a custom element whose attributes and properties are signals.
-order: 15
+order: 9
+group: Building apps
 ---
 
 # Custom elements

@@ -2,6 +2,7 @@
 title: Signals
 description: State, derived values, effects, batching, ownership, and async values in the reactive graph.
 order: 2
+group: Basics
 ---
 
 # Signals

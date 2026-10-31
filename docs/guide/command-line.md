@@ -1,7 +1,8 @@
 ---
 title: Command line
 description: "The Rust command line: a dev server that resolves packages itself, production builds bundled with Rolldown, a preview server, import maps with integrity hashes, and project checks."
-order: 11
+order: 12
+group: Tooling
 ---
 
 # Command line
@@ -105,7 +106,7 @@ The zerolith passes are the ones `vite build` runs through the [Vite plugin](/gu
 
 A view loaded with the router's `lazy()` and each locale of a message index compiled by `zerolith-i18n` get chunks of their own, fetched when they are needed, and the build fails with `lazy_module_not_split` when one of them is also imported statically, which would merge it into the importing chunk. A module that an entry and a lazy chunk share gets a chunk both import. The page preloads every chunk its entries import statically with `<link rel="modulepreload">`, so the browser fetches them in parallel instead of discovering them one import at a time.
 
-Stylesheets become one file. The ones the page links and the ones modules import, as in `import "./card.css"`, are combined in the order the page and the modules load them, through [lightningcss](https://lightningcss.dev): local `@import`s are inlined in place under their `layer()`, `supports()`, and media conditions, a remote `@import` moves to the top where CSS requires it, and the result is lowered for the oldest [supported browsers](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md), with nesting flattened, fallbacks for newer color functions, and the vendor prefixes those browsers need, then minified. The page's first local stylesheet link loads the result, and the others are removed.
+Stylesheets become one file. The ones the page links and the ones modules import, as in `import "./card.css"`, are combined in the order the page and the modules load them, through [lightningcss](https://lightningcss.dev): local `@import`s are inlined in place under their `layer()`, `supports()`, and media conditions, a remote `@import` moves to the top where CSS requires it, and the result is lowered for the oldest [supported browsers](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md), with nesting flattened, fallbacks for newer color functions, and the vendor prefixes those browsers need, then minified. The page's first local stylesheet link loads the result, and the others are removed. A stylesheet link to a file that is not in the project, such as one the host serves next to the app, is kept as it is, with a warning.
 
 Files are copied into `assets/` under a content hash when a stylesheet references them with `url()`, when a module imports them, and when the page names them in an icon, manifest, or preload `<link>`, an `<img>`, `<source>`, `<video>`, `<audio>`, or `<track>`, or a classic `<script>`. Importing an image, font, media file, or document gives its URL; `?url` gives any file's URL and `?raw` its text:
 
