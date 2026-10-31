@@ -38,7 +38,9 @@ The release workflow publishes to npm with provenance and to crates.io, and no c
 
 ## Canary releases
 
-Once the canary channel opens (see the [roadmap](../ROADMAP.md)), every merge to the default branch that passes CI publishes a canary version (`0.0.0-canary.<sha>` style) under the `canary` dist-tag. Canary versions are retained for 90 days.
+Every night the release workflow publishes a canary of every npm package from the default branch, under the `canary` dist-tag, when the packages, the crate, or the lockfiles changed since the last canary; a manual run with `canary` publishes one at once. `npm install zerolith@canary` installs the newest, and `npx @zerolith/cli@canary new my-app` starts a project on it.
+
+A canary's version is the current version with a canary prerelease after it, naming the day and the commit: `0.1.0-alpha.4` gives `0.1.0-alpha.4.canary.20261031.g1a2b3c4`, which sorts after the release it builds on and before the next, and a stable `1.2.0` gives `1.2.1-canary.20261031.g1a2b3c4`. It runs the same full check as a release and publishes through the same trusted publisher with provenance, but it never moves `latest` or `alpha`, never publishes the crate, and creates no GitHub release or docs deployment. Publishing at most once a day, and only after a change, keeps the version list short: npm keeps every published version, and one that other packages depend on cannot be removed after 72 hours.
 
 ## Security releases
 

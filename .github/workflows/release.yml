@@ -8,6 +8,14 @@ name: Release
 # secret is only read when it exists, for the first publish of a package
 # that has no trusted publisher yet.
 #
+# Canaries run here too, so they publish through the same trusted
+# publisher: every night, and on a manual run with "canary", every npm
+# package is published under the canary dist-tag with a version such as
+# 0.1.0-alpha.4.canary.20261031.g1a2b3c4 (scripts/canary.ts), when the
+# packages, the crate, or the lockfiles changed since the last canary. A
+# canary never moves latest, never publishes the crate, and creates no
+# GitHub release or docs deployment.
+#
 # A release that publishes the core also rebuilds the documentation site
 # from the same commit and deploys it to GitHub Pages, and a release of
 # every package creates a GitHub release tagged zerolith@<version> with the
@@ -42,14 +50,62 @@ on:
         description: Run everything but the upload
         type: boolean
         default: false
+      canary:
+        description: Publish a canary of every npm package under the canary dist-tag instead, ignoring the other inputs but dry_run
+        type: boolean
+        default: false
+  schedule:
+    - cron: "23 5 * * *"
 
 permissions:
   contents: read
 
 jobs:
+  canary:
+    name: canary check
+    if: github.event_name == 'schedule' || github.event.inputs.canary == 'true'
+    runs-on: ubuntu-24.04
+    outputs:
+      publish: ${{ steps.check.outputs.publish }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+
+      - name: Check
+        id: check
+        env:
+          MANUAL: ${{ github.event.inputs.canary }}
+        run: |
+          set -eu
+          version="$(node scripts/canary.ts version "$(date -u +%Y%m%d)" "$GITHUB_SHA")"
+          publish=true
+          if previous="$(npm view zerolith@canary version 2>/dev/null)" && [ -n "$previous" ]; then
+            commit="$(node scripts/canary.ts commit "$previous")"
+            if [ -n "$commit" ] && git cat-file -e "$commit^{commit}" 2>/dev/null \
+              && git diff --quiet "$commit" HEAD -- packages crates Cargo.toml Cargo.lock package.json package-lock.json; then
+              publish=false
+            fi
+          fi
+          if [ "$MANUAL" = "true" ]; then
+            publish=true
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "canary $version, publish: $publish"
+
   binaries:
     name: binary ${{ matrix.name }}
-    if: github.event.inputs.package == 'all' || github.event.inputs.package == '@zerolith/cli' || startsWith(github.ref_name, '@zerolith/cli@')
+    needs: canary
+    if: ${{ !cancelled() && (needs.canary.outputs.publish == 'true' || (needs.canary.result == 'skipped' && (github.event.inputs.package == 'all' || github.event.inputs.package == '@zerolith/cli' || startsWith(github.ref_name, '@zerolith/cli@')))) }}
     strategy:
       fail-fast: true
       matrix:
@@ -67,8 +123,23 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Node
+        if: needs.canary.outputs.publish == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+
       - name: Toolchain
         run: rustup show active-toolchain
+
+      - name: Canary version
+        if: needs.canary.outputs.publish == 'true'
+        shell: bash
+        env:
+          VERSION: ${{ needs.canary.outputs.version }}
+        run: |
+          node scripts/version.ts "$VERSION"
+          cargo update --workspace
 
       - name: Build
         run: cargo build --release --locked --package zerolith
@@ -82,9 +153,9 @@ jobs:
           retention-days: 7
 
   npm:
-    name: npm ${{ github.event.inputs.package || github.ref_name }}
-    needs: binaries
-    if: ${{ !cancelled() && (needs.binaries.result == 'success' || needs.binaries.result == 'skipped') && (github.event_name == 'workflow_dispatch' || !startsWith(github.ref_name, 'crate@')) }}
+    name: npm ${{ needs.canary.outputs.publish == 'true' && 'canary' || github.event.inputs.package || github.ref_name }}
+    needs: [canary, binaries]
+    if: ${{ !cancelled() && (needs.binaries.result == 'success' || needs.binaries.result == 'skipped') && (needs.canary.outputs.publish == 'true' || (needs.canary.result == 'skipped' && (github.event_name == 'workflow_dispatch' || !startsWith(github.ref_name, 'crate@')))) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -117,6 +188,12 @@ jobs:
       - name: SBOM
         run: npm run sbom > sbom.cdx.json
 
+      - name: Canary version
+        if: needs.canary.outputs.publish == 'true'
+        env:
+          VERSION: ${{ needs.canary.outputs.version }}
+        run: node scripts/version.ts "$VERSION"
+
       - name: Binaries
         if: needs.binaries.result == 'success'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -135,14 +212,20 @@ jobs:
           INPUT_TAG: ${{ github.event.inputs.tag }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
           REF_NAME: ${{ github.ref_name }}
+          CANARY: ${{ needs.canary.outputs.publish }}
         run: |
           set -eu
-          if [ -n "$INPUT_PACKAGE" ]; then
-            selection="$INPUT_PACKAGE"
+          if [ "$CANARY" = "true" ]; then
+            selection="all"
+            tag="canary"
           else
-            selection="${REF_NAME%@*}"
+            if [ -n "$INPUT_PACKAGE" ]; then
+              selection="$INPUT_PACKAGE"
+            else
+              selection="${REF_NAME%@*}"
+            fi
+            tag="${INPUT_TAG:-alpha}"
           fi
-          tag="${INPUT_TAG:-alpha}"
           flags="--access public --provenance --tag $tag"
           if [ "$DRY_RUN" = "true" ]; then
             flags="$flags --dry-run"
@@ -195,7 +278,7 @@ jobs:
                 npm publish --workspace "$package" $flags
                 ;;
             esac
-            if [ "$DRY_RUN" != "true" ] && [ "$tag" != "latest" ]; then
+            if [ "$DRY_RUN" != "true" ] && [ "$tag" != "latest" ] && [ "$CANARY" != "true" ]; then
               move_latest "$package"
             fi
           done
@@ -210,7 +293,7 @@ jobs:
   docs:
     name: Docs
     needs: npm
-    if: ${{ !cancelled() && needs.npm.result == 'success' && github.event.inputs.dry_run != 'true' && (github.event.inputs.package == 'all' || github.event.inputs.package == 'zerolith' || startsWith(github.ref_name, 'zerolith@')) }}
+    if: ${{ !cancelled() && needs.npm.result == 'success' && github.event.inputs.dry_run != 'true' && github.event.inputs.canary != 'true' && github.event_name != 'schedule' && (github.event.inputs.package == 'all' || github.event.inputs.package == 'zerolith' || startsWith(github.ref_name, 'zerolith@')) }}
     permissions:
       contents: read
       pages: write
@@ -222,7 +305,7 @@ jobs:
   github-release:
     name: GitHub release
     needs: [npm, crate]
-    if: ${{ !cancelled() && needs.npm.result == 'success' && (needs.crate.result == 'success' || needs.crate.result == 'skipped') && github.event_name == 'workflow_dispatch' && github.event.inputs.package == 'all' && github.event.inputs.dry_run != 'true' }}
+    if: ${{ !cancelled() && needs.npm.result == 'success' && (needs.crate.result == 'success' || needs.crate.result == 'skipped') && github.event_name == 'workflow_dispatch' && github.event.inputs.canary != 'true' && github.event.inputs.package == 'all' && github.event.inputs.dry_run != 'true' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -259,7 +342,7 @@ jobs:
 
   crate:
     name: crates.io
-    if: startsWith(github.ref_name, 'crate@') || github.event.inputs.crate == 'true'
+    if: github.event.inputs.canary != 'true' && (startsWith(github.ref_name, 'crate@') || github.event.inputs.crate == 'true')
     runs-on: ubuntu-24.04
     permissions:
       contents: read
