@@ -307,15 +307,17 @@ function pagerOf(page: Page, pages: Page[]): { previous?: Link; next?: Link } | 
  * Holds the public API to the reports checked in under api/: a build fails
  * while an export or a member was added, removed, or changed without its
  * report being updated, so every change to what users call is a reviewed
- * change. `--update-api` writes the reports instead.
+ * change. `--update-api` writes the reports instead and removes the reports
+ * of entries that no longer exist, leaving the folder's README.
  */
 async function checkApi(reports: Map<string, string>): Promise<void>
 {
     const folder = join(root, "api");
     if (process.argv.includes("--update-api"))
     {
-        await rm(folder, { recursive: true, force: true });
         await mkdir(folder, { recursive: true });
+        const stale = (await readdir(folder)).filter((name) => name.endsWith(".api.md") && !reports.has(name));
+        await Promise.all(stale.map((name) => rm(join(folder, name))));
         await Promise.all([...reports].map(([name, text]) => writeFile(join(folder, name), text)));
         console.log(`docs: wrote ${reports.size} API reports to api/`);
         return;

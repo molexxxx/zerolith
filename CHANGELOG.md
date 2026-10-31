@@ -13,6 +13,7 @@ Every package in this repository is released together and carries the same versi
 ### Fixed
 
 - Docs site: forms submit in the playground's preview, so the Add button of the Packing list example works. The preview's sandbox lacked `allow-forms`, which stops a form before its `submit` event fires.
+- Docs site: the API reference, `api.json`, and `llms-full.txt` print every signature as the published types declare it. A parameter with a default value showed as `_` instead of its name and type, such as `createAnnouncer(_)` for `createAnnouncer(doc?: Document)`, template literal types carried terminal color codes in place of their backticks, interface methods lost their type parameters, the `~standard` property of `StandardSchema` lost its quotes, and the `JSX` namespace listed none of its members. The API reports in `api/` had the same faults and are now one TypeScript block each, which GitHub shows as code.
 
 ## 0.1.0-alpha.5 (2026-10-31)
 

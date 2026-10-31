@@ -8,7 +8,7 @@ import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { type Param, type TsType, type TypeParam, paramsText, typeParamsText, typeText } from "./types.ts";
+import { type Param, type TsType, type TypeParam, paramsText, propertyName, typeParamsText, typeText } from "./types.ts";
 
 const run = promisify(execFile);
 
@@ -49,14 +49,21 @@ interface DocJson
     nodes: Record<string, { symbols: Symbol[] }>;
 }
 
-interface Member
+interface Signature
+{
+    params?: Param[];
+    returnType?: TsType;
+    typeParams?: TypeParam[];
+}
+
+interface Member extends Signature
 {
     name: string;
     optional?: boolean;
     readonly?: boolean;
+    isStatic?: boolean;
     tsType?: TsType;
-    params?: Param[];
-    returnType?: TsType;
+    functionDef?: Signature;
     jsDoc?: JsDoc;
     kind?: string;
 }
@@ -142,19 +149,45 @@ function signatureOf(name: string, declaration: Declaration): string
     }
 }
 
+/** A property or method of an interface or class; a class method keeps its signature under `functionDef`. */
 function memberSignature(member: Member, methodLike: boolean): string
 {
-    if (methodLike)
+    const modifier = member.isStatic === true ? "static " : "";
+    const key = `${propertyName(member.name)}${member.optional === true ? "?" : ""}`;
+    if (!methodLike)
     {
-        return `${member.name}${member.optional === true ? "?" : ""}(${paramsText(member.params)}): ${typeText(member.returnType)}`;
+        return `${modifier}${member.readonly === true ? "readonly " : ""}${key}: ${typeText(member.tsType)}`;
     }
-    return `${member.readonly === true ? "readonly " : ""}${member.name}${member.optional === true ? "?" : ""}: ${typeText(member.tsType)}`;
+    const signature = member.functionDef ?? member;
+    const params = `(${paramsText(signature.params)})`;
+    switch (member.kind)
+    {
+        case "getter":
+            return `${modifier}get ${key}${params}: ${typeText(signature.returnType)}`;
+        case "setter":
+            return `${modifier}set ${key}${params}`;
+        default:
+            return `${modifier}${key}${typeParamsText(signature.typeParams)}${params}: ${typeText(signature.returnType)}`;
+    }
 }
 
 function membersOf(declaration: Declaration): Array<{ name: string; signature: string; doc: string }>
 {
     const def = declaration.def;
     const out: Array<{ name: string; signature: string; doc: string }> = [];
+    if (declaration.kind === "namespace")
+    {
+        for (const element of (def["elements"] as Symbol[] | undefined) ?? [])
+        {
+            for (const inner of element.declarations.filter((candidate) => candidate.declarationKind === "export"))
+            {
+                const block = inner.kind === "interface" || inner.kind === "class" || inner.kind === "namespace";
+                const members = membersOf(inner).map((member) => member.signature);
+                const body = !block ? "" : members.length === 0 ? " {}" : ` { ${members.join("; ")} }`;
+                out.push({ name: element.name, signature: signatureOf(element.name, inner) + body, doc: docText(inner.jsDoc) });
+            }
+        }
+    }
     if (declaration.kind === "interface" || declaration.kind === "class")
     {
         for (const constructor of (def["constructors"] as Member[] | undefined) ?? [])
@@ -214,30 +247,59 @@ export function symbolsOf(doc: DocJson, root: string, entry: Entry): ManifestSym
     return out;
 }
 
-/** The Markdown page for one entry. */
+const BLOCKS = new Set(["class", "interface", "namespace"]);
+
+function flat(text: string): string
+{
+    return text.replace(/\s+/g, " ");
+}
+
 /**
- * The public API of one entry as a plain text report: every export's
- * signature and, for interfaces and classes, its members, in a stable order
- * and without documentation, so a change to what users can call shows up as
- * a change to this text.
+ * The public API of one entry as a Markdown report: every export's signature
+ * and, for interfaces, classes, and namespaces, its members, as TypeScript in
+ * a stable order and without documentation, so a change to what users can
+ * call shows up as a change to this text.
  */
 export function apiReport(entry: Entry, symbols: ManifestSymbol[]): string
 {
-    const lines: string[] = [`# ${entry.specifier}`, ""];
+    const body: string[] = [];
     for (const kind of ORDER)
     {
-        for (const symbol of symbols.filter((candidate) => candidate.kind === kind).toSorted((a, b) => a.name.localeCompare(b.name)))
+        const group = symbols.filter((candidate) => candidate.kind === kind).toSorted((a, b) => a.name.localeCompare(b.name));
+        for (const [index, symbol] of group.entries())
         {
-            lines.push(symbol.signature.replace(/\s+/g, " "));
-            for (const member of symbol.members ?? [])
+            if (body.length > 0 && (index === 0 || BLOCKS.has(kind)))
             {
-                lines.push(`    ${member.signature.replace(/\s+/g, " ")}`);
+                body.push("");
+            }
+            body.push(flat(symbol.signature));
+            if (BLOCKS.has(kind))
+            {
+                body.push("{", ...(symbol.members ?? []).map((member) => `    ${flat(member.signature)}`), "}");
             }
         }
     }
-    return lines.join("\n") + "\n";
+    return [
+        `# ${entry.specifier}`,
+        "",
+        `Every export of \`${entry.specifier}\` with its signature, generated from the source by \`npm run api\`. The docs build fails while the exports differ from this file, so a change to the public API shows up here in review.`,
+        "",
+        "```ts",
+        ...body,
+        "```",
+        ""
+    ].join("\n");
 }
 
+/** Inline code that may hold backticks itself, delimited by a longer run of them as CommonMark allows. */
+function inlineCode(text: string): string
+{
+    const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map((ticks) => ticks.length));
+    const fence = "`".repeat(longest + 1);
+    return longest === 0 ? `\`${text}\`` : `${fence} ${text} ${fence}`;
+}
+
+/** The Markdown page for one entry. */
 export function referencePage(entry: Entry, symbols: ManifestSymbol[]): string
 {
     const lines: string[] = [`# ${entry.title}`, "", `Import from \`${entry.specifier}\`. Generated from the source; every signature below is what the published types declare.`, ""];
@@ -259,7 +321,7 @@ export function referencePage(entry: Entry, symbols: ManifestSymbol[]): string
             lines.push(`### ${symbol.name}`, "", "```ts", symbol.signature, "```", "", symbol.doc, "");
             for (const member of symbol.members ?? [])
             {
-                lines.push(`- \`${member.signature}\`${member.doc === "" ? "" : `: ${member.doc}`}`);
+                lines.push(`- ${inlineCode(member.signature)}${member.doc === "" ? "" : `: ${member.doc}`}`);
             }
             if (symbol.members !== undefined)
             {
