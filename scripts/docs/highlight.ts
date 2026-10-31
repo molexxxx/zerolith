@@ -620,7 +620,8 @@ export function tokenize(code: string, language: string): Token[]
 const entities: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" };
 
 /** Escapes code for HTML, quotes included, so markup inside an example is never read as the page's own attributes. */
-function escapeHtml(text: string): string
+/** Text made safe to place in HTML content or a quoted attribute. */
+export function escapeHtml(text: string): string
 {
     return text.replace(/[&<>"']/g, (character) => entities[character] ?? character);
 }

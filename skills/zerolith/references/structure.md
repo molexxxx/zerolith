@@ -49,10 +49,10 @@ A JavaScript project has the same layout with `.js` files and JSDoc types; `npm 
 
 ## The AGENTS.md
 
-An agent reads one file before touching a project. The scaffold writes this one for a TypeScript project on the command line, and the point of its shape is that it fits in context next to the task:
+An agent reads one file before touching a project. The scaffold writes this one for `zerolith new my-app`, a TypeScript project on the command line, and the point of its shape is that it fits in context next to the task:
 
-```markdown
-# <name>: guide for coding agents
+```markdown AGENTS.md
+# my-app: guide for coding agents
 
 A zerolith application. The project develops and builds on the zerolith command line; packages load from `node_modules` with no import map, and there is no Vite config. This file holds what is specific to this project. zerolith's own rules and patterns are in the zerolith skill in `.agents/skills/zerolith/`, also at `.claude/skills/zerolith/` for Claude Code; `npx zerolith skill` brings it to the installed version after an upgrade. The guides at https://molexxxx.github.io/zerolith/guide/ cover each concept in full.
 

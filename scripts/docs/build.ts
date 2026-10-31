@@ -12,14 +12,14 @@ import { createHash } from "node:crypto";
 import { copyFile, cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { marked } from "marked";
+import { Marked, marked } from "marked";
 import { rolldown } from "rolldown";
 import { diagnosticCatalog } from "zerolith";
 import { CORE_BUDGET_GZIP_BYTES, measure } from "../measure.ts";
 import { normalizeBase, rebaseHtml, rebaseMarkdown, rebasePath } from "./base.ts";
 import { mapLinks, sitePath } from "./links.ts";
 import { exampleCode, includeExamples } from "./examples.ts";
-import { highlight } from "./highlight.ts";
+import { escapeHtml, highlight } from "./highlight.ts";
 import { type Characteristic, Home, NotFound, homeMarkdown } from "./home.ts";
 import { type Link, type NavGroup, type PageData, fontFaces, icon, markdownTwin, renderPage, siteStyles } from "./layout.ts";
 import { Playground, playgroundMarkdown, playgroundModules } from "./playground.ts";
@@ -95,23 +95,92 @@ function slug(text: string): string
     return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
+/**
+ * A heading's id: the slug of its text, with -2, -3, and on when the page
+ * already gave that slug to another heading, as the reference does for a
+ * function and an interface whose names differ only in case.
+ */
+function headingId(html: string, used: Set<string>): string
+{
+    const stem = slug(html.replace(/<[^>]+>/g, "")) || "section";
+    let id = stem;
+    for (let count = 2; used.has(id); count++)
+    {
+        id = `${stem}-${count}`;
+    }
+    used.add(id);
+    return id;
+}
+
+let pageIds = new Set<string>();
+let fileViews = 0;
+const fileIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M5 3H14L19 8V21H5Z"/><path d="M14 3V8H19"/></svg>';
+
+const preview = new Marked({
+    gfm: true,
+    renderer: {
+        heading({ tokens, depth })
+        {
+            const level = Math.min(depth + 2, 6);
+            return `<h${level}>${this.parser.parseInline(tokens)}</h${level}>\n`;
+        }
+    }
+});
+
+/**
+ * A Markdown file shown the way its owner sees it on GitHub: the rendered
+ * document, a Source tab with the exact text an agent reads, and a button
+ * that copies that text. The rendered headings sit two levels down and carry
+ * no ids, so they stay out of the page's outline and its on-this-page list.
+ */
+function fileView(name: string, source: string): string
+{
+    fileViews++;
+    const id = `file-${fileViews}`;
+    const label = escapeHtml(name);
+    return `<figure class="file">
+<div class="file-bar">
+<span class="file-name">${fileIcon}${label}</span>
+<div class="file-views" role="tablist" aria-label="${label}">
+<button type="button" role="tab" id="${id}-preview-tab" aria-controls="${id}-preview" aria-selected="true">Preview</button>
+<button type="button" role="tab" id="${id}-source-tab" aria-controls="${id}-source" aria-selected="false" tabindex="-1">Source</button>
+</div>
+<button class="copy" type="button" aria-label="Copy ${label}"><span class="idle">${copyIcon}</span><span class="done">${doneIcon}</span></button>
+</div>
+<div class="file-preview" role="tabpanel" id="${id}-preview" aria-labelledby="${id}-preview-tab">
+${preview.parse(source) as string}</div>
+<div class="file-source" role="tabpanel" id="${id}-source" aria-labelledby="${id}-source-tab" hidden><pre><code>${escapeHtml(source)}</code></pre></div>
+</figure>
+`;
+}
+
 marked.use({
     gfm: true,
     renderer: {
         heading({ tokens, depth })
         {
             const text = this.parser.parseInline(tokens);
-            return `<h${depth} id="${slug(text.replace(/<[^>]+>/g, ""))}">${text}</h${depth}>\n`;
+            return `<h${depth} id="${headingId(text, pageIds)}">${text}</h${depth}>\n`;
         },
         code({ text, lang })
         {
-            const language = (lang ?? "").split(/\s/)[0] ?? "";
+            const [language = "", file = ""] = (lang ?? "").split(/\s+/);
+            if ((language === "markdown" || language === "md") && file !== "")
+            {
+                return fileView(file, text);
+            }
             const label = language === "" ? "" : ` data-language="${language}"`;
             const copy = `<button class="copy" type="button" aria-label="Copy code"><span class="idle">${copyIcon}</span><span class="done">${doneIcon}</span></button>`;
             return `<div class="code"${label}>${copy}<pre><code>${highlight(text, language)}</code></pre></div>\n`;
         }
     },
     hooks: {
+        preprocess(markdown)
+        {
+            pageIds = new Set();
+            fileViews = 0;
+            return markdown;
+        },
         postprocess(html)
         {
             return html.replace(/<table>/g, "<div class=\"table\"><table>").replace(/<\/table>/g, "</table></div>");
@@ -390,42 +459,80 @@ interface SearchEntry
     text: string;
 }
 
-/** Markdown reduced to the words a search should see: no code blocks, links, tags, or markup characters. */
+/**
+ * Markdown reduced to the words a search should see: no code blocks, links,
+ * tags, list markers, table rules, or markup characters. Code spans keep
+ * their text as written, angle brackets and underscores included, so a
+ * signature or a diagnostic code reads in a snippet as it does on the page.
+ */
 function plainText(markdown: string): string
 {
+    const spans: string[] = [];
     return markdown
         .replace(/```[\s\S]*?```/g, " ")
         .replace(/^@include .*$/gm, " ")
+        .replace(/`([^`\n]+)`/g, (_match, code: string) => `\uE000${spans.push(code) - 1}\uE001`)
         .replace(/<[^>]+>/g, " ")
         .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
-        .replace(/[`*_>|#]/g, " ")
+        .replace(/^\s*\|?(?:\s*:?-+:?\s*\|)+\s*$/gm, " ")
+        .replace(/^\s*(?:[-*+]|\d+\.)\s+/gm, "")
+        .replace(/^\s*(?:#{1,6}|>)\s*/gm, "")
+        .replace(/\*{1,2}([^*\n]+)\*{1,2}/g, "$1")
+        .replace(/\s*\|\s*/g, " ")
+        .replace(/\uE000(\d+)\uE001/g, (_match, index: string) => spans[Number(index)] ?? "")
         .replace(/\s+/g, " ")
         .trim();
 }
 
-/** One entry per page section, so a hit lands on the heading that holds the answer. */
+/**
+ * One entry per page section, so a hit lands on the heading that holds the
+ * answer. Sections follow the page's second- and third-level headings as
+ * marked reads them, so a heading line inside a code block starts none, and
+ * each anchor is the id the rendered page gives that heading. Two entries
+ * with one path and anchor fail the build, since the page would then hold
+ * two elements with one id and the search's keyed list would refuse them.
+ */
 function searchIndex(pages: Page[]): SearchEntry[]
 {
     const found: SearchEntry[] = [];
+    const keys = new Set<string>();
     for (const page of pages)
     {
-        const chunks = page.markdown.split(/^#{2,3} /m);
-        for (const [index, chunk] of chunks.entries())
+        const used = new Set<string>();
+        const sections: Array<{ heading: string; anchor: string; body: string[] }> = [{ heading: page.title, anchor: "", body: [] }];
+        for (const token of marked.lexer(page.markdown))
         {
-            let heading = page.title;
-            let body = chunk.replace(/^# .*$/m, "");
-            if (index > 0)
+            if (token.type === "heading")
             {
-                const newline = chunk.indexOf("\n");
-                heading = plainText(newline === -1 ? chunk : chunk.slice(0, newline));
-                body = newline === -1 ? "" : chunk.slice(newline + 1);
+                const depth = Number(token["depth"]);
+                const text = String(token["text"]);
+                const id = headingId(marked.parseInline(text) as string, used);
+                if (depth === 2 || depth === 3)
+                {
+                    sections.push({ heading: plainText(text), anchor: id, body: [] });
+                    continue;
+                }
+                if (depth === 1)
+                {
+                    continue;
+                }
             }
-            const text = plainText(body).slice(0, 3000);
-            if (text === "" && index > 0)
+            sections.at(-1)?.body.push(token.raw);
+        }
+        for (const section of sections)
+        {
+            const text = plainText(section.body.join("")).slice(0, 3000);
+            if (text === "" && section.anchor !== "")
             {
                 continue;
             }
-            found.push({ path: page.path, title: page.title, section: page.section, heading, anchor: index === 0 ? "" : slug(heading), text });
+            const key = `${page.path}#${section.anchor}`;
+            if (keys.has(key))
+            {
+                throw new Error(`search index: two sections share ${key}`);
+            }
+            keys.add(key);
+            found.push({ path: page.path, title: page.title, section: page.section, heading: section.heading, anchor: section.anchor, text });
         }
     }
     return found;

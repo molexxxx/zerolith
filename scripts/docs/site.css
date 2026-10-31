@@ -39,6 +39,12 @@ html
     scrollbar-gutter: stable;
 }
 
+html:has(dialog[open])
+{
+    overflow: hidden;
+    background: color-mix(in srgb, var(--zl-bg) 45%, #0F1114);
+}
+
 ::-webkit-scrollbar
 {
     width: 10px;
@@ -588,6 +594,182 @@ article blockquote > :last-child
     {
         opacity: 1;
     }
+}
+
+.file
+{
+    margin: var(--zl-space-6) 0;
+    border: var(--zl-rule) solid var(--zl-line);
+}
+
+.file-bar
+{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--zl-space-2) var(--zl-space-4);
+    min-height: 52px;
+    padding: var(--zl-space-1) var(--zl-space-2) var(--zl-space-1) var(--zl-space-4);
+    border-bottom: var(--zl-rule) solid var(--zl-line);
+    background: var(--zl-surface);
+}
+
+.file-name
+{
+    display: inline-flex;
+    flex: 1;
+    align-items: center;
+    gap: var(--zl-space-2);
+    font-family: var(--zl-font-mono);
+    font-size: 0.8125rem;
+}
+
+.file-name svg
+{
+    flex: none;
+    color: var(--zl-text-muted);
+}
+
+.file-views
+{
+    display: flex;
+}
+
+.file-views button
+{
+    height: 40px;
+    padding: 0 var(--zl-space-3);
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--zl-text-muted);
+    font-family: var(--zl-font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.file-views button:hover
+{
+    color: var(--zl-text);
+}
+
+.file-views button[aria-selected="true"]
+{
+    color: var(--zl-accent-text);
+    box-shadow: inset 0 calc(-1 * var(--zl-rule)) 0 var(--zl-accent-text);
+}
+
+.file-views button:focus-visible,
+.file .copy:focus-visible
+{
+    outline: var(--zl-rule) solid var(--zl-focus);
+    outline-offset: calc(-1 * var(--zl-rule));
+}
+
+.file .copy
+{
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: var(--zl-rule) solid transparent;
+    border-radius: 0;
+    background: none;
+    color: var(--zl-text-muted);
+    cursor: pointer;
+}
+
+.file .copy:hover
+{
+    border-color: var(--zl-line);
+    color: var(--zl-text);
+}
+
+.file .copy svg
+{
+    width: 18px;
+    height: 18px;
+}
+
+.file .copy .done,
+.file .copy[data-copied] .idle
+{
+    display: none;
+}
+
+.file .copy[data-copied] .done
+{
+    display: block;
+}
+
+.file-preview
+{
+    padding: var(--zl-space-6);
+}
+
+.file-preview > :first-child
+{
+    margin-top: 0;
+}
+
+.file-preview > :last-child
+{
+    margin-bottom: 0;
+}
+
+.file-preview h3,
+.file-preview h4,
+.file-preview h5,
+.file-preview h6
+{
+    font-family: var(--zl-font-text);
+    font-weight: 600;
+    letter-spacing: normal;
+    line-height: 1.3;
+}
+
+.file-preview h3
+{
+    margin: 0 0 var(--zl-space-3);
+    font-size: 1.25rem;
+}
+
+.file-preview h4,
+.file-preview h5,
+.file-preview h6
+{
+    margin: var(--zl-space-6) 0 var(--zl-space-2);
+    font-size: 1rem;
+}
+
+@media (max-width: 480px)
+{
+    .file-bar
+    {
+        gap: var(--zl-space-2);
+        padding-left: var(--zl-space-3);
+    }
+
+    .file-views button
+    {
+        padding: 0 var(--zl-space-2);
+    }
+}
+
+.file-source pre
+{
+    margin: 0;
+    padding: var(--zl-space-6);
+    background: var(--zl-code-bg);
+    color: var(--zl-code-text);
+    font-family: var(--zl-font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 .table

@@ -1972,14 +1972,14 @@ mod tests {
     fn writes_the_agents_md_the_structure_guide_shows() {
         let guide = include_str!("../../../docs/guide/structure.md");
         let written = agents_md(
-            "<name>",
+            "my-app",
             Choice {
                 jsx: false,
                 ..Choice::DEFAULT
             },
         );
         assert!(
-            guide.contains(&format!("```markdown\n{written}```")),
+            guide.contains(&format!("```markdown AGENTS.md\n{written}```")),
             "docs/guide/structure.md should show the AGENTS.md a TypeScript starter gets:
 {written}"
         );

@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { type Browser, type Page, chromium } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createStaticServer, listen, repositoryRoot } from "../../static.ts";
+import { type Entry, group, rank } from "../search.js";
 
 /**
  * Builds the documentation site once, serves it, and drives its islands in
@@ -53,26 +54,76 @@ async function open(path: string): Promise<{ page: Page; errors: string[] }>
 
 describe("documentation site", () =>
 {
-    it("hydrates the search island and finds sections for a query", { timeout: 60000 }, async () =>
+    it("opens the search from its button and its shortcuts, and shows, marks, and walks the results", { timeout: 60000 }, async () =>
     {
         const { page, errors } = await open("/guide/forms/");
-        const input = page.locator("[data-island=\"search\"] input");
-        await input.waitFor();
-        expect(await page.locator("[data-island=\"search\"] li").count()).toBe(0);
+        const dialog = page.locator("[data-island=\"search\"] dialog");
+        const input = dialog.locator("input");
+        const options = dialog.locator("[role=\"option\"]");
+        const labels = (): Promise<string[]> => dialog.locator(".label").allTextContents();
+        const isOpen = (): Promise<boolean> => dialog.evaluate((element) => (element as HTMLDialogElement).open);
+        const entries = JSON.parse(await readFile(join(site, "search.json"), "utf8")) as Entry[];
+
+        await page.click("[data-island=\"search\"] .trigger");
+        await expect.poll(isOpen).toBe(true);
+        await options.first().waitFor();
+        expect(await labels()).toEqual(["Start here"]);
 
         await input.fill("problem details");
-        await page.waitForSelector("[data-island=\"search\"] li a");
-        const hrefs = await page.$$eval("[data-island=\"search\"] li a", (links) => links.map((link) => link.getAttribute("href") ?? ""));
+        await expect.poll(labels).not.toEqual(["Start here"]);
+        const hrefs = await options.evaluateAll((links) => links.map((link) => link.getAttribute("href") ?? ""));
         expect(hrefs.some((href) => href.startsWith("/guide/forms/") || href.startsWith("/guide/client/"))).toBe(true);
+        expect(await options.locator("mark").count()).toBeGreaterThan(0);
+        const first = await input.getAttribute("aria-activedescendant");
+        await input.press("ArrowDown");
+        expect(await input.getAttribute("aria-activedescendant")).not.toBe(first);
+
+        await input.fill("");
+        await input.pressSequentially("signal");
+        await expect.poll(labels).toEqual(group(rank(entries, "signal")).map((section) => section.label));
+        const ids = await options.evaluateAll((links) => links.map((link) => link.id));
+        expect(new Set(ids).size).toBe(ids.length);
 
         await input.fill("xqzv-nothing-matches");
-        await page.waitForFunction(() => document.querySelectorAll("[data-island=\"search\"] li").length === 0);
-
-        await input.fill("renderHead");
-        await page.waitForSelector("[data-island=\"search\"] li a");
+        await dialog.locator(".status").waitFor();
+        expect(await options.count()).toBe(0);
         await input.press("Escape");
-        expect(await input.inputValue()).toBe("");
+        await expect.poll(isOpen).toBe(false);
+
+        await page.keyboard.press("/");
+        await expect.poll(isOpen).toBe(true);
+        await input.fill("renderHead");
+        await options.first().waitFor();
+        await input.press("Enter");
+        await page.waitForURL((url) => url.pathname.startsWith("/reference/"));
+        await page.keyboard.press("Control+k");
+        await expect.poll(() => page.locator("[data-island=\"search\"] dialog").evaluate((element) => (element as HTMLDialogElement).open)).toBe(true);
         expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("shows a Markdown file rendered with its source a tab away, and keeps the file's headings out of the page's outline", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/guide/structure/");
+        const file = page.locator(".file").first();
+        expect(await file.locator(".file-name").textContent()).toBe("AGENTS.md");
+        expect(await file.locator(".file-preview h3").first().textContent()).toBe("my-app: guide for coding agents");
+        expect(await file.locator(".file-source").isHidden()).toBe(true);
+        await file.locator("[role=\"tab\"]", { hasText: "Source" }).click();
+        expect(await file.locator(".file-preview").isHidden()).toBe(true);
+        expect(await file.locator(".file-source pre").textContent()).toContain("# my-app: guide for coding agents\n");
+        expect(await page.locator(".toc a").allTextContents()).not.toContain("Commands");
+        expect(await page.locator("#commands").count()).toBe(0);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("gives a heading whose slug repeats another's an id of its own", { timeout: 60000 }, async () =>
+    {
+        const { page } = await open("/reference/zerolith/");
+        const ids = await page.$$eval("[id]", (elements) => elements.map((element) => element.id));
+        expect(new Set(ids).size).toBe(ids.length);
+        expect(ids).toEqual(expect.arrayContaining(["signal", "signal-2"]));
         await page.close();
     });
 
