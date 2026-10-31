@@ -63,7 +63,7 @@ interface Controller
 interface BoundPart
 {
     readonly count: number;
-    bind(values: readonly unknown[]): void;
+    bind(values: readonly unknown[], offset: number): void;
 }
 
 /** The result of an `html` literal as the server renderer sees it. */
@@ -364,15 +364,14 @@ class Instance
         let offset = 0;
         for (const part of this.parts)
         {
-            const slice = values.slice(offset, offset + part.count);
             const cursor = this.cursors?.get(part);
             if (cursor !== undefined && part instanceof ChildPart)
             {
-                part.set(slice[0], cursor);
+                part.set(values[offset], cursor);
             }
             else
             {
-                part.bind(slice);
+                part.bind(values, offset);
             }
             offset += part.count;
         }
@@ -405,9 +404,9 @@ class ChildPart implements BoundPart
         this.anchor = anchor;
     }
 
-    bind(values: readonly unknown[]): void
+    bind(values: readonly unknown[], offset: number): void
     {
-        this.set(values[0]);
+        this.set(values[offset]);
     }
 
     /** Replaces the displayed value, disposing whatever the previous value created. With `cursor`, adopts the server-rendered nodes starting there instead of creating new ones. */
@@ -725,6 +724,8 @@ class AttributePart implements BoundPart
     private listener: EventListenerOrEventListenerObject | undefined = undefined;
     private listenerOptions: AddEventListenerOptions | undefined = undefined;
     private target: unknown = undefined;
+    /** The one value of a single-expression part, reused for every update so applying it allocates nothing. */
+    private readonly single: unknown[] = [undefined];
 
     constructor(element: Element, spec: PartSpec)
     {
@@ -733,38 +734,48 @@ class AttributePart implements BoundPart
         this.count = spec.count;
     }
 
-    bind(values: readonly unknown[]): void
+    bind(values: readonly unknown[], offset: number): void
     {
         if (this.spec.kind === EVENT)
         {
-            this.listen(values[0]);
+            this.listen(values[offset]);
             return;
         }
         if (this.spec.kind === REF)
         {
-            this.reference(values[0]);
+            this.reference(values[offset]);
             return;
         }
         this.owner?.dispose();
         this.owner = undefined;
-        if (values.length === 1 && isSignal(values[0]))
+        if (this.count === 1)
         {
-            const value = values[0];
-            this.owner = startEffect(() =>
+            const value = values[offset];
+            const single = this.single;
+            if (isSignal(value))
             {
-                this.apply([value.get()]);
-            });
+                this.owner = startEffect(() =>
+                {
+                    single[0] = value.get();
+                    this.apply(single);
+                });
+                return;
+            }
+            single[0] = value;
+            this.apply(single);
+            return;
         }
-        else if (values.some(isSignal))
+        const own = values.slice(offset, offset + this.count);
+        if (own.some(isSignal))
         {
             this.owner = startEffect(() =>
             {
-                this.apply(values.map((value) => (isSignal(value) ? value.get() : value)));
+                this.apply(own.map((value) => (isSignal(value) ? value.get() : value)));
             });
         }
         else
         {
-            this.apply(values);
+            this.apply(own);
         }
     }
 
@@ -1014,11 +1025,30 @@ export type RowOf<T> = (item: ReadableSignal<T>, index: ReadableSignal<number>) 
 interface Row<T>
 {
     readonly key: unknown;
-    readonly start: Comment;
-    readonly part: ChildPart;
+    /** The row's first node, which the rows before it are inserted ahead of. */
+    readonly start: ChildNode;
+    /** A row that renders a template holds the template's own nodes, with no markers around them. */
+    readonly nodes: readonly ChildNode[] | undefined;
+    /** Any other row holds its view in a part between its start marker and the part's anchor. */
+    readonly part: ChildPart | undefined;
     readonly item: Signal<T>;
     readonly index: Signal<number>;
     readonly owner: Owner;
+}
+
+/** Removes a row's nodes; its owner is disposed by the caller. */
+function removeRow(row: Row<unknown>): void
+{
+    if (row.nodes !== undefined)
+    {
+        for (const node of row.nodes)
+        {
+            node.remove();
+        }
+        return;
+    }
+    row.part?.destroy();
+    row.start.remove();
 }
 
 /** Indices of one longest strictly increasing subsequence of `positions`, ignoring -1 entries. */
@@ -1068,15 +1098,26 @@ function moveRow(row: Row<unknown>, before: Node): void
     {
         return;
     }
+    if (row.nodes !== undefined)
+    {
+        for (const node of row.nodes)
+        {
+            parent.insertBefore(node, before);
+        }
+        return;
+    }
     let node: ChildNode | null = row.start;
-    const end = row.part.anchor;
+    const end = row.part?.anchor ?? null;
     while (node !== null && node !== end)
     {
         const next: ChildNode | null = node.nextSibling;
         parent.insertBefore(node, before);
         node = next;
     }
-    parent.insertBefore(end, before);
+    if (end !== null)
+    {
+        parent.insertBefore(end, before);
+    }
 }
 
 class Keyed<T> extends Directive
@@ -1126,15 +1167,35 @@ class Keyed<T> extends Directive
             });
         });
 
-        /** Creates a row and its anchors in `parent` before `before`, which may be a fragment the caller inserts later. */
+        /**
+         * Creates a row in `parent` before `before`, which may be a fragment the
+         * caller inserts later. A row whose view is a template keeps the
+         * template's nodes; any other view, and a row hydrated from markers,
+         * goes in a part between markers.
+         */
         const create = (key: unknown, value: T, index: number, parent: Node, before: Node | null, adopt?: { start: Comment; end: Comment }): Row<T> =>
         {
-            const start = adopt?.start ?? parent.insertBefore(document.createComment(""), before);
-            const rowPart = new ChildPart(adopt?.end ?? parent.insertBefore(document.createComment(""), before));
-            const row: Row<T> = { key, start, part: rowPart, item: signal(value), index: signal(index), owner: createOwner(true) };
-            row.owner.run(() =>
+            const item = signal(value);
+            const position = signal(index);
+            const rowOwner = createOwner(true);
+            const row = rowOwner.run((): Row<T> =>
             {
-                rowPart.set(this.row(row.item, row.index), adopt === undefined ? undefined : adopt.start.nextSibling ?? adopt.end);
+                const view = this.row(item, position);
+                if (adopt === undefined && view instanceof TemplateResult)
+                {
+                    const prepared = prepare(view.strings);
+                    if (prepared.content.firstChild !== null)
+                    {
+                        const instance = Instance.create(view.strings, prepared);
+                        instance.update(view.values);
+                        parent.insertBefore(instance.fragment as DocumentFragment, before);
+                        return { key, start: instance.nodes[0] as ChildNode, nodes: instance.nodes, part: undefined, item, index: position, owner: rowOwner };
+                    }
+                }
+                const start = adopt?.start ?? parent.insertBefore(document.createComment(""), before);
+                const rowPart = new ChildPart(adopt?.end ?? parent.insertBefore(document.createComment(""), before));
+                rowPart.set(view, adopt === undefined ? undefined : adopt.start.nextSibling ?? adopt.end);
+                return { key, start, nodes: undefined, part: rowPart, item, index: position, owner: rowOwner };
             });
             rows.set(key, row);
             return row;
@@ -1205,8 +1266,7 @@ class Keyed<T> extends Directive
                     if (!keys.has(row.key))
                     {
                         row.owner.dispose();
-                        row.part.destroy();
-                        row.start.remove();
+                        removeRow(row);
                         rows.delete(row.key);
                     }
                 }
@@ -1294,8 +1354,7 @@ class Keyed<T> extends Directive
                 owner.dispose();
                 for (const row of order)
                 {
-                    row.part.destroy();
-                    row.start.remove();
+                    removeRow(row);
                 }
                 rows.clear();
                 order = [];
