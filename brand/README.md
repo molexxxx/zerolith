@@ -35,6 +35,8 @@ A chartreuse tile with the stele in basalt.
 
 Basalt carries every surface. Chartreuse `#AACF16` is spent on five things only: the mark, the primary action, the active navigation item, code keywords, and focus. On light grounds chartreuse is a fill only, and deep olive `#4B5E00` takes its text and focus roles. Status colors (danger, warning, hint) are for diagnostics; success is the text color with the check icon.
 
+Code sits on basalt-950 in both themes and has roles of its own: keywords in chartreuse, the live parts of a template (`${}` bindings and the `@` `.` `?` prefixes) in pale lichen `#C8E679`, tags in glacier `#8DC3F2`, attributes and properties in lilac `#BDB4F4`, numbers and literals in rose `#EFA3BD`, strings in basalt-300, and comments in basalt-400. Every one reads at 9:1 or better on the code ground, and the glacier, lilac, and rose hues appear in code and nowhere else.
+
 `tokens.css` holds the values as custom properties, with dark as the default and a light theme for `prefers-color-scheme: light` or `data-theme="light"`. `tokens.json` holds the same values in the Design Tokens Community Group format, plus the terminal mapping. Code blocks stay on basalt in both themes.
 
 ## Type
