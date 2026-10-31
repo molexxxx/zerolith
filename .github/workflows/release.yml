@@ -275,10 +275,10 @@ jobs:
                 if [ "$DRY_RUN" != "true" ]; then
                   for platform in $platforms; do
                     attempt=0
-                    until npm view "$platform@$version" version >/dev/null 2>&1; do
+                    until tarball="$(npm view "$platform@$version" dist.tarball 2>/dev/null)" && [ -n "$tarball" ] && curl -fsIL "$tarball" >/dev/null; do
                       attempt=$((attempt + 1))
                       if [ "$attempt" -ge 60 ]; then
-                        echo "::error::$platform@$version did not resolve from the registry within 30 minutes, so @zerolith/cli was not published; an install of it now would lack that binary"
+                        echo "::error::$platform@$version did not download from the registry within 30 minutes, so @zerolith/cli was not published; an install of it now would lack that binary"
                         exit 1
                       fi
                       sleep 30
