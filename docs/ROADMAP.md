@@ -108,6 +108,7 @@ See the [command line guide](guide/command-line.md).
 - [x] `dev` resolves packages from `node_modules` with the build's resolver, so a page needs no import map, and serves stylesheets, JSON, and other files imported from code, `PUBLIC_` variables from `.env` files, and the public folder, as `build` does.
 - [x] `preview` serves a build's output as a static host would.
 - [x] `new` writes a starter in the brand style: TSX on the command line by default, asking for the language, Vite, and the inspector, with a browser test, a README on deploying, and the dependencies installed.
+- [x] `new --example fullstack` writes the fullstack example as a project of its own, an app with its Node backend, with tests of both and a README on developing with two processes and on deploying.
 - [x] A proxy from `dev`, `serve`, and `preview` to backends, streaming bodies and joining WebSocket connections, a base path for all three and the router, and `zerolith.json` for the settings they share, with a schema.
 - [ ] A proxy to `https://` backends.
 - [ ] `zerolith migrate`, with codemods between versions.

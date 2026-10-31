@@ -10,7 +10,7 @@ zerolith importmap [root] [--out vendor] [--development] [--html index.html]
 zerolith doctor [root] [--json]
 zerolith build [root] [--out dist] [--base /] [--mode production] [--sourcemap] [--no-minify] [--no-prepare] [--empty-out-dir]
 zerolith build [root] --unbundled [--out dist] [--no-prepare]
-zerolith new [name] [--template tsx|ts|jsx|js] [--vite] [--buildless] [--no-devtools] [--no-install] [--yes]
+zerolith new [name] [--example fullstack] [--template tsx|ts|jsx|js] [--vite] [--buildless] [--no-devtools] [--no-install] [--yes]
 ```
 
 Install it from npm as `@zerolith/cli`, which carries a prebuilt binary for Linux (glibc), macOS, and Windows on x64 and arm64, or from crates.io with `cargo install zerolith`.
@@ -25,6 +25,6 @@ Install it from npm as `@zerolith/cli`, which carries a prebuilt binary for Linu
 
 `build` bundles the modules `index.html` loads into minified, tree-shaken chunks with hashed names, with Rolldown, the bundler Vite is built on: JSX lowered and every template prepared ahead of time, as in the Vite plugin, lazy routes and compiled locales in chunks of their own, the stylesheets the page links and the modules import combined into one through lightningcss, the files they reference copied under hashed names, `public/` copied as it is, and the page rewritten to load the output under any `--base`. `--unbundled` writes the buildless output instead: sources transformed to JavaScript file by file, prepared, and served with the installed packages vendored behind an import map with integrity hashes. `--no-prepare` keeps the scanner in either.
 
-`new` writes a starter application in the brand style and installs its dependencies, asking for what the flags leave open: the language, TSX by default; the command line or Vite; and the inspector. The starter has three pages, a browser test, an `AGENTS.md`, and a README on developing, building, previewing, and deploying.
+`new` writes a starter application in the brand style and installs its dependencies, asking for what the flags leave open: the starting point, the starter by default; the language, TSX by default; the command line or Vite; and the inspector. The starter has three pages, a browser test, an `AGENTS.md`, and a README on developing, building, previewing, and deploying. `--example fullstack` writes the fullstack example instead, an app under `/app/` with its own Node backend, with tests of both and a README on running the two side by side and on deploying.
 
 From this repository, `cargo build --release` puts the binary at `target/release/zerolith`. The [command line guide](https://molexxxx.github.io/zerolith/guide/command-line/) documents every command.

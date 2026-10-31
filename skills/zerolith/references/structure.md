@@ -81,11 +81,12 @@ The framework's own `AGENTS.md` follows the same shape, and the documentation si
 The command line comes from npm as `@zerolith/cli`, so `npx @zerolith/cli@alpha new my-app` needs nothing installed first; see [Command line](command-line.md).
 
 ```
-zerolith new my-app                  asks, with TSX and the command line as the defaults
-zerolith new my-app --yes            takes every default
-zerolith new my-app --template js    JavaScript with html templates and JSDoc types
-zerolith new my-app --vite           develops and builds on Vite with @zerolith/vite
-zerolith new my-app --buildless      deploys the modules behind an import map instead of a bundle
+zerolith new my-app                        asks, with TSX and the command line as the defaults
+zerolith new my-app --yes                  takes every default
+zerolith new my-app --template js          JavaScript with html templates and JSDoc types
+zerolith new my-app --vite                 develops and builds on Vite with @zerolith/vite
+zerolith new my-app --buildless            deploys the modules behind an import map instead of a bundle
+zerolith new my-app --example fullstack    the fullstack example: an app under /app/ with its own Node backend
 ```
 
-The command writes the layout with three working pages, a browser test, the scripts, a README on developing and deploying, and the `AGENTS.md`, pinning the tool versions this repository tests with, and installs the dependencies. `cd my-app && npm run dev` starts it.
+By default the command writes the layout with three working pages, a browser test, the scripts, a README on developing and deploying, and the `AGENTS.md`, pinning the tool versions this repository tests with, and installs the dependencies. `cd my-app && npm run dev` starts it.

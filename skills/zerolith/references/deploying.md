@@ -58,7 +58,7 @@ While developing, the application and its backend usually run as two servers, su
 
 A request whose path starts with a prefix goes to that backend with its path and query, the longest prefix first; `stripPrefix` removes the prefix, so `/auth/login` reaches the second backend as `/login`. Request and response bodies stream through, server-sent events included, and WebSocket connections are joined end to end. The backend receives its own address as `Host`, with the original request in `X-Forwarded-Host`, `X-Forwarded-Proto`, and `X-Forwarded-For`, and a redirect it sends to its own address comes back as a path on the dev server. When the backend is down, the request answers 502 and the terminal says why. `zerolith preview` forwards the same paths, and `--proxy /api=http://127.0.0.1:3000` adds a path for one run. The proxy forwards to `http://` addresses only for now.
 
-The [fullstack example](https://github.com/molexxxx/zerolith/tree/main/examples/fullstack) runs this setup end to end: a Node backend with an API under `/api`, and the application under `/app/`.
+The [fullstack example](https://github.com/molexxxx/zerolith/tree/main/examples/fullstack) runs this setup end to end: a Node backend with an API under `/api`, and the application under `/app/`. `zerolith new my-app --example fullstack` starts a project of your own from it.
 
 ## Served by a backend
 

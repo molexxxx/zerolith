@@ -57,6 +57,7 @@ zerolith dev
 
 | Choice | Default | Other choices |
 | --- | --- | --- |
+| Starting point | The starter | `--example fullstack` for an app with its own Node backend |
 | Language | TSX | `--template ts`, `--template jsx`, or `--template js` |
 | Dev server and build | The zerolith command line | `--vite` for Vite with `@zerolith/vite` |
 | Production output | One minified bundle | `--buildless` for the modules behind an import map |

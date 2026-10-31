@@ -7,6 +7,8 @@ A zerolith app with its own backend: a notes page under `/app/` that lists and a
 
 The backend is [server.ts](server.ts), plain Node with no dependencies. Any backend works the same way, and the [building and serving guide](../../docs/guide/deploying.md) has the setup for others, from Express and ASP.NET Core to nginx.
 
+To start a project of your own from this example, without a clone of the repository, run `zerolith new my-app --example fullstack`. It writes these files with a `package.json`, tests, a README, and an `AGENTS.md` of their own, and its `npm run api`, `npm run dev`, `npm run build`, and `npm start` do what the `fullstack` scripts below do here.
+
 ## Files
 
 ```
