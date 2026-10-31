@@ -1,6 +1,6 @@
 {
     "name": "@zerolith/devtools",
-    "version": "0.1.0-alpha.4",
+    "version": "0.1.0-alpha.5",
     "description": "An in-page inspector for zerolith applications: signals, roots, and diagnostics, working wherever the app is served",
     "license": "Apache-2.0",
     "author": "molexxxx",
@@ -41,9 +41,9 @@
         "build": "tsc -p tsconfig.build.json"
     },
     "peerDependencies": {
-        "zerolith": "0.1.0-alpha.4"
+        "zerolith": "0.1.0-alpha.5"
     },
     "devDependencies": {
-        "zerolith": "0.1.0-alpha.4"
+        "zerolith": "0.1.0-alpha.5"
     }
 }

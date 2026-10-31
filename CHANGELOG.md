@@ -2,9 +2,11 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
-## Unreleased
+## 0.1.0-alpha.5 (2026-10-31)
 
-### Breaking
+The docs site is now a place to learn zerolith, with a home page that runs a counter, a ten-step tutorial, a playground, and a guide for coding agents, and every new project comes with the zerolith skill. `zerolith new --example fullstack` writes an app with its own Node backend, which `zerolith dev` reaches through a proxy under the app's base path, and keyed lists render in about half the script time of 0.1.0-alpha.4. The packages that share `zerolith/internal` now require the same version of zerolith, so upgrade them together.
+
+### Breaking changes
 
 - `zerolith`: the exports that only the build tools and the inspector use moved from `zerolith` to a new `zerolith/internal` entry, so the application API holds only what applications call. They are the template prepare pass (`prepared`, `scan`, `Scanned`, `PartSpec`, `PreparedPart`), the scope marker of scoped styles (`SCOPE_MARKER`), and the inspector hook (`devtoolsInternal`, `devtoolsSaveRestore`, `DevtoolsHook`, `DevtoolsEvent`, `NodeSnapshot`, `RootSnapshot`). Application code is unaffected. Upgrade `zerolith`, `@zerolith/vite`, `@zerolith/devtools`, and `@zerolith/cli` together: the 0.1.0-alpha.4 plugin, inspector, and command line import these names from `zerolith` and fail against this release.
 

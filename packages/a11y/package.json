@@ -1,6 +1,6 @@
 {
     "name": "@zerolith/a11y",
-    "version": "0.1.0-alpha.4",
+    "version": "0.1.0-alpha.5",
     "description": "Accessibility primitives for zerolith: focus trap, roving tabindex, live announcer, focus origin, visually hidden styles, and media query signals, the pieces every component library rebuilds",
     "license": "Apache-2.0",
     "author": "molexxxx",
@@ -42,9 +42,9 @@
         "build": "tsc -p tsconfig.build.json"
     },
     "peerDependencies": {
-        "zerolith": "^0.1.0-alpha.4"
+        "zerolith": "^0.1.0-alpha.5"
     },
     "devDependencies": {
-        "zerolith": "^0.1.0-alpha.4"
+        "zerolith": "^0.1.0-alpha.5"
     }
 }
