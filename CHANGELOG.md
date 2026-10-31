@@ -6,7 +6,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Changed
 
-- Brand and docs site: code sits on basalt-900 in the dark theme, a plane apart from the basalt-950 page, and stays on basalt-950 in the light theme, so code stands out from the page in both. Code is set at 13 px instead of 14, so more lines fit without scrolling, and scrollbars are thin and square in the brand's control color, with a stable gutter so pages no longer shift when one appears.
+- Brand and docs site: code follows the theme like every other surface. It sits on the surface plane, basalt-900 on the dark page and white on the light one, with a value of each code role for each theme, so the light theme no longer shows dark code blocks, a dark command bar, or a dark playground editor. The playground's preview follows the theme too, including when the reader switches it, which the preview's sandboxed frame could not see before. Code is set at 13 px instead of 14, so more lines fit without scrolling, and scrollbars are thin and square in the brand's control color, with a stable gutter so pages no longer shift when one appears.
 - Docs: the roadmap marks what 0.1.0-alpha.5 shipped and what remains next, and the READMEs, the contributing guide, the release policy, the tutorial, and the guides name the `skill` command, the skill a new project holds, and the `--no-skill` choice of `zerolith new`.
 - Docs site: the home page's figure totals what the updates changed since the page loaded, so each click adds two text nodes to the count while elements created stay at 0 and `Counter()` calls at 1.
 

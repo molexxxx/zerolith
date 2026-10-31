@@ -50,13 +50,32 @@ async function unpack(packed)
 }
 
 /**
+ * The site's theme: the reader's choice, or the system's preference.
+ * @returns {"light" | "dark"}
+ */
+function siteTheme()
+{
+    const chosen = document.documentElement.getAttribute("data-theme");
+    if (chosen === "light" || chosen === "dark")
+    {
+        return chosen;
+    }
+    return matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
+/**
  * The document the preview frame runs: an import map for the packages, a
- * reporter for console output and errors, and the code as a module.
+ * reporter for console output and errors, a listener that takes the site's
+ * theme, and the code as a module. The frame's opaque origin keeps it from
+ * seeing the site's theme through `prefers-color-scheme`, so the theme
+ * arrives as the root's `data-theme` and in messages when the reader
+ * changes it.
  * @param {string} code
  * @param {Record<string, string>} imports
+ * @param {"light" | "dark"} theme
  * @returns {string}
  */
-function frameDocument(code, imports)
+function frameDocument(code, imports, theme)
 {
     const reporter = `
         const send = (level, values) => parent.postMessage({ playground: true, level, text: values.map((value) => typeof value === "string" ? value : (() => { try { return JSON.stringify(value); } catch { return String(value); } })()).join(" ") }, "*");
@@ -66,9 +85,16 @@ function frameDocument(code, imports)
             console[level] = (...values) => { original(...values); send(level, values); };
         }
         addEventListener("error", (event) => send("error", [event.error?.message ?? event.message]));
-        addEventListener("unhandledrejection", (event) => send("error", [event.reason?.message ?? String(event.reason)]));`;
+        addEventListener("unhandledrejection", (event) => send("error", [event.reason?.message ?? String(event.reason)]));
+        addEventListener("message", (event) =>
+        {
+            if (event.source === parent && (event.data?.playgroundTheme === "light" || event.data?.playgroundTheme === "dark"))
+            {
+                document.documentElement.setAttribute("data-theme", event.data.playgroundTheme);
+            }
+        });`;
     return `<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="${theme}">
 <head>
 <meta charset="utf-8">
 <link rel="stylesheet" href="${new URL("fonts.css", document.baseURI).href}">
@@ -124,10 +150,18 @@ async function start(host)
     {
         clearTimeout(pending);
         output.replaceChildren();
-        const root = document.documentElement;
-        frame.style.colorScheme = root.getAttribute("data-theme") ?? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
-        frame.srcdoc = frameDocument(code.get(), imports);
+        const theme = siteTheme();
+        frame.style.colorScheme = theme;
+        frame.srcdoc = frameDocument(code.get(), imports, theme);
     }
+    function followTheme()
+    {
+        const theme = siteTheme();
+        frame.style.colorScheme = theme;
+        frame.contentWindow?.postMessage({ playgroundTheme: theme }, "*");
+    }
+    new MutationObserver(followTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    matchMedia("(prefers-color-scheme: light)").addEventListener("change", followTheme);
     effect(() =>
     {
         code.get();

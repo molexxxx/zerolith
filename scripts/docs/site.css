@@ -487,7 +487,7 @@ article blockquote > :last-child
 
 .code ::selection
 {
-    background: var(--zl-basalt-800);
+    background: var(--zl-code-selection);
 }
 
 .code .k
@@ -539,7 +539,7 @@ article blockquote > :last-child
     width: 44px;
     height: 44px;
     padding: 0;
-    border: var(--zl-rule) solid var(--zl-basalt-800);
+    border: var(--zl-rule) solid var(--zl-line);
     border-radius: 0;
     background: var(--zl-code-bg);
     color: var(--zl-code-comment);
@@ -562,7 +562,7 @@ article blockquote > :last-child
 
 .code .copy:focus-visible
 {
-    outline-color: var(--zl-lichen-300);
+    outline-color: var(--zl-focus);
 }
 
 .code .copy svg
@@ -1006,7 +1006,7 @@ article blockquote > :last-child
 
 .command .button:focus-visible
 {
-    outline-color: var(--zl-lichen-300);
+    outline-color: var(--zl-on-accent);
     outline-offset: -4px;
 }
 
@@ -1530,12 +1530,12 @@ article blockquote > :last-child
 
 .editor textarea::selection
 {
-    background: var(--zl-basalt-800);
+    background: var(--zl-code-selection);
 }
 
 .editor textarea:focus-visible
 {
-    outline: var(--zl-rule) solid var(--zl-lichen-300);
+    outline: var(--zl-rule) solid var(--zl-focus);
     outline-offset: calc(-1 * var(--zl-rule));
 }
 

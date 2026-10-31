@@ -523,9 +523,26 @@ async function copyAssets(production: string, modules: string[]): Promise<void>
         cp(join(root, "skills"), join(out, "skills"), { recursive: true })
     ]);
     await Promise.all([
-        copyFile(join(root, "crates", "zerolith", "templates", "styles.css"), join(out, "playground", "preview.css")),
+        readFile(join(root, "crates", "zerolith", "templates", "styles.css"), "utf8").then((css) => writeFile(join(out, "playground", "preview.css"), previewStyles(css))),
         writeFile(join(out, "playground", "fonts.css"), fontFaces("../fonts/"))
     ]);
+}
+
+/**
+ * The starter stylesheet for the playground's preview, made to follow the
+ * site's theme through the root's `data-theme` as the brand tokens do: the
+ * frame's opaque origin keeps the theme the reader picked out of its
+ * `prefers-color-scheme`.
+ */
+function previewStyles(css: string): string
+{
+    const light = /@media \(prefers-color-scheme: light\)\n\{\n {4}:root\n {4}\{\n([\s\S]*?)\n {4}\}\n\}/;
+    const declarations = light.exec(css)?.[1];
+    if (declarations === undefined)
+    {
+        throw new Error("crates/zerolith/templates/styles.css: the light theme block the playground preview follows the site's theme with was not found");
+    }
+    return css.replace(light, () => `@media (prefers-color-scheme: light)\n{\n    :root:not([data-theme="dark"])\n    {\n${declarations}\n    }\n}\n\n:root[data-theme="light"]\n{\n${declarations.replace(/^ {4}/gm, "")}\n}`);
 }
 
 async function write(path: string, content: string): Promise<void>

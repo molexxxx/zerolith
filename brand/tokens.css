@@ -1,9 +1,9 @@
 /*
  * zerolith brand tokens, "Slab on Basalt". Dark is the default; light applies
- * when the reader prefers it or the root carries data-theme="light". Code
- * sits on a dark basalt plane set apart from the page in both themes,
- * basalt-900 on the dark page and basalt-950 on the light one, so the code
- * roles have one value each, and their glacier, lilac, and rose hues appear
+ * when the reader prefers it or the root carries data-theme="light". Every
+ * surface follows the theme, code included: code sits on the surface plane,
+ * basalt-900 on the dark page and white on the light one, with a value of
+ * each code role for each theme, and the glacier, lilac, and rose hues appear
  * in code and nowhere else.
  * Chartreuse is a fill on light grounds, never a text or line color; its text
  * role there is --zl-accent-text.
@@ -50,7 +50,7 @@
     --zl-rule: 2px;
     --zl-radius: 0;
 
-    --zl-code-bg: var(--zl-basalt-900);
+    --zl-code-bg: var(--zl-surface);
     --zl-code-text: var(--zl-basalt-100);
     --zl-code-keyword: var(--zl-lichen-300);
     --zl-code-binding: var(--zl-lichen-200);
@@ -59,6 +59,7 @@
     --zl-code-literal: #EFA3BD;
     --zl-code-string: var(--zl-basalt-300);
     --zl-code-comment: var(--zl-basalt-400);
+    --zl-code-selection: var(--zl-basalt-800);
 
     color-scheme: dark;
     --zl-bg: var(--zl-basalt-950);
@@ -92,7 +93,15 @@
         --zl-danger: #C42B2B;
         --zl-warning: #7A5B00;
         --zl-hint: #1F5BB8;
-        --zl-code-bg: var(--zl-basalt-950);
+        --zl-code-text: var(--zl-basalt-950);
+        --zl-code-keyword: var(--zl-lichen-700);
+        --zl-code-binding: #3A4A00;
+        --zl-code-tag: #215F94;
+        --zl-code-attribute: #5747B8;
+        --zl-code-literal: #A3305A;
+        --zl-code-string: var(--zl-basalt-800);
+        --zl-code-comment: var(--zl-basalt-600);
+        --zl-code-selection: var(--zl-basalt-200);
     }
 }
 
@@ -109,5 +118,13 @@
     --zl-danger: #C42B2B;
     --zl-warning: #7A5B00;
     --zl-hint: #1F5BB8;
-    --zl-code-bg: var(--zl-basalt-950);
+    --zl-code-text: var(--zl-basalt-950);
+    --zl-code-keyword: var(--zl-lichen-700);
+    --zl-code-binding: #3A4A00;
+    --zl-code-tag: #215F94;
+    --zl-code-attribute: #5747B8;
+    --zl-code-literal: #A3305A;
+    --zl-code-string: var(--zl-basalt-800);
+    --zl-code-comment: var(--zl-basalt-600);
+    --zl-code-selection: var(--zl-basalt-200);
 }

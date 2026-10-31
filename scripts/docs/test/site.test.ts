@@ -130,6 +130,27 @@ describe("documentation site", () =>
         await page.close();
     });
 
+    it("keeps the preview in the site's theme when the reader switches it, without running the code again", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/#example=counter");
+        await page.click("[data-action=\"run\"]");
+        const frame = page.frameLocator(".preview iframe");
+        await frame.locator("#app button").first().waitFor({ timeout: 15000 });
+        const theme = (): Promise<string | null> => frame.locator("html").getAttribute("data-theme");
+        const ground = (): Promise<string> => frame.locator("body").evaluate((body) => getComputedStyle(body).backgroundColor);
+        const initial = await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme);
+        expect(await theme()).toBe(initial);
+        const before = await ground();
+        await frame.locator("#app button").first().click();
+        const counted = await frame.locator("#app p").first().textContent();
+        await page.click(".theme-toggle");
+        await expect.poll(theme).toBe(initial === "dark" ? "light" : "dark");
+        expect(await ground()).not.toBe(before);
+        expect(await frame.locator("#app p").first().textContent()).toBe(counted);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
     it("opens a shared playground link with its code", { timeout: 60000 }, async () =>
     {
         const { page } = await open("/playground/#example=conditions");
