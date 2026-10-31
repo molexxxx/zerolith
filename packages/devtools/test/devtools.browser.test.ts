@@ -19,10 +19,14 @@ async function frame(): Promise<void>
     await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
 }
 
-/** The number of reactive nodes the development hook holds. */
-function tracked(): number
+/**
+ * The highest id among the reactive nodes the development hook holds. Ids
+ * only grow, so a node created later raises it, while the hook dropping a
+ * node the garbage collector took can only lower it.
+ */
+function newest(): number
 {
-    return ((globalThis as { __ZEROLITH_DEVTOOLS__?: DevtoolsHook }).__ZEROLITH_DEVTOOLS__?.nodes() ?? []).length;
+    return Math.max(0, ...((globalThis as { __ZEROLITH_DEVTOOLS__?: DevtoolsHook }).__ZEROLITH_DEVTOOLS__?.nodes() ?? []).map((node) => node.id));
 }
 
 describe("inspector", () =>
@@ -72,10 +76,10 @@ describe("inspector", () =>
         const later = signal("x", { name: "later" });
         await frame();
         await frame();
-        const settled = tracked();
+        const settled = newest();
         await frame();
         await frame();
-        expect(tracked()).toBe(settled);
+        expect(newest()).toBeLessThanOrEqual(settled);
         const dock = document.querySelector("[data-zerolith-devtools] aside") as HTMLElement;
         expect(Array.from(dock.querySelectorAll("tbody tr")).some((tr) => tr.textContent?.includes("later"))).toBe(true);
         expect(later.get()).toBe("x");
