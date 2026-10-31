@@ -41,9 +41,9 @@
         "build": "tsc -p tsconfig.build.json"
     },
     "peerDependencies": {
-        "zerolith": "^0.1.0-alpha.4"
+        "zerolith": "0.1.0-alpha.4"
     },
     "devDependencies": {
-        "zerolith": "^0.1.0-alpha.4"
+        "zerolith": "0.1.0-alpha.4"
     }
 }

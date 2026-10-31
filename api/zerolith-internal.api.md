@@ -34,3 +34,4 @@ interface Scanned
 type DevtoolsEvent = { type: "node"; id: number } | { type: "root"; id: number; removed: boolean } | { type: "diagnostic"; diagnostic: Diagnostic } | { type: "flush"; effects: number }
 type PreparedPart = readonly [number, string, readonly string[]]
 const SCOPE_MARKER: string
+const version: string

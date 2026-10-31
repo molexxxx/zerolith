@@ -5,6 +5,7 @@
  */
 import { type Diagnostic, computed, css, each, html, render, signal, when } from "zerolith";
 import { type DevtoolsHook, type NodeSnapshot, type RootSnapshot, devtoolsInternal } from "zerolith/internal";
+import { checkCoreVersion } from "./version.js";
 
 export type { DevtoolsHandle, DevtoolsOptions } from "./noop.js";
 import type { DevtoolsHandle, DevtoolsOptions } from "./noop.js";
@@ -130,10 +131,13 @@ function Diagnostics(list: () => Diagnostic[])
 /**
  * Mounts the inspector dock at the bottom of the page. Returns a handle to
  * toggle or remove it. Everything the inspector creates is marked internal
- * so it does not appear in its own tables.
+ * so it does not appear in its own tables. Mounting fails with
+ * `package_version_mismatch` when the installed zerolith is not the version
+ * the inspector was released with.
  */
 export function mountDevtools(options: DevtoolsOptions = {}): DevtoolsHandle
 {
+    checkCoreVersion();
     const source = hook();
     const open = signal(options.open === true);
     const tab = signal<Tab>("signals");

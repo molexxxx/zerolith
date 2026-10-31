@@ -119,6 +119,11 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
         cause: "A module meant to load as a chunk of its own, a view declared with lazy() from @zerolith/router or a locale of a message index compiled by zerolith-i18n, is also imported statically, so the bundler put it in the importing chunk.",
         fix: "Remove the static import, or import only its types with import type. Declare the view without lazy() if it should load with the page."
     },
+    package_version_mismatch:
+    {
+        cause: "A package released together with zerolith, such as @zerolith/vite, @zerolith/devtools, or the command line, met a zerolith of another version. They share the zerolith/internal entry, which can change with every version, so each requires the zerolith of its own version.",
+        fix: "Give zerolith and every @zerolith package the project uses the same version and install again; the message names both versions, and npm ls zerolith shows what is installed and what requires it."
+    },
     template_not_prepared:
     {
         cause: "A template reached the runtime that the build's prepare pass never saw, in a bundle built without the scanner.",

@@ -1,6 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { changelogSection, checkVersion, releaseNotes, withCrateVersion, withFirstPartyRanges, withPackageVersion } from "../release.ts";
+import { changelogSection, checkVersion, releaseNotes, withCrateVersion, withFirstPartyRanges, withPackageVersion, withSourceVersion } from "../release.ts";
 
 const root = new URL("../../", import.meta.url);
 
@@ -45,6 +45,14 @@ describe("the release helpers", () =>
         const next = withFirstPartyRanges(withPackageVersion(text, "0.1.0-alpha.2"), "0.1.0-alpha.2");
         expect(next).toBe(text.replaceAll("0.1.0-alpha.1", "0.1.0-alpha.2"));
         expect(() => withPackageVersion("{}\n", "1.0.0")).toThrow(/no top-level version/);
+        expect(withFirstPartyRanges("\"zerolith\": \"0.1.0-alpha.1\",\n\"@zerolith/router\": \"^0.1.0-alpha.1\"", "0.1.0-alpha.2")).toBe("\"zerolith\": \"0.1.0-alpha.2\",\n\"@zerolith/router\": \"^0.1.0-alpha.2\"");
+    });
+
+    it("sets the version constant of a package's sources", () =>
+    {
+        const text = "/** The version. */\nexport const version: string = \"0.1.0-alpha.1\";\n";
+        expect(withSourceVersion(text, "0.1.0-alpha.2")).toBe(text.replace("0.1.0-alpha.1", "0.1.0-alpha.2"));
+        expect(() => withSourceVersion("export const other = 1;\n", "1.0.0")).toThrow(/no version constant/);
     });
 
     it("sets the crate version", () =>
@@ -73,20 +81,32 @@ describe("the repository", () =>
             expect(manifest.version, manifest.name).toBe(top.version);
         }
         expect(/^version = "([^"]+)"/m.exec(await read("Cargo.toml"))?.[1]).toBe(top.version);
+        for (const workspace of top.workspaces ?? [])
+        {
+            const source = await read(`${workspace}/src/version.ts`).catch(() => undefined);
+            if (source !== undefined)
+            {
+                expect(/^export const version: string = "([^"]+)";$/m.exec(source)?.[1], workspace).toBe(top.version);
+            }
+        }
     });
 
-    it("points every first-party range at that version", async () =>
+    it("points every first-party range at that version, exactly where a package uses zerolith/internal", async () =>
     {
         const { root: top, workspaces } = await manifests();
-        for (const manifest of workspaces)
+        for (const [index, manifest] of workspaces.entries())
         {
+            const folder = new URL(`${top.workspaces?.[index] ?? ""}/src/`, root);
+            const files = (await readdir(folder, { recursive: true })).filter((file) => file.endsWith(".ts"));
+            const texts = await Promise.all(files.map((file) => readFile(new URL(file.replaceAll("\\", "/"), folder), "utf8")));
+            const internal = texts.some((text) => text.includes("from \"zerolith/internal\""));
             for (const ranges of [manifest.dependencies, manifest.devDependencies, manifest.peerDependencies, manifest.optionalDependencies])
             {
                 for (const [name, range] of Object.entries(ranges ?? {}))
                 {
                     if (name === "zerolith" || name.startsWith("@zerolith/"))
                     {
-                        expect(range, `${manifest.name} -> ${name}`).toBe(`^${top.version}`);
+                        expect(range, `${manifest.name} -> ${name}`).toBe(internal && name === "zerolith" ? top.version : `^${top.version}`);
                     }
                 }
             }

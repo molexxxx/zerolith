@@ -14,7 +14,7 @@ The package reads the hook the core publishes in development builds as `globalTh
 
 The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/dev-tools/).
 
-Status: alpha. Install with `npm install @zerolith/devtools@alpha`; the API may change before 1.0.
+Status: alpha. Install with `npm install @zerolith/devtools@alpha`, at the version of `zerolith` the project uses: the two share the `zerolith/internal` entry, and `mountDevtools` stops with `package_version_mismatch` on any other version. The API may change before 1.0.
 
 ## Documentation
 

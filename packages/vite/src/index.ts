@@ -12,6 +12,7 @@ import { lintModule, position } from "./lint.js";
 import { PrepareError, prepareModule } from "./prepare.js";
 import { type SplitImport, splitImports } from "./split.js";
 import { type ModuleParser, transformModule } from "./transform.js";
+import { checkCoreVersion } from "./version.js";
 
 export type { AstNode, Edit, IdentityMap } from "./ast.js";
 export type { JsxOutput } from "./jsx.js";
@@ -103,10 +104,13 @@ function lower(code: string, id: string): JsxOutput | null
  * of a compiled message index, is also imported statically, which would
  * put it in the importing chunk, and a build in production mode fails if
  * a module of the development build of the core reached the output, which
- * means the `production` export condition did not apply.
+ * means the `production` export condition did not apply. Creating the
+ * plugin fails with `package_version_mismatch` when the installed zerolith
+ * is not the version the plugin was released with.
  */
 export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
 {
+    checkCoreVersion();
     const include = options.include ?? DEFAULT_INCLUDE;
     const exclude = options.exclude ?? DEFAULT_EXCLUDE;
     let production = false;

@@ -15,6 +15,8 @@ import { mountDevtools } from "@zerolith/devtools";
 mountDevtools();
 ```
 
+The inspector reads the core through the `zerolith/internal` entry, which can change with every version, so it requires the `zerolith` it was released with: it declares that exact version as a peer dependency, and `mountDevtools` stops with [`package_version_mismatch`](/e/package_version_mismatch/) when it meets another.
+
 Press `Alt+Shift+Z` or the launcher button to open the dock. It shows every signal, computed value, and effect with its current value and the number of nodes that depend on it, the mounted roots, and the diagnostics feed with links to each code's page. Give state a label with the `name` option so the table reads well:
 
 ```ts

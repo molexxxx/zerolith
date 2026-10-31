@@ -162,6 +162,9 @@ fn walk(
 /// Builds `root` into `root/out`.
 pub fn build(root: &Path, out: &Path, prepare_templates: bool) -> io::Result<(PathBuf, Built)> {
     let root = root.canonicalize()?;
+    if prepare_templates {
+        crate::build::check_core_version(&root)?;
+    }
     let out_dir = root.join(out);
     if out_dir == root {
         return Err(io::Error::other(
@@ -275,7 +278,7 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("src")).unwrap();
         fs::create_dir_all(root.join("node_modules/zerolith/dist")).unwrap();
-        fs::write(root.join("node_modules/zerolith/package.json"), "{\"name\":\"zerolith\",\"version\":\"0.0.0\",\"exports\":{\".\":{\"development\":\"./dist/index.js\",\"default\":\"./dist/index.js\"}}}").unwrap();
+        fs::write(root.join("node_modules/zerolith/package.json"), format!("{{\"name\":\"zerolith\",\"version\":\"{}\",\"exports\":{{\".\":{{\"development\":\"./dist/index.js\",\"default\":\"./dist/index.js\"}}}}}}", env!("CARGO_PKG_VERSION"))).unwrap();
         fs::write(
             root.join("node_modules/zerolith/dist/index.js"),
             "export const html = 1;",

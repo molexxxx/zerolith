@@ -183,6 +183,32 @@ fn failure(message: String) -> io::Error {
     io::Error::other(message)
 }
 
+/// The version of `package` as Node resolves it from `root`: from the nearest `node_modules` folder that holds it.
+fn installed_version(root: &Path, package: &str) -> Option<String> {
+    root.ancestors().find_map(|folder| {
+        let text = fs::read_to_string(
+            folder
+                .join("node_modules")
+                .join(package)
+                .join("package.json"),
+        )
+        .ok()?;
+        let manifest = serde_json::from_str::<serde_json::Value>(&text).ok()?;
+        manifest.get("version")?.as_str().map(str::to_string)
+    })
+}
+
+/// Fails with `package_version_mismatch` when the installed zerolith is not the version of this command line, since the prepare pass writes calls into its `zerolith/internal` entry, which can change with every version.
+pub fn check_core_version(root: &Path) -> io::Result<()> {
+    let own = env!("CARGO_PKG_VERSION");
+    match installed_version(root, "zerolith") {
+        Some(installed) if installed != own => Err(failure(format!(
+            "package_version_mismatch: the command line {own} requires zerolith {own}, and zerolith {installed} is installed. Install one version of both, with npm install @zerolith/cli@{installed} or npm install zerolith@{own}, or build with --no-prepare to keep the scanner. {DIAGNOSTIC_URL}package_version_mismatch"
+        ))),
+        _ => Ok(()),
+    }
+}
+
 fn quoted(text: &str) -> String {
     serde_json::Value::from(text).to_string()
 }
@@ -553,6 +579,9 @@ fn prepare_out_dir(
 /// Bundles the project into its output folder.
 pub async fn build(options: &Options) -> io::Result<Built> {
     let root = css::canonical(&options.root)?;
+    if options.prepare {
+        check_core_version(&root)?;
+    }
     let page_path = root.join("index.html");
     let page_source = fs::read_to_string(&page_path).map_err(|error| {
         io::Error::new(
@@ -1208,6 +1237,35 @@ mod tests {
                 ),
             "{error}"
         );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn requires_the_zerolith_of_its_own_version_to_prepare_templates() {
+        let root = project("version", MAIN);
+        let manifest = root.join("node_modules/zerolith/package.json");
+        let text = fs::read_to_string(&manifest).unwrap();
+        fs::write(&manifest, text.replacen('{', "{\"version\":\"0.0.1\",", 1)).unwrap();
+        let own = env!("CARGO_PKG_VERSION");
+        let error = build(&options(&root, "/", "production"))
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.starts_with(&format!(
+                "package_version_mismatch: the command line {own} requires zerolith {own}, and zerolith 0.0.1 is installed."
+            )),
+            "{error}"
+        );
+        let mut unprepared = options(&root, "/", "production");
+        unprepared.prepare = false;
+        assert!(build(&unprepared).await.is_ok());
+        fs::write(
+            &manifest,
+            text.replacen('{', &format!("{{\"version\":\"{own}\","), 1),
+        )
+        .unwrap();
+        assert!(build(&options(&root, "/", "production")).await.is_ok());
         let _ = fs::remove_dir_all(&root);
     }
 

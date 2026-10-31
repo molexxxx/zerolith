@@ -99,7 +99,8 @@ export type DiagnosticCode =
     | "frame_without_title"
     | "mount_target_missing"
     | "template_not_prepared"
-    | "lazy_module_not_split";
+    | "lazy_module_not_split"
+    | "package_version_mismatch";
 
 /** Builds the full diagnostic record for a catalog code. */
 export function diagnostic(code: DiagnosticCode, severity: DiagnosticSeverity, args?: DiagnosticArgs, location?: DiagnosticLocation): Diagnostic

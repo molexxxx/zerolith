@@ -20,7 +20,7 @@ export default defineConfig({
 
 The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/vite/).
 
-Status: alpha. Install with `npm install --save-dev @zerolith/vite@alpha`; the API may change before 1.0.
+Status: alpha. Install with `npm install --save-dev @zerolith/vite@alpha`, at the version of `zerolith` the project uses: the two share the `zerolith/internal` entry, and the plugin stops with `package_version_mismatch` on any other version. The API may change before 1.0.
 
 ## Documentation
 

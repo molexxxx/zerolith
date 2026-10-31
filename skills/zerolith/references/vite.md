@@ -16,6 +16,8 @@ export default defineConfig({
 });
 ```
 
+The plugin and `zerolith` are released together and share the `zerolith/internal` entry, so install them at one version. The plugin declares that exact version of `zerolith` as a peer dependency, so npm refuses an installation that mixes versions, and it stops with [`package_version_mismatch`](https://molexxxx.github.io/zerolith/e/package_version_mismatch/) if it meets another anyway.
+
 ## What an edit does
 
 Vite can only apply an update in place when some module on the way to the entry accepts it; otherwise it reloads the page. The plugin makes every module that exports a component or mounts a root accept its own updates, and keeps the rest of the page consistent in three steps.

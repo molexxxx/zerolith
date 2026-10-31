@@ -46,9 +46,9 @@
     },
     "peerDependencies": {
         "vite": "^8.0.0",
-        "zerolith": "^0.1.0-alpha.4"
+        "zerolith": "0.1.0-alpha.4"
     },
     "devDependencies": {
-        "zerolith": "^0.1.0-alpha.4"
+        "zerolith": "0.1.0-alpha.4"
     }
 }

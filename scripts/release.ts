@@ -7,8 +7,15 @@
 
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
-/** A caret range on a first-party package, as the packages declare on each other. */
-const FIRST_PARTY_RANGE = /("(?:zerolith|@zerolith\/[a-z0-9-]+)": ")\^[^"]*(")/g;
+/**
+ * A range on a first-party package, as the packages declare on each other:
+ * a caret range, or the exact version a package that uses
+ * `zerolith/internal` requires.
+ */
+const FIRST_PARTY_RANGE = /("(?:zerolith|@zerolith\/[a-z0-9-]+)": "\^?)\d[^"]*(")/g;
+
+/** The version constant of a package's `src/version.ts`. */
+const SOURCE_VERSION = /^(export const version: string = ")[^"]*(";)$/m;
 
 /** Returns `version` when it is a full semantic version, and throws otherwise. */
 export function checkVersion(version: string): string
@@ -31,10 +38,20 @@ export function withPackageVersion(text: string, version: string): string
     return text.replace(pattern, `$1${version}$2`);
 }
 
-/** Points every caret range on a first-party package at `version`. */
+/** Points every first-party range at `version`, keeping caret ranges caret and exact versions exact. */
 export function withFirstPartyRanges(text: string, version: string): string
 {
-    return text.replace(FIRST_PARTY_RANGE, `$1^${version}$2`);
+    return text.replace(FIRST_PARTY_RANGE, `$1${version}$2`);
+}
+
+/** Sets the version constant of a package's `src/version.ts`. */
+export function withSourceVersion(text: string, version: string): string
+{
+    if (!SOURCE_VERSION.test(text))
+    {
+        throw new Error("no version constant");
+    }
+    return text.replace(SOURCE_VERSION, `$1${version}$2`);
 }
 
 /** Sets the workspace version in the root Cargo.toml. */
