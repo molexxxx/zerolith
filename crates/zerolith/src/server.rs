@@ -12,18 +12,20 @@ use std::sync::Arc;
 use axum::Router;
 use axum::body::Body;
 use axum::extract::{ConnectInfo, State};
-use axum::http::{HeaderValue, StatusCode, Uri, header};
+use axum::http::{HeaderValue, Method, Request, StatusCode, Uri, header};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{any, get};
 use sha2::{Digest, Sha256};
 use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::BroadcastStream;
 
+use crate::config::ProxyRule;
 use crate::css;
 use crate::mime::content_type;
 use crate::modules::{self, Pipeline};
+use crate::proxy;
 use crate::term;
 use crate::watch::{self, Change};
 
@@ -34,12 +36,43 @@ pub struct Options {
     pub reload: bool,
     /// Serve scripts through the module pipeline; without it every file is served as it is, as a static host would.
     pub modules: bool,
+    /// The public path the application is served under, starting and ending with `/`.
+    pub base: String,
+    /// Paths forwarded to a backend, longest prefix first.
+    pub proxy: Vec<ProxyRule>,
 }
 
 struct AppState {
     root: PathBuf,
     changes: Option<broadcast::Sender<Change>>,
     pipeline: Option<Arc<Pipeline>>,
+    base: String,
+    proxy: Vec<ProxyRule>,
+}
+
+/// Where a request path falls relative to the base the application is served under.
+#[derive(Debug, PartialEq, Eq)]
+enum Mapped {
+    /// Under the base: the path within the project, with the base removed.
+    Inside(String),
+    /// Outside the base: served only when a file exists there, such as a package module.
+    Outside(String),
+    /// The site root or the base without its slash, which go to the base.
+    Redirect(String),
+}
+
+fn map_base(base: &str, path: &str) -> Mapped {
+    if base == "/" {
+        return Mapped::Inside(path.to_string());
+    }
+    let bare = base.trim_end_matches('/');
+    if path == "/" || path == bare {
+        return Mapped::Redirect(base.to_string());
+    }
+    match path.strip_prefix(bare) {
+        Some(rest) if rest.starts_with('/') => Mapped::Inside(rest.to_string()),
+        _ => Mapped::Outside(path.to_string()),
+    }
 }
 
 const CLIENT: &str = include_str!("client.js");
@@ -69,6 +102,11 @@ pub fn percent_decode(input: &str) -> String {
 /// extensionless path serves the nearest index.html above it so client-side routes load directly.
 /// Paths that try to leave the root resolve to `None`.
 pub fn resolve(root: &Path, request_path: &str) -> Option<PathBuf> {
+    resolve_with(root, request_path, true)
+}
+
+/// `resolve`, with the nearest-index fallback only when `fallback` is true.
+fn resolve_with(root: &Path, request_path: &str, fallback: bool) -> Option<PathBuf> {
     let decoded = percent_decode(request_path);
     let relative = Path::new(decoded.trim_start_matches('/'));
     if relative
@@ -96,7 +134,7 @@ pub fn resolve(root: &Path, request_path: &str) -> Option<PathBuf> {
             }
         }
     }
-    if candidate.extension().is_some() {
+    if !fallback || candidate.extension().is_some() {
         return None;
     }
     let mut folder = candidate.parent();
@@ -280,11 +318,42 @@ fn module_response(
     None
 }
 
-async fn file(State(state): State<Arc<AppState>>, uri: Uri) -> Response {
+/// Every request no route claimed: a proxied path goes to its backend, and any other `GET` or `HEAD` to the files.
+async fn entry(State(state): State<Arc<AppState>>, request: Request<Body>) -> Response {
+    if let Some(rule) = state
+        .proxy
+        .iter()
+        .find(|rule| rule.matches(request.uri().path()))
+    {
+        return proxy::forward(rule, request).await;
+    }
+    if request.method() != Method::GET && request.method() != Method::HEAD {
+        return StatusCode::METHOD_NOT_ALLOWED.into_response();
+    }
+    let uri = request.uri().clone();
+    file(&state, &uri).await
+}
+
+async fn file(state: &Arc<AppState>, uri: &Uri) -> Response {
+    let (request_path, fallback) = match map_base(&state.base, uri.path()) {
+        Mapped::Inside(path) => (path, true),
+        Mapped::Outside(path) => (path, false),
+        Mapped::Redirect(to) => {
+            let location = match uri.query() {
+                Some(query) => format!("{to}?{query}"),
+                None => to,
+            };
+            return Response::builder()
+                .status(StatusCode::FOUND)
+                .header(header::LOCATION, location)
+                .body(Body::empty())
+                .unwrap_or_else(|_| StatusCode::FOUND.into_response());
+        }
+    };
     if let Some(pipeline) = &state.pipeline {
         let pipeline = pipeline.clone();
         let root = state.root.clone();
-        let request_path = uri.path().to_string();
+        let request_path = request_path.clone();
         let query = uri.query().unwrap_or("").to_string();
         match tokio::task::spawn_blocking(move || {
             module_response(&pipeline, &root, &request_path, &query)
@@ -296,8 +365,8 @@ async fn file(State(state): State<Arc<AppState>>, uri: Uri) -> Response {
             Err(error) => return failed(&error.to_string()),
         }
     }
-    let Some(path) =
-        resolve(&state.root, uri.path()).or_else(|| public_file(&state.root, uri.path()))
+    let Some(path) = resolve_with(&state.root, &request_path, fallback)
+        .or_else(|| public_file(&state.root, &request_path))
     else {
         return (StatusCode::NOT_FOUND, "Not found").into_response();
     };
@@ -317,16 +386,20 @@ async fn file(State(state): State<Arc<AppState>>, uri: Uri) -> Response {
     fresh(bytes, content_type(extension))
 }
 
-/// Builds the application for a root, with change events when a sender is given and the module pipeline when one is.
-pub fn app(
+/// Builds the application for a root, with change events when a sender is given, the module pipeline when one is, the base it is served under, and the paths it forwards to backends.
+fn app(
     root: PathBuf,
     changes: Option<broadcast::Sender<Change>>,
     pipeline: Option<Arc<Pipeline>>,
+    base: String,
+    proxy: Vec<ProxyRule>,
 ) -> Router {
     let state = Arc::new(AppState {
         root,
         changes,
         pipeline,
+        base,
+        proxy,
     });
     Router::new()
         .route("/__zerolith/events", get(events))
@@ -335,7 +408,7 @@ pub fn app(
             "/.well-known/appspecific/com.chrome.devtools.json",
             get(devtools_json),
         )
-        .fallback(get(file))
+        .fallback(any(entry))
         .with_state(state)
 }
 
@@ -388,7 +461,7 @@ pub async fn run(options: Options) -> std::io::Result<()> {
     let root = css::canonical(&options.root)?;
     let pipeline = options
         .modules
-        .then(|| Arc::new(Pipeline::new(root.clone(), "development", "/")));
+        .then(|| Arc::new(Pipeline::new(root.clone(), "development", &options.base)));
     let (sender, watcher) = if options.reload {
         let (sender, _) = broadcast::channel::<Change>(64);
         let watcher = watch::start(root.clone(), sender.clone()).map_err(std::io::Error::other)?;
@@ -431,10 +504,27 @@ pub async fn run(options: Options) -> std::io::Result<()> {
         term::row(
             "Local",
             term::label,
-            term::success(format!("http://{address}/"))
+            term::success(format!("http://{address}{}", options.base))
         )
     );
     anstream::println!("{}", term::row("Root", term::label, display(&root)));
+    for (index, rule) in options.proxy.iter().enumerate() {
+        let shown = format!(
+            "{} to {}{}{}",
+            rule.prefix,
+            rule.target.origin(),
+            rule.target.path,
+            if rule.strip_prefix {
+                ", without the prefix"
+            } else {
+                ""
+            }
+        );
+        anstream::println!(
+            "{}",
+            term::row(if index == 0 { "Proxy" } else { "" }, term::label, shown)
+        );
+    }
     if options.reload {
         anstream::println!(
             "{}",
@@ -451,7 +541,8 @@ pub async fn run(options: Options) -> std::io::Result<()> {
     }
     let result = axum::serve(
         listener,
-        app(root, sender, pipeline).into_make_service_with_connect_info::<SocketAddr>(),
+        app(root, sender, pipeline, options.base, options.proxy)
+            .into_make_service_with_connect_info::<SocketAddr>(),
     )
     .with_graceful_shutdown(async {
         let _ = tokio::signal::ctrl_c().await;
@@ -539,5 +630,260 @@ mod tests {
         assert_ne!(uuid, workspace_uuid(Path::new("/other")));
         assert_eq!(display(Path::new(r"\\?\C:\x")), r"C:\x");
         assert_eq!(display(Path::new("/x")), "/x");
+    }
+
+    mod served {
+        use super::super::{Mapped, app, map_base};
+        use crate::config::ProxyRule;
+        use axum::Router;
+        use axum::body::Body;
+        use axum::http::{Request, Response, StatusCode, header};
+        use axum::routing::{any, get};
+        use hyper_util::rt::TokioIo;
+        use std::net::SocketAddr;
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::{TcpListener, TcpStream};
+
+        async fn listen(router: Router) -> SocketAddr {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            tokio::spawn(async move {
+                let _ = axum::serve(
+                    listener,
+                    router.into_make_service_with_connect_info::<SocketAddr>(),
+                )
+                .await;
+            });
+            address
+        }
+
+        /// Sends raw HTTP/1.1 and returns everything the server wrote before closing.
+        async fn exchange(address: SocketAddr, request: &str) -> String {
+            let mut stream = TcpStream::connect(address).await.unwrap();
+            stream.write_all(request.as_bytes()).await.unwrap();
+            let mut response = Vec::new();
+            stream.read_to_end(&mut response).await.unwrap();
+            String::from_utf8_lossy(&response).into_owned()
+        }
+
+        async fn echo(request: Request<Body>) -> Response<Body> {
+            let host = request.headers().get(header::HOST).cloned();
+            let forwarded = request.headers().get("x-forwarded-host").cloned();
+            let line = format!(
+                "{} {} host={} forwarded={}",
+                request.method(),
+                request.uri(),
+                host.and_then(|value| value.to_str().ok().map(str::to_string))
+                    .unwrap_or_default(),
+                forwarded
+                    .and_then(|value| value.to_str().ok().map(str::to_string))
+                    .unwrap_or_default()
+            );
+            let body = axum::body::to_bytes(request.into_body(), 1 << 20)
+                .await
+                .unwrap();
+            Response::new(Body::from(format!(
+                "{line} body={}",
+                String::from_utf8_lossy(&body)
+            )))
+        }
+
+        async fn upgrade(mut request: Request<Body>) -> Response<Body> {
+            let pending = request
+                .extensions_mut()
+                .remove::<hyper::upgrade::OnUpgrade>()
+                .unwrap();
+            tokio::spawn(async move {
+                if let Ok(upgraded) = pending.await {
+                    let mut io = TokioIo::new(upgraded);
+                    let mut buffer = [0u8; 5];
+                    if io.read_exact(&mut buffer).await.is_ok() {
+                        let _ = io.write_all(&buffer).await;
+                    }
+                }
+            });
+            Response::builder()
+                .status(StatusCode::SWITCHING_PROTOCOLS)
+                .header(header::CONNECTION, "upgrade")
+                .header(header::UPGRADE, "echo")
+                .body(Body::empty())
+                .unwrap()
+        }
+
+        #[test]
+        fn maps_request_paths_against_the_base() {
+            assert_eq!(map_base("/", "/x"), Mapped::Inside("/x".into()));
+            assert_eq!(map_base("/app/", "/"), Mapped::Redirect("/app/".into()));
+            assert_eq!(map_base("/app/", "/app"), Mapped::Redirect("/app/".into()));
+            assert_eq!(
+                map_base("/app/", "/app/notes/1"),
+                Mapped::Inside("/notes/1".into())
+            );
+            assert_eq!(
+                map_base("/app/", "/apple"),
+                Mapped::Outside("/apple".into())
+            );
+            assert_eq!(
+                map_base("/app/", "/@fs/x.js"),
+                Mapped::Outside("/@fs/x.js".into())
+            );
+        }
+
+        #[tokio::test]
+        async fn forwards_requests_redirects_and_upgrades_and_serves_under_the_base() {
+            let backend = listen(
+                Router::new()
+                    .route("/api/echo", any(echo))
+                    .route("/v1/echo", any(echo))
+                    .route("/api/upgrade", get(upgrade))
+                    .route(
+                        "/api/redirect",
+                        get(|request: Request<Body>| async move {
+                            let host = request
+                                .headers()
+                                .get(header::HOST)
+                                .unwrap()
+                                .to_str()
+                                .unwrap()
+                                .to_string();
+                            Response::builder()
+                                .status(StatusCode::FOUND)
+                                .header(
+                                    header::LOCATION,
+                                    format!("http://{host}/api/echo?from=redirect"),
+                                )
+                                .body(Body::empty())
+                                .unwrap()
+                        }),
+                    ),
+            )
+            .await;
+            let root =
+                std::env::temp_dir().join(format!("zerolith-proxy-test-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&root);
+            std::fs::create_dir_all(&root).unwrap();
+            std::fs::write(root.join("index.html"), "<main id=\"app\"></main>").unwrap();
+            std::fs::write(root.join("robots.txt"), "User-agent: *").unwrap();
+            let target = format!("http://127.0.0.1:{}", backend.port());
+            let closed = TcpListener::bind("127.0.0.1:0")
+                .await
+                .unwrap()
+                .local_addr()
+                .unwrap();
+            let rules = vec![
+                ProxyRule::new("/api", &target, false).unwrap(),
+                ProxyRule::new("/old", &format!("{target}/v1"), true).unwrap(),
+                ProxyRule::new(
+                    "/down",
+                    &format!("http://127.0.0.1:{}", closed.port()),
+                    false,
+                )
+                .unwrap(),
+            ];
+            let server = listen(app(root.clone(), None, None, "/app/".to_string(), rules)).await;
+
+            let echoed = exchange(
+                server,
+                "GET /api/echo?q=1 HTTP/1.1\r\nHost: dev.local\r\nConnection: close\r\n\r\n",
+            )
+            .await;
+            assert!(echoed.starts_with("HTTP/1.1 200"), "{echoed}");
+            assert!(
+                echoed.contains(&format!(
+                    "GET /api/echo?q=1 host=127.0.0.1:{} forwarded=dev.local",
+                    backend.port()
+                )),
+                "{echoed}"
+            );
+
+            let posted = exchange(server, "POST /api/echo HTTP/1.1\r\nHost: dev.local\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello").await;
+            assert!(
+                posted.contains("POST /api/echo") && posted.contains("body=hello"),
+                "{posted}"
+            );
+
+            let stripped = exchange(
+                server,
+                "GET /old/echo HTTP/1.1\r\nHost: dev.local\r\nConnection: close\r\n\r\n",
+            )
+            .await;
+            assert!(stripped.contains("GET /v1/echo"), "{stripped}");
+
+            let redirected = exchange(
+                server,
+                "GET /api/redirect HTTP/1.1\r\nHost: dev.local\r\nConnection: close\r\n\r\n",
+            )
+            .await;
+            assert!(redirected.starts_with("HTTP/1.1 302"), "{redirected}");
+            assert!(
+                redirected
+                    .to_ascii_lowercase()
+                    .contains("location: /api/echo?from=redirect\r\n"),
+                "{redirected}"
+            );
+
+            let down = exchange(
+                server,
+                "GET /down/x HTTP/1.1\r\nHost: dev.local\r\nConnection: close\r\n\r\n",
+            )
+            .await;
+            assert!(down.starts_with("HTTP/1.1 502"), "{down}");
+
+            let mut stream = TcpStream::connect(server).await.unwrap();
+            stream
+                .write_all(b"GET /api/upgrade HTTP/1.1\r\nHost: dev.local\r\nConnection: Upgrade\r\nUpgrade: echo\r\n\r\n")
+                .await
+                .unwrap();
+            let mut head = Vec::new();
+            while !head.ends_with(b"\r\n\r\n") {
+                let mut byte = [0u8; 1];
+                stream.read_exact(&mut byte).await.unwrap();
+                head.push(byte[0]);
+            }
+            assert!(
+                String::from_utf8_lossy(&head).starts_with("HTTP/1.1 101"),
+                "{}",
+                String::from_utf8_lossy(&head)
+            );
+            stream.write_all(b"hello").await.unwrap();
+            let mut echoed = [0u8; 5];
+            stream.read_exact(&mut echoed).await.unwrap();
+            assert_eq!(&echoed, b"hello");
+
+            let home = exchange(
+                server,
+                "GET / HTTP/1.1\r\nHost: dev.local\r\nConnection: close\r\n\r\n",
+            )
+            .await;
+            assert!(
+                home.starts_with("HTTP/1.1 302")
+                    && home.to_ascii_lowercase().contains("location: /app/\r\n"),
+                "{home}"
+            );
+            let route = exchange(
+                server,
+                "GET /app/notes/1 HTTP/1.1\r\nHost: dev.local\r\nConnection: close\r\n\r\n",
+            )
+            .await;
+            assert!(
+                route.starts_with("HTTP/1.1 200") && route.contains("<main id=\"app\">"),
+                "{route}"
+            );
+            let outside_file = exchange(
+                server,
+                "GET /robots.txt HTTP/1.1\r\nHost: dev.local\r\nConnection: close\r\n\r\n",
+            )
+            .await;
+            assert!(outside_file.starts_with("HTTP/1.1 200"), "{outside_file}");
+            let outside_route = exchange(
+                server,
+                "GET /notes/1 HTTP/1.1\r\nHost: dev.local\r\nConnection: close\r\n\r\n",
+            )
+            .await;
+            assert!(outside_route.starts_with("HTTP/1.1 404"), "{outside_route}");
+            let posted_file = exchange(server, "POST /app/ HTTP/1.1\r\nHost: dev.local\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").await;
+            assert!(posted_file.starts_with("HTTP/1.1 405"), "{posted_file}");
+            let _ = std::fs::remove_dir_all(&root);
+        }
     }
 }

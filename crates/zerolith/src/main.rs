@@ -9,6 +9,7 @@
 //! application layout.
 
 mod build;
+mod config;
 mod css;
 mod doctor;
 mod env;
@@ -19,6 +20,7 @@ mod mime;
 mod modules;
 mod new;
 mod prepare;
+mod proxy;
 mod scan;
 mod server;
 mod split;
@@ -46,28 +48,26 @@ enum Command {
         /// The project folder; index.html inside it is the application.
         #[arg(default_value = ".")]
         root: PathBuf,
-        /// The port to listen on.
-        #[arg(long, default_value_t = 8080)]
-        port: u16,
+        #[command(flatten)]
+        server: ServerFlags,
     },
     /// Serve a project the way dev does, without watching it.
     Serve {
         #[arg(default_value = ".")]
         root: PathBuf,
-        #[arg(long, default_value_t = 8080)]
-        port: u16,
+        #[command(flatten)]
+        server: ServerFlags,
     },
     /// Serve a build's output as a static host would, to check it before deploying.
     Preview {
         /// The project folder.
         #[arg(default_value = ".")]
         root: PathBuf,
-        /// The output folder, relative to the project unless absolute.
-        #[arg(long, default_value = "dist")]
-        out: PathBuf,
-        /// The port to listen on.
-        #[arg(long, default_value_t = 4173)]
-        port: u16,
+        /// The output folder, relative to the project unless absolute; dist unless zerolith.json sets build.out.
+        #[arg(long)]
+        out: Option<PathBuf>,
+        #[command(flatten)]
+        server: ServerFlags,
     },
     /// Copy the installed zerolith packages into a vendor folder and write an import map with integrity hashes and preload links.
     Importmap {
@@ -97,15 +97,15 @@ enum Command {
         /// The project folder, holding index.html.
         #[arg(default_value = ".")]
         root: PathBuf,
-        /// The output folder, relative to the project unless absolute; it is emptied first when it is inside the project.
-        #[arg(long, default_value = "dist")]
-        out: PathBuf,
+        /// The output folder, relative to the project unless absolute; dist unless zerolith.json sets build.out. It is emptied first when it is inside the project.
+        #[arg(long)]
+        out: Option<PathBuf>,
         /// Empty an output folder outside the project before writing into it.
         #[arg(long)]
         empty_out_dir: bool,
-        /// The public path the app is served under, such as /app/; ./ makes every URL relative to the page.
-        #[arg(long, default_value = "/")]
-        base: String,
+        /// The public path the app is served under, such as /app/, unless zerolith.json sets base; ./ makes every URL relative to the page.
+        #[arg(long)]
+        base: Option<String>,
         /// The mode: production builds use the production entries of the packages, any other mode the development ones.
         #[arg(long, default_value = "production")]
         mode: String,
@@ -147,37 +147,83 @@ enum Command {
     },
 }
 
+/// The flags `dev`, `serve`, and `preview` share; each overrides the project's zerolith.json.
+#[derive(clap::Args)]
+struct ServerFlags {
+    /// The port to listen on: 8080 for dev and serve and 4173 for preview, unless zerolith.json sets one.
+    #[arg(long)]
+    port: Option<u16>,
+    /// The public path the app is served under, such as /app/, unless zerolith.json sets base.
+    #[arg(long)]
+    base: Option<String>,
+    /// Forward a path to a backend, such as --proxy /api=http://127.0.0.1:3000; repeat it for more paths.
+    #[arg(long, value_name = "PATH=URL")]
+    proxy: Vec<String>,
+}
+
+/// Which server command runs, with the output folder `preview` serves.
+enum Kind {
+    Dev,
+    Serve,
+    Preview(Option<PathBuf>),
+}
+
+impl ServerFlags {
+    /// The server's options: these flags over the project's zerolith.json over the defaults.
+    fn options(self, root: &std::path::Path, kind: Kind) -> std::io::Result<server::Options> {
+        let config = config::Config::load(root)?;
+        let (section, default_port) = match &kind {
+            Kind::Preview(_) => (&config.preview, 4173),
+            Kind::Dev | Kind::Serve => (&config.dev, 8080),
+        };
+        let port = self.port.or(section.port).unwrap_or(default_port);
+        let base = build::normalize_base(
+            &self
+                .base
+                .or_else(|| config.base.clone())
+                .unwrap_or_else(|| "/".to_string()),
+        );
+        let base = if base.starts_with('/') {
+            base
+        } else {
+            "/".to_string()
+        };
+        let proxy = config.proxy_rules(&self.proxy)?;
+        let served = match &kind {
+            Kind::Preview(out) => root.join(
+                out.clone()
+                    .or_else(|| config.build.out.clone())
+                    .unwrap_or_else(|| PathBuf::from("dist")),
+            ),
+            Kind::Dev | Kind::Serve => root.to_path_buf(),
+        };
+        Ok(server::Options {
+            root: served,
+            port,
+            reload: matches!(kind, Kind::Dev),
+            modules: !matches!(kind, Kind::Preview(_)),
+            base,
+            proxy,
+        })
+    }
+}
+
 #[tokio::main]
 async fn main() -> ExitCode {
     let cli = Cli::parse();
     let result = match cli.command {
-        Command::Dev { root, port } => {
-            server::run(server::Options {
-                root,
-                port,
-                reload: true,
-                modules: true,
-            })
-            .await
-        }
-        Command::Serve { root, port } => {
-            server::run(server::Options {
-                root,
-                port,
-                reload: false,
-                modules: true,
-            })
-            .await
-        }
-        Command::Preview { root, out, port } => {
-            server::run(server::Options {
-                root: root.join(out),
-                port,
-                reload: false,
-                modules: false,
-            })
-            .await
-        }
+        Command::Dev { root, server } => match server.options(&root, Kind::Dev) {
+            Ok(options) => server::run(options).await,
+            Err(error) => Err(error),
+        },
+        Command::Serve { root, server } => match server.options(&root, Kind::Serve) {
+            Ok(options) => server::run(options).await,
+            Err(error) => Err(error),
+        },
+        Command::Preview { root, out, server } => match server.options(&root, Kind::Preview(out)) {
+            Ok(options) => server::run(options).await,
+            Err(error) => Err(error),
+        },
         Command::Importmap {
             root,
             out,
@@ -195,23 +241,42 @@ async fn main() -> ExitCode {
             no_minify,
             no_prepare,
             unbundled,
-        } => {
-            if unbundled {
-                unbundled::run(&root, &out, !no_prepare)
-            } else {
-                build::run(&build::Options {
-                    root,
-                    out,
-                    empty_out_dir,
-                    base: build::normalize_base(&base),
-                    mode,
-                    minify: !no_minify,
-                    sourcemap,
-                    prepare: !no_prepare,
-                })
-                .await
+        } => match config::Config::load(&root) {
+            Err(error) => Err(error),
+            Ok(config) => {
+                let out = out
+                    .or(config.build.out)
+                    .unwrap_or_else(|| PathBuf::from("dist"));
+                if unbundled {
+                    if let Some(configured) = config.base.filter(|base| base != "/") {
+                        anstream::eprintln!(
+                            "{}",
+                            term::row(
+                                "warning",
+                                term::caution,
+                                format!(
+                                    "zerolith.json sets base {configured}, which build --unbundled does not apply; its output is served from the root"
+                                )
+                            )
+                        );
+                    }
+                    unbundled::run(&root, &out, !no_prepare)
+                } else {
+                    let base = base.or(config.base).unwrap_or_else(|| "/".to_string());
+                    build::run(&build::Options {
+                        root,
+                        out,
+                        empty_out_dir,
+                        base: build::normalize_base(&base),
+                        mode,
+                        minify: !no_minify,
+                        sourcemap,
+                        prepare: !no_prepare,
+                    })
+                    .await
+                }
             }
-        }
+        },
         Command::New {
             root,
             template,
