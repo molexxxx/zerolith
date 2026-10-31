@@ -252,7 +252,52 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
     const views = new Map<string, RouteView<unknown, unknown>>();
     let controller: AbortController | undefined;
     let generation = 0;
-    const scrollPositions = new Map<string, number>();
+    /** The scroll position the history entry shown saved in its state, if it saved one. */
+    const savedScroll = (): number | undefined =>
+    {
+        const saved: unknown = win?.history.state?.scroll;
+        return typeof saved === "number" ? saved : undefined;
+    };
+    /**
+     * Saves the scroll position into the state of the history entry shown.
+     * The browser keeps that state with the entry, so the position survives a
+     * reload and a later return to the entry, and it goes away with the entry.
+     * A browser that limits how often a page changes its history refuses a
+     * call now and then, and the next save catches up.
+     */
+    const saveScroll = (): void =>
+    {
+        if (win === undefined || options.scroll === false)
+        {
+            return;
+        }
+        try
+        {
+            win.history.replaceState({ ...win.history.state, scroll: win.scrollY }, "");
+        }
+        catch
+        {
+            return;
+        }
+    };
+    let scrollPause: ReturnType<typeof setTimeout> | undefined;
+    /**
+     * Saves the position once scrolling pauses: browsers drop history changes
+     * made while a page unloads, so a reload finds only what was saved
+     * before. No save happens while a navigation is under way, when the entry
+     * shown after back or forward may not be the page on screen.
+     */
+    const onScroll = (): void =>
+    {
+        clearTimeout(scrollPause);
+        scrollPause = setTimeout(() =>
+        {
+            if (!pending.get())
+            {
+                saveScroll();
+            }
+        }, 200);
+    };
 
     const base = normalizeBase(options.base);
     const bare = base.slice(0, -1);
@@ -427,12 +472,13 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         {
             if (mode === "push")
             {
-                scrollPositions.set(win.history.state?.key ?? "", win.scrollY);
-                win.history.pushState({ key: String(run) }, "", target.href);
+                clearTimeout(scrollPause);
+                saveScroll();
+                win.history.pushState({}, "", target.href);
             }
             else
             {
-                win.history.replaceState({ key: win.history.state?.key ?? String(run) }, "", target.href);
+                win.history.replaceState({ ...win.history.state }, "", target.href);
             }
         }
         commit(target, resolved, restored);
@@ -463,6 +509,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         }
         if (target.pathname === win.location.pathname && target.search === win.location.search && target.hash !== "")
         {
+            saveScroll();
             return;
         }
         event.preventDefault();
@@ -470,10 +517,11 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
     };
 
     /**
-     * Back and forward. Between two entries of the page already shown, which
-     * a same-page hash link adds, only the hash changed: the router follows
-     * the URL and moves to the hash, or to the entry's scroll position,
-     * without loading or rendering the page again.
+     * Back and forward, which return to the scroll position the entry saved.
+     * Between two entries of the page already shown, which a same-page hash
+     * link adds, only the hash changed: the router follows the URL and moves
+     * to the hash, or to the entry's position, without loading or rendering
+     * the page again.
      */
     const onPopState = (): void =>
     {
@@ -481,16 +529,17 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         {
             return;
         }
+        clearTimeout(scrollPause);
         const target = new URL(win.location.href);
-        const key: string = win.history.state?.key ?? "";
+        const restored = savedScroll();
         const shown = url.get();
         if (!pending.get() && target.pathname === shown.pathname && target.search === shown.search)
         {
             url.set(target);
-            scrollTo(target, target.hash === "" ? scrollPositions.get(key) : undefined);
+            scrollTo(target, target.hash === "" ? restored : undefined);
             return;
         }
-        void go(target, "pop", scrollPositions.get(key));
+        void go(target, "pop", restored);
     };
 
     if (win !== undefined)
@@ -501,12 +550,12 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         }
         win.document.addEventListener("click", onClick);
         win.addEventListener("popstate", onPopState);
-        if (win.history.state?.key === undefined)
+        if (options.scroll !== false)
         {
-            win.history.replaceState({ key: "0" }, "", win.location.href);
+            win.addEventListener("scroll", onScroll, { passive: true });
         }
     }
-    const ready = win === undefined ? Promise.resolve() : go(initial, "replace");
+    const ready = win === undefined ? Promise.resolve() : go(initial, "replace", savedScroll());
 
     /**
      * The current page as a list of one entry per committed navigation, so
@@ -570,6 +619,8 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             {
                 win.document.removeEventListener("click", onClick);
                 win.removeEventListener("popstate", onPopState);
+                win.removeEventListener("scroll", onScroll);
+                clearTimeout(scrollPause);
             }
         }
     };

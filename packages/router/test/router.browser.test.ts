@@ -192,6 +192,42 @@ describe("router", () =>
         expect(seen).toEqual([false, true, false]);
     });
 
+    it("keeps each entry's scroll position in its history state, so back and a reload return to it", async () =>
+    {
+        history.replaceState(null, "", "/");
+        const tall = document.createElement("div");
+        tall.style.height = "6000px";
+        document.body.append(tall);
+        try
+        {
+            const pages = defineRoutes({
+                home: route({ path: "/", view: () => html`<h1>Home</h1>` }),
+                other: route({ path: "/other", view: () => html`<h1>Other</h1>` })
+            });
+            router = createRouter(pages, { window });
+            await settled(router);
+            mount(html`<main>${router.outlet()}</main>`);
+            window.scrollTo(0, 1200);
+            await router.navigate("/other");
+            expect(window.scrollY).toBe(0);
+            history.back();
+            await vi.waitFor(() => expect(location.pathname).toBe("/"));
+            await vi.waitFor(() => expect(window.scrollY).toBe(1200));
+
+            window.scrollTo(0, 700);
+            await vi.waitFor(() => expect(history.state?.scroll).toBe(700));
+            router.dispose();
+            window.scrollTo(0, 0);
+            router = createRouter(pages, { window });
+            await settled(router);
+            expect(window.scrollY).toBe(700);
+        }
+        finally
+        {
+            tall.remove();
+        }
+    });
+
     it("follows back and forward between hash entries of the page shown without loading it again", async () =>
     {
         history.replaceState(null, "", "/");
