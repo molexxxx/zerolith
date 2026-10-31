@@ -840,12 +840,12 @@ export function untracked<T>(fn: () => T): T
  */
 export function createOwner(detached = false): Owner
 {
-    const scope = new OwnerScope(isInternal());
+    const created = new OwnerScope(isInternal());
     if (!detached)
     {
-        adopt(scope);
+        adopt(created);
     }
-    return scope;
+    return created;
 }
 
 /** An owner as one object, its children and its methods together, so creating one per row allocates once. */
@@ -861,9 +861,8 @@ class OwnerScope implements Owner, OwnerNode, Disposable
 
     run<T>(fn: () => T): T
     {
-        const previousOwner = owner;
+        const previousOwner = own(this);
         const previousConsumer = consumer;
-        owner = this;
         consumer = undefined;
         try
         {
