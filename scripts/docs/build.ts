@@ -598,11 +598,11 @@ function sri(content: string | Buffer): string
     return `sha384-${createHash("sha384").update(content).digest("base64")}`;
 }
 
-/** A TypeScript module of the docs build compiled for the browser, so the playground highlights with the build's own code. */
-async function browserModule(file: string): Promise<string>
+/** A TypeScript module of the docs build compiled for the browser with its imports bundled, so the playground highlights with the build's own code and the wheel scroller ships as one file. */
+async function browserModule(file: string, minify = false): Promise<string>
 {
     const bundle = await rolldown({ input: join(root, file) });
-    const { output } = await bundle.generate({ format: "esm" });
+    const { output } = await bundle.generate({ format: "esm", minify });
     await bundle.close();
     const entry = output.find((item) => item.type === "chunk" && item.isEntry);
     if (entry === undefined || entry.type !== "chunk")
@@ -732,9 +732,12 @@ const guidePages = await collect("guide", "Guide");
 const { pages: referencePages, manifest, reports } = await reference();
 await checkApi(reports);
 const pages = [...learnPages, ...guidePages, ...referencePages, ...diagnostics()];
-const styles = siteStyles();
+/** Lenis, the wheel scroller's library: its stylesheet joins the site's, and its license heads the file the site ships it in. */
+const lenis = dirname(dirname(fileURLToPath(import.meta.resolve("lenis/dist/lenis.css"))));
+const styles = `${siteStyles()}\n${await readFile(join(lenis, "dist", "lenis.css"), "utf8")}`;
 const highlighter = await browserModule("scripts/docs/highlight.ts");
-const integrity: Record<string, string> = { "/styles.css": sri(styles), "/highlight.js": sri(highlighter) };
+const scroller = `/*!\n${await readFile(join(lenis, "LICENSE"), "utf8")}*/\n${await browserModule("scripts/docs/smooth.ts", true)}`;
+const integrity: Record<string, string> = { "/styles.css": sri(styles), "/highlight.js": sri(highlighter), "/smooth.js": sri(scroller) };
 for (const name of siteScripts)
 {
     integrity[`/${name}`] = sri(await readFile(join(root, "scripts", "docs", name)));
@@ -831,7 +834,7 @@ await publish({ ...shared, title: "zerolith", description: homeDescription, path
 const playgroundDescription = "Edit a zerolith app in the browser, run it with Ctrl+Enter, and share a link to what you made.";
 await publish({ ...shared, title: "Playground", description: playgroundDescription, path: "/playground/", url: absolute("/playground/"), layout: "wide", view: Playground() }, await playgroundMarkdown(root));
 
-const known = new Set<string>(["/styles.css", "/highlight.js", "/llms.txt", "/llms-full.txt", "/api.json", "/search.json", "/sitemap.xml", "/zerolith/index.js"]);
+const known = new Set<string>(["/styles.css", "/highlight.js", "/smooth.js", "/llms.txt", "/llms-full.txt", "/api.json", "/search.json", "/sitemap.xml", "/zerolith/index.js"]);
 for (const path of rendered.keys())
 {
     known.add(path);
@@ -860,6 +863,7 @@ await write("404.html", rebaseHtml(missing, base));
 
 await write("styles.css", styles);
 await write("highlight.js", highlighter);
+await write("smooth.js", scroller);
 await write("api.json", JSON.stringify({ generated: new Date().toISOString(), symbols: manifest }, null, 2) + "\n");
 const searchEntries = searchIndex(pages);
 for (const entry of searchEntries)

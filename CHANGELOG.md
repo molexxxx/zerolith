@@ -10,6 +10,7 @@ Every package in this repository is released together and carries the same versi
 - `zerolith` and the `zerolith` crate: every diagnostic links its page under `https://zerolith.dev/e/`, and `DIAGNOSTIC_URL` changes with it.
 - `@zerolith/cli` and the `zerolith` crate: the projects `zerolith new` writes link the guides at https://zerolith.dev/, and `zerolith.schema.json` has the `$id` `https://zerolith.dev/zerolith.schema.json`.
 - Every npm package and the crate name https://zerolith.dev/ as their homepage.
+- Docs site: wheel scrolling on a mouse or trackpad glides through Lenis 1.3.27, so a wheel step eases over about a quarter second instead of jumping, at the same pace on a 60 Hz or a 144 Hz display. Links to a heading on the same page glide there, or jump when it is more than two screens away, and keep their history entries; a navigation lands where the router puts it, with no glide left over. Touch and keyboard scrolling stay native, the sidebar, sideways code, and the search dialog keep their own scrolling, and under `prefers-reduced-motion` the scroller never loads.
 
 ## 0.1.0-alpha.7 (2026-11-01)
 

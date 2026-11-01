@@ -11,8 +11,8 @@ import { type Entry, group, rank } from "../search.js";
 
 /**
  * Builds the documentation site once, serves it, and drives its islands in
- * headless Chromium: the search, the home page's running figure, and the
- * playground, each hydrated or started from the production build through
+ * headless Chromium: the search, the home page's running figure, the wheel
+ * scroller, and the playground, each hydrated or started from the production build through
  * the page's import map with integrity hashes.
  */
 
@@ -51,6 +51,28 @@ async function open(path: string): Promise<{ page: Page; errors: string[] }>
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(`${origin}${path}`);
     return { page, errors };
+}
+
+/** The page's scroll position on each of the next `count` frames. */
+function framePositions(page: Page, count: number): Promise<number[]>
+{
+    return page.evaluate((frames) => new Promise<number[]>((resolve) =>
+    {
+        const positions: number[] = [];
+        const frame = (): void =>
+        {
+            positions.push(Math.round(scrollY));
+            if (positions.length < frames)
+            {
+                requestAnimationFrame(frame);
+            }
+            else
+            {
+                resolve(positions);
+            }
+        };
+        requestAnimationFrame(frame);
+    }), count);
 }
 
 describe("documentation site", () =>
@@ -344,6 +366,59 @@ describe("documentation site", () =>
         await page.close();
     });
 
+    it("eases wheel scrolling on a fine pointer, lands each navigation where the router puts it, and takes heading links through history", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/guide/routing/");
+        await page.setViewportSize({ width: 1600, height: 900 });
+        await page.waitForFunction(() => document.documentElement.classList.contains("lenis"));
+        await page.mouse.move(800, 450);
+        await page.mouse.wheel(0, 400);
+        expect(new Set(await framePositions(page, 20)).size).toBeGreaterThan(5);
+        await expect.poll(() => page.evaluate(() => Math.round(scrollY))).toBe(400);
+
+        await page.mouse.wheel(0, 2400);
+        await page.click("#sidebar a[href=\"/guide/forms/\"]");
+        await page.waitForFunction(() => document.querySelector("h1")?.textContent === "Forms");
+        expect(Math.max(...await framePositions(page, 30))).toBe(0);
+
+        await page.mouse.move(800, 450);
+        await page.mouse.wheel(0, 700);
+        await expect.poll(() => page.evaluate(() => Math.round(scrollY))).toBe(700);
+        await page.click("#sidebar a[href=\"/guide/routing/\"]");
+        await page.waitForFunction(() => document.querySelector("h1")?.textContent === "Routing");
+        await page.goBack();
+        await page.waitForFunction(() => document.querySelector("h1")?.textContent === "Forms");
+        expect(new Set(await framePositions(page, 30))).toEqual(new Set([700]));
+
+        await page.goForward();
+        await page.waitForFunction(() => document.querySelector("h1")?.textContent === "Routing" && scrollY === 0);
+        const entries = await page.evaluate(() => history.length);
+        await page.click(".toc a[href=\"#the-route-table\"]");
+        expect(new Set(await framePositions(page, 20)).size).toBeGreaterThan(5);
+        await expect.poll(() => page.evaluate(() => Math.round(document.getElementById("the-route-table")?.getBoundingClientRect().top ?? 0))).toBe(96);
+        expect(await page.evaluate(() => ({ hash: location.hash, entries: history.length, focused: document.activeElement?.id }))).toEqual({ hash: "#the-route-table", entries: entries + 1, focused: "the-route-table" });
+        await page.goBack();
+        await expect.poll(() => page.evaluate(() => `${location.hash}${Math.round(scrollY)}`)).toBe("0");
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("keeps native scrolling and never loads the wheel scroller under reduced motion or on touch", { timeout: 60000 }, async () =>
+    {
+        for (const options of [{ reducedMotion: "reduce" as const }, { isMobile: true, hasTouch: true }])
+        {
+            const context = await browser.newContext(options);
+            const page = await context.newPage();
+            const requested: string[] = [];
+            page.on("request", (request) => requested.push(new URL(request.url()).pathname));
+            await page.goto(`${origin}/guide/routing/`, { waitUntil: "networkidle" });
+            expect(requested).toContain("/island.js");
+            expect(requested).not.toContain("/smooth.js");
+            expect(await page.evaluate(() => document.documentElement.classList.contains("lenis"))).toBe(false);
+            await context.close();
+        }
+    });
+
     it("answers only loopback requests, refuses dot-folders and malformed escapes, and keeps serving", async () =>
     {
         expect((await fetch(`${origin}/%E0%A4%A`)).status).toBe(400);
@@ -369,11 +444,13 @@ describe("documentation site", () =>
         const map = JSON.parse(/<script type="importmap">([\s\S]*?)<\/script>/.exec(home)?.[1] ?? "{}") as { imports: Record<string, string>; integrity: Record<string, string> };
         expect(map.imports["zerolith"]).toBe("/zerolith/index.js");
         expect(map.imports["@zerolith/router"]).toBe("/router/index.js");
-        for (const path of ["/zerolith/index.js", "/router/index.js", "/router/router.js", "/router/match.js", "/island.js", "/search.js", "/demo.js", "/playground.js", "/highlight.js"])
+        for (const path of ["/zerolith/index.js", "/router/index.js", "/router/router.js", "/router/match.js", "/island.js", "/search.js", "/demo.js", "/playground.js", "/highlight.js", "/smooth.js"])
         {
             expect(map.integrity[path], path).toMatch(/^sha384-/);
         }
         expect(home).toMatch(/<script type="module" src="\/island.js" integrity="sha384-/);
+        expect(await readFile(join(site, "smooth.js"), "utf8")).toMatch(/^\/\*!\nThe MIT License\n\nCopyright \(c\) \d{4} darkroom\.engineering\n/);
+        expect(await readFile(join(site, "styles.css"), "utf8")).toContain(".lenis.lenis-smooth iframe");
         expect(home).toContain("<link rel=\"canonical\" href=\"https://zerolith.dev/\">");
         const sitemap = await readFile(join(site, "sitemap.xml"), "utf8");
         expect(sitemap).toContain("<loc>https://zerolith.dev/learn/state/</loc>");

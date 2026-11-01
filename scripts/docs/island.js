@@ -8,7 +8,9 @@
  * position on back and forward. Each page's controls and islands (the theme
  * toggle, the menu, the copy buttons, the file tabs, the search, the home
  * page's running figure, and the playground) start when the page commits
- * and stop when the reader leaves it. The import map resolves `zerolith` and
+ * and stop when the reader leaves it. On a mouse or trackpad, wheel
+ * scrolling eases through smooth.js unless the reader prefers reduced
+ * motion. The import map resolves `zerolith` and
  * `@zerolith/router` to the production builds the docs build copied next to
  * this file.
  */
@@ -26,7 +28,15 @@ import { Search } from "./search.js";
 
 const root = document.documentElement;
 const prefersLight = matchMedia("(prefers-color-scheme: light)");
+const prefersStill = matchMedia("(prefers-reduced-motion: reduce)");
+const finePointer = matchMedia("(hover: hover) and (pointer: fine)");
 const base = new URL(".", import.meta.url).pathname;
+
+/**
+ * The wheel scroller, loaded the first time the reader has a mouse or trackpad and allows motion; undefined when it could not load.
+ * @type {Promise<typeof import("./smooth.js") | undefined> | undefined}
+ */
+let smooth;
 
 /** A load the router should leave to the browser: a file that is not a page, or a response that is not HTML. */
 class FullLoad extends Error
@@ -285,6 +295,7 @@ function arrive(mode, page)
     }
     leaving = [];
     const visit = ++visits;
+    void smooth?.then((scroller) => scroller?.settle());
     root.removeAttribute("data-menu-open");
     wireControls();
 
@@ -365,6 +376,25 @@ const router = createRouter(routes, {
 });
 render(router.outlet(), document.body);
 document.body.append(announcer);
+
+/** Eases wheel scrolling while the reader has a mouse or trackpad and allows motion, and returns to native scrolling when either changes. */
+function smoothScroll()
+{
+    if (!prefersStill.matches && finePointer.matches)
+    {
+        smooth ??= import("./smooth.js").catch(() => undefined);
+        void smooth.then((scroller) => scroller?.start());
+    }
+    else
+    {
+        void smooth?.then((scroller) => scroller?.stop());
+    }
+}
+
+smoothScroll();
+prefersStill.addEventListener("change", smoothScroll);
+finePointer.addEventListener("change", smoothScroll);
+addEventListener("popstate", () => void smooth?.then((scroller) => scroller?.settle()));
 
 document.addEventListener("pointerover", prefetch);
 document.addEventListener("focusin", prefetch);

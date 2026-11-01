@@ -156,6 +156,7 @@ See the [command line guide](guide/command-line.md).
 - [x] The site as a single-page application on `@zerolith/router`: every page prerendered for a first load and for readers without JavaScript, links that load the next page without a reload, and each page's islands started when it commits and stopped when the reader leaves.
 - [x] Code colored by the brand's code tokens, reading `html` and `css` templates and JSX as markup and styles, on the site and in the playground, with each name keeping one color across a page.
 - [x] Playground examples that render as finished interface in the brand, with a preview that waits for the brand's fonts.
+- [x] Wheel scrolling that glides on a mouse or trackpad and keeps the router's positions and history, with touch, keyboard, and reduced motion left native.
 - [x] A domain of the project's own: the site moved to [zerolith.dev](https://zerolith.dev/) on 2026-11-01, and the GitHub Pages address redirects to it page for page, so the diagnostic links of every earlier version keep working.
 - [ ] A versioned API manifest that feeds the agent index and editor tooling.
 - [ ] Type-checked code samples on every page.
