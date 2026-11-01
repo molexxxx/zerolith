@@ -1,9 +1,9 @@
 /*
  * The docs site's stylesheet, built on the brand's tokens, which the docs
- * build writes ahead of it with the font faces. DESIGN.md is the standard:
- * basalt planes, 2 px rules, square corners, and chartreuse only on the
- * mark, the primary action, the active navigation item, code keywords, and
- * focus.
+ * build writes ahead of it with the font faces. The brand in brand/ is the
+ * standard: basalt planes, 2 px rules, square corners, and chartreuse only
+ * on the mark, the primary action, the active navigation item, signals in
+ * code, and focus.
  */
 :root
 {

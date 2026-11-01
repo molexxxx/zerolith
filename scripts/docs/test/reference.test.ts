@@ -22,6 +22,18 @@ function template(...parts: TsType[]): TsType
     return { kind: "literal", repr: "\u001b[0m\u001b[36mcolored\u001b[0m", value: { kind: "template", tsTypes: parts } };
 }
 
+/** `{ [K in keyof T]: V }` with the given `readonly` and `optional` modifiers, as deno doc writes them. */
+function mapped(modifiers: Record<string, unknown>): TsType
+{
+    return { kind: "mapped", value: { ...modifiers, typeParam: { name: "K", constraint: { kind: "typeOperator", value: { operator: "keyof", tsType: ref("T") } } }, tsType: ref("V") } };
+}
+
+/** A module whose one export, the type alias `Old`, carries the given doc comment. */
+function documentedWith(jsDoc: { doc: string; tags?: Array<{ kind: string; doc?: string }> }): Parameters<typeof symbolsOf>[0]
+{
+    return { version: 2, nodes: { [FILE]: { symbols: [{ name: "Old", declarations: [{ kind: "typeAlias", declarationKind: "export", jsDoc, location: { filename: FILE, line: 1 }, def: { tsType: STRING } }] }] } } };
+}
+
 function exported(name: string, kind: string, def: Record<string, unknown>): { name: string; declarations: Array<{ kind: string; declarationKind: string; jsDoc: { doc: string }; location: { filename: string; line: number }; def: Record<string, unknown> }> }
 {
     return { name, declarations: [{ kind, declarationKind: "export", jsDoc: { doc: `The ${name}.` }, location: { filename: FILE, line: 1 }, def }] };
@@ -93,6 +105,20 @@ describe("API reference signatures", () =>
     {
         expect(typeText(template(text(""), { kind: "infer", value: { typeParam: { name: "Head" } } }, text("/"), { kind: "infer", value: { typeParam: { name: "Rest" } } }, text("")))).toBe("`${infer Head}/${infer Rest}`");
         expect(typeText({ kind: "literal", value: { kind: "bigInt", string: "10" } })).toBe("10n");
+    });
+
+    it("prints a mapped type's modifiers as written, removals included", () =>
+    {
+        expect(typeText(mapped({ readonly: "-", optional: "-" }))).toBe("{ -readonly [K in keyof T]-?: V }");
+        expect(typeText(mapped({ readonly: "+", optional: "+" }))).toBe("{ +readonly [K in keyof T]+?: V }");
+        expect(typeText(mapped({ readonly: true, optional: true }))).toBe("{ readonly [K in keyof T]?: V }");
+        expect(typeText(mapped({}))).toBe("{ [K in keyof T]: V }");
+    });
+
+    it("refuses doc comment tags, which the reference has no place for, and shows element names in the text as code", () =>
+    {
+        expect(() => symbolsOf(documentedWith({ doc: "The old type.", tags: [{ kind: "deprecated", doc: "Use New." }] }), "/repo", ENTRY)).toThrow("sample: Old: the reference does not show doc comment tags (@deprecated); write what they say into the description");
+        expect(symbolsOf(documentedWith({ doc: "Renders into a <template> element; `<slot>` stays as written." }), "/repo", ENTRY)[0]?.doc).toBe("Renders into a `<template>` element; `<slot>` stays as written.");
     });
 
     it("fails on a kind it cannot print rather than printing a placeholder", () =>

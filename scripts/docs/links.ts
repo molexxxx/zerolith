@@ -69,3 +69,45 @@ export function sitePath(target: string, folder: string, file: string): string
     }
     return `${page[2] === "index" ? `/${page[1]}/` : `/${page[1]}/${page[2]}/`}${anchor}`;
 }
+
+/**
+ * The links on the rendered pages that lead nowhere, each as `page -> href`:
+ * a site path the site does not serve, or a fragment that no `id` carries on
+ * the page it leads to, the linking page itself for `#x`. A fragment that
+ * holds `=`, as the playground's `#example=` and `#code=` do, is read by a
+ * script rather than matched to an id, and a file that is not a rendered
+ * page, such as `llms.txt`, is not searched for ids.
+ */
+export function brokenLinks(known: ReadonlySet<string>, rendered: ReadonlyMap<string, string>): string[]
+{
+    const ids = new Map<string, Set<string>>();
+    for (const [path, html] of rendered)
+    {
+        ids.set(path, new Set(Array.from(html.matchAll(/\sid="([^"]+)"/g), (match) => match[1] ?? "")));
+    }
+    const broken: string[] = [];
+    for (const [path, html] of rendered)
+    {
+        for (const match of html.matchAll(/href="([^"]+)"/g))
+        {
+            const href = match[1] ?? "";
+            if (!href.startsWith("/") && !href.startsWith("#"))
+            {
+                continue;
+            }
+            const hash = href.indexOf("#");
+            const target = hash === -1 ? href : href.slice(0, hash);
+            const fragment = hash === -1 ? "" : href.slice(hash + 1);
+            const page = target === "" ? path : [target, `${target}/`].find((candidate) => rendered.has(candidate));
+            if (target !== "" && !known.has(target) && !known.has(target.endsWith("/") ? target : `${target}/`))
+            {
+                broken.push(`${path} -> ${href}`);
+            }
+            else if (fragment !== "" && !fragment.includes("=") && page !== undefined && ids.get(page)?.has(fragment) !== true)
+            {
+                broken.push(`${path} -> ${href}`);
+            }
+        }
+    }
+    return broken;
+}

@@ -153,9 +153,16 @@ td code { font-size: var(--zl-text-sm); }
 .tags { display: flex; flex-wrap: wrap; gap: var(--zl-space-2); }
 .tag { font-family: var(--zl-font-mono); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; padding: var(--zl-space-2) var(--zl-space-3); border: var(--zl-rule) solid var(--zl-line); }
 pre.code { margin: 0; padding: var(--zl-space-6); background: var(--zl-code-bg); color: var(--zl-code-text); border: var(--zl-rule) solid var(--zl-line); overflow-x: auto; line-height: 1.7; font-size: 0.8125rem; }
-.kw { color: var(--zl-code-keyword); }
-.st { color: var(--zl-code-string); }
-.cm { color: var(--zl-code-comment); }
+pre.code .k { color: var(--zl-code-keyword); }
+pre.code .f { color: var(--zl-code-function); }
+pre.code .y { color: var(--zl-code-type); }
+pre.code .g { color: var(--zl-code-signal); }
+pre.code .b { color: var(--zl-code-binding); }
+pre.code .t { color: var(--zl-code-tag); }
+pre.code .a { color: var(--zl-code-attribute); }
+pre.code .n { color: var(--zl-code-literal); }
+pre.code .s { color: var(--zl-code-string); }
+pre.code .c { color: var(--zl-code-comment); }
 
 .icon-group { display: grid; gap: var(--zl-space-4); }
 .icon-group h3 { font-size: var(--zl-text-lg); }
@@ -294,7 +301,7 @@ footer .wrap { display: grid; gap: var(--zl-space-3); }
 <div class="wrap">
 <div class="intro">
 <h2>Color</h2>
-<p>Basalt carries the page. Chartreuse is the one live wire, and it goes on five things only: the mark, the primary action, the active nav item, code keywords, and focus. On light grounds chartreuse can only be a fill; deep olive takes its text and focus roles.</p>
+<p>Basalt carries the page. Chartreuse is the one live wire, and it goes on five things only: the mark, the primary action, the active nav item, signals in code, and focus. On light grounds chartreuse can only be a fill; deep olive takes its text and focus roles.</p>
 </div>
 <div class="ramp" role="list" aria-label="Basalt ramp">
 <div class="swatch" role="listitem"><i style="background: #F5F6F8"></i><b>basalt 50</b><span>#F5F6F8</span></div>
@@ -334,13 +341,17 @@ footer .wrap { display: grid; gap: var(--zl-space-3); }
 <tr><td><code>--zl-success</code></td><td><span class="chip"><i style="background: #E8EAED"></i>#E8EAED, with the check icon</span></td><td><span class="chip"><i style="background: #0F1114"></i>#0F1114, with the check icon</span></td></tr>
 <tr><td><code>--zl-code-bg</code></td><td><span class="chip"><i style="background: #171A1F"></i>#171A1F</span></td><td><span class="chip"><i style="background: #FFFFFF"></i>#FFFFFF</span></td></tr>
 <tr><td><code>--zl-code-text</code></td><td><span class="chip"><i style="background: #E8EAED"></i>#E8EAED</span></td><td><span class="chip"><i style="background: #0F1114"></i>#0F1114</span></td></tr>
-<tr><td><code>--zl-code-keyword</code></td><td><span class="chip"><i style="background: #AACF16"></i>#AACF16</span></td><td><span class="chip"><i style="background: #4B5E00"></i>#4B5E00</span></td></tr>
+<tr><td><code>--zl-code-keyword</code></td><td><span class="chip"><i style="background: #FF7B72"></i>#FF7B72</span></td><td><span class="chip"><i style="background: #CF222E"></i>#CF222E</span></td></tr>
+<tr><td><code>--zl-code-function</code></td><td><span class="chip"><i style="background: #D2A8FF"></i>#D2A8FF</span></td><td><span class="chip"><i style="background: #8250DF"></i>#8250DF</span></td></tr>
+<tr><td><code>--zl-code-type</code></td><td><span class="chip"><i style="background: #FFA657"></i>#FFA657</span></td><td><span class="chip"><i style="background: #953800"></i>#953800</span></td></tr>
+<tr><td><code>--zl-code-signal</code></td><td><span class="chip"><i style="background: #AACF16"></i>#AACF16</span></td><td><span class="chip"><i style="background: #4B5E00"></i>#4B5E00</span></td></tr>
 <tr><td><code>--zl-code-binding</code></td><td><span class="chip"><i style="background: #C8E679"></i>#C8E679</span></td><td><span class="chip"><i style="background: #3A4A00"></i>#3A4A00</span></td></tr>
-<tr><td><code>--zl-code-tag</code></td><td><span class="chip"><i style="background: #8DC3F2"></i>#8DC3F2</span></td><td><span class="chip"><i style="background: #215F94"></i>#215F94</span></td></tr>
-<tr><td><code>--zl-code-attribute</code></td><td><span class="chip"><i style="background: #BDB4F4"></i>#BDB4F4</span></td><td><span class="chip"><i style="background: #5747B8"></i>#5747B8</span></td></tr>
-<tr><td><code>--zl-code-literal</code></td><td><span class="chip"><i style="background: #EFA3BD"></i>#EFA3BD</span></td><td><span class="chip"><i style="background: #A3305A"></i>#A3305A</span></td></tr>
-<tr><td><code>--zl-code-string</code></td><td><span class="chip"><i style="background: #C9CED4"></i>#C9CED4</span></td><td><span class="chip"><i style="background: #2A2F37"></i>#2A2F37</span></td></tr>
+<tr><td><code>--zl-code-tag</code></td><td><span class="chip"><i style="background: #7EE787"></i>#7EE787</span></td><td><span class="chip"><i style="background: #116329"></i>#116329</span></td></tr>
+<tr><td><code>--zl-code-attribute</code></td><td><span class="chip"><i style="background: #79C0FF"></i>#79C0FF</span></td><td><span class="chip"><i style="background: #0550AE"></i>#0550AE</span></td></tr>
+<tr><td><code>--zl-code-literal</code></td><td><span class="chip"><i style="background: #79C0FF"></i>#79C0FF</span></td><td><span class="chip"><i style="background: #0550AE"></i>#0550AE</span></td></tr>
+<tr><td><code>--zl-code-string</code></td><td><span class="chip"><i style="background: #A5D6FF"></i>#A5D6FF</span></td><td><span class="chip"><i style="background: #0A3069"></i>#0A3069</span></td></tr>
 <tr><td><code>--zl-code-comment</code></td><td><span class="chip"><i style="background: #9AA3AD"></i>#9AA3AD</span></td><td><span class="chip"><i style="background: #4F5864"></i>#4F5864</span></td></tr>
+<tr><td><code>--zl-code-selection</code></td><td><span class="chip"><i style="background: #2A2F37"></i>#2A2F37</span></td><td><span class="chip"><i style="background: #D5DAE0"></i>#D5DAE0</span></td></tr>
 </tbody>
 </table>
 </div>
@@ -396,11 +407,11 @@ footer .wrap { display: grid; gap: var(--zl-space-3); }
 <div class="tags"><span class="tag">alpha</span><span class="tag">0 runtime deps</span></div>
 </div>
 <div class="stack">
-<pre class="code"><span class="kw">import</span> { html, signal } <span class="kw">from</span> <span class="st">"zerolith"</span>;
+<pre class="code"><span class="k">import</span> { <span class="f">html</span>, <span class="f">signal</span> } <span class="k">from</span> <span class="s">&quot;zerolith&quot;</span>;
 
-<span class="kw">const</span> count = signal(<span class="st">0</span>);
-<span class="cm">// Bind the signal itself so the text stays live.</span>
-<span class="kw">export const</span> view = html<span class="st">`&lt;p&gt;${</span>count<span class="st">} clicks&lt;/p&gt;`</span>;</pre>
+<span class="k">const</span> <span class="g">count</span> = <span class="f">signal</span>(<span class="n">0</span>);
+<span class="c">// Bind the signal itself so the text stays live.</span>
+<span class="k">export</span> <span class="k">const</span> view = <span class="f">html</span><span class="s">`</span>&lt;<span class="t">p</span>&gt;<span class="b">${</span><span class="g">count</span><span class="b">}</span> clicks&lt;/<span class="t">p</span>&gt;<span class="s">`</span>;</pre>
 <div class="callout"><svg class="i warning" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 3L22 20H2Z"/><path d="M12 9V13.5"/><rect x="11" y="15.5" width="2" height="2" fill="currentColor" stroke="none"/></svg><p><b>template_frozen_read.</b> <code>${count.get()}</code> reads once when the template is created and never updates. Bind <code>count</code> instead.</p></div>
 <div class="callout"><svg class="i hint" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M9 17H15"/><path d="M10 21H14"/><path d="M9 17V14.6A6.5 6.5 0 1 1 15 14.6V17"/></svg><p><b>Tip.</b> Run <code>zerolith doctor</code> before you deploy a buildless app; it checks the import map and every integrity hash.</p></div>
 </div>

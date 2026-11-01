@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapLinks, sitePath } from "../links.ts";
+import { brokenLinks, mapLinks, sitePath } from "../links.ts";
 
 function upper(target: string): string
 {
@@ -28,5 +28,16 @@ describe("docs links", () =>
     it("leave code blocks and code spans alone", () =>
     {
         expect(mapLinks("[a](x.md) `[b](y.md)` [c](z.md)\n```md\n[d](w.md)\n```", upper)).toBe("[a](X.MD) `[b](y.md)` [c](Z.MD)\n```md\n[d](w.md)\n```");
+    });
+
+    it("are broken when the site does not serve their path or no id on the page they lead to carries their fragment", () =>
+    {
+        const rendered = new Map([
+            ["/a/", "<h2 id=\"setup\">Setup</h2><a href=\"/b/#usage\">b</a><a href=\"/b/#gone\">b</a><a href=\"#setup\">top</a><a href=\"#missing\">x</a>"],
+            ["/b/", "<h2 id=\"usage\">Usage</h2><a href=\"/c/\">c</a><a href=\"/playground/#example=counter\">p</a><a href=\"/llms.txt#x\">l</a>"],
+            ["/playground/", "<div></div>"]
+        ]);
+        const known = new Set(["/a/", "/b/", "/playground/", "/llms.txt"]);
+        expect(brokenLinks(known, rendered)).toEqual(["/a/ -> /b/#gone", "/a/ -> #missing", "/b/ -> /c/"]);
     });
 });

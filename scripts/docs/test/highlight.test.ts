@@ -113,9 +113,18 @@ describe("code coloring", () =>
 
     it("lists the identifiers a script uses outside strings, comments, and template text", () =>
     {
-        const used = identifiers("render(html`<b>Count ${count}</b>`, \"#app\"); // computed");
+        const used = identifiers("render(html`<b>Count ${count}</b>`, \"#app\"); // computed", false);
         expect([...used].toSorted()).toEqual(["b", "count", "html", "render"]);
-        expect(identifiers("const v = <Card title={t} />;").has("Card")).toBe(true);
-        expect([...identifiers("messages.get()?.notesCount({ ...rest })")].toSorted()).toEqual(["messages", "rest"]);
+        expect(identifiers("const v = <Card title={t} />;", true).has("Card")).toBe(true);
+        expect([...identifiers("messages.get()?.notesCount({ ...rest })", false)].toSorted()).toEqual(["messages", "rest"]);
+    });
+
+    it("reads TypeScript without JSX, and a TSX type parameter list as types, so the names after a generic stay visible", () =>
+    {
+        expect(identifiers("const first = <T>(list: T[]) => list[0];\nrender(view, \"#app\");", false).has("render")).toBe(true);
+        expect(identifiers("const input = (<HTMLInputElement>event.target).value;\nrender(view, \"#app\");", false).has("view")).toBe(true);
+        expect(identifiers("const first = <T,>(list: T[]) => list[0];\nrender(view, \"#app\");", true).has("render")).toBe(true);
+        expect(identifiers("const pick = <T extends object>(item: T) => item;\nrender(view, \"#app\");", true).has("view")).toBe(true);
+        expect(identifiers("const v = <Card extends={x} />;", true).has("Card")).toBe(true);
     });
 });

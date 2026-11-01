@@ -1,11 +1,12 @@
 /**
  * Syntax coloring for the docs site's code blocks and the playground's
- * editor. Code sits on basalt in both themes, and its roles come from the
- * brand's code tokens: keywords, bindings, tags, attributes, literals,
- * strings, and comments. A template tagged `html` is read as markup, so its
- * tags and attributes are colored and its `${}` bindings and binding
- * prefixes stand out as the live parts; a `css` template is read as styles;
- * JSX in `.tsx` and `.jsx` is read the same way as an `html` template.
+ * editor. Code sits on the surface plane of the active theme, and its roles
+ * come from the brand's code tokens: keywords, functions, types, signals,
+ * bindings, tags, attributes, literals, strings, and comments. A template
+ * tagged `html` is read as markup, so its tags and attributes are colored
+ * and its `${}` bindings and binding prefixes stand out as the live parts; a
+ * `css` template is read as styles; JSX in `.tsx` and `.jsx` is read the
+ * same way as an `html` template.
  */
 
 /** `text` is the text content of markup: drawn like `plain`, but never read as identifiers. */
@@ -35,6 +36,15 @@ const regexPrecedes = /[(,=:[!&|?{;+\-*%~^]$/;
 
 /** A `<` after one of these opens a JSX element; after a name it is a comparison or a type argument. */
 const jsxPrecedes = /(?:[(,=:[!&|?{;]|=>)$/;
+
+/** A `<` that opens a TSX type parameter list, as `<T,>` or `<T extends U>`, rather than an element. */
+const typeParameters = /<[A-Za-z_$][\w$]*\s*(?:,|extends\s)/y;
+
+function opensTypeParameters(code: string, index: number): boolean
+{
+    typeParameters.lastIndex = index;
+    return typeParameters.test(code);
+}
 
 function push(tokens: Token[], kind: TokenKind, text: string): void
 {
@@ -461,7 +471,7 @@ export function tokenizeScript(code: string, jsx = false): Token[]
                 index = stop + 1;
             }
         }
-        else if (jsx && character === "<" && /[A-Za-z>]/.test(next) && jsxPrecedes.test(lastSignificant(tokens)))
+        else if (jsx && character === "<" && /[A-Za-z>]/.test(next) && jsxPrecedes.test(lastSignificant(tokens)) && !opensTypeParameters(code, index))
         {
             index = jsxElement(code, index, tokens);
         }
@@ -865,14 +875,15 @@ export function highlight(code: string, language: string, page?: Roles): string
 
 /**
  * The identifiers a script uses outside its strings and comments, including
- * those inside `${}` expressions and JSX tags. A property name after a dot is
- * not one, since it never names a binding; a spread such as `...rest` is.
+ * those inside `${}` expressions and, with `jsx` set for TSX and JSX, inside
+ * JSX tags. A property name after a dot is not one, since it never names a
+ * binding; a spread such as `...rest` is.
  */
-export function identifiers(code: string): Set<string>
+export function identifiers(code: string, jsx: boolean): Set<string>
 {
     const found = new Set<string>();
     let tail = "";
-    for (const token of tokenizeScript(code, true))
+    for (const token of tokenizeScript(code, jsx))
     {
         if (token.kind === "plain" || token.kind === "tag")
         {

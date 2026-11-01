@@ -78,11 +78,21 @@ interface TypeLiteralValue
 
 interface MappedValue
 {
-    readonly?: boolean | string;
-    optional?: boolean | string;
+    readonly?: boolean | "+" | "-";
+    optional?: boolean | "+" | "-";
     typeParam: TypeParam;
     nameType?: TsType;
     tsType?: TsType;
+}
+
+/** A mapped type's modifier as written: `true` is the bare modifier, and `"+"` or `"-"` adds or removes it explicitly. */
+function modifier(value: boolean | "+" | "-" | undefined, text: string): string
+{
+    if (value === "+" || value === "-")
+    {
+        return value + text;
+    }
+    return value === true ? text : "";
 }
 
 function list(types: TsType[] | undefined, separator: string): string
@@ -254,8 +264,8 @@ export function typeText(type: TsType | undefined): string
         case "mapped":
         {
             const mapped = value as MappedValue;
-            const readonly = mapped.readonly === undefined || mapped.readonly === false ? "" : "readonly ";
-            const optional = mapped.optional === undefined || mapped.optional === false ? "" : "?";
+            const readonly = modifier(mapped.readonly, "readonly ");
+            const optional = modifier(mapped.optional, "?");
             const as = mapped.nameType === undefined ? "" : ` as ${typeText(mapped.nameType)}`;
             return `{ ${readonly}[${mapped.typeParam.name} in ${typeText(mapped.typeParam.constraint)}${as}]${optional}: ${typeText(mapped.tsType)} }`;
         }

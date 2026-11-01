@@ -57,11 +57,12 @@ export function applicationPath(from: string): string
  * The import declarations an example needs: the source file's own imports of
  * the names the example uses, so they are as correct as the test that runs
  * it. A relative module is shown where the application would keep it, and
- * the test runner's imports only for an example that is itself a test.
+ * the test runner's imports only for an example that is itself a test. The
+ * code is read as JSX when `jsx` is set, as for a `.tsx` or `.jsx` region.
  */
-export function importsFor(code: string, source: string, test: boolean): string[]
+export function importsFor(code: string, source: string, test: boolean, jsx: boolean): string[]
 {
-    const used = identifiers(code);
+    const used = identifiers(code, jsx);
     const modules = new Map<string, Binding[]>();
     for (const binding of bindingsOf(source))
     {
@@ -109,7 +110,11 @@ function fill(names: string[]): string
     return lines.map((text) => `    ${text}`).join("\n");
 }
 
-/** Every part of a region, in order: a region may be opened and closed several times so checks can run between its parts. */
+/**
+ * Every part of a region, in order: a region may be opened and closed several
+ * times so checks can run between its parts. A region opened again before it
+ * is closed, or never closed, is refused rather than shown in part.
+ */
 export function regionParts(source: string, region: string): string[]
 {
     const parts: string[] = [];
@@ -119,6 +124,10 @@ export function regionParts(source: string, region: string): string[]
         const marker = line.trim();
         if (marker === `// #region ${region}`)
         {
+            if (current !== undefined)
+            {
+                throw new Error(`region ${region} is opened again before it is closed`);
+            }
             current = [];
         }
         else if (marker === `// #endregion ${region}` && current !== undefined)
@@ -130,6 +139,10 @@ export function regionParts(source: string, region: string): string[]
         {
             current.push(line);
         }
+    }
+    if (current !== undefined)
+    {
+        throw new Error(`region ${region} is not closed`);
     }
     return parts;
 }
@@ -159,7 +172,15 @@ export function exampleCode(source: string, path: string, region: string | undef
     {
         return { language, code: source.trim() };
     }
-    const parts = regionParts(source, region);
+    let parts: string[];
+    try
+    {
+        parts = regionParts(source, region);
+    }
+    catch (error)
+    {
+        throw new Error(`${file}: ${path}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+    }
     if (parts.length === 0)
     {
         throw new Error(`${file}: region ${region} not found in ${path}`);
@@ -168,11 +189,11 @@ export function exampleCode(source: string, path: string, region: string | undef
     const lines = parts.join("\n").split("\n");
     const indent = Math.min(...lines.filter((text) => text.trim() !== "").map((text) => /^\s*/.exec(text)?.[0].length ?? 0));
     const code = lines.map((text) => text.slice(indent)).join("\n").replace(/\n{3,}/g, "\n\n").trim();
-    if (!test && /\bexpect\(|\bvi\./.test(code))
+    if (!test && /\bexpect(?:TypeOf)?\s*[.(]|\bassert(?:Type)?\s*[.(]|\bvi\./.test(code))
     {
         throw new Error(`${file}: ${path}#${region} shows a test check; keep checks outside the region, or include it with \`test\``);
     }
-    const imports = options.includes("excerpt") ? [] : importsFor(code, source, test);
+    const imports = options.includes("excerpt") ? [] : importsFor(code, source, test, language === "tsx" || language === "jsx");
     return { language, code: (imports.length > 0 ? imports.join("\n") + "\n\n" : "") + code };
 }
 

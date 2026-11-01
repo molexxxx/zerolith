@@ -57,13 +57,13 @@ describe("executed examples", () =>
     it("keeps type imports, aliases, and application paths for relative modules", () =>
     {
         const code = regionParts(source, "typed").join("\n");
-        expect(importsFor(code, source, false)).toEqual([
+        expect(importsFor(code, source, false, false)).toEqual([
             "import { type Root, html, render } from \"zerolith\";",
             "import type { Note } from \"./notes/schema.ts\";",
             "import { routes as apiRoutes } from \"./api.ts\";"
         ]);
         const styled = "import { html } from \"zerolith\";\nimport card from \"./fixtures/card.css?scoped\";\n";
-        expect(importsFor("html`<p class=${card}></p>`", styled, false)).toEqual([
+        expect(importsFor("html`<p class=${card}></p>`", styled, false, false)).toEqual([
             "import { html } from \"zerolith\";",
             "import card from \"./card.css?scoped\";"
         ]);
@@ -75,6 +75,10 @@ describe("executed examples", () =>
     it("refuses a region that shows a check, unless the example is a test", () =>
     {
         expect(() => renderExample(source, "a.test.ts", "checked", [], "guide.md")).toThrow(/shows a test check/);
+        for (const check of ["await expect.element(button).toBeVisible();", "expect.soft(app).toBeDefined();", "expectTypeOf(app).toBeObject();", "assert(app);"])
+        {
+            expect(() => renderExample(`// #region a\n${check}\n// #endregion a`, "a.test.ts", "a", [], "guide.md")).toThrow(/shows a test check/);
+        }
         expect(renderExample(source, "a.test.ts", "checked", ["test"], "guide.md")).toBe("```ts\nimport { expect } from \"vitest\";\n\nexpect(app).toBeDefined();\n```");
     });
 
@@ -84,5 +88,12 @@ describe("executed examples", () =>
         expect(renderExample("{\n    \"welcome\": \"Hi\"\n}\n", "fixtures/en.json", undefined, [], "guide.md")).toBe("```json\n{\n    \"welcome\": \"Hi\"\n}\n```");
         expect(() => renderExample(source, "a.test.ts", "counter", ["verbatim"], "guide.md")).toThrow(/unknown include option verbatim/);
         expect(() => renderExample(source, "a.test.ts", "missing", [], "guide.md")).toThrow(/region missing not found/);
+    });
+
+    it("refuses a region opened again before it is closed, or never closed, instead of showing part of it", () =>
+    {
+        expect(() => regionParts("// #region a\nx();\n// #region a\ny();\n// #endregion a", "a")).toThrow("region a is opened again before it is closed");
+        expect(() => regionParts("// #region a\nx();\n// #endregion a\n// #region a\ny();", "a")).toThrow("region a is not closed");
+        expect(() => renderExample("// #region a\nx();\n", "a.test.ts", "a", [], "guide.md")).toThrow("guide.md: a.test.ts: region a is not closed");
     });
 });

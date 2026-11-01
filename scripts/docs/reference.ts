@@ -107,9 +107,21 @@ export async function extract(root: string, entries: Entry[]): Promise<DocJson>
     return doc;
 }
 
-function docText(jsDoc: JsDoc | undefined): string
+/** Text as Markdown with every element name outside a code span, such as <template>, shown as code instead of read as markup. */
+export function elementsAsCode(text: string): string
 {
-    return (jsDoc?.doc ?? "").trim();
+    return text.split(/(`+[^`]*`+)/).map((part, index) => (index % 2 === 1 ? part : part.replace(/<\/?[a-z][^<>]*>/g, (tag) => `\`${tag}\``))).join("");
+}
+
+/** A doc comment's description as Markdown. A tag, such as `@deprecated` or `@param`, is refused, since the reference has no place to show it and would drop it in silence. */
+function docText(jsDoc: JsDoc | undefined, name: string): string
+{
+    const tags = jsDoc?.tags ?? [];
+    if (tags.length > 0)
+    {
+        throw new Error(`${name}: the reference does not show doc comment tags (${tags.map((tag) => `@${tag.kind}`).join(", ")}); write what they say into the description`);
+    }
+    return elementsAsCode((jsDoc?.doc ?? "").trim());
 }
 
 function signatureOf(name: string, declaration: Declaration): string
@@ -171,7 +183,7 @@ function memberSignature(member: Member, methodLike: boolean): string
     }
 }
 
-function membersOf(declaration: Declaration): Array<{ name: string; signature: string; doc: string }>
+function membersOf(declaration: Declaration, owner: string): Array<{ name: string; signature: string; doc: string }>
 {
     const def = declaration.def;
     const out: Array<{ name: string; signature: string; doc: string }> = [];
@@ -182,9 +194,9 @@ function membersOf(declaration: Declaration): Array<{ name: string; signature: s
             for (const inner of element.declarations.filter((candidate) => candidate.declarationKind === "export"))
             {
                 const block = inner.kind === "interface" || inner.kind === "class" || inner.kind === "namespace";
-                const members = membersOf(inner).map((member) => member.signature);
+                const members = membersOf(inner, `${owner}.${element.name}`).map((member) => member.signature);
                 const body = !block ? "" : members.length === 0 ? " {}" : ` { ${members.join("; ")} }`;
-                out.push({ name: element.name, signature: signatureOf(element.name, inner) + body, doc: docText(inner.jsDoc) });
+                out.push({ name: element.name, signature: signatureOf(element.name, inner) + body, doc: docText(inner.jsDoc, `${owner}.${element.name}`) });
             }
         }
     }
@@ -192,15 +204,15 @@ function membersOf(declaration: Declaration): Array<{ name: string; signature: s
     {
         for (const constructor of (def["constructors"] as Member[] | undefined) ?? [])
         {
-            out.push({ name: "constructor", signature: `constructor(${paramsText(constructor.params)})`, doc: docText(constructor.jsDoc) });
+            out.push({ name: "constructor", signature: `constructor(${paramsText(constructor.params)})`, doc: docText(constructor.jsDoc, `${owner}.constructor`) });
         }
         for (const property of (def["properties"] as Member[] | undefined) ?? [])
         {
-            out.push({ name: property.name, signature: memberSignature(property, false), doc: docText(property.jsDoc) });
+            out.push({ name: property.name, signature: memberSignature(property, false), doc: docText(property.jsDoc, `${owner}.${property.name}`) });
         }
         for (const method of (def["methods"] as Member[] | undefined) ?? [])
         {
-            out.push({ name: method.name, signature: memberSignature(method, true), doc: docText(method.jsDoc) });
+            out.push({ name: method.name, signature: memberSignature(method, true), doc: docText(method.jsDoc, `${owner}.${method.name}`) });
         }
         for (const index of (def["indexSignatures"] as Array<{ readonly?: boolean; params: Param[]; tsType?: TsType }> | undefined) ?? [])
         {
@@ -232,11 +244,11 @@ export function symbolsOf(doc: DocJson, root: string, entry: Entry): ManifestSym
                 name: symbol.name,
                 kind: declaration.kind,
                 signature: signatureOf(symbol.name, declaration),
-                doc: docText(declaration.jsDoc),
+                doc: docText(declaration.jsDoc, `${entry.specifier}: ${symbol.name}`),
                 file: declaration.location.filename.replace(/^file:\/\/\/?/, "").replace(root.replace(/\\/g, "/").replace(/^\/?/, ""), "").replace(/^\//, ""),
                 line: declaration.location.line
             };
-            const members = membersOf(declaration);
+            const members = membersOf(declaration, `${entry.specifier}: ${symbol.name}`);
             if (members.length > 0)
             {
                 record.members = members;

@@ -33,9 +33,9 @@ A chartreuse tile with the stele in basalt.
 
 ## Color
 
-Basalt carries every surface. Chartreuse `#AACF16` is spent on five things only: the mark, the primary action, the active navigation item, code keywords, and focus. On light grounds chartreuse is a fill only, and deep olive `#4B5E00` takes its text and focus roles. Status colors (danger, warning, hint) are for diagnostics; success is the text color with the check icon.
+Basalt carries every surface. Chartreuse `#AACF16` is spent on five things only: the mark, the primary action, the active navigation item, signals in code, and focus. On light grounds chartreuse is a fill only, and deep olive `#4B5E00` takes its text and focus roles. Status colors (danger, warning, hint) are for diagnostics; success is the text color with the check icon.
 
-Code follows the theme like every other surface: it sits on the surface plane, basalt-900 on the dark page and white on the light one, and has roles of its own in each theme. In the dark theme, keywords are chartreuse, the live parts of a template (`${}` bindings and the `@` `.` `?` prefixes) pale lichen `#C8E679`, tags glacier `#8DC3F2`, attributes and properties lilac `#BDB4F4`, numbers and literals rose `#EFA3BD`, strings basalt-300, and comments basalt-400. In the light theme, keywords are deep olive `#4B5E00`, the live parts of a template a darker olive `#3A4A00`, tags glacier `#215F94`, attributes and properties lilac `#5747B8`, numbers and literals rose `#A3305A`, strings basalt-800, and comments basalt-600. Every role reads at 6.7:1 or better on its code ground, and the glacier, lilac, and rose hues appear in code and nowhere else.
+Code follows the theme like every other surface: it sits on the surface plane, basalt-900 on the dark page and white on the light one, and colors each name by what it is, in a palette close to GitHub's with a value for each theme. In the dark theme, keywords are coral `#FF7B72`, functions iris `#D2A8FF`, types amber `#FFA657`, element names moss `#7EE787`, attributes, properties, and literals sky `#79C0FF`, strings ice `#A5D6FF`, and comments basalt-400. Signals, the names created with `signal`, `computed`, or `resource` or read with `get` and `set`, are chartreuse, and the live parts of a template (`${}` bindings and the `@` `.` `?` prefixes) pale lichen `#C8E679`. In the light theme, keywords are `#CF222E`, functions `#8250DF`, types `#953800`, element names `#116329`, attributes, properties, and literals `#0550AE`, strings `#0A3069`, comments basalt-600, signals deep olive `#4B5E00`, and the live parts of a template a darker olive `#3A4A00`. Every role reads at 6.8:1 or better on the dark code plane and 5:1 or better on white. The code hues color code only, never a fill, a border, a link, or decoration; coral is also the dark theme's danger color.
 
 `tokens.css` holds the values as custom properties, with dark as the default and a light theme for `prefers-color-scheme: light` or `data-theme="light"`. `tokens.json` holds the same values in the Design Tokens Community Group format, plus the terminal mapping. The code ground is the surface value of each theme, basalt-900 in the dark theme and white in the light one.
 
@@ -76,6 +76,6 @@ The SVG files are the sources. `npm run brand` renders the PNG and ICO files fro
 - Orange, amber, or ochre accents.
 - A two-tone stele, or echoes of the mark.
 - Glows, gradients, and drop shadows.
-- Green-tinted grays; chartreuse is the only green.
+- Green-tinted grays; outside code, chartreuse is the only green.
 - Labels stacked above headings.
 - Calling zerolith small or minimal.

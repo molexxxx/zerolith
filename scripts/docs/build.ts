@@ -17,13 +17,13 @@ import { rolldown } from "rolldown";
 import { diagnosticCatalog } from "zerolith";
 import { CORE_BUDGET_GZIP_BYTES, measure } from "../measure.ts";
 import { normalizeBase, rebaseHtml, rebaseMarkdown, rebasePath } from "./base.ts";
-import { mapLinks, sitePath } from "./links.ts";
+import { brokenLinks, mapLinks, sitePath } from "./links.ts";
 import { exampleCode, includeExamples } from "./examples.ts";
 import { type Role, type Roles, escapeHtml, highlight, rolesOf } from "./highlight.ts";
 import { type Characteristic, Home, NotFound, homeMarkdown } from "./home.ts";
 import { type Link, type NavGroup, type PageData, diagnosticIcon, fontFaces, icon, markdownTwin, renderPage, siteStyles } from "./layout.ts";
 import { Playground, examples as playgroundExamples, playgroundMarkdown, playgroundModules } from "./playground.ts";
-import { type Entry, type ManifestSymbol, apiReport, extract, referencePage, symbolsOf } from "./reference.ts";
+import { type Entry, type ManifestSymbol, apiReport, elementsAsCode, extract, referencePage, symbolsOf } from "./reference.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const out = join(root, "site");
@@ -226,7 +226,7 @@ marked.use({
             {
                 return treeView(text);
             }
-            const label = language === "" ? "" : ` data-language="${language}"`;
+            const label = language === "" ? "" : ` data-language="${escapeHtml(language)}"`;
             const copy = `<button class="copy" type="button" aria-label="Copy code"><span class="idle">${copyIcon}</span><span class="done">${doneIcon}</span></button>`;
             return `<div class="code"${label}>${copy}<pre><code>${highlight(text, language, pageRoles)}</code></pre></div>\n`;
         },
@@ -378,12 +378,6 @@ async function reference(): Promise<{ pages: Page[]; manifest: ManifestSymbol[];
     return { pages, manifest, reports };
 }
 
-/** Catalog text as Markdown: element names such as <button> are shown as code instead of read as markup. */
-function catalogText(text: string): string
-{
-    return text.replace(/<\/?[a-z][^<>]*>/g, (tag) => "`" + tag + "`");
-}
-
 function diagnostics(): Page[]
 {
     const codes = Object.keys(diagnosticCatalog).toSorted();
@@ -395,7 +389,7 @@ function diagnostics(): Page[]
         path: "/e/",
         title: "Diagnostics",
         description: "Every diagnostic code zerolith can emit, with its cause and fix.",
-        markdown: ["# Diagnostics", "", "Every error and warning carries a stable code and a link to its page here. The code and the URL are public API; the message text is not, and production builds omit it.", "", "| Code | Cause |", "| --- | --- |", ...codes.map((code) => `| [${code}](/e/${code}/) | ${catalogText(diagnosticCatalog[code as keyof typeof diagnosticCatalog]?.cause ?? "")} |`)].join("\n"),
+        markdown: ["# Diagnostics", "", "Every error and warning carries a stable code and a link to its page here. The code and the URL are public API; the message text is not, and production builds omit it.", "", "| Code | Cause |", "| --- | --- |", ...codes.map((code) => `| [${code}](/e/${code}/) | ${elementsAsCode(diagnosticCatalog[code as keyof typeof diagnosticCatalog]?.cause ?? "")} |`)].join("\n"),
         section: "Diagnostics",
         order: 0
     };
@@ -406,7 +400,7 @@ function diagnostics(): Page[]
             path: `/e/${code}/`,
             title: code,
             description: text?.cause ?? code,
-            markdown: ["# " + code, "", "## What happened", "", catalogText(text?.cause ?? ""), "", "## What to do", "", catalogText(text?.fix ?? ""), "", "The arguments of the specific occurrence are in the query string of the URL the error gave you."].join("\n"),
+            markdown: ["# " + code, "", "## What happened", "", elementsAsCode(text?.cause ?? ""), "", "## What to do", "", elementsAsCode(text?.fix ?? ""), "", "The arguments of the specific occurrence are in the query string of the URL the error gave you."].join("\n"),
             section: "Diagnostics",
             order: order + 1
         };
@@ -506,31 +500,6 @@ async function checkApi(reports: Map<string, string>): Promise<void>
     if (changed.length > 0)
     {
         throw new Error(`the public API differs from the reports in api/: ${changed.join(", ")}. Review the change, then run \`npm run api\` to accept it; the API of the core, templates, and router changes only through an RFC once frozen.`);
-    }
-}
-
-function checkLinks(known: Set<string>, rendered: Map<string, string>): void
-{
-    const broken: string[] = [];
-    for (const [path, html] of rendered)
-    {
-        for (const match of html.matchAll(/href="([^"]+)"/g))
-        {
-            const href = match[1] ?? "";
-            if (!href.startsWith("/"))
-            {
-                continue;
-            }
-            const target = href.split("#")[0] ?? "";
-            if (!known.has(target) && !known.has(target.endsWith("/") ? target : target + "/"))
-            {
-                broken.push(`${path} -> ${href}`);
-            }
-        }
-    }
-    if (broken.length > 0)
-    {
-        throw new Error(`broken internal links:\n${broken.join("\n")}`);
     }
 }
 
@@ -872,7 +841,11 @@ for (const name of [...siteScripts, ...Object.keys(brandAssets)])
 {
     known.add(`/${name}`);
 }
-checkLinks(known, rendered);
+const broken = brokenLinks(known, rendered);
+if (broken.length > 0)
+{
+    throw new Error(`broken internal links:\n${broken.join("\n")}`);
+}
 
 const missing = renderPage({
     ...shared,
