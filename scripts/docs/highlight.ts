@@ -630,7 +630,10 @@ const classes: Record<TokenKind, string> = {
 };
 
 /** What a name is in a block of code. */
-type Role = "type" | "function" | "signal";
+export type Role = "type" | "function" | "signal";
+
+/** What the names of some code show themselves to be, by name. */
+export type Roles = ReadonlyMap<string, ReadonlySet<Role>>;
 
 const primitives = new Set(["string", "number", "boolean", "bigint", "symbol", "object", "unknown", "never", "any"]);
 
@@ -701,17 +704,13 @@ function annotates(code: string, colon: number): boolean
 }
 
 /**
- * Colors the names in script code by what each one is in the block, so a
- * name looks the same at its import, its declaration, and every use. A name
- * created with `signal`, `computed`, or `resource`, or read with `get` and
- * `set`, is a signal; one called, declared as a function, or used as a JSX
- * tag is a function; one with a type's evidence, such as a `type` import, an
- * annotation, or type arguments, is a type; and any other capitalized name,
- * such as a component or a class passed by reference, is a function too. A
- * method call such as `.get()` is a function, and a name in capitals is a
- * constant.
+ * What each name in script code shows itself to be. A name created with
+ * `signal`, `computed`, or `resource`, or read with `get` and `set`, is a
+ * signal; one called, declared as a function, or used as a JSX tag is a
+ * function; and one with a type's evidence, such as a `type` import, an
+ * annotation, or type arguments, is a type.
  */
-function refine(tokens: Token[]): Token[]
+function gather(tokens: Token[]): Map<string, Set<Role>>
 {
     const code = tokens.map((token) => token.text).join("");
     const evidence = new Map<string, Set<Role>>();
@@ -765,9 +764,26 @@ function refine(tokens: Token[]): Token[]
         }
         offset += token.text.length;
     }
+    return evidence;
+}
+
+/**
+ * Colors the names in script code by what each one is, so a name looks the
+ * same at its import, its declaration, and every use. The block's own
+ * evidence decides; a name the block gives none for takes what `page`
+ * knows of it from the other blocks of the page, so a function passed by
+ * reference here and declared further down keeps its color. Any other
+ * capitalized name, such as a component or a class passed by reference, is
+ * a function too. A method call such as `.get()` is a function, and a name
+ * in capitals is a constant.
+ */
+function refine(tokens: Token[], page: Roles | undefined): Token[]
+{
+    const code = tokens.map((token) => token.text).join("");
+    const evidence = gather(tokens);
     const roleOf = (word: string): Role | undefined =>
     {
-        const found = evidence.get(word);
+        const found = evidence.get(word) ?? page?.get(word);
         if (found?.has("signal") === true)
         {
             return "signal";
@@ -783,7 +799,7 @@ function refine(tokens: Token[]): Token[]
         return /^[A-Z]/.test(word) && !constant.test(word) ? "function" : undefined;
     };
     const refined: Token[] = [];
-    offset = 0;
+    let offset = 0;
     for (const token of tokens)
     {
         if (token.kind === "tag" && /^[A-Z]/.test(token.text))
@@ -828,11 +844,21 @@ function refine(tokens: Token[]): Token[]
 
 const scripts = new Set(["ts", "tsx", "js", "jsx", "mjs", "typescript", "javascript"]);
 
-/** A code block's HTML, with every colored token wrapped in a span whose class names its role. */
-export function highlight(code: string, language: string): string
+/** What the names of a code block show themselves to be, for the other blocks of its page to share. */
+export function rolesOf(code: string, language: string): Map<string, Set<Role>>
+{
+    return scripts.has(language) ? gather(tokenize(code, language)) : new Map();
+}
+
+/**
+ * A code block's HTML, with every colored token wrapped in a span whose
+ * class names its role. `page` holds what the page's other blocks show
+ * their names to be, for names this block gives no evidence for.
+ */
+export function highlight(code: string, language: string, page?: Roles): string
 {
     const tokens = tokenize(code, language);
-    return (scripts.has(language) ? refine(tokens) : tokens)
+    return (scripts.has(language) ? refine(tokens, page) : tokens)
         .map((token) => (classes[token.kind] === "" ? escapeHtml(token.text) : `<span class="${classes[token.kind]}">${escapeHtml(token.text)}</span>`))
         .join("");
 }

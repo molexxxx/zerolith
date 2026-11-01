@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { highlight, identifiers, tokenize } from "../highlight.ts";
+import { highlight, identifiers, rolesOf, tokenize } from "../highlight.ts";
 
 describe("code coloring", () =>
 {
@@ -79,6 +79,15 @@ describe("code coloring", () =>
         expect(colored).toContain(".<span class=\"f\">get</span>()");
         expect(colored).toContain("<span class=\"n\">LIMIT</span>");
         expect(colored).toContain("{ item: { name: ");
+    });
+
+    it("colors a name by what the page's other blocks show it to be when its own block does not", () =>
+    {
+        const page = rolesOf("export function loadRelease() {}\nconst count = signal(1);\n", "ts");
+        expect(highlight("route({ load: loadRelease });", "ts")).toContain("load: loadRelease");
+        expect(highlight("route({ load: loadRelease });", "ts", page)).toContain("<span class=\"f\">loadRelease</span>");
+        expect(highlight("const count = 2;\ncount(1);", "ts", page)).toContain("<span class=\"f\">count</span>");
+        expect(highlight("show(count);", "ts", page)).toContain("<span class=\"g\">count</span>");
     });
 
     it("colors numbers and literals", () =>

@@ -6,7 +6,7 @@
  * Try: submit a one-letter name, then "ada", which the stand-in server
  * says is taken, then a name of your own.
  */
-import { html, render, signal, when } from "zerolith";
+import { css, html, render, signal, when } from "zerolith";
 import { createForm } from "@zerolith/forms";
 
 /** A Standard Schema written by hand; zod or valibot plug in the same way. */
@@ -52,14 +52,42 @@ const form = createForm({
 });
 const name = form.field("name");
 
+const panel = css`
+    :scope {
+        display: grid;
+        gap: 20px;
+        max-width: 400px;
+        padding: clamp(20px, 5vw, 32px);
+        border: 2px solid var(--line);
+        background: var(--surface);
+    }
+    h2 { font-size: 28px; }
+    form { display: grid; gap: 8px; }
+    label { display: grid; gap: 8px; }
+    label span {
+        color: var(--muted);
+        font: 12px var(--font-mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+    output { min-height: 1.6em; color: var(--danger); font-size: 14px; }
+    form button { justify-self: start; }
+    .done { margin: 0; color: var(--muted); }
+`;
+
 render(html`
-    <form method="post" action="/signup" @submit=${form.submit}>
-        <label>Username
-            <input name="name" autocomplete="off"
-                aria-invalid=${name.invalid} aria-describedby="name-error">
-        </label>
-        <output id="name-error">${name.error}</output>
-        <button ?disabled=${form.pending}>Sign up</button>
-    </form>
-    ${when(welcomed, () => html`<p>Welcome aboard, ${welcomed}.</p>`)}`,
-    "#app");
+    <section class=${panel}>
+        <h2>Create an account</h2>
+        <form method="post" action="/signup" @submit=${form.submit}>
+            <label>
+                <span>Username</span>
+                <input name="name" autocomplete="off"
+                    aria-invalid=${name.invalid}
+                    aria-describedby="name-error">
+            </label>
+            <output id="name-error">${name.error}</output>
+            <button class="primary" ?disabled=${form.pending}>Sign up</button>
+        </form>
+        ${when(welcomed, () => html`
+            <p class="done">Welcome aboard, ${welcomed}.</p>`)}
+    </section>`, "#app");

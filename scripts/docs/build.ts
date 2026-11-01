@@ -19,7 +19,7 @@ import { CORE_BUDGET_GZIP_BYTES, measure } from "../measure.ts";
 import { normalizeBase, rebaseHtml, rebaseMarkdown, rebasePath } from "./base.ts";
 import { mapLinks, sitePath } from "./links.ts";
 import { exampleCode, includeExamples } from "./examples.ts";
-import { escapeHtml, highlight } from "./highlight.ts";
+import { type Role, type Roles, escapeHtml, highlight, rolesOf } from "./highlight.ts";
 import { type Characteristic, Home, NotFound, homeMarkdown } from "./home.ts";
 import { type Link, type NavGroup, type PageData, diagnosticIcon, fontFaces, icon, markdownTwin, renderPage, siteStyles } from "./layout.ts";
 import { Playground, examples as playgroundExamples, playgroundMarkdown, playgroundModules } from "./playground.ts";
@@ -116,7 +116,22 @@ function headingId(html: string, used: Set<string>): string
 }
 
 let pageIds = new Set<string>();
+let pageRoles: Roles = new Map();
 let fileViews = 0;
+
+/** What the names in a page's code blocks show themselves to be, merged, so a name keeps one color on the page. */
+function rolesOfPage(markdown: string): Roles
+{
+    const merged = new Map<string, Set<Role>>();
+    for (const match of markdown.matchAll(/^```(\w+)[^\n]*\n([\s\S]*?)^```/gm))
+    {
+        for (const [name, roles] of rolesOf(match[2] ?? "", match[1] ?? ""))
+        {
+            merged.set(name, new Set([...(merged.get(name) ?? []), ...roles]));
+        }
+    }
+    return merged;
+}
 const fileIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M5 3H14L19 8V21H5Z"/><path d="M14 3V8H19"/></svg>';
 
 const folderIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5H10L12 8H21V19H3Z"/></svg>';
@@ -213,7 +228,7 @@ marked.use({
             }
             const label = language === "" ? "" : ` data-language="${language}"`;
             const copy = `<button class="copy" type="button" aria-label="Copy code"><span class="idle">${copyIcon}</span><span class="done">${doneIcon}</span></button>`;
-            return `<div class="code"${label}>${copy}<pre><code>${highlight(text, language)}</code></pre></div>\n`;
+            return `<div class="code"${label}>${copy}<pre><code>${highlight(text, language, pageRoles)}</code></pre></div>\n`;
         },
         blockquote({ tokens })
         {
@@ -247,6 +262,7 @@ marked.use({
         preprocess(markdown)
         {
             pageIds = new Set();
+            pageRoles = rolesOfPage(markdown);
             fileViews = 0;
             return markdown;
         },

@@ -3,8 +3,10 @@
  * surfaces, square corners, 2 px rules, and chartreuse kept for the mark,
  * the primary action, the current page, and focus. Form controls share one
  * look: at least 44 px tall, a 2 px border that thickens inward on focus,
- * and states for hover, invalid, disabled, checked, and pressed. Component
- * styles live next to their markup in the css literals under src/components.
+ * and states for hover, invalid, disabled, checked, and pressed; range
+ * sliders and progress bars are drawn square in the same colors. Component
+ * styles live next to their markup under src/components, in css literals or
+ * in stylesheets imported with ?scoped.
  */
 :root
 {
@@ -131,7 +133,8 @@ button.primary:hover,
     background: var(--accent-hover);
 }
 
-button:disabled
+button:disabled,
+button:disabled:hover
 {
     border-style: dashed;
     border-color: var(--control);
@@ -266,6 +269,77 @@ input[type="radio"]:focus-visible
     outline: 2px solid var(--focus);
     outline-offset: 2px;
     box-shadow: none;
+}
+
+input[type="range"]
+{
+    appearance: none;
+    min-height: 2.75rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track
+{
+    height: 2px;
+    background: var(--control);
+}
+
+input[type="range"]::-moz-range-track
+{
+    height: 2px;
+    background: var(--control);
+}
+
+input[type="range"]::-webkit-slider-thumb
+{
+    appearance: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-top: -0.5625rem;
+    background: var(--text);
+}
+
+input[type="range"]::-moz-range-thumb
+{
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 0;
+    border-radius: 0;
+    background: var(--text);
+}
+
+input[type="range"]:focus-visible
+{
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    box-shadow: none;
+}
+
+progress
+{
+    appearance: none;
+    width: 100%;
+    height: 0.75rem;
+    border: 2px solid var(--control);
+    background: transparent;
+}
+
+progress::-webkit-progress-bar
+{
+    background: transparent;
+}
+
+progress::-webkit-progress-value
+{
+    background: var(--text);
+}
+
+progress::-moz-progress-bar
+{
+    background: var(--text);
 }
 
 ul:has(> li > label > input[type="checkbox"], > li > label > input[type="radio"])

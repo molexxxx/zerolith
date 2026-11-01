@@ -67,7 +67,9 @@ function siteTheme()
  * theme, and the code as a module. The frame's opaque origin keeps it from
  * seeing the site's theme through `prefers-color-scheme`, so the theme
  * arrives as the root's `data-theme` and in messages when the reader
- * changes it.
+ * changes it. The app stays hidden until the brand's fonts have loaded,
+ * or for a second and a half at most, so it never shows first in a
+ * fallback face.
  * @param {string} code
  * @param {Record<string, string>} imports
  * @param {"light" | "dark"} theme
@@ -90,14 +92,17 @@ function frameDocument(code, imports, theme)
             {
                 document.documentElement.setAttribute("data-theme", event.data.playgroundTheme);
             }
-        });`;
+        });
+        const reveal = () => document.documentElement.setAttribute("data-fonts", "");
+        Promise.all(["600 1em Unbounded", "1em Onest", '1em "Martian Mono"'].map((font) => document.fonts.load(font))).finally(reveal);
+        setTimeout(reveal, 1500);`;
     return `<!doctype html>
 <html lang="en" data-theme="${theme}">
 <head>
 <meta charset="utf-8">
 <link rel="stylesheet" href="${new URL("fonts.css", document.baseURI).href}">
 <link rel="stylesheet" href="${new URL("preview.css", document.baseURI).href}">
-<style>body { padding: 24px; }</style>
+<style>body { padding: clamp(16px, 4vw, 24px); } html:not([data-fonts]) #app { visibility: hidden; }</style>
 <script type="importmap">${JSON.stringify({ imports })}</script>
 <script>${reporter}</script>
 </head>

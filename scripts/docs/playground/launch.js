@@ -39,29 +39,43 @@ const STAGES = {
 };
 
 const panel = css`
-    :scope { display: grid; gap: 16px; max-width: 560px; }
-    .stage {
-        color: var(--muted);
-        font-size: 12px;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
+    :scope {
+        display: grid;
+        gap: 16px;
+        max-width: 560px;
+        padding: clamp(20px, 5vw, 32px);
+        border: 2px solid var(--line);
+        background: var(--surface);
     }
     .readout {
         margin: 0;
-        font-family: var(--font-display);
-        font-size: 64px;
-        font-weight: 800;
+        font: 600 clamp(44px, 12vw, 72px)/1 var(--font-display);
         letter-spacing: -0.04em;
-        line-height: 1;
+    }
+    .stage {
+        margin: 0;
+        color: var(--muted);
+        font-family: var(--font-mono);
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
     }
     :scope[data-stage="orbit"] .readout { color: var(--accent-text); }
     :scope[data-stage="aborted"] .readout { color: var(--danger); }
-    label { display: grid; gap: 4px; }
-    progress { width: 100%; height: 12px; }
+    label {
+        display: grid;
+        gap: 8px;
+        color: var(--muted);
+        font: 12px var(--font-mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
     .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+    .controls label { flex: 1 1 160px; }
+    input[type="range"] { width: 100%; }
     ol { margin: 0; padding: 0; list-style: none; }
     li {
-        padding: 6px 0;
+        padding: 8px 0;
         border-top: 2px solid var(--line);
         font-family: var(--font-mono);
         font-size: 13px;
@@ -169,8 +183,8 @@ const steer = (event) => throttle.set(Number(event.target.value));
 
 render(html`
     <section class=${panel} data-stage=${stage}>
-        <p class="stage">${computed(() => STAGES[stage.get()])}</p>
         <p class="readout">${readout}</p>
+        <p class="stage">${computed(() => STAGES[stage.get()])}</p>
         <label>Altitude
             <progress max=${ORBIT} value=${altitude}></progress>
         </label>

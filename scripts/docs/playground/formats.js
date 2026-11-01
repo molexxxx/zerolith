@@ -7,7 +7,7 @@
  * Try: switch the locale, then the currency. Note that yen has no cents
  * and that ar-EG writes right to left.
  */
-import { computed, html, render, signal } from "zerolith";
+import { computed, css, html, render, signal } from "zerolith";
 import { createLocale, formatters } from "@zerolith/i18n";
 
 const locales = ["en-US", "de-DE", "ja-JP", "ar-EG"];
@@ -26,6 +26,39 @@ const date = computed(() => format.date(departure, { dateStyle: "full" }));
 const soon = computed(() => format.relative(3, "day", { numeric: "auto" }));
 const bags = computed(() => format.list(["Passport", "Charger", "Jacket"]));
 
+const panel = css`
+    :scope {
+        display: grid;
+        gap: 24px;
+        max-width: 520px;
+        padding: clamp(20px, 5vw, 32px);
+        border: 2px solid var(--line);
+        background: var(--surface);
+    }
+    table { border-collapse: collapse; border-top: 2px solid var(--line); }
+    th, td {
+        padding: 12px 0;
+        border-bottom: 2px solid var(--line);
+        vertical-align: baseline;
+    }
+    th, .label {
+        color: var(--muted);
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 400;
+        letter-spacing: 0.06em;
+        text-align: start;
+        text-transform: uppercase;
+    }
+    th { width: 112px; padding-inline-end: 16px; }
+    td { font-variant-numeric: tabular-nums; }
+    fieldset { display: flex; flex-wrap: wrap; padding: 0; border: 0; }
+    legend { margin-bottom: 8px; padding: 0; }
+    fieldset button { padding: 0 12px; }
+    fieldset button + button { margin-inline-start: -2px; }
+    label { display: grid; gap: 8px; justify-items: start; }
+`;
+
 function Row({ label, value })
 {
     return html`<tr><th scope="row">${label}</th><td>${value}</td></tr>`;
@@ -35,34 +68,39 @@ function Row({ label, value })
 function Choice({ label, options, current, choose })
 {
     return html`
-        <div role="group" aria-label=${label}>
+        <fieldset>
+            <legend>${label}</legend>
             ${options.map((option) => html`
-                <button aria-pressed=${computed(() => current.get() === option)}
+                <button type="button"
+                    aria-pressed=${computed(() => current.get() === option)}
                     @click=${() => choose(option)}>${option}</button>`)}
-        </div>`;
+        </fieldset>`;
 }
 
 const type = (event) => amount.set(Number(event.target.value));
 
 render(html`
-    <table dir=${locale.direction}>
-        ${Row({ label: "Price", value: price })}
-        ${Row({ label: "Departure", value: date })}
-        ${Row({ label: "In", value: soon })}
-        ${Row({ label: "Packed", value: bags })}
-    </table>
-    ${Choice({
-        label: "Locale",
-        options: locales,
-        current: locale.locale,
-        choose: (tag) => locale.set(tag)
-    })}
-    ${Choice({
-        label: "Currency",
-        options: currencies,
-        current: currency,
-        choose: (code) => currency.set(code)
-    })}
-    <label>Amount
-        <input type="number" step="0.01" .value=${amount} @input=${type}>
-    </label>`, "#app");
+    <section class=${panel}>
+        <table dir=${locale.direction}>
+            ${Row({ label: "Price", value: price })}
+            ${Row({ label: "Departure", value: date })}
+            ${Row({ label: "In", value: soon })}
+            ${Row({ label: "Packed", value: bags })}
+        </table>
+        ${Choice({
+            label: "Locale",
+            options: locales,
+            current: locale.locale,
+            choose: (tag) => locale.set(tag)
+        })}
+        ${Choice({
+            label: "Currency",
+            options: currencies,
+            current: currency,
+            choose: (code) => currency.set(code)
+        })}
+        <label>
+            <span class="label">Amount</span>
+            <input type="number" step="0.01" .value=${amount} @input=${type}>
+        </label>
+    </section>`, "#app");

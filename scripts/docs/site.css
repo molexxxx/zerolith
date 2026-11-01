@@ -1893,7 +1893,8 @@ main[tabindex="-1"]:focus
 
 .editor textarea::selection
 {
-    background: var(--zl-code-selection);
+    background: color-mix(in srgb, var(--zl-code-text) 22%, transparent);
+    color: transparent;
 }
 
 .editor textarea:focus-visible

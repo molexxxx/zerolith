@@ -6,7 +6,7 @@
  * Try: check items off and add one with the form. Then add a fourth
  * starting item to the list in the code and press Run.
  */
-import { computed, each, html, render, signal } from "zerolith";
+import { computed, css, each, html, render, signal } from "zerolith";
 
 const items = signal([
     { id: 1, name: "Passport", packed: true },
@@ -16,6 +16,25 @@ const items = signal([
 const packed = computed(() =>
     items.get().filter((item) => item.packed).length);
 const total = computed(() => items.get().length);
+
+const panel = css`
+    :scope {
+        display: grid;
+        gap: 16px;
+        max-width: 420px;
+        padding: clamp(20px, 5vw, 32px);
+        border: 2px solid var(--line);
+        background: var(--surface);
+    }
+    h1 { font-size: 32px; }
+    .count { margin: 0; color: var(--muted); font-family: var(--font-mono); }
+    ul { margin: 0; border-top: 2px solid var(--line); }
+    li { padding: 12px 0; border-bottom: 2px solid var(--line); }
+    li label { display: flex; }
+    li:has(:checked) { color: var(--muted); text-decoration: line-through; }
+    form { display: flex; gap: 8px; }
+    input[name="name"] { flex: 1; min-width: 0; }
+`;
 
 function toggle(id)
 {
@@ -51,10 +70,14 @@ function Item(item)
 }
 
 render(html`
-    <h1>Packing list</h1>
-    <p>${packed} of ${total} packed</p>
-    <ul>${each(items, (item) => item.id, Item)}</ul>
-    <form @submit=${add}>
-        <label>Item <input name="name" autocomplete="off"></label>
-        <button>Add</button>
-    </form>`, "#app");
+    <section class=${panel}>
+        <h1>Packing list</h1>
+        <p class="count">${packed} of ${total} packed</p>
+        <progress max=${total} value=${packed}></progress>
+        <ul>${each(items, (item) => item.id, Item)}</ul>
+        <form @submit=${add}>
+            <input name="name" aria-label="Item" placeholder="Add an item"
+                autocomplete="off">
+            <button>Add</button>
+        </form>
+    </section>`, "#app");

@@ -9,17 +9,46 @@
 import { computed, css, html, render, signal } from "zerolith";
 
 const badge = css`
-    :scope { display: inline-block; padding: 4px 8px; border: 2px solid; }
-    p { margin: 0; font-size: 12px; text-transform: uppercase; }
+    :scope {
+        display: inline-block;
+        padding: 6px 10px;
+        border: 2px solid var(--control);
+    }
+    p {
+        margin: 0;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
 `;
 
 const card = css`
-    :scope { max-width: 360px; padding: 16px; border: 4px solid; }
-    h2 { margin: 0 0 8px; font-size: calc(var(--size) * 1px); }
-    p { margin: 0 0 12px; font-weight: 700; }
+    :scope {
+        display: grid;
+        gap: 12px;
+        justify-items: start;
+        padding: clamp(20px, 5vw, 32px);
+        border: 2px solid var(--line);
+        background: var(--surface);
+    }
+    h2 { font-size: calc(var(--size) * 1px); }
+    p { margin: 0; font-weight: 700; }
 `;
 
-const size = signal(24);
+const page = css`
+    :scope { display: grid; gap: 24px; max-width: 420px; }
+    label { display: grid; gap: 8px; }
+    span {
+        color: var(--muted);
+        font: 12px var(--font-mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+    output { color: var(--text); }
+`;
+
+const size = signal(32);
 
 function Badge({ text })
 {
@@ -40,8 +69,11 @@ function Card()
 const resize = (event) => size.set(Number(event.target.value));
 
 render(html`
-    ${Card()}
-    <label>Heading size ${size}px
-        <input type="range" min="16" max="48" .value=${size}
-            @input=${resize}>
-    </label>`, "#app");
+    <div class=${page}>
+        ${Card()}
+        <label>
+            <span>Heading size <output>${size}px</output></span>
+            <input type="range" min="16" max="48" .value=${size}
+                @input=${resize}>
+        </label>
+    </div>`, "#app");
