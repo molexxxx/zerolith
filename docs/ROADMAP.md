@@ -49,6 +49,7 @@ In order:
 - [x] Fine-grained rendering with no virtual DOM, under Trusted Types and a strict CSP.
 - [x] Server rendering to strings and hydration with mismatch repair and reporting.
 - [x] Coded diagnostics with a cause, a fix, and a page per code, with warnings printed to the console in development while no listener takes them.
+- [ ] Diagnostics that point and suggest: each emitter fills `location` with the source position or the page node it is about, and `suggestion` with a change graded by how safely a tool can apply it, which the `Diagnostic` type already carries and no emitter fills yet.
 - [x] Custom elements with attributes and properties as signals (`zerolith/element`).
 - [x] JSX as an alternative spelling of `html`.
 - [x] Mounting by element or CSS selector, and with a function that returns the view, called inside the root's owner so components own their cleanups.
@@ -85,6 +86,7 @@ The everyday helpers applications otherwise write by hand, each with one form, f
 - [ ] `@zerolith/browser`: the page as signals, such as online status, visibility, an element's size and whether it is in view, and the window size.
 - [ ] Retry with backoff and a timeout for `resource`.
 - [ ] A plain fetch client in `@zerolith/client` for backends without an OpenAPI document: a base URL, headers, JSON in and out, timeouts, and problems as errors.
+- [ ] Query parameters in `@zerolith/client` written as the document declares them: the route table records each parameter's `style` and `explode`, and a call writes form, form without explode, `spaceDelimited`, `pipeDelimited`, and `deepObject` accordingly, with JSON only for a parameter declared with `content`.
 - [ ] Enter and leave transitions for `when` and `each` that follow the reduced-motion preference.
 - [ ] Router guards that can hold a navigation, such as for unsaved changes, and a hash mode for hosts with no fallback to `index.html`.
 
