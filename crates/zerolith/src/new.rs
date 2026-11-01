@@ -1239,7 +1239,7 @@ The commands below are the project's npm scripts: `dev` and `build` run the zero
 
 ## Develop
 
-While you develop, two processes run side by side. Start the backend in one terminal:
+While you develop, two processes run side by side, started in either order. Start the backend in one terminal:
 
 ```
 npm run api
@@ -1251,7 +1251,7 @@ It serves the API at http://127.0.0.1:3001/api/ in watch mode: a change to a fil
 npm run dev
 ```
 
-`zerolith dev` serves the app at http://127.0.0.1:8080/app/ with live reload, or on the next free port when 8080 is taken, as its banner says, and the site root redirects to `/app/`. It forwards every request under `/api` to the backend, as `zerolith.json` says, so the app calls the API on its own origin, with no CORS to configure, and the session cookie works as it will in production:
+`zerolith dev` serves the app at http://127.0.0.1:8080/app/ with live reload, or on the next free port when 8080 is taken, as its banner says, and the site root redirects to `/app/`. If the app comes up before the backend, the page says the backend is out of reach and asks again every two seconds, so it opens as soon as `npm run api` answers. It forwards every request under `/api` to the backend, as `zerolith.json` says, so the app calls the API on its own origin, with no CORS to configure, and the session cookie works as it will in production:
 
 ```json
 {
@@ -1337,7 +1337,7 @@ A zerolith application with its own backend, written from the fullstack example:
 
 ## Commands
 
-- Development runs two processes: `npm run api` starts the backend on port 3001 and restarts it when `server/` or `shared/` changes, and `npm run dev` serves the app under `/app/` with live reload, forwarding `/api` to the backend as `zerolith.json` says.
+- Development runs two processes, in either order: `npm run api` starts the backend on port 3001 and restarts it when `server/` or `shared/` changes, and `npm run dev` serves the app under `/app/` with live reload, forwarding `/api` to the backend as `zerolith.json` says. While the backend is down, the page says so and asks again every two seconds.
 - `npm run build` writes `dist/` for the base `/app/`; `npm start` serves the API and `dist/` from the backend.
 - `npm run check` is the gate: typecheck, lint, the backend's tests in Node and the pages' in Chromium, and the build.
 - Sign in as `ada@harbor.test` with the password `analytical`.

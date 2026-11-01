@@ -9,11 +9,16 @@ const session: Session = { user: { id: 1, name: "Ada Lovelace", email: "ada@harb
 const summary: Summary = { projects: 1, open: 2, dueSoon: 1, doneThisWeek: 1 };
 const projects: Project[] = [{ id: 1, name: "Website relaunch", summary: "A faster site.", open: 2, done: 1 }];
 let sessionKnown = true;
+let reachable = true;
 
 vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
 {
     const request = new Request(input, init);
     const { pathname } = new URL(request.url);
+    if (!reachable)
+    {
+        return Promise.reject(new TypeError("Failed to fetch"));
+    }
     if (!sessionKnown)
     {
         return Promise.resolve(Response.json({ status: 401, title: "Sign in to continue" }, { status: 401, headers: { "content-type": "application/problem+json" } }));
@@ -44,7 +49,7 @@ vi.stubGlobal("EventSource", class
 
 const { Dashboard } = await import("../src/components/dashboard.ts");
 const { Projects } = await import("../src/components/projects.ts");
-const { session: current } = await import("../src/store.ts");
+const { reloadSession, session: current, unreachable } = await import("../src/store.ts");
 
 afterEach(cleanup);
 
@@ -74,6 +79,23 @@ it("checks a new project in the browser, then adds it through the form", async (
     await settle();
     expect(Array.from(container.querySelectorAll("li h2"), (title) => title.textContent)).toEqual(["Website relaunch", "Launch party"]);
     expect(accessibilityIssues(container)).toEqual([]);
+});
+
+it("marks the backend out of reach while it does not answer, and asks again on its own until it does", { timeout: 10000 }, async () =>
+{
+    reachable = false;
+    try
+    {
+        reloadSession();
+        await settle();
+        expect(unreachable.get()).toBe(true);
+    }
+    finally
+    {
+        reachable = true;
+    }
+    await vi.waitFor(() => expect(unreachable.get()).toBe(false), { timeout: 5000, interval: 100 });
+    expect(current.get()).toEqual(session);
 });
 
 it("says why a form failed when the backend forgot the session, and asks for the session again", async () =>

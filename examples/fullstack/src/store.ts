@@ -26,6 +26,15 @@ export const api = createClient<Api>(routes, { transport: send });
 const sessions = signal(0, { name: "sessions" });
 const changes = signal(0, { name: "changes" });
 
+/** How long the page waits before asking an unreachable backend for the session again, in milliseconds. */
+const RETRY_DELAY = 2000;
+
+/** The pending retry while the backend is out of reach, so failures in a row schedule one. */
+let retry: ReturnType<typeof setTimeout> | undefined;
+
+/** True while the backend cannot be reached for the session, as before `npm run api` has started; the session is asked for again every two seconds meanwhile, so the page opens once the backend answers. */
+export const unreachable = signal(false, { name: "unreachable" });
+
 /** The session: undefined while it loads, null when nobody is signed in. */
 export const session = resource({
     params: () => sessions.get(),
@@ -33,13 +42,25 @@ export const session = resource({
     {
         try
         {
-            return await api.call("getSession", {}, { signal: abort });
+            const value = await api.call("getSession", {}, { signal: abort });
+            unreachable.set(false);
+            return value;
         }
         catch (error)
         {
             if (error instanceof ProblemError && error.problem.status === 401)
             {
+                unreachable.set(false);
                 return null;
+            }
+            if (!abort.aborted)
+            {
+                unreachable.set(true);
+                retry ??= setTimeout(() =>
+                {
+                    retry = undefined;
+                    reloadSession();
+                }, RETRY_DELAY);
             }
             throw error;
         }

@@ -118,6 +118,7 @@ See the [command line guide](guide/command-line.md).
 - [x] `new --example fullstack` writes the fullstack example as a project of its own, an app with its Node backend, with tests of both and a README on developing with two processes and on deploying. The example is now Harbor, a team's projects and tasks, which shows how a larger application is put together: sessions, shared types and validation, a typed client, live updates, and a lazy route.
 - [x] `new` writes the zerolith skill for coding agents into `.agents/skills` and `.claude/skills` for its version, `skill` writes or updates it in any project, and `doctor` reports a copy written for another version.
 - [x] A proxy from `dev`, `serve`, and `preview` to backends, streaming bodies and joining WebSocket connections, a base path for all three and the router, and `zerolith.json` for the settings they share, with a schema.
+- [ ] `dev` and `preview` start the backend a proxy rule names, as `"run": "npm run api"` beside its target, and stop it with themselves, so one command runs an app and its backend.
 - [ ] A proxy to `https://` backends.
 - [ ] `zerolith migrate`, with codemods between versions.
 - [ ] A musl binary for Alpine and other musl distributions.

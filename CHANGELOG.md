@@ -4,9 +4,17 @@ Every package in this repository is released together and carries the same versi
 
 ## Unreleased
 
+### Breaking changes
+
+- `@zerolith/client`: `zerolith-client` and `generateClient` keep a schema named like a built-in type under its own name again, as 0.1.0-alpha.5 did, unless the generated module writes that built-in, as it writes `Record` for an object of free keys and `Blob` for a binary response; 0.1.0-alpha.6 wrote every such schema under a numbered name, as `Record2`, which broke imports of the schema's type in modules that never wrote the built-in. Code written against 0.1.0-alpha.6's numbered name imports the schema's own name again. A schema that another schema's name, the interface, or `RouteTable` would clash with keeps its numbered name.
+
 ### Changed
 
 - Canaries are versioned `0.0.0-canary.<yyyymmdd>.g<commit>`, which sorts below every release, so no range that names a release, such as `^0.1.0-alpha.6`, matches one, and only `@canary` installs it. They had been the current version with a canary prerelease after it, as `0.1.0-alpha.6.canary.20261101.g301d419`, which sorts after `0.1.0-alpha.6`, so a package manager that takes the highest match for `^0.1.0-alpha.6` could install that canary in place of the release.
+
+### Fixed
+
+- Fullstack example and `zerolith new --example fullstack`: while the backend does not answer, Harbor says so and asks for the session again every two seconds, opening as soon as it answers, so `npm run dev` started before `npm run api` no longer leaves the page out of reach until a reload. The README and the command-line guide say the two run side by side in either order.
 
 ## 0.1.0-alpha.6 (2026-11-01)
 

@@ -73,13 +73,32 @@ describe("generateClient", () =>
                 Api2: { type: "string" }
             }
         }));
-        expect(code).toContain("/** The schema \"record\", named Record2 because Record is already TypeScript's Record type. */\nexport type Record2 = Record<string, string>;");
+        expect(code).toContain("/** The schema \"record\", named Record2 because Record is already TypeScript's Record type, which this module uses. */\nexport type Record2 = Record<string, string>;");
         expect(code).toContain("export type Note = Record2;");
         expect(code).toMatch(/export type NoteItem = (string|number);/);
         expect(code).toMatch(/named NoteItem2 because NoteItem is already the type of the schema "note[-_]item"\. \*\/\nexport type NoteItem2 = (string|number);/);
         expect(code).toContain("export type Api2 = string;");
         expect(code).toContain("named Api3 because Api is already the interface of the operations, which apiName renames. */\nexport type Api3 = boolean;");
         expect(generateClient(document({}, { schemas: { api: { type: "boolean" } } }), { apiName: "Contract" })).toContain("export type Api = boolean;");
+    });
+
+    it("keeps a schema named like a built-in type the module does not write, and renames it where the module writes one", () =>
+    {
+        const json = { "200": { description: "ok", content: { "application/json": { schema: { $ref: "#/components/schemas/Blob" } } } } };
+        const kept = generateClient(document({ "/files": { get: { operationId: "listFiles", responses: json } } }, {
+            schemas: {
+                Record: { type: "object", properties: { id: { type: "string" } } },
+                Blob: { type: "object", properties: { size: { type: "number" } } }
+            }
+        }));
+        expect(kept).toContain("export type Record = {");
+        expect(kept).toContain("export type Blob = {");
+        expect(kept).toContain("output: Blob;");
+        expect(kept).not.toMatch(/Record2|Blob2/);
+        const binary = { "200": { description: "ok", content: { "application/octet-stream": {} } } };
+        const renamed = generateClient(document({ "/raw": { get: { operationId: "raw", responses: binary } } }, { schemas: { Blob: { type: "string" } } }));
+        expect(renamed).toContain("named Blob2 because Blob is already the global Blob type, which this module uses. */\nexport type Blob2 = string;");
+        expect(renamed).toContain("output: Blob;");
     });
 
     it("names operations from the method and path when operationId is missing, and refuses collisions", () =>

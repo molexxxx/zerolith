@@ -49,7 +49,7 @@ export function SignIn(): View
         </main>`;
 }
 
-/** What the page shows when the session could not be asked for, as when the backend is not running. */
+/** What the page shows while the session cannot be asked for, as when the backend is not running yet; the store asks again every two seconds, and the button at once. */
 export function Unreachable(): View
 {
     return html`
@@ -57,7 +57,7 @@ export function Unreachable(): View
             <section class="poster">
                 <p class="eyebrow">Harbor</p>
                 <h1>The harbor is out of reach.</h1>
-                <p>The server did not answer. Check that the backend is running, then try again.</p>
+                <p>The server did not answer. Check that the backend is running: this page asks again every two seconds and opens as soon as it answers.</p>
             </section>
             <div class="retry">
                 <h2>Cannot connect</h2>

@@ -261,8 +261,18 @@ function deref<T extends { $ref?: string }>(context: Context, value: T, section:
     return current;
 }
 
-/** The type name each schema of the document being generated is written under, by schema name, which a `$ref` to the schema uses; `generateClient` sets it before it writes a type. */
+/** The type name each schema of the document being generated is written under, by schema name, which a `$ref` to the schema uses; `writeModule` sets it before it writes a type. */
 let schemaTypes: ReadonlyMap<string, string> = new Map();
+
+/** The built-in type names the module being generated writes, as `Record` for an object of free keys or `Blob` for a binary response; `writeModule` empties it before it writes. */
+let builtInsUsed = new Set<string>();
+
+/** A built-in type name, recorded as written by the module being generated. */
+function builtIn(name: string): string
+{
+    builtInsUsed.add(name);
+    return name;
+}
 
 function schemaRefName(ref: string): string
 {
@@ -384,10 +394,10 @@ function objectType(schema: SchemaObject, indent: string): string
     const properties = Object.entries(schema.properties ?? {});
     const required = new Set(schema.required ?? []);
     const extra = schema.additionalProperties;
-    const record = extra === undefined || extra === false ? undefined : `Record<string, ${extra === true ? "unknown" : typeOf(extra, indent)}>`;
+    const record = extra === undefined || extra === false ? undefined : `${builtIn("Record")}<string, ${extra === true ? "unknown" : typeOf(extra, indent)}>`;
     if (properties.length === 0)
     {
-        return record ?? (extra === false ? "Record<string, never>" : "Record<string, unknown>");
+        return record ?? `${builtIn("Record")}<string, ${extra === false ? "never" : "unknown"}>`;
     }
     const inner = `${indent}    `;
     const lines = properties.map(([name, property]) =>
@@ -509,15 +519,15 @@ function bodyType(context: Context, operation: OperationObject): { type: string;
         case "json":
             return { type: typeOf(content.schema, "        "), required };
         case "form":
-            return { type: "FormData", required };
+            return { type: builtIn("FormData"), required };
         case "urlencoded":
-            return { type: "URLSearchParams", required };
+            return { type: builtIn("URLSearchParams"), required };
         case "text":
             return { type: "string", required };
         case "none":
             return undefined;
         default:
-            return { type: "BodyInit", required };
+            return { type: builtIn("BodyInit"), required };
     }
 }
 
@@ -547,7 +557,7 @@ function outputType(context: Context, operation: OperationObject): string
                 types.add("undefined");
                 break;
             default:
-                types.add("Blob");
+                types.add(builtIn("Blob"));
         }
     }
     return [...types].join(" | ");
@@ -575,30 +585,42 @@ function entryOf(context: Context, path: string, item: PathItemObject, method: s
     return { name: operationName(operation, method, path), method, path, lines, doc: doc === "" ? undefined : doc };
 }
 
-/** The type names a generated module uses besides its schemas', with what each is, so a schema that would take one gets a numbered name instead. */
-function reservedTypeNames(apiName: string): Map<string, string>
+/** The built-in types a generated module may write, with what each is. */
+const BUILT_INS: ReadonlyMap<string, string> = new Map([
+    ["Record", "TypeScript's Record type"],
+    ["Blob", "the global Blob type"],
+    ["FormData", "the global FormData type"],
+    ["URLSearchParams", "the global URLSearchParams type"],
+    ["BodyInit", "the global BodyInit type"]
+]);
+
+/** The type names no schema can take in a module, with what each is: the interface of the operations, the `RouteTable` the module imports, and the built-in types in `used`, which the module writes. A built-in the module does not write is left to a schema of that name. */
+function reservedTypeNames(apiName: string, used: ReadonlySet<string>): Map<string, string>
 {
-    return new Map([
-        ["Record", "TypeScript's Record type"],
-        ["Blob", "the global Blob type"],
-        ["FormData", "the global FormData type"],
-        ["URLSearchParams", "the global URLSearchParams type"],
-        ["BodyInit", "the global BodyInit type"],
+    const reserved = new Map([
         ["RouteTable", "the RouteTable type the module imports"],
         [apiName, "the interface of the operations, which apiName renames"]
     ]);
+    for (const [name, what] of BUILT_INS)
+    {
+        if (used.has(name))
+        {
+            reserved.set(name, `${what}, which this module uses`);
+        }
+    }
+    return reserved;
 }
 
 /**
  * The type name every schema is written under, by schema name, with the
  * reason for a name that is not the schema's own. A schema keeps its own
- * name, as `note-item` gives `NoteItem`, unless the module uses that name
- * itself or a schema earlier in sorted order takes it; then it gets the
- * first free name with a number added, as `Record2`.
+ * name, as `note-item` gives `NoteItem`, unless `reserved` holds it or a
+ * schema earlier in sorted order takes it; then it gets the first free
+ * name with a number added, as `Record2`.
  */
-function schemaTypeNames(names: readonly string[], apiName: string): Map<string, { type: string; reason?: string }>
+function schemaTypeNames(names: readonly string[], reserved: ReadonlyMap<string, string>): Map<string, { type: string; reason?: string }>
 {
-    const holders = reservedTypeNames(apiName);
+    const holders = new Map(reserved);
     const assigned = new Map<string, { type: string; reason?: string }>();
     for (const name of names)
     {
@@ -636,11 +658,14 @@ function schemaTypeNames(names: readonly string[], apiName: string): Map<string,
  * method and path), and `routes` carries the method and path of each.
  * Header and cookie parameters, security, and non-local references are
  * left out; the client sends headers through its options. A schema whose
- * type name the module already uses, such as `Record`, `Blob`, or the
- * `Api` interface, or that another schema takes first, as `note-item` and
- * `note_item` both give `NoteItem`, is written under the first free name
- * with a number added, as `Record2`, with a comment that says why, and
- * every `$ref` to it uses that name.
+ * type name would clash is written under the first free name with a
+ * number added, as `Record2`, with a comment that says why, and every
+ * `$ref` to it uses that name: one that another schema takes first, as
+ * `note-item` and `note_item` both give `NoteItem`, one named like the
+ * interface of the operations or the `RouteTable` the module imports, and
+ * one named like a built-in type the module writes, such as `Record` for
+ * an object of free keys or `Blob` for a binary response. A schema named
+ * like a built-in the module does not write keeps its name.
  */
 export function generateClient(document: OpenApiDocument, options: GenerateOptions = {}): string
 {
@@ -650,6 +675,20 @@ export function generateClient(document: OpenApiDocument, options: GenerateOptio
     }
     const context: Context = { document, apiName: options.apiName ?? "Api" };
     const specifier = options.clientSpecifier ?? "@zerolith/client";
+    const names = Object.keys(document.components?.schemas ?? {}).toSorted((a, b) => a.localeCompare(b));
+    const first = writeModule(context, specifier, schemaTypeNames(names, reservedTypeNames(context.apiName, new Set())));
+    if (![...first.types.values()].some(({ type }) => first.used.has(type)))
+    {
+        return first.code;
+    }
+    return writeModule(context, specifier, schemaTypeNames(names, reservedTypeNames(context.apiName, first.used))).code;
+}
+
+/** The module text for the given schema type names, with the built-in types it writes, which a second pass reserves when a schema took one of their names. */
+function writeModule(context: Context, specifier: string, types: Map<string, { type: string; reason?: string }>): { code: string; used: ReadonlySet<string>; types: Map<string, { type: string; reason?: string }> }
+{
+    const { document } = context;
+    builtInsUsed = new Set();
     const out: string[] = [];
     const title = document.info?.title === undefined ? "an OpenAPI document" : `${document.info.title}${document.info.version === undefined ? "" : ` ${document.info.version}`}`;
     out.push(`// Generated by @zerolith/client from ${title}. Do not edit; regenerate instead.`);
@@ -657,7 +696,6 @@ export function generateClient(document: OpenApiDocument, options: GenerateOptio
     out.push("");
 
     const schemas = Object.entries(document.components?.schemas ?? {}).toSorted(([a], [b]) => a.localeCompare(b));
-    const types = schemaTypeNames(schemas.map(([name]) => name), context.apiName);
     schemaTypes = new Map(Array.from(types, ([name, { type }]) => [name, type]));
     for (const [name, schema] of schemas)
     {
@@ -714,5 +752,5 @@ export function generateClient(document: OpenApiDocument, options: GenerateOptio
     out.push(entries.map((entry) => `    ${key(entry.name)}: { method: ${JSON.stringify(entry.method)}, path: ${JSON.stringify(entry.path)} }`).join(",\n"));
     out.push(`} as const satisfies RouteTable<${context.apiName}>;`);
     out.push("");
-    return out.join("\n");
+    return { code: out.join("\n"), used: builtInsUsed, types };
 }
