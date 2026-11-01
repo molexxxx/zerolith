@@ -24,6 +24,12 @@ describe("lowerJsx", () =>
         expect(out).toBe(`${HEAD}const view = (__zl_html\`<main class="app"><h1>Hello \${name}</h1><p>plain</p></main>\`);\n`);
     });
 
+    it("closes every self-closing element but the void ones", () =>
+    {
+        expect(lower("const v = <section><div class=\"spacer\" /><br /><p>x</p></section>;")).toBe(`${HEAD}const v = (__zl_html\`<section><div class="spacer"></div><br><p>x</p></section>\`);`);
+        expect(lower("const v = <svg><path d=\"a\" /><path d=\"b\" /></svg>;")).toBe(`${HEAD}const v = (__zl_html\`<svg><path d="a"></path><path d="b"></path></svg>\`);`);
+    });
+
     it("maps the namespaces to the binding forms and keeps static attributes as markup", () =>
     {
         const out = lower("const v = <input id={id} prop:value={name} on:input={handle} bool:disabled={pending} ref={box} attr:title={t} autofocus data-x='1' />;\n");

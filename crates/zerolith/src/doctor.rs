@@ -8,7 +8,7 @@ use std::process::ExitCode;
 use oxc_span::SourceType;
 use serde::Serialize;
 
-use crate::importmap::{ImportMap, PACKAGES, integrity};
+use crate::importmap::{ImportMap, PACKAGES, import_map_of, integrity};
 use crate::scan::DIAGNOSTIC_URL;
 use crate::{build, lint, skill, term, transform};
 
@@ -115,13 +115,6 @@ pub(crate) fn lint_sources(root: &Path) -> Vec<Finding> {
         }
     }
     findings
-}
-
-/// Extracts the inline import map from an HTML document.
-pub fn import_map_of(html: &str) -> Option<&str> {
-    let start = html.find("<script type=\"importmap\">")? + "<script type=\"importmap\">".len();
-    let end = html[start..].find("</script>")? + start;
-    Some(html[start..end].trim())
 }
 
 /// The value of a double-quoted attribute in one tag.
@@ -356,7 +349,8 @@ pub fn run(root: &Path, json: bool) -> ExitCode {
 
 #[cfg(test)]
 mod tests {
-    use super::{check, import_map_of};
+    use super::check;
+    use crate::importmap::import_map_of;
     use std::fs;
 
     #[test]

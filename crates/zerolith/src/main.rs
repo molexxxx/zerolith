@@ -103,7 +103,7 @@ enum Command {
         /// The project folder, holding index.html.
         #[arg(default_value = ".")]
         root: PathBuf,
-        /// The output folder, relative to the project unless absolute; dist unless zerolith.json sets build.out. It is emptied first when it is inside the project.
+        /// The output folder, relative to the project unless absolute; dist unless zerolith.json sets build.out. It is emptied first when it is inside the project, and one that holds the project, the public folder, or a source the page loads is refused.
         #[arg(long)]
         out: Option<PathBuf>,
         /// Empty an output folder outside the project before writing into it.
@@ -125,7 +125,7 @@ enum Command {
         #[arg(long)]
         no_prepare: bool,
         /// Write the sources file by file, transformed to JavaScript, with the packages vendored behind an import map, instead of bundling.
-        #[arg(long, conflicts_with_all = ["empty_out_dir", "base", "mode", "sourcemap", "no_minify"])]
+        #[arg(long, conflicts_with_all = ["base", "mode", "sourcemap", "no_minify"])]
         unbundled: bool,
     },
     /// Write a starter application, or an example as a project of its own, and install its dependencies, asking for what the flags leave open: the starter in TSX on the command line, with the inspector, by default.
@@ -218,6 +218,7 @@ impl ServerFlags {
             base,
             proxy,
             port_fixed,
+            allowed_hosts: config.allowed_hosts.clone(),
         })
     }
 }
@@ -275,7 +276,7 @@ async fn main() -> ExitCode {
                             )
                         );
                     }
-                    unbundled::run(&root, &out, !no_prepare)
+                    unbundled::run(&root, &out, !no_prepare, empty_out_dir)
                 } else {
                     let base = base.or(config.base).unwrap_or_else(|| "/".to_string());
                     build::run(&build::Options {

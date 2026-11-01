@@ -24,6 +24,9 @@ pub struct Config {
     /// Paths `dev`, `serve`, and `preview` forward to a backend, by the path prefix they start with.
     #[serde(default)]
     pub proxy: BTreeMap<String, ProxyEntry>,
+    /// Host names `dev`, `serve`, and `preview` answer besides localhost and IP addresses, such as a name in the hosts file or a tunnel's; one starting with a dot allows every name under it.
+    #[serde(default, rename = "allowedHosts")]
+    pub allowed_hosts: Vec<String>,
     #[serde(default)]
     pub dev: ServerSection,
     #[serde(default)]
@@ -324,7 +327,15 @@ mod tests {
         };
         assert_eq!(
             keys(&schema),
-            ["$schema", "base", "build", "dev", "preview", "proxy"]
+            [
+                "$schema",
+                "allowedHosts",
+                "base",
+                "build",
+                "dev",
+                "preview",
+                "proxy"
+            ]
         );
         assert_eq!(keys(&schema["properties"]["dev"]), ["port"]);
         assert_eq!(keys(&schema["properties"]["preview"]), ["port"]);

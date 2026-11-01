@@ -4,7 +4,7 @@
 // values of named signals, which the development build of zerolith
 // restores on the next load.
 const STORAGE_KEY = "zerolith:restore";
-const source = new EventSource("/__zerolith/client.js".replace("client.js", "events"));
+const source = new EventSource("/__zerolith/events");
 let timer = 0;
 
 source.addEventListener("change", (event) =>

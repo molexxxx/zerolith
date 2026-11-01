@@ -84,6 +84,9 @@ describe("createClient", () =>
     {
         const api = createClient<Api>(routes, { baseUrl: "https://api.test" });
         expect(() => api.request("getNote", { params: {} as { id: string } })).toThrow(/path parameter "id"/);
+        expect(() => api.request("getNote", { params: { id: ".." } })).toThrow(/would move the request to another path/);
+        expect(() => api.request("getNote", { params: { id: "." } })).toThrow(/would move the request to another path/);
+        expect(api.request("getNote", { params: { id: "..a" } }).url).toBe("https://api.test/notes/..a");
         expect(() => (api as Client<Record<string, Api["getNote"]>>).request("nope", { params: { id: "1" } })).toThrow(/unknown operation/);
     });
 

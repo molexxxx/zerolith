@@ -11,13 +11,14 @@ use base64::Engine;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-/// The packages vendored by default, in dependency order.
-/// The packages the import map vendors and the doctor checks.
-pub const PACKAGES: [&str; 5] = [
+/// The packages the import map vendors and the doctor checks, in dependency order: every zerolith package a page loads that depends on nothing outside zerolith. `@zerolith/otel` is left out, since it needs `@opentelemetry/api`.
+pub const PACKAGES: [&str; 7] = [
     "zerolith",
     "@zerolith/router",
     "@zerolith/forms",
     "@zerolith/client",
+    "@zerolith/a11y",
+    "@zerolith/i18n",
     "@zerolith/devtools",
 ];
 
@@ -27,6 +28,8 @@ pub struct ImportMap {
     pub imports: BTreeMap<String, String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub integrity: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub scopes: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 /// What `vendor` produced.
@@ -264,13 +267,47 @@ pub fn vendor_from(
     Ok(vendored)
 }
 
+/// Extracts the inline import map from an HTML document.
+pub fn import_map_of(html: &str) -> Option<&str> {
+    let start = html.find("<script type=\"importmap\">")? + "<script type=\"importmap\">".len();
+    let end = html[start..].find("</script>")? + start;
+    Some(html[start..end].trim())
+}
+
+/// The page's own import map, parsed, or None when it has none or it is not valid JSON.
+pub fn page_map(html: &str) -> Option<ImportMap> {
+    serde_json::from_str(import_map_of(html)?).ok()
+}
+
+/// True when the import map resolves `specifier`: an entry names it, or an entry ending in `/` is its prefix.
+pub fn covers(map: &ImportMap, specifier: &str) -> bool {
+    map.imports.contains_key(specifier)
+        || map
+            .imports
+            .keys()
+            .any(|key| key.ends_with('/') && specifier.starts_with(key.as_str()))
+}
+
 /// The script and preload tags for an HTML head. Each preload carries the integrity hash the map gives its module: a browser reuses a preload only when its integrity matches the module request's, which takes the hash from the map.
 pub fn html_tags(vendored: &Vendored) -> String {
-    let map = serde_json::to_string(&vendored.map).unwrap_or_default();
-    let mut out = format!("<script type=\"importmap\">{map}</script>\n");
-    for module in &vendored.modules {
-        let integrity = vendored
-            .map
+    tags(&vendored.map, &vendored.modules)
+}
+
+/// The tags for one page: the vendored map with the entries of the page's own import map kept where the vendored map names a different specifier, so a package mapped by hand survives an update.
+pub fn page_tags(vendored: &Vendored, html: &str) -> String {
+    let Some(mut map) = page_map(html) else {
+        return html_tags(vendored);
+    };
+    map.imports.extend(vendored.map.imports.clone());
+    map.integrity.extend(vendored.map.integrity.clone());
+    tags(&map, &vendored.modules)
+}
+
+fn tags(map: &ImportMap, modules: &[String]) -> String {
+    let json = serde_json::to_string(map).unwrap_or_default();
+    let mut out = format!("<script type=\"importmap\">{json}</script>\n");
+    for module in modules {
+        let integrity = map
             .integrity
             .get(module)
             .map(|hash| format!(" integrity=\"{hash}\""))
@@ -333,7 +370,6 @@ pub fn run(root: &Path, out: &Path, development: bool, html: Option<&Path>) -> i
         )
     );
     let vendored = vendor(root, out, development)?;
-    let tags = html_tags(&vendored);
     let packages = format!(
         "{} packages into {}",
         vendored.versions.len(),
@@ -347,7 +383,10 @@ pub fn run(root: &Path, out: &Path, development: bool, html: Option<&Path>) -> i
         Some(file) => {
             let path = root.join(file);
             let current = fs::read_to_string(&path)?;
-            fs::write(&path, update_html(&current, &tags))?;
+            fs::write(
+                &path,
+                update_html(&current, &page_tags(&vendored, &current)),
+            )?;
             anstream::println!(
                 "{}\n",
                 crate::term::row("updated", crate::term::done, file.display())
@@ -355,8 +394,9 @@ pub fn run(root: &Path, out: &Path, development: bool, html: Option<&Path>) -> i
         }
         None => {
             anstream::println!(
-                "\n  {}\n\n{tags}\n",
-                crate::term::muted("Add this to the head of your HTML:")
+                "\n  {}\n\n{}\n",
+                crate::term::muted("Add this to the head of your HTML:"),
+                html_tags(&vendored)
             );
         }
     }
@@ -366,8 +406,8 @@ pub fn run(root: &Path, out: &Path, development: bool, html: Option<&Path>) -> i
 #[cfg(test)]
 mod tests {
     use super::{
-        ImportMap, Vendored, html_tags, integrity, relative_imports, resolve_export, resolve_url,
-        update_html, vendor,
+        ImportMap, Vendored, covers, html_tags, integrity, page_tags, relative_imports,
+        resolve_export, resolve_url, update_html, vendor,
     };
     use std::fs;
 
@@ -492,5 +532,32 @@ mod tests {
         );
         assert!(inserted.contains("<script type=\"importmap\">"));
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn keeps_the_page_entries_the_vendored_map_does_not_replace() {
+        let mut vendored = Vendored::default();
+        vendored
+            .map
+            .imports
+            .insert("zerolith".into(), "/vendor/zerolith/index.js".into());
+        let page = "<head><script type=\"importmap\">{\"imports\":{\"zerolith\":\"/old.js\",\"lit\":\"https://cdn.example/lit.js\"},\"scopes\":{\"/legacy/\":{\"lit\":\"/legacy/lit.js\"}}}</script></head>";
+        let updated = update_html(page, &page_tags(&vendored, page));
+        assert!(updated.contains("\"zerolith\":\"/vendor/zerolith/index.js\""));
+        assert!(updated.contains("\"lit\":\"https://cdn.example/lit.js\""));
+        assert!(updated.contains("\"scopes\":{\"/legacy/\":{\"lit\":\"/legacy/lit.js\"}}"));
+        assert!(!updated.contains("/old.js"));
+        assert_eq!(page_tags(&vendored, "<head></head>"), html_tags(&vendored));
+    }
+
+    #[test]
+    fn covers_named_and_prefixed_specifiers() {
+        let mut map = ImportMap::default();
+        map.imports.insert("lit".into(), "/lit.js".into());
+        map.imports.insert("lodash/".into(), "/lodash/".into());
+        assert!(covers(&map, "lit"));
+        assert!(covers(&map, "lodash/get.js"));
+        assert!(!covers(&map, "lit/decorators.js"));
+        assert!(!covers(&map, "lodash"));
     }
 }

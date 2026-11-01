@@ -254,6 +254,7 @@ render(<App />, "#app");
 | `ref={target}` | `ref=${target}` |
 | `<Counter start={2}>child</Counter>` | `${Counter({ start: 2, children: "child" })}` |
 | `<>...</>` | a template with no root element |
+| `<div />`, `<path d="..." />` | `<div></div>`, `<path d="..."></path>`: closed, except a void element such as `<br />` or `<input />`, which becomes `<br>` |
 
 Lists and conditions are `each` and `when`, called as functions, exactly as in a template; there is no `<For>` or `<Show>`. Spread attributes on an element are refused, because a template cannot express an unknown set of attributes; spread onto a component is plain object spread. A `tsconfig` with `"jsx": "react-jsx"` and `"jsxImportSource": "zerolith"` types the elements and the namespaces.
 

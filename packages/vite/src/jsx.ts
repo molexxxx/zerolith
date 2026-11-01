@@ -85,6 +85,14 @@ interface StringLiteral extends AstNode
     value: string;
 }
 
+/**
+ * The HTML elements that take no end tag. Every other self-closing element
+ * is written with one, since the HTML parser leaves `<div>` open and would
+ * nest the siblings that follow inside it, and inside `svg` and `math` an
+ * element closes only on an end tag or `/>`.
+ */
+const VOID_ELEMENTS: ReadonlySet<string> = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
+
 /** Thrown for JSX the lowering refuses, with the offset in the module. */
 export class JsxError extends Error
 {
@@ -256,7 +264,7 @@ class Lowering
         }
         if (selfClosing)
         {
-            return `${markup}>`;
+            return VOID_ELEMENTS.has(tag) ? `${markup}>` : `${markup}></${tag}>`;
         }
         return `${markup}>${this.children(node.children)}</${tag}>`;
     }

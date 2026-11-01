@@ -97,6 +97,9 @@ When the default port is taken, as 8080 often is on Windows, the command takes t
 
 [Building and serving](deploying.md) describes the proxy in full. On loopback, the server also answers `/.well-known/appspecific/com.chrome.devtools.json`, which lets Chrome DevTools edit the project's files in place.
 
+> [!IMPORTANT]
+> The server listens on the loopback address only, and it answers a request only when its `Host` header names `localhost`, a name under `.localhost`, an IP address, or a host `allowedHosts` in `zerolith.json` lists. Any other host gets 403. That stops DNS rebinding, where a page on another site points its own name at the loopback address and reads the project from the server. A name in the hosts file, such as `myapp.test`, or a tunnel's address needs an entry in `allowedHosts`.
+
 ## zerolith.json
 
 The settings the commands share live in `zerolith.json` next to `index.html`, so they are written once instead of on every command line. A flag overrides the file, and the starters that `zerolith new` writes on the command line include one that points at the schema `@zerolith/cli` ships, so an editor completes the keys:
@@ -119,6 +122,7 @@ The settings the commands share live in `zerolith.json` next to `index.html`, so
 | --- | --- | --- |
 | `base` | `dev`, `build`, `preview` | The path the application is served under |
 | `proxy` | `dev`, `serve`, `preview` | Path prefixes forwarded to backends: an `http://` address, or an object with `target` and `stripPrefix` |
+| `allowedHosts` | `dev`, `serve`, `preview` | Host names answered besides localhost and IP addresses; one starting with a dot allows every name under it |
 | `dev.port` | `dev`, `serve` | The port, used as it is |
 | `preview.port` | `preview` | The port, used as it is |
 | `build.out` | `build`, `preview` | The output folder, relative to the project unless absolute |
@@ -198,7 +202,7 @@ Stylesheets become one file. The ones the page links and the ones modules import
 
 ### Files and URLs
 
-Files are copied into `assets/` under a content hash when a stylesheet references them with `url()`, when a module imports them, and when the page names them in an icon, manifest, or preload `<link>`, an `<img>`, `<source>`, `<video>`, `<audio>`, or `<track>`, or a classic `<script>`. Importing an image, font, media file, or document gives its URL; `?url` gives any file's URL and `?raw` its text:
+Files are copied into `assets/` under a content hash when a stylesheet references them with `url()`, when a module imports them, and when the page names them in an icon, manifest, or preload `<link>`, an `<img>`, `<source>`, `<video>`, `<audio>`, or `<track>`, each candidate of a `srcset` or a preload's `imagesrcset`, or a classic `<script>`. Importing an image, font, media file, or document gives its URL; `?url` gives any file's URL and `?raw` its text:
 
 ```ts
 import logo from "./logo.svg";
@@ -218,7 +222,7 @@ The output keeps ES2022 syntax as written. Lowering class fields for the oldest 
 
 ### The output folder
 
-The output folder is emptied first when it is inside the project. One outside the project, such as the static folder of a backend next to it, is written over without being emptied unless `--empty-out-dir` is passed, and a folder that holds the project or a source the page loads is refused. The page's import map and its module preload links to local files, such as the ones `zerolith importmap` writes, are dropped, since the bundle resolves packages itself and preloads its own chunks, so a project that runs from an import map while developing builds the same way.
+The output folder is emptied first when it is inside the project. One outside the project, such as the static folder of a backend next to it, is written over without being emptied unless `--empty-out-dir` is passed. A folder that holds the project, that is or lies inside the public folder, or that holds a source the page loads is refused, with `..`, links, and letter case resolved first, so `--out ..` cannot reach the folder above the project. The same rules hold for `--unbundled`. The page's import map and its module preload links to local files, such as the ones `zerolith importmap` writes, are dropped, since the bundle resolves packages itself and preloads its own chunks, so a project that runs from an import map while developing builds the same way.
 
 ### Unbundled output
 
@@ -228,7 +232,7 @@ The output folder is emptied first when it is inside the project. One outside th
 - `.ts`, `.tsx`, `.jsx`, and `.mts` sources are transformed to JavaScript the same way `dev` serves them and renamed to `.js`, and the relative imports that named them, static and dynamic, are rewritten to `.js`, as are the module scripts in HTML pages.
 - An import of a file that is not a module works as it does under `dev`: the build points it at a small module written next to the file, such as `card.css.js`, which links the stylesheet and waits for it before the importer runs. A stylesheet imported with `?scoped` gets `card.css.scoped.js`, which holds its rules with local imports inlined; a JSON file gives its value; an image, a font, or a file with `?url` gives its URL; and `?raw` gives a file's text. An import that names a file outside the project fails the build.
 - Every module goes through the same template prepare pass.
-- The installed packages are vendored into `vendor/` inside the output, through the prepare pass as well, with an import map carrying integrity hashes written into every page at the output's root.
+- The installed zerolith packages, the ones `zerolith importmap` lists, are vendored into `vendor/` inside the output, through the prepare pass as well, with an import map carrying integrity hashes written into every page at the output's root. Entries the page's own import map holds for other specifiers are kept, so a third-party library mapped to a CDN or a local copy still loads; the build warns of a bare import, such as `lit`, that neither map covers, since the browser cannot load it.
 
 ## new
 
@@ -274,7 +278,7 @@ Nothing more is needed: an agent started in the project finds the skill and load
 zerolith importmap --html index.html
 ```
 
-Copies the installed `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, and `@zerolith/devtools` modules into `vendor/`, writes `vendor/importmap.json`, and replaces or inserts the import map and `modulepreload` links in the page. The map carries an `integrity` entry with the SRI hash of every module reachable from the entries, so a modified file fails to load, and each preload link carries the same hash, since a browser reuses a preload only when its integrity matches the module request's.
+Copies the installed `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, `@zerolith/a11y`, `@zerolith/i18n`, and `@zerolith/devtools` modules into `vendor/`, writes `vendor/importmap.json`, and replaces or inserts the import map and `modulepreload` links in the page, keeping the page's own entries for the specifiers it does not vendor. `@zerolith/otel` is not vendored, since it imports `@opentelemetry/api`; map both in the page to load it unbundled. The map carries an `integrity` entry with the SRI hash of every module reachable from the entries, so a modified file fails to load, and each preload link carries the same hash, since a browser reuses a preload only when its integrity matches the module request's.
 
 | Option | What it does |
 | --- | --- |

@@ -45,6 +45,7 @@ An operation is named by its `operationId` in camel case, or by its method and p
 | The 2xx responses | `output`: the union of their JSON types, `string` for text, and `undefined` for a response without content |
 | No 2xx response | `output` from the `default` response, or `unknown` |
 | `summary`, `description`, and `deprecated` | The entry's doc comment, with `@deprecated` when it applies |
+| `additionalOperations`, OpenAPI 3.2's methods beyond the standard ones | An entry per method; a name that is not an HTTP method name fails the generator, since it would be written into the module |
 | Header and cookie parameters, security schemes, and references outside the document | Left out; headers travel through the client's options |
 
 > [!IMPORTANT]
@@ -64,7 +65,7 @@ const page = await api.call("listNotes", { query: { q: "rout", limit: 10 } });
 
 `call` resolves with the operation's output. Its second argument holds the operation's `params`, `query`, and `body`, exactly as optional as the contract makes them, and it is omitted when the operation takes nothing. The request copies what the document says:
 
-- The path, with each parameter encoded; a missing one throws a `TypeError` that names it.
+- The path, with each parameter encoded; a missing one throws a `TypeError` that names it, and so does a parameter of `.` or `..`, which the URL would otherwise read as a step to another path.
 - The query, with an array repeating its key, an object sent as JSON, and `undefined` and `null` left out.
 - The body as JSON with its content type, unless it is already a `FormData`, `URLSearchParams`, `Blob`, `ArrayBuffer` or typed array, string, or stream, which goes as it is.
 - An `Accept` header asking for JSON or a problem, unless a header sets one.

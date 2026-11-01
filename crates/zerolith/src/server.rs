@@ -13,6 +13,7 @@ use axum::Router;
 use axum::body::Body;
 use axum::extract::{ConnectInfo, State};
 use axum::http::{HeaderValue, Method, Request, StatusCode, Uri, header};
+use axum::middleware::{self, Next};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{any, get};
@@ -42,6 +43,8 @@ pub struct Options {
     pub proxy: Vec<ProxyRule>,
     /// True when the port was asked for; otherwise a taken default moves to the next free port.
     pub port_fixed: bool,
+    /// Host names the server answers besides localhost and IP addresses, from `allowedHosts` in `zerolith.json`.
+    pub allowed_hosts: Vec<String>,
 }
 
 struct AppState {
@@ -50,6 +53,7 @@ struct AppState {
     pipeline: Option<Arc<Pipeline>>,
     base: String,
     proxy: Vec<ProxyRule>,
+    allowed_hosts: Vec<String>,
 }
 
 /// Where a request path falls relative to the base the application is served under.
@@ -80,24 +84,84 @@ fn map_base(base: &str, path: &str) -> Mapped {
 const CLIENT: &str = include_str!("client.js");
 const CLIENT_TAG: &str = "<script type=\"module\" src=\"/__zerolith/client.js\"></script>";
 
-/// Decodes `%XX` escapes; invalid escapes are kept as they are.
+/// The value of an ASCII hex digit.
+fn hex_digit(byte: u8) -> Option<u8> {
+    char::from(byte)
+        .to_digit(16)
+        .and_then(|digit| u8::try_from(digit).ok())
+}
+
+/// Decodes `%XX` escapes of exactly two hex digits, over bytes, so a path holding any text decodes without splitting a character; invalid escapes are kept as they are.
 pub fn percent_decode(input: &str) -> String {
     let bytes = input.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
     while i < bytes.len() {
-        if bytes[i] == b'%' && i + 2 < bytes.len() {
-            let hex = &input[i + 1..i + 3];
-            if let Ok(value) = u8::from_str_radix(hex, 16) {
-                out.push(value);
-                i += 3;
-                continue;
-            }
+        if bytes[i] == b'%'
+            && i + 2 < bytes.len()
+            && let (Some(high), Some(low)) = (hex_digit(bytes[i + 1]), hex_digit(bytes[i + 2]))
+        {
+            out.push(high << 4 | low);
+            i += 3;
+            continue;
         }
         out.push(bytes[i]);
         i += 1;
     }
     String::from_utf8_lossy(&out).into_owned()
+}
+
+/// The host name of a `Host` header: lowercase, without its port, and without the brackets of an IPv6 address.
+fn host_name(host: &str) -> String {
+    let host = host.trim().to_ascii_lowercase();
+    if let Some(rest) = host.strip_prefix('[') {
+        return rest.split(']').next().unwrap_or_default().to_string();
+    }
+    match host.rsplit_once(':') {
+        Some((name, port)) if port.bytes().all(|byte| byte.is_ascii_digit()) => name.to_string(),
+        _ => host,
+    }
+}
+
+/// True for a `Host` header another site cannot reach this server under by pointing its own name at the loopback address: an IP address, `localhost` or a name under it, or a name `allowed` lists, where an entry starting with a dot allows every name under it.
+pub fn host_allowed(host: &str, allowed: &[String]) -> bool {
+    let name = host_name(host);
+    name.parse::<std::net::IpAddr>().is_ok()
+        || name == "localhost"
+        || name.ends_with(".localhost")
+        || allowed.iter().any(|entry| {
+            let entry = entry.to_ascii_lowercase();
+            match entry.strip_prefix('.') {
+                Some(domain) => name == domain || name.ends_with(&entry),
+                None => name == entry,
+            }
+        })
+}
+
+/// Refuses a request whose `Host` header names a host the server does not answer, so a page on another site that points its own name at the loopback address, which is called DNS rebinding, cannot read the project.
+async fn guard_host(
+    State(state): State<Arc<AppState>>,
+    request: Request<Body>,
+    next: Next,
+) -> Response {
+    let host = request
+        .headers()
+        .get(header::HOST)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_string);
+    match host {
+        Some(host) if !host_allowed(&host, &state.allowed_hosts) => {
+            let name = host_name(&host);
+            (
+                StatusCode::FORBIDDEN,
+                format!(
+                    "Blocked a request for the host {name}. This server answers localhost, IP addresses, and the hosts zerolith.json lists under allowedHosts, so another site cannot read the project through DNS rebinding. To serve it under {name}, add \"allowedHosts\": [\"{name}\"] to zerolith.json.\n"
+                ),
+            )
+                .into_response()
+        }
+        _ => next.run(request).await,
+    }
 }
 
 /// Maps a request path to a file under `root`: a directory serves its index.html, and a missing
@@ -402,13 +466,14 @@ async fn file(state: &Arc<AppState>, uri: &Uri) -> Response {
     fresh(bytes, content_type(extension))
 }
 
-/// Builds the application for a root, with change events when a sender is given, the module pipeline when one is, the base it is served under, and the paths it forwards to backends.
+/// Builds the application for a root, with change events when a sender is given, the module pipeline when one is, the base it is served under, the paths it forwards to backends, and the host names it answers besides localhost and IP addresses.
 fn app(
     root: PathBuf,
     changes: Option<broadcast::Sender<Change>>,
     pipeline: Option<Arc<Pipeline>>,
     base: String,
     proxy: Vec<ProxyRule>,
+    allowed_hosts: Vec<String>,
 ) -> Router {
     let state = Arc::new(AppState {
         root,
@@ -416,6 +481,7 @@ fn app(
         pipeline,
         base,
         proxy,
+        allowed_hosts,
     });
     Router::new()
         .route("/__zerolith/events", get(events))
@@ -425,6 +491,7 @@ fn app(
             get(devtools_json),
         )
         .fallback(any(entry))
+        .layer(middleware::from_fn_with_state(state.clone(), guard_host))
         .with_state(state)
 }
 
@@ -583,8 +650,15 @@ pub async fn run(options: Options) -> std::io::Result<()> {
     }
     let result = axum::serve(
         listener,
-        app(root, sender, pipeline, options.base, options.proxy)
-            .into_make_service_with_connect_info::<SocketAddr>(),
+        app(
+            root,
+            sender,
+            pipeline,
+            options.base,
+            options.proxy,
+            options.allowed_hosts,
+        )
+        .into_make_service_with_connect_info::<SocketAddr>(),
     )
     .with_graceful_shutdown(async {
         let _ = tokio::signal::ctrl_c().await;
@@ -596,7 +670,7 @@ pub async fn run(options: Options) -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{display, inject_client, percent_decode, resolve, workspace_uuid};
+    use super::{display, host_allowed, inject_client, percent_decode, resolve, workspace_uuid};
     use std::fs;
     use std::path::Path;
 
@@ -665,6 +739,32 @@ mod tests {
     #[test]
     fn decodes_percent_escapes_and_derives_stable_uuids() {
         assert_eq!(percent_decode("/a%20b/c%2Fd"), "/a b/c/d");
+        assert_eq!(percent_decode("/%a\u{e9}"), "/%a\u{e9}");
+        assert_eq!(percent_decode("/\u{e9}%2"), "/\u{e9}%2");
+        assert_eq!(percent_decode("%+5%-1"), "%+5%-1");
+        assert_eq!(percent_decode("/%C3%A9"), "/\u{e9}");
+        let allowed = vec!["myapp.test".to_string(), ".example.dev".to_string()];
+        for host in [
+            "localhost",
+            "LOCALHOST:8080",
+            "app.localhost:8080",
+            "127.0.0.1:8080",
+            "[::1]:8080",
+            "192.168.1.20",
+            "myapp.test",
+            "a.example.dev:443",
+            "example.dev",
+        ] {
+            assert!(host_allowed(host, &allowed), "{host}");
+        }
+        for host in [
+            "evil.example",
+            "localhost.evil.example",
+            "myapp.test.evil.example",
+            "notexample.dev",
+        ] {
+            assert!(!host_allowed(host, &allowed), "{host}");
+        }
         assert_eq!(percent_decode("/bad%zz"), "/bad%zz");
         let uuid = workspace_uuid(Path::new("/project"));
         assert_eq!(uuid.len(), 36);
@@ -697,6 +797,52 @@ mod tests {
                 .await;
             });
             address
+        }
+
+        #[tokio::test]
+        async fn answers_loopback_hosts_and_refuses_others() {
+            let root =
+                std::env::temp_dir().join(format!("zerolith-host-test-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&root);
+            std::fs::create_dir_all(&root).unwrap();
+            std::fs::write(root.join("index.html"), "<p>home</p>").unwrap();
+            let address = listen(app(
+                root.clone(),
+                None,
+                None,
+                "/".to_string(),
+                Vec::new(),
+                vec!["myapp.test".to_string()],
+            ))
+            .await;
+            for host in [
+                format!("127.0.0.1:{}", address.port()),
+                format!("localhost:{}", address.port()),
+                "app.localhost".to_string(),
+                "[::1]:8080".to_string(),
+                "myapp.test:8080".to_string(),
+            ] {
+                let response = exchange(
+                    address,
+                    &format!("GET / HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n"),
+                )
+                .await;
+                assert!(response.starts_with("HTTP/1.1 200"), "{host}: {response}");
+            }
+            let refused = exchange(
+                address,
+                "GET / HTTP/1.1\r\nHost: evil.example\r\nConnection: close\r\n\r\n",
+            )
+            .await;
+            assert!(refused.starts_with("HTTP/1.1 403"), "{refused}");
+            assert!(refused.contains("allowedHosts"), "{refused}");
+            let events = exchange(
+                address,
+                "GET /__zerolith/events HTTP/1.1\r\nHost: evil.example\r\nConnection: close\r\n\r\n",
+            )
+            .await;
+            assert!(events.starts_with("HTTP/1.1 403"), "{events}");
+            let _ = std::fs::remove_dir_all(&root);
         }
 
         /// Sends raw HTTP/1.1 and returns everything the server wrote before closing.
@@ -822,7 +968,15 @@ mod tests {
                 )
                 .unwrap(),
             ];
-            let server = listen(app(root.clone(), None, None, "/app/".to_string(), rules)).await;
+            let server = listen(app(
+                root.clone(),
+                None,
+                None,
+                "/app/".to_string(),
+                rules,
+                vec!["dev.local".to_string()],
+            ))
+            .await;
 
             let echoed = exchange(
                 server,

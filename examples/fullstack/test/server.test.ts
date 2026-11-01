@@ -1,9 +1,12 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import type { AddressInfo } from "node:net";
+import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, expect, it } from "vitest";
 import type { Project, Task } from "../shared/model.ts";
 import { createApp } from "../server/app.ts";
+import { serve } from "../server/node.ts";
 
 type App = ReturnType<typeof createApp>;
 
@@ -33,6 +36,40 @@ async function signIn(app: App): Promise<string>
     expect(response.status).toBe(200);
     return response.headers.getSetCookie()[0]?.split(";")[0] ?? "";
 }
+
+/** Sends `text` to the server as it is and resolves with everything the server wrote back. */
+function exchange(port: number, text: string): Promise<string>
+{
+    return new Promise((resolve, reject) =>
+    {
+        const socket = connect(port, "127.0.0.1", () => socket.end(text));
+        let answer = "";
+        socket.on("data", (chunk: Buffer) =>
+        {
+            answer += chunk.toString();
+        });
+        socket.on("end", () => resolve(answer));
+        socket.on("error", reject);
+    });
+}
+
+it("answers a request the Fetch API cannot represent with 400 and keeps serving", async () =>
+{
+    const server = await serve(createApp(), 0);
+    const { port } = server.address() as AddressInfo;
+    try
+    {
+        const host = await exchange(port, "GET /api/session HTTP/1.1\r\nHost: a b\r\nConnection: close\r\n\r\n");
+        expect(host).toMatch(/^HTTP\/1\.1 400/);
+        const trace = await exchange(port, "TRACE /api/session HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n");
+        expect(trace).toMatch(/^HTTP\/1\.1 400/);
+        expect((await fetch(`http://127.0.0.1:${port}/api/projects`)).status).toBe(401);
+    }
+    finally
+    {
+        server.close();
+    }
+});
 
 it("asks for a session, and signs in with the right password only", async () =>
 {

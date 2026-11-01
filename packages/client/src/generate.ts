@@ -481,7 +481,7 @@ function outputType(context: Context, operation: OperationObject): string
 function entryOf(context: Context, path: string, item: PathItemObject, method: string, operation: OperationObject): Entry
 {
     const { params, query, queryRequired } = parameterGroups(context, item, operation);
-    const lines = [`        method: "${method}";`, `        path: ${JSON.stringify(path)};`];
+    const lines = [`        method: ${JSON.stringify(method)};`, `        path: ${JSON.stringify(path)};`];
     if (params.length > 0)
     {
         lines.push(`        params: {\n${params.join("\n")}\n        };`);
@@ -546,6 +546,10 @@ export function generateClient(document: OpenApiDocument, options: GenerateOptio
         }
         for (const [method, operation] of Object.entries(item.additionalOperations ?? {}))
         {
+            if (!/^[a-z0-9!#$%&'*+.^_`|~-]+$/i.test(method))
+            {
+                fail(`${JSON.stringify(path)} has the additional operation ${JSON.stringify(method)}, which is not an HTTP method name`);
+            }
             operations.push([method.toLowerCase(), operation]);
         }
         for (const [method, operation] of operations)
@@ -565,7 +569,7 @@ export function generateClient(document: OpenApiDocument, options: GenerateOptio
     out.push("}");
     out.push("");
     out.push("export const routes = {");
-    out.push(entries.map((entry) => `    ${key(entry.name)}: { method: "${entry.method}", path: ${JSON.stringify(entry.path)} }`).join(",\n"));
+    out.push(entries.map((entry) => `    ${key(entry.name)}: { method: ${JSON.stringify(entry.method)}, path: ${JSON.stringify(entry.path)} }`).join(",\n"));
     out.push(`} as const satisfies RouteTable<${context.apiName}>;`);
     out.push("");
     return out.join("\n");

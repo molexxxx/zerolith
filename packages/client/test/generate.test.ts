@@ -20,6 +20,15 @@ describe("generateClient", () =>
         expect(generateClient(notes)).toBe((await readFile(snapshot, "utf8")).replace(/\r\n/g, "\n"));
     });
 
+    it("refuses an additional operation whose name is not an HTTP method and quotes every method it writes", () =>
+    {
+        const crafted = document({ "/p": { additionalOperations: { "x\" | typeof import(\"./payload.js\") | \"y": { responses: ok } } } as never });
+        expect(() => generateClient(crafted)).toThrow(/not an HTTP method name/);
+        const copy = generateClient(document({ "/p": { additionalOperations: { COPY: { responses: ok } } } as never }));
+        expect(copy).toContain("method: \"copy\"");
+        expect(copy).toContain("{ method: \"copy\", path: \"/p\" }");
+    });
+
     it("accepts only OpenAPI 3.x documents", () =>
     {
         expect(() => generateClient({ openapi: "2.0" })).toThrow(/OpenAPI 3/);

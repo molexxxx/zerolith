@@ -122,7 +122,12 @@ function buildRequest(route: { method: Method; path: string }, input: LooseInput
         {
             throw new TypeError(`zerolith/client: ${route.method.toUpperCase()} ${route.path} needs the path parameter "${name}"`);
         }
-        return encodeURIComponent(String(value));
+        const segment = encodeURIComponent(String(value));
+        if (segment === "." || segment === "..")
+        {
+            throw new TypeError(`zerolith/client: ${route.method.toUpperCase()} ${route.path} got "${segment}" for the path parameter "${name}", which would move the request to another path`);
+        }
+        return segment;
     });
     const base = (client.baseUrl ?? "").replace(/\/$/, "");
     const headers = new Headers(typeof client.headers === "function" ? client.headers() : client.headers);

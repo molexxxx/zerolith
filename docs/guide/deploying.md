@@ -205,7 +205,7 @@ zerolith needs neither `unsafe-eval` nor inline scripts, so a strict policy such
 
 ## Unbundled output
 
-`zerolith build --unbundled` writes the modules as they are, with the packages in `vendor/` behind an import map with integrity hashes. The same routing rule applies, but no file has a content hash in its name, so every file should be served with `no-cache`, and the integrity hashes catch a stale file that slips through.
+`zerolith build --unbundled` writes the modules as they are, with the zerolith packages in `vendor/` behind an import map with integrity hashes. A third-party package needs an entry in the page's own import map, which the build keeps; it warns of a bare import no entry covers. The same routing rule applies, but no file has a content hash in its name, so every file should be served with `no-cache`, and the integrity hashes catch a stale file that slips through.
 
 > [!NOTE]
 > The unbundled output is served from the root; an application under a path needs the bundled build.

@@ -2,8 +2,9 @@
 //! under the project is copied into an output folder, with `.ts`, `.tsx`,
 //! `.jsx`, and `.mts` files transformed to JavaScript and renamed, the
 //! relative specifiers that named them rewritten to `.js`, HTML module
-//! scripts pointed at the renamed files, and the installed packages vendored
-//! into the output with an import map carrying integrity hashes. An import
+//! scripts pointed at the renamed files, and the installed zerolith packages
+//! vendored into the output with an import map carrying integrity hashes,
+//! merged with the page's own map. An import
 //! of a file that is not a module, such as a stylesheet, is pointed at a
 //! small module written next to the file that gives what `zerolith dev`
 //! gives. The result serves from any static host.
@@ -13,7 +14,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::importmap::{html_tags, update_html, vendor_from};
+use crate::importmap::{ImportMap, covers, page_map, page_tags, update_html, vendor_from};
 use crate::transform;
 use crate::{css, env, modules, prepare, term};
 
@@ -135,8 +136,14 @@ impl Form {
     }
 }
 
-/// The files that modules import but that are not modules, by their path and form, each with the import that first asked for it, for messages.
-type Imports = BTreeMap<(PathBuf, Form), String>;
+/// What the project's modules import that the output must answer for.
+#[derive(Default)]
+struct Imports {
+    /// The files that are not modules, by their path and form, each with the import that first asked for it, for messages.
+    files: BTreeMap<(PathBuf, Form), String>,
+    /// The bare specifiers, each with the first module that imports it, for the check that the import map covers them.
+    bare: BTreeMap<String, String>,
+}
 
 /// The module that links a stylesheet a module imports, once, and waits for it so the page renders styled.
 const STYLESHEET_MODULE: &str = "const href = new URL(__FILE__, import.meta.url).href;\nif (!Array.from(document.querySelectorAll(\"link[rel=stylesheet]\"), (link) => link.href).includes(href))\n{\n    const link = document.createElement(\"link\");\n    link.rel = \"stylesheet\";\n    link.href = href;\n    await new Promise((resolve) =>\n    {\n        link.onload = resolve;\n        link.onerror = resolve;\n        document.head.append(link);\n    });\n}\n";
@@ -210,7 +217,7 @@ struct Defines {
     node_env: String,
 }
 
-/// Rewrites a module's specifiers for the output: a transformed source to its `.js` name, and a file that is not a module to the module that serves it, recorded in `imports`.
+/// Rewrites a module's specifiers for the output: a transformed source to its `.js` name, and a file that is not a module to the module that serves it; both that file and a bare specifier are recorded in `imports`.
 fn rewrite(
     code: &str,
     root: &Path,
@@ -223,6 +230,13 @@ fn rewrite(
         if let Some(name) = transform::renamed_module(specifier) {
             return Some(name);
         }
+        if !(specifier.starts_with('.') || specifier.starts_with('/') || specifier.contains(':')) {
+            imports
+                .bare
+                .entry(specifier.to_string())
+                .or_insert_with(|| shown.clone());
+            return None;
+        }
         let (form, path, name) = Form::of(specifier)?;
         let target = match path.strip_prefix('/') {
             Some(absolute) => root.join(absolute),
@@ -230,6 +244,7 @@ fn rewrite(
         };
         let target = css::canonical(&target).unwrap_or_else(|_| css::plain(&target));
         imports
+            .files
             .entry((target, form))
             .or_insert_with(|| format!("{shown}: the import of {specifier}"));
         Some(name)
@@ -307,22 +322,48 @@ fn walk(
     Ok(())
 }
 
-/// Builds `root` into `root/out`.
-pub fn build(root: &Path, out: &Path, prepare_templates: bool) -> io::Result<(PathBuf, Built)> {
+/// The files the project's `index.html` loads as module scripts, which the output folder must not hold.
+fn page_sources(root: &Path) -> Vec<PathBuf> {
+    let Ok(html) = fs::read_to_string(root.join("index.html")) else {
+        return Vec::new();
+    };
+    crate::html::scan(&html)
+        .scripts
+        .iter()
+        .chain(crate::html::scan(&html).styles.iter())
+        .map(|reference| {
+            let path = crate::server::percent_decode(
+                reference
+                    .url
+                    .split(['?', '#'])
+                    .next()
+                    .unwrap_or(&reference.url),
+            );
+            root.join(path.trim_start_matches('/'))
+        })
+        .collect()
+}
+
+/// Builds `root` into `out`, relative to it unless absolute. The output folder is refused when it holds the project, is in the public folder, or holds a source the page loads, and it is emptied first when it is inside the project or `empty_out_dir` asks for it; the warnings say what was left alone.
+pub fn build(
+    root: &Path,
+    out: &Path,
+    prepare_templates: bool,
+    empty_out_dir: bool,
+) -> io::Result<(PathBuf, Built, Vec<String>)> {
     let root = css::canonical(root)?;
     if prepare_templates {
         crate::build::check_core_version(&root)?;
     }
-    let out_dir = root.join(out);
-    if out_dir == root {
-        return Err(io::Error::other(
-            "the output folder must differ from the project folder",
-        ));
-    }
-    if out_dir.exists() {
-        fs::remove_dir_all(&out_dir)?;
-    }
-    fs::create_dir_all(&out_dir)?;
+    let out_dir = crate::build::resolve_out_dir(&root, out)?;
+    let mut warnings = Vec::new();
+    crate::build::prepare_out_dir(
+        &root,
+        &out_dir,
+        &page_sources(&root),
+        empty_out_dir,
+        &mut warnings,
+    )?;
     let mut built = Built::default();
     let defines = Defines {
         env: format!(
@@ -331,7 +372,7 @@ pub fn build(root: &Path, out: &Path, prepare_templates: bool) -> io::Result<(Pa
         ),
         node_env: "\"production\"".to_string(),
     };
-    let mut imports = Imports::new();
+    let mut imports = Imports::default();
     walk(
         &root,
         &root,
@@ -341,7 +382,7 @@ pub fn build(root: &Path, out: &Path, prepare_templates: bool) -> io::Result<(Pa
         &defines,
         &mut imports,
     )?;
-    for ((file, form), importer) in &imports {
+    for ((file, form), importer) in &imports.files {
         write_import(&root, &out_dir, file, *form, importer)?;
         built.transformed += 1;
     }
@@ -350,37 +391,63 @@ pub fn build(root: &Path, out: &Path, prepare_templates: bool) -> io::Result<(Pa
         .map(|folder| folder.join("node_modules"))
         .find(|folder| folder.join("zerolith").is_dir())
         .unwrap_or_else(|| root.join("node_modules"));
-    if packages.join("zerolith").is_dir() {
-        let vendored = vendor_from(
+    let vendored = if packages.join("zerolith").is_dir() {
+        Some(vendor_from(
             &packages,
             &out_dir,
             Path::new("vendor"),
             false,
             prepare_templates,
-        )?;
-        let tags = html_tags(&vendored);
-        for entry in fs::read_dir(&out_dir)? {
-            let path = entry?.path();
-            if path
-                .extension()
-                .is_some_and(|extension| extension == "html")
-            {
-                let current = fs::read_to_string(&path)?;
-                fs::write(&path, update_html(&current, &tags))?;
-            }
+        )?)
+    } else {
+        None
+    };
+    let mut mapped = ImportMap::default();
+    for entry in fs::read_dir(&out_dir)? {
+        let path = entry?.path();
+        if !path
+            .extension()
+            .is_some_and(|extension| extension == "html")
+        {
+            continue;
+        }
+        let current = fs::read_to_string(&path)?;
+        if let Some(map) = page_map(&current) {
+            mapped.imports.extend(map.imports);
+        }
+        if let Some(vendored) = &vendored {
+            fs::write(&path, update_html(&current, &page_tags(vendored, &current)))?;
         }
     }
-    Ok((out_dir, built))
+    if let Some(vendored) = &vendored {
+        mapped.imports.extend(vendored.map.imports.clone());
+    }
+    for (specifier, module) in &imports.bare {
+        if !covers(&mapped, specifier) {
+            warnings.push(format!(
+                "{module} imports {specifier}, which no import map entry covers, so the browser cannot load it: install it if it is a zerolith package, or map it in the page's <script type=\"importmap\">"
+            ));
+        }
+    }
+    Ok((out_dir, built, warnings))
 }
 
 /// Runs the `build --unbundled` command and prints what it wrote.
-pub fn run(root: &Path, out: &Path, prepare_templates: bool) -> io::Result<()> {
+pub fn run(
+    root: &Path,
+    out: &Path,
+    prepare_templates: bool,
+    empty_out_dir: bool,
+) -> io::Result<()> {
     let started = std::time::Instant::now();
     anstream::println!(
         "{}",
         term::heading("build", "unbundled, the modules behind an import map")
     );
-    let (out_dir, built) = build(root, out, prepare_templates)?;
+    let (out_dir, built, warnings) = build(root, out, prepare_templates, empty_out_dir)?;
+    for warning in &warnings {
+        anstream::eprintln!("{}", term::row("warning", term::caution, warning));
+    }
     anstream::println!(
         "{}",
         term::row(
@@ -466,7 +533,9 @@ mod tests {
         .unwrap();
         fs::write(root.join("src/plain.js"), "import \"./app.tsx\";\n").unwrap();
         fs::write(root.join("styles.css"), "body {}").unwrap();
-        let (out, built) = build(&root, std::path::Path::new("dist"), true).unwrap();
+        let (out, built, warnings) =
+            build(&root, std::path::Path::new("dist"), true, false).unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
         assert_eq!((built.transformed, built.copied, built.html), (2, 2, 1));
         assert!(
             fs::read_to_string(out.join("src/main.js"))
@@ -511,8 +580,44 @@ mod tests {
         );
         assert!(!out.join("node_modules").exists());
         assert!(!out.join("src/main.ts").exists());
-        assert!(build(&root, std::path::Path::new("."), true).is_err());
-        let (plain, _) = build(&root, std::path::Path::new("plain"), false).unwrap();
+        assert!(build(&root, std::path::Path::new("."), true, false).is_err());
+        let parent = build(&root, std::path::Path::new(".."), true, false)
+            .unwrap_err()
+            .to_string();
+        assert!(parent.contains("holds the project"), "{parent}");
+        let name = root.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(build(&root, &std::path::Path::new("..").join(&name), true, false).is_err());
+        fs::create_dir_all(root.join("public")).unwrap();
+        fs::write(root.join("public/favicon.svg"), "<svg/>").unwrap();
+        let public = build(&root, std::path::Path::new("public"), true, false)
+            .unwrap_err()
+            .to_string();
+        assert!(public.contains("public folder"), "{public}");
+        assert!(root.join("public/favicon.svg").is_file());
+        let sources = build(&root, std::path::Path::new("src"), true, false)
+            .unwrap_err()
+            .to_string();
+        assert!(sources.contains("a source the page loads"), "{sources}");
+        assert!(root.join("src/main.ts").is_file());
+        let outside = root.with_file_name(format!(
+            "zerolith-build-test-outside-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("keep.txt"), "kept").unwrap();
+        let (_, _, warnings) = build(&root, &outside, true, false).unwrap();
+        assert!(outside.join("keep.txt").is_file());
+        assert!(
+            warnings
+                .iter()
+                .any(|warning| warning.contains("--empty-out-dir")),
+            "{warnings:?}"
+        );
+        build(&root, &outside, true, true).unwrap();
+        assert!(!outside.join("keep.txt").exists());
+        let _ = fs::remove_dir_all(&outside);
+        fs::remove_dir_all(root.join("public")).unwrap();
+        let (plain, _, _) = build(&root, std::path::Path::new("plain"), false, false).unwrap();
         assert!(
             fs::read_to_string(plain.join("src/main.js"))
                 .unwrap()
@@ -521,6 +626,63 @@ mod tests {
         assert_eq!(
             fs::read_to_string(plain.join("vendor/zerolith/dist/scan.js")).unwrap(),
             "export const scanner = 1;"
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn warns_of_a_bare_import_no_import_map_covers_and_keeps_the_page_entries() {
+        let root =
+            std::env::temp_dir().join(format!("zerolith-unbundled-bare-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::create_dir_all(root.join("node_modules/zerolith/dist")).unwrap();
+        fs::write(
+            root.join("node_modules/zerolith/package.json"),
+            "{\"name\":\"zerolith\",\"version\":\"0.0.0\",\"exports\":{\".\":\"./dist/index.js\"}}",
+        )
+        .unwrap();
+        fs::write(
+            root.join("node_modules/zerolith/dist/index.js"),
+            "export const html = 1;",
+        )
+        .unwrap();
+        fs::write(
+            root.join("src/main.ts"),
+            "import { html } from \"zerolith\";\nimport { LitElement } from \"lit\";\nimport { get } from \"lodash-es/get.js\";\nimport { readFile } from \"node:fs\";\nexport const parts = [html, LitElement, get, readFile];\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("index.html"),
+            "<!doctype html><head></head><script type=\"module\" src=\"/src/main.ts\"></script>",
+        )
+        .unwrap();
+        let (_, _, warnings) = build(&root, Path::new("dist"), false, false).unwrap();
+        assert_eq!(warnings.len(), 2, "{warnings:?}");
+        assert!(
+            warnings[0].starts_with("src/main.ts imports lit,"),
+            "{warnings:?}"
+        );
+        assert!(
+            warnings[1].starts_with("src/main.ts imports lodash-es/get.js,"),
+            "{warnings:?}"
+        );
+
+        fs::write(
+            root.join("index.html"),
+            "<!doctype html><head><script type=\"importmap\">{\"imports\":{\"lit\":\"https://cdn.example/lit.js\",\"lodash-es/\":\"/lib/lodash-es/\"}}</script></head><script type=\"module\" src=\"/src/main.ts\"></script>",
+        )
+        .unwrap();
+        let (out, _, warnings) = build(&root, Path::new("dist"), false, false).unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+        let page = fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(
+            page.contains("\"lit\":\"https://cdn.example/lit.js\""),
+            "{page}"
+        );
+        assert!(
+            page.contains("\"zerolith\":\"/vendor/zerolith/dist/index.js\""),
+            "{page}"
         );
         let _ = fs::remove_dir_all(&root);
     }
@@ -555,7 +717,7 @@ mod tests {
             fs::create_dir_all(file.parent().unwrap()).unwrap();
             fs::write(file, text).unwrap();
         }
-        let (out, _) = build(&root, Path::new("dist"), false).unwrap();
+        let (out, _, _) = build(&root, Path::new("dist"), false, false).unwrap();
         let main = fs::read_to_string(out.join("src/main.js")).unwrap();
         for specifier in [
             "import \"./plain.css.js\"",
@@ -599,7 +761,7 @@ mod tests {
             "import missing from \"./missing.css?scoped\";\nconsole.log(missing);\n",
         )
         .unwrap();
-        let error = build(&root, Path::new("dist"), false)
+        let error = build(&root, Path::new("dist"), false, false)
             .unwrap_err()
             .to_string();
         assert!(
@@ -617,7 +779,7 @@ mod tests {
             format!("import text from \"../../{name}?raw\";\nconsole.log(text);\n"),
         )
         .unwrap();
-        let error = build(&root, Path::new("dist"), false)
+        let error = build(&root, Path::new("dist"), false, false)
             .unwrap_err()
             .to_string();
         assert!(

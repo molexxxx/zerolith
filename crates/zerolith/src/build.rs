@@ -587,7 +587,27 @@ fn list(out_dir: &Path, folder: &Path, files: &mut Vec<Written>) -> io::Result<(
 }
 
 /// Prepares the output folder: it must not hold the project or its sources, and it is emptied when it is inside the project or `empty` is set.
-fn prepare_out_dir(
+/// The output folder as the file system names it: `out` against the project, with its `.` and `..` resolved and its nearest existing folder canonical, so `..`, a link, or another letter case cannot hide that it holds the project.
+pub fn resolve_out_dir(root: &Path, out: &Path) -> io::Result<PathBuf> {
+    let joined = normalized(&root.join(out));
+    let mut existing = joined.clone();
+    let mut missing = Vec::new();
+    while !existing.exists() {
+        let Some(name) = existing.file_name().map(ToOwned::to_owned) else {
+            break;
+        };
+        missing.push(name);
+        existing.pop();
+    }
+    let mut resolved = css::canonical(&existing).unwrap_or(existing);
+    for name in missing.iter().rev() {
+        resolved.push(name);
+    }
+    Ok(resolved)
+}
+
+/// Readies the output folder, refusing one that holds the project, that is or lies inside the public folder, or that holds a source the page loads, and emptying it first when it is inside the project or `empty` asks for it.
+pub fn prepare_out_dir(
     root: &Path,
     out_dir: &Path,
     entries: &[PathBuf],
@@ -597,6 +617,12 @@ fn prepare_out_dir(
     if root.starts_with(out_dir) {
         return Err(failure(format!(
             "the output folder {} holds the project; choose a folder inside it, such as dist, or next to it",
+            out_dir.display()
+        )));
+    }
+    if out_dir.starts_with(root.join("public")) {
+        return Err(failure(format!(
+            "the output folder {} is in the public folder, whose files the build copies into the output; choose another folder, such as dist",
             out_dir.display()
         )));
     }
@@ -647,7 +673,7 @@ pub async fn build(options: &Options) -> io::Result<Built> {
         .iter()
         .map(|script| page_file(&root, &script.url))
         .collect::<io::Result<Vec<PathBuf>>>()?;
-    let out_dir = normalized(&root.join(&options.out));
+    let out_dir = resolve_out_dir(&root, &options.out)?;
     let mut warnings = Vec::new();
     let (styles, hosted): (Vec<_>, Vec<_>) = std::mem::take(&mut page.styles)
         .into_iter()
@@ -659,10 +685,16 @@ pub async fn build(options: &Options) -> io::Result<Built> {
             style.url
         )
     }));
+    let mut sources = entries.clone();
+    sources.extend(
+        page.styles
+            .iter()
+            .filter_map(|style| page_file(&root, &style.url).ok()),
+    );
     prepare_out_dir(
         &root,
         &out_dir,
-        &entries,
+        &sources,
         options.empty_out_dir,
         &mut warnings,
     )?;
@@ -1277,6 +1309,19 @@ mod tests {
         assert_eq!(normalize_base(""), "./");
         assert_eq!(normalize_base("/"), "/");
         assert_eq!(normalize_base("/app"), "/app/");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn refuses_the_public_folder_as_the_output() {
+        let root = project("public-out", MAIN);
+        let mut options = options(&root, "/", "production");
+        options.out = PathBuf::from("public");
+        let error = build(&options).await.unwrap_err().to_string();
+        assert!(error.contains("public folder"), "{error}");
+        assert!(root.join("public/favicon.svg").is_file());
+        options.out = PathBuf::from("src/../public");
+        assert!(build(&options).await.is_err());
         let _ = fs::remove_dir_all(&root);
     }
 

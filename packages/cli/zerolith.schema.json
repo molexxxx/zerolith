@@ -15,6 +15,14 @@
             "description": "The public path the application is served under, such as /app/, for dev, build, and preview alike. ./ makes every URL the build writes relative to the page.",
             "examples": ["/", "/app/", "./"]
         },
+        "allowedHosts": {
+            "type": "array",
+            "description": "Host names dev, serve, and preview answer besides localhost and IP addresses, such as a name in the hosts file or a tunnel's. A request for any other host gets 403, so another site cannot read the project by pointing its own name at the loopback address (DNS rebinding). An entry starting with a dot allows every name under it.",
+            "items": {
+                "type": "string"
+            },
+            "examples": [["myapp.test"], [".example.dev"]]
+        },
         "proxy": {
             "type": "object",
             "description": "Paths dev, serve, and preview forward to a backend, by the path prefix they start with, such as \"/api\": \"http://127.0.0.1:3000\".",

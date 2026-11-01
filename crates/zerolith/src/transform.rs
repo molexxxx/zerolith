@@ -7,6 +7,12 @@
 use std::fmt;
 use std::path::Path;
 
+/// The HTML elements that take no end tag. Every other self-closing JSX element is written with one, since the HTML parser leaves `<div>` open and would nest the siblings that follow inside it, and inside `svg` and `math` an element closes only on an end tag or `/>`.
+const VOID_ELEMENTS: [&str; 13] = [
+    "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track",
+    "wbr",
+];
+
 use oxc_allocator::Allocator;
 use oxc_ast::ast::{
     Expression, JSXAttribute, JSXAttributeItem, JSXAttributeName, JSXAttributeValue, JSXChild,
@@ -315,8 +321,11 @@ impl Lowering<'_> {
             }
         }
         if element.closing_element.is_none() {
-            markup.push('>');
-            return Ok(markup);
+            if VOID_ELEMENTS.contains(&tag.as_str()) {
+                markup.push('>');
+                return Ok(markup);
+            }
+            return Ok(format!("{markup}></{tag}>"));
         }
         Ok(format!(
             "{markup}>{}</{tag}>",
@@ -500,6 +509,18 @@ mod tests {
 
     fn lower(source: &str) -> String {
         lower_jsx(source, SourceType::tsx()).unwrap()
+    }
+
+    #[test]
+    fn closes_every_self_closing_element_but_the_void_ones() {
+        assert_eq!(
+            lower("const v = <section><div class=\"spacer\" /><br /><p>x</p></section>;"),
+            "import { html as __zl_html } from \"zerolith\"; const v = (__zl_html`<section><div class=\"spacer\"></div><br><p>x</p></section>`);"
+        );
+        assert_eq!(
+            lower("const v = <svg><path d=\"a\" /><path d=\"b\" /></svg>;"),
+            "import { html as __zl_html } from \"zerolith\"; const v = (__zl_html`<svg><path d=\"a\"></path><path d=\"b\"></path></svg>`);"
+        );
     }
 
     #[test]

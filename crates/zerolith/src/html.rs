@@ -20,7 +20,7 @@ pub struct Page {
     pub scripts: Vec<Reference>,
     /// Stylesheet links with a local `href`.
     pub styles: Vec<Reference>,
-    /// Other local files the page loads: icons, manifests, and preloads in `<link>`, media sources, and classic scripts.
+    /// Other local files the page loads: icons, manifests, and preloads in `<link>`, with each candidate of a preload's `imagesrcset`, media sources with each candidate of a `srcset`, and classic scripts.
     pub assets: Vec<Reference>,
     /// Whole elements the bundled output drops: import maps, and module preload links to local files, which name source modules the bundle replaces with its own preloads.
     pub dropped: Vec<(usize, usize)>,
@@ -47,6 +47,56 @@ pub fn is_local(url: &str) -> bool {
 
 /// The elements whose `src` names a file the page loads.
 const MEDIA: [&str; 5] = ["img", "source", "video", "audio", "track"];
+
+/// The references of the local URLs in a `srcset` or `imagesrcset` attribute, each with the byte range of its URL, read as the HTML standard reads image candidates: a URL runs to the next whitespace, so a comma inside one stays in it, and its descriptors run to the next comma outside parentheses.
+fn candidates(
+    html: &str,
+    attributes: &[Attribute],
+    name: &str,
+    tag: (usize, usize),
+) -> Vec<Reference> {
+    let Some((text, (start, _))) = attribute(html, attributes, name) else {
+        return Vec::new();
+    };
+    let bytes = text.as_bytes();
+    let mut found = Vec::new();
+    let mut index = 0;
+    while index < bytes.len() {
+        while index < bytes.len() && (bytes[index].is_ascii_whitespace() || bytes[index] == b',') {
+            index += 1;
+        }
+        let url_start = index;
+        while index < bytes.len() && !bytes[index].is_ascii_whitespace() {
+            index += 1;
+        }
+        let mut url_end = index;
+        if url_end > url_start && bytes[url_end - 1] == b',' {
+            while url_end > url_start && bytes[url_end - 1] == b',' {
+                url_end -= 1;
+            }
+        } else {
+            let mut depth = 0usize;
+            while index < bytes.len() {
+                match bytes[index] {
+                    b'(' => depth += 1,
+                    b')' => depth = depth.saturating_sub(1),
+                    b',' if depth == 0 => break,
+                    _ => {}
+                }
+                index += 1;
+            }
+        }
+        let url = &text[url_start..url_end];
+        if !url.is_empty() && is_local(url) {
+            found.push(Reference {
+                tag,
+                value: (start + url_start, start + url_end),
+                url: url.to_string(),
+            });
+        }
+    }
+    found
+}
 
 struct Attribute {
     name: String,
@@ -208,9 +258,13 @@ pub fn scan(html: &str) -> Page {
                 page.styles.extend(local(html, &attributes, "href", tag));
             } else if tokens.iter().any(|token| RESOURCE_LINKS.contains(token)) {
                 page.assets.extend(local(html, &attributes, "href", tag));
+                page.assets
+                    .extend(candidates(html, &attributes, "imagesrcset", tag));
             }
         } else {
             page.assets.extend(local(html, &attributes, "src", tag));
+            page.assets
+                .extend(candidates(html, &attributes, "srcset", tag));
         }
         index = end;
     }
@@ -331,6 +385,34 @@ mod tests {
                 && !is_local("//x/a.js")
                 && !is_local("data:text/css,a")
         );
+    }
+
+    #[test]
+    fn reads_each_local_candidate_of_a_srcset() {
+        let html = "<img src=\"a.png\" srcset=\"a.png 1x, images/a@2x.png 2x,data:image/png;base64,AA== 3x, https://cdn.example/a.png 4w\"><link rel=\"preload\" as=\"image\" imagesrcset=\"hero.png 800w, hero-2x.png 1600w\" imagesizes=\"100vw\">";
+        let page = scan(html);
+        let urls: Vec<&str> = page
+            .assets
+            .iter()
+            .map(|reference| reference.url.as_str())
+            .collect();
+        assert_eq!(
+            urls,
+            [
+                "a.png",
+                "a.png",
+                "images/a@2x.png",
+                "hero.png",
+                "hero-2x.png"
+            ]
+        );
+        for reference in &page.assets {
+            assert_eq!(
+                &html[reference.value.0..reference.value.1],
+                reference.url,
+                "{reference:?}"
+            );
+        }
     }
 
     #[test]
