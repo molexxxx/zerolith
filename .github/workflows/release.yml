@@ -16,9 +16,8 @@ name: Release
 # Canaries run here too, so they publish through the same trusted
 # publisher: every night, and on a manual run with "canary", every npm
 # package is published under the canary dist-tag with a version such as
-# 0.0.0-canary.20261101.g1a2b3c4 (scripts/canary.ts), which sorts below every
-# release, when the packages, the crate, or the lockfiles changed since the
-# last canary. A
+# 0.1.0-alpha.4.canary.20261031.g1a2b3c4 (scripts/canary.ts), when the
+# packages, the crate, or the lockfiles changed since the last canary. A
 # canary never moves latest, never publishes the crate, and creates no
 # GitHub release or docs deployment.
 #
