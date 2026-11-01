@@ -2,6 +2,12 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
+## Unreleased
+
+### Changed
+
+- Canaries are versioned `0.0.0-canary.<yyyymmdd>.g<commit>`, which sorts below every release, so no range that names a release, such as `^0.1.0-alpha.6`, matches one, and only `@canary` installs it. They had been the current version with a canary prerelease after it, as `0.1.0-alpha.6.canary.20261101.g301d419`, which sorts after `0.1.0-alpha.6`, so a package manager that takes the highest match for `^0.1.0-alpha.6` could install that canary in place of the release.
+
 ## 0.1.0-alpha.6 (2026-11-01)
 
 Components can own their cleanups: `render`, `hydrate`, `renderToString`, and `@zerolith/test`'s `mount` take a function that returns the view and call it inside the root's owner, and a component's styles can live in a stylesheet of their own, imported with `?scoped`. In development, a warning that no listener hears is printed to the console. Every package, the command line, the docs site, and the examples were reviewed end to end for this release, so the fixes run long: among them, the Vite plugin and the command line are held to shared fixtures, and a dependency can no longer copy a file from outside `node_modules` into the build. `when` and `each` now refuse a function, and `@zerolith/otel` names a client span by its method, so check those before upgrading.
