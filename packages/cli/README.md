@@ -22,15 +22,15 @@ npx zerolith doctor .
 
 Prebuilt binaries exist for Linux (glibc), macOS, and Windows on x64 and arm64. On any other system, or on Alpine and other musl distributions, install the crate with `cargo install zerolith --locked` and point `ZEROLITH_BINARY_PATH` at the binary; the shim runs that instead. Installing with `--omit=optional` leaves the binary out, and the shim says which platform package to install.
 
-The commands are documented in the [command line guide](https://molexxxx.github.io/zerolith/guide/command-line/).
+The commands are documented in the [command line guide](https://zerolith.dev/guide/command-line/).
 
 Status: alpha. The commands and their flags may change before 1.0.
 
 ## Documentation
 
-- The [command line guide](https://molexxxx.github.io/zerolith/guide/command-line/) covers every command and option, and `zerolith.json`.
-- [Building and serving](https://molexxxx.github.io/zerolith/guide/deploying/) covers what the build writes and how to serve it from a static host, a web server, or a backend.
-- New to zerolith? The [tutorial](https://molexxxx.github.io/zerolith/learn/) builds an app step by step, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs code in the browser.
+- The [command line guide](https://zerolith.dev/guide/command-line/) covers every command and option, and `zerolith.json`.
+- [Building and serving](https://zerolith.dev/guide/deploying/) covers what the build writes and how to serve it from a static host, a web server, or a backend.
+- New to zerolith? The [tutorial](https://zerolith.dev/learn/) builds an app step by step, and the [playground](https://zerolith.dev/playground/) runs code in the browser.
 
 ## License
 

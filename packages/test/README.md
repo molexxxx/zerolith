@@ -24,15 +24,15 @@ it("renders and hydrates", async () =>
 - `hydrationMismatches` renders a view with the server renderer, hydrates the same view over that markup, and returns every disagreement, so a component that cannot hydrate fails its test.
 - `accessibilityIssues` finds the defects a test can catch without a browser engine's accessibility tree: images without alternative text, controls without a label, buttons and links without a name, frames without a title.
 
-Under Vitest, which reads the components itself, add the plugin from `@zerolith/vite` as `zerolith({ hot: false })` so a test reads JSX and stylesheets imported with `?scoped` as the app does; a project from `zerolith new` has it in `vitest.config.ts`. The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/testing/).
+Under Vitest, which reads the components itself, add the plugin from `@zerolith/vite` as `zerolith({ hot: false })` so a test reads JSX and stylesheets imported with `?scoped` as the app does; a project from `zerolith new` has it in `vitest.config.ts`. The guide is on the [docs site](https://zerolith.dev/guide/testing/).
 
 Status: alpha. Install with `npm install --save-dev @zerolith/test@alpha`; the API may change before 1.0.
 
 ## Documentation
 
-- The [testing guide](https://molexxxx.github.io/zerolith/guide/testing/) explains it with examples that run as tests.
-- The [reference](https://molexxxx.github.io/zerolith/reference/zerolith-test/) lists every export, generated from the source.
-- New to zerolith? The [tutorial](https://molexxxx.github.io/zerolith/learn/) builds an app step by step, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs code in the browser.
+- The [testing guide](https://zerolith.dev/guide/testing/) explains it with examples that run as tests.
+- The [reference](https://zerolith.dev/reference/zerolith-test/) lists every export, generated from the source.
+- New to zerolith? The [tutorial](https://zerolith.dev/learn/) builds an app step by step, and the [playground](https://zerolith.dev/playground/) runs code in the browser.
 
 ## License
 

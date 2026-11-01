@@ -7,7 +7,7 @@ zerolith is a standalone frontend framework for single-page applications. State 
 > [!NOTE]
 > zerolith is in alpha. Every package is published under the `alpha` dist-tag, and the API may change until it is frozen for 1.0.
 
-The guides explain one concept each, with the pattern zerolith uses for it and an example that runs as a test. New to zerolith? The [tutorial](https://molexxxx.github.io/zerolith/learn/) builds a small app from an empty folder, one idea per step, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs code in your browser.
+The guides explain one concept each, with the pattern zerolith uses for it and an example that runs as a test. New to zerolith? The [tutorial](https://zerolith.dev/learn/) builds a small app from an empty folder, one idea per step, and the [playground](https://zerolith.dev/playground/) runs code in your browser.
 
 ## How it fits together
 
@@ -180,4 +180,4 @@ Read the basics in order; the rest is there for when an application needs it.
 | [Observability](observability.md) | Spans for navigations, hydration, and requests through the OpenTelemetry API |
 | [Coding agents](agents.md) | What an agent reads in a zerolith app, the project's `AGENTS.md` and the zerolith skill, and how to keep the skill current |
 
-Every export is in the [reference](https://molexxxx.github.io/zerolith/reference/zerolith/), generated from the source.
+Every export is in the [reference](https://zerolith.dev/reference/zerolith/), generated from the source.

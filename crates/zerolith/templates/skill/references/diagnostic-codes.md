@@ -2,7 +2,7 @@
 
 # Diagnostic codes
 
-Every error and warning zerolith reports carries one of these codes and a link to https://molexxxx.github.io/zerolith/e/<code>/. Apply the fix the code names; never silence it.
+Every error and warning zerolith reports carries one of these codes and a link to https://zerolith.dev/e/<code>/. Apply the fix the code names; never silence it.
 
 ## binding_in_comment
 

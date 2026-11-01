@@ -19,15 +19,15 @@ createAnnouncer().announce("Saved");
 - `visuallyHidden` is the clip pattern for text meant for assistive technology only.
 - `mediaQuery`, `forcedColors`, and `reducedMotion` are media queries as signals.
 
-The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/accessibility/).
+The guide is on the [docs site](https://zerolith.dev/guide/accessibility/).
 
 Status: alpha. Install with `npm install @zerolith/a11y@alpha`; the API may change before 1.0.
 
 ## Documentation
 
-- The [accessibility guide](https://molexxxx.github.io/zerolith/guide/accessibility/) explains it with examples that run as tests.
-- The [reference](https://molexxxx.github.io/zerolith/reference/zerolith-a11y/) lists every export, generated from the source.
-- New to zerolith? The [tutorial](https://molexxxx.github.io/zerolith/learn/) builds an app step by step, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs code in the browser.
+- The [accessibility guide](https://zerolith.dev/guide/accessibility/) explains it with examples that run as tests.
+- The [reference](https://zerolith.dev/reference/zerolith-a11y/) lists every export, generated from the source.
+- New to zerolith? The [tutorial](https://zerolith.dev/learn/) builds an app step by step, and the [playground](https://zerolith.dev/playground/) runs code in the browser.
 
 ## License
 

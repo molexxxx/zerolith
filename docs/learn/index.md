@@ -60,4 +60,4 @@ Open `src/components/counter.ts`. It is the whole idea of zerolith in a dozen li
 9. [Build and ship](ship.md): the production build and where to put it.
 
 > [!TIP]
-> If you get stuck, every error zerolith reports carries a code and a link to a page that explains the cause and the fix, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs small pieces of code without a project.
+> If you get stuck, every error zerolith reports carries a code and a link to a page that explains the cause and the fix, and the [playground](https://zerolith.dev/playground/) runs small pieces of code without a project.

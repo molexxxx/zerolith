@@ -37,4 +37,4 @@ You have used every part of a zerolith application: components, signals, lists, 
 - The [guide](../guide/index.md) explains each idea in depth, one page per concept, starting from the [introduction](../guide/index.md).
 - [Forms](../guide/forms.md) turns the add form into a form that posts to a server, with pending state and field errors.
 - [Server rendering](../guide/server-rendering.md) renders pages to HTML on a server and hydrates them in the browser.
-- The [reference](https://molexxxx.github.io/zerolith/reference/zerolith/) lists every export with its documentation.
+- The [reference](https://zerolith.dev/reference/zerolith/) lists every export with its documentation.

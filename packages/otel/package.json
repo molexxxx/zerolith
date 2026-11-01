@@ -4,7 +4,7 @@
     "description": "OpenTelemetry spans for zerolith applications through @opentelemetry/api: a span per navigation, per hydration, and per request of the typed client with traceparent propagation",
     "license": "Apache-2.0",
     "author": "molexxxx",
-    "homepage": "https://github.com/molexxxx/zerolith#readme",
+    "homepage": "https://zerolith.dev/",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/molexxxx/zerolith.git",

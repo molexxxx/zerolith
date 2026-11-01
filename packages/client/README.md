@@ -17,15 +17,15 @@ const notes = api.query("listNotes", () => ({ query: { q: search.get() } }));
 
 A response outside 2xx rejects with a `ProblemError` carrying the RFC 9457 problem the server sent, or one built from the status line. `query` wraps an operation in a resource that calls again when the signals it reads change. A custom `transport` answers requests in process, for tests or an Electron bridge, and the client never assumes which server produced the document.
 
-The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/client/).
+The guide is on the [docs site](https://zerolith.dev/guide/client/).
 
 Status: alpha. Install with `npm install @zerolith/client@alpha`; the API may change before 1.0.
 
 ## Documentation
 
-- The [typed client guide](https://molexxxx.github.io/zerolith/guide/client/) explains it with examples that run as tests.
-- The [reference](https://molexxxx.github.io/zerolith/reference/zerolith-client/) lists every export, generated from the source.
-- New to zerolith? The [tutorial](https://molexxxx.github.io/zerolith/learn/) builds an app step by step, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs code in the browser.
+- The [typed client guide](https://zerolith.dev/guide/client/) explains it with examples that run as tests.
+- The [reference](https://zerolith.dev/reference/zerolith-client/) lists every export, generated from the source.
+- New to zerolith? The [tutorial](https://zerolith.dev/learn/) builds an app step by step, and the [playground](https://zerolith.dev/playground/) runs code in the browser.
 
 ## License
 

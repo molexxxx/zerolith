@@ -10,7 +10,7 @@
   <a href="https://crates.io/crates/zerolith"><img src="https://raw.githubusercontent.com/molexxxx/molexxxx/main/.github/badges/zerolith-crates-zerolith.svg" alt="crates.io"></a>
   <a href="https://github.com/molexxxx/zerolith/actions/workflows/ci.yml"><img src="https://raw.githubusercontent.com/molexxxx/molexxxx/main/.github/badges/zerolith-ci-zerolith.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://raw.githubusercontent.com/molexxxx/molexxxx/main/.github/badges/zerolith-license-zerolith.svg" alt="license"></a>
-  <a href="https://molexxxx.github.io/zerolith/"><img src="https://raw.githubusercontent.com/molexxxx/molexxxx/main/.github/badges/zerolith-docs-zerolith.svg" alt="docs"></a>
+  <a href="https://zerolith.dev/"><img src="https://raw.githubusercontent.com/molexxxx/molexxxx/main/.github/badges/zerolith-docs-zerolith.svg" alt="docs"></a>
   <a href="https://github.com/molexxxx/zerolith/commits/main"><img src="https://raw.githubusercontent.com/molexxxx/molexxxx/main/.github/badges/zerolith-last-commit-zerolith.svg" alt="last commit"></a>
 </p>
 
@@ -113,7 +113,7 @@ Next come the first production site, the js-framework-benchmark entry, already m
 
 ## Documentation
 
-- The [docs site](https://molexxxx.github.io/zerolith/), rebuilt with every release: a [tutorial](https://molexxxx.github.io/zerolith/learn/) that builds an app step by step, the guides, a [playground](https://molexxxx.github.io/zerolith/playground/) that runs zerolith in the browser, the API reference generated from the source, and a page for every diagnostic code.
+- The [docs site](https://zerolith.dev/), rebuilt with every release: a [tutorial](https://zerolith.dev/learn/) that builds an app step by step, the guides, a [playground](https://zerolith.dev/playground/) that runs zerolith in the browser, the API reference generated from the source, and a page for every diagnostic code.
 - [Guides](docs/guide/index.md), from [application structure](docs/guide/structure.md) and [building and serving](docs/guide/deploying.md) to [testing](docs/guide/testing.md). `npm run docs` builds them into a site with the generated reference.
 - The [roadmap](docs/ROADMAP.md), the [changelog](CHANGELOG.md), and the [releases](https://github.com/molexxxx/zerolith/releases) with their SBOMs.
 - [Support window and channels](docs/policy/support.md), [releases](docs/policy/releases.md), and [versioning](docs/policy/versioning.md).

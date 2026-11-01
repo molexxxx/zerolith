@@ -57,7 +57,7 @@ The code and the URL are public API and never change meaning. The message text i
 
 ## Every code
 
-Each code has a page at `https://molexxxx.github.io/zerolith/e/<code>/` with its cause and its fix, and the [diagnostics index](https://molexxxx.github.io/zerolith/e/) lists them all:
+Each code has a page at `https://zerolith.dev/e/<code>/` with its cause and its fix, and the [diagnostics index](https://zerolith.dev/e/) lists them all:
 
 | Area | Codes |
 | --- | --- |

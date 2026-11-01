@@ -374,8 +374,8 @@ describe("documentation site", () =>
             expect(map.integrity[path], path).toMatch(/^sha384-/);
         }
         expect(home).toMatch(/<script type="module" src="\/island.js" integrity="sha384-/);
-        expect(home).toContain("<link rel=\"canonical\" href=\"https://molexxxx.github.io/zerolith/\">");
+        expect(home).toContain("<link rel=\"canonical\" href=\"https://zerolith.dev/\">");
         const sitemap = await readFile(join(site, "sitemap.xml"), "utf8");
-        expect(sitemap).toContain("<loc>https://molexxxx.github.io/zerolith/learn/state/</loc>");
+        expect(sitemap).toContain("<loc>https://zerolith.dev/learn/state/</loc>");
     });
 });

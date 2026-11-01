@@ -28,4 +28,4 @@ Install it from npm as `@zerolith/cli`, which carries a prebuilt binary for Linu
 
 `new` writes a starter application in the brand style and installs its dependencies, asking for what the flags leave open: the starting point, the starter by default; the language, TSX by default; the command line or Vite; and the inspector. The starter has three pages, a browser test, an `AGENTS.md`, and a README on developing, building, previewing, and deploying. `--example fullstack` writes the fullstack example instead, an app under `/app/` with its own Node backend, with tests of both and a README on running the two side by side and on deploying.
 
-From this repository, `cargo build --release` puts the binary at `target/release/zerolith`. The [command line guide](https://molexxxx.github.io/zerolith/guide/command-line/) documents every command.
+From this repository, `cargo build --release` puts the binary at `target/release/zerolith`. The [command line guide](https://zerolith.dev/guide/command-line/) documents every command.

@@ -4,7 +4,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 
 ## Where it stands
 
-`0.1.0-alpha.7` was published on 2026-11-01, the seventh alpha since `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, which writes a starter or the fullstack example, each with the zerolith skill for coding agents, and develops, bundles, and previews a project with no other build tool. It is on npm under the `alpha` dist-tag with provenance, published through trusted publishing with no npm token anywhere, on crates.io, and a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://molexxxx.github.io/zerolith/) is published from the same commit, and redeployed from `main` when only the site changes. The API is not frozen, and minor versions may change it until 1.0.
+`0.1.0-alpha.7` was published on 2026-11-01, the seventh alpha since `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, which writes a starter or the fullstack example, each with the zerolith skill for coding agents, and develops, bundles, and previews a project with no other build tool. It is on npm under the `alpha` dist-tag with provenance, published through trusted publishing with no npm token anywhere, on crates.io, and a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://zerolith.dev/) is published from the same commit, and redeployed from `main` when only the site changes. The API is not frozen, and minor versions may change it until 1.0.
 
 | Area | State |
 | --- | --- |
@@ -33,7 +33,7 @@ In order:
 1.0 ships when all of these hold. The API of the core, templates, and router is then supported for 24 months under the [support policy](policy/support.md).
 
 - [ ] The API of the core, templates, and router is frozen through an RFC.
-- [x] The docs site is live at a permanent address, https://molexxxx.github.io/zerolith/, built with zerolith itself, and every diagnostic code's page resolves there.
+- [x] The docs site is live at a permanent address, https://zerolith.dev/, built with zerolith itself, and every diagnostic code's page resolves there.
 - [ ] A production site runs on zerolith, served buildless with an import map and integrity hashes, with a Lighthouse budget enforced in CI.
 - [ ] A keyed entry is submitted to js-framework-benchmark, with the core inside its 10 kB compressed budget.
 - [x] Every npm package publishes through trusted publishing with provenance, and the canary channel runs.
@@ -150,13 +150,13 @@ See the [command line guide](guide/command-line.md).
 - [x] Guides whose examples are tests, a reference generated from the source, and search built with zerolith.
 - [x] A Markdown twin of every page, indexed by `llms.txt` and `llms-full.txt`.
 - [x] A page for every diagnostic code.
-- [x] The site on [GitHub Pages](https://molexxxx.github.io/zerolith/), deployed by each release from the commit it published, and by hand from `main` when only the site changes.
+- [x] The site on GitHub Pages at [zerolith.dev](https://zerolith.dev/), deployed by each release from the commit it published, and by hand from `main` when only the site changes.
 - [x] Links that work on GitHub and on the site alike: pages link each other by file, the docs build checks every link, and a test checks every relative link in the repository's Markdown.
 - [x] A home page that runs a counter and measures its DOM updates, a ten-step tutorial whose every file is a test, and a playground that runs zerolith in a sandboxed frame and shares code through a link.
 - [x] The site as a single-page application on `@zerolith/router`: every page prerendered for a first load and for readers without JavaScript, links that load the next page without a reload, and each page's islands started when it commits and stopped when the reader leaves.
 - [x] Code colored by the brand's code tokens, reading `html` and `css` templates and JSX as markup and styles, on the site and in the playground, with each name keeping one color across a page.
 - [x] Playground examples that render as finished interface in the brand, with a preview that waits for the brand's fonts.
-- [ ] A domain of the project's own, if one is registered later. Every published version links its diagnostics to the GitHub Pages address, so those links have to keep working.
+- [x] A domain of the project's own: the site moved to [zerolith.dev](https://zerolith.dev/) on 2026-11-01, and the GitHub Pages address redirects to it page for page, so the diagnostic links of every earlier version keep working.
 - [ ] A versioned API manifest that feeds the agent index and editor tooling.
 - [ ] Type-checked code samples on every page.
 - [ ] Prose and spelling checks in CI.

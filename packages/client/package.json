@@ -4,7 +4,7 @@
     "description": "A typed HTTP client for zerolith over a neutral contract: generate the route table and types from an OpenAPI document, call operations with checked inputs, and read failures as RFC 9457 problems",
     "license": "Apache-2.0",
     "author": "molexxxx",
-    "homepage": "https://github.com/molexxxx/zerolith#readme",
+    "homepage": "https://zerolith.dev/",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/molexxxx/zerolith.git",

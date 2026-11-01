@@ -2,7 +2,7 @@
 
 A standalone frontend framework: fine-grained signals, HTML templates that need no compiler, and a runtime that loads from an import map or a bundle with no second-class path. It works with any backend over plain HTTP.
 
-Status: alpha. Install with `npm install zerolith@alpha`; the API may change before 1.0. The guides, the API reference, and a page for every diagnostic code are on the [docs site](https://molexxxx.github.io/zerolith/), and the direction is in the [roadmap](https://github.com/molexxxx/zerolith/blob/main/docs/ROADMAP.md).
+Status: alpha. Install with `npm install zerolith@alpha`; the API may change before 1.0. The guides, the API reference, and a page for every diagnostic code are on the [docs site](https://zerolith.dev/), and the direction is in the [roadmap](https://github.com/molexxxx/zerolith/blob/main/docs/ROADMAP.md).
 
 ## A first component
 
@@ -67,9 +67,9 @@ Both give the same value, bound to a root element's `class`. A `?scoped` import 
 
 ## Documentation
 
-- The [introduction](https://molexxxx.github.io/zerolith/guide/) starts a project, and the [signals](https://molexxxx.github.io/zerolith/guide/signals/) and [templates](https://molexxxx.github.io/zerolith/guide/templates/) guides explain the core, every example run as a test.
-- The [reference](https://molexxxx.github.io/zerolith/reference/zerolith/) lists every export, generated from the source.
-- New to zerolith? The [tutorial](https://molexxxx.github.io/zerolith/learn/) builds an app step by step, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs code in the browser.
+- The [introduction](https://zerolith.dev/guide/) starts a project, and the [signals](https://zerolith.dev/guide/signals/) and [templates](https://zerolith.dev/guide/templates/) guides explain the core, every example run as a test.
+- The [reference](https://zerolith.dev/reference/zerolith/) lists every export, generated from the source.
+- New to zerolith? The [tutorial](https://zerolith.dev/learn/) builds an app step by step, and the [playground](https://zerolith.dev/playground/) runs code in the browser.
 
 ## License
 

@@ -8,6 +8,7 @@ edition = "2024"
 rust-version = "1.97.0"
 license = "Apache-2.0"
 repository = "https://github.com/molexxxx/zerolith"
+homepage = "https://zerolith.dev/"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

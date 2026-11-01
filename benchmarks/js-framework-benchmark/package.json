@@ -6,7 +6,7 @@
     "type": "module",
     "js-framework-benchmark": {
         "frameworkVersionFromPackage": "zerolith",
-        "frameworkHomeURL": "https://molexxxx.github.io/zerolith/",
+        "frameworkHomeURL": "https://zerolith.dev/",
         "repoURL": "https://github.com/molexxxx/zerolith",
         "customURL": "/dist",
         "language": "JavaScript"

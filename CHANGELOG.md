@@ -2,6 +2,15 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
+## Unreleased
+
+### Changed
+
+- The docs site moved to https://zerolith.dev/, the project's own domain. The GitHub Pages address, https://molexxxx.github.io/zerolith/, redirects there page for page, so the links earlier versions print keep working.
+- `zerolith` and the `zerolith` crate: every diagnostic links its page under `https://zerolith.dev/e/`, and `DIAGNOSTIC_URL` changes with it.
+- `@zerolith/cli` and the `zerolith` crate: the projects `zerolith new` writes link the guides at https://zerolith.dev/, and `zerolith.schema.json` has the `$id` `https://zerolith.dev/zerolith.schema.json`.
+- Every npm package and the crate name https://zerolith.dev/ as their homepage.
+
 ## 0.1.0-alpha.7 (2026-11-01)
 
 A schema named like a built-in type keeps its name in the typed client again, as in 0.1.0-alpha.5, unless the generated module writes that built-in; 0.1.0-alpha.6 renamed every such schema. Harbor, the fullstack example, now waits for its backend, so `npm run dev` and `npm run api` start in either order. Canaries are versioned below every release, and this release sorts above the 0.1.0-alpha.6 canary that sorted above 0.1.0-alpha.6.

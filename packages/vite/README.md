@@ -19,15 +19,15 @@ export default defineConfig({
 - **Templates prepared at build time.** `vite build` scans every `html` literal ahead of time, so the browser binds templates without scanning them and the scanner leaves the bundle, and a template with no bindings is created once at module scope. A module that uses `html` other than as a template tag, or re-exports it, fails the build at that line. `prepare: false` keeps the scanner.
 - **Build checks.** A client build fails when a view loaded with the router's `lazy()`, or a locale of a compiled message index, is also imported statically, which would merge it into the importing chunk. A build in production mode also fails when the development build of the core reached the output.
 
-The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/vite/).
+The guide is on the [docs site](https://zerolith.dev/guide/vite/).
 
 Status: alpha. Install with `npm install --save-dev @zerolith/vite@alpha`, at the version of `zerolith` the project uses: the two share the `zerolith/internal` entry, and the plugin stops with `package_version_mismatch` on any other version. The API may change before 1.0.
 
 ## Documentation
 
-- The [Vite guide](https://molexxxx.github.io/zerolith/guide/vite/) explains it with examples that run as tests.
-- The [reference](https://molexxxx.github.io/zerolith/reference/zerolith-vite/) lists every export, generated from the source.
-- New to zerolith? The [tutorial](https://molexxxx.github.io/zerolith/learn/) builds an app step by step, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs code in the browser.
+- The [Vite guide](https://zerolith.dev/guide/vite/) explains it with examples that run as tests.
+- The [reference](https://zerolith.dev/reference/zerolith-vite/) lists every export, generated from the source.
+- New to zerolith? The [tutorial](https://zerolith.dev/learn/) builds an app step by step, and the [playground](https://zerolith.dev/playground/) runs code in the browser.
 
 ## License
 

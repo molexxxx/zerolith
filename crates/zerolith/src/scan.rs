@@ -13,7 +13,7 @@ pub const EVENT: u8 = 4;
 pub const REF: u8 = 5;
 
 /// Where each diagnostic code has its page; the core's `DIAGNOSTIC_URL`.
-pub const DIAGNOSTIC_URL: &str = "https://molexxxx.github.io/zerolith/e/";
+pub const DIAGNOSTIC_URL: &str = "https://zerolith.dev/e/";
 
 const MARK: &str = "zl$";
 const CHILD_MARKER: &str = "<!--zl$-->";

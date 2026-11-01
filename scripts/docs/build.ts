@@ -27,10 +27,10 @@ import { type Entry, type ManifestSymbol, apiReport, elementsAsCode, extract, re
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const out = join(root, "site");
-/** Where the site is served: `ZEROLITH_DOCS_BASE`, `/` by default, `/zerolith/` on GitHub Pages. */
+/** Where the site is served: `ZEROLITH_DOCS_BASE`, `/` by default; the docs workflow passes the path the Pages configuration names. */
 const base = normalizeBase(process.env["ZEROLITH_DOCS_BASE"]);
-/** The site's public address, for canonical links, the social card, and the sitemap: `ZEROLITH_DOCS_URL`, or the GitHub Pages address. */
-const siteUrl = (process.env["ZEROLITH_DOCS_URL"] ?? "https://molexxxx.github.io/zerolith/").replace(/\/?$/, "/");
+/** The site's public address, for canonical links, the social card, and the sitemap: `ZEROLITH_DOCS_URL`, or https://zerolith.dev/. */
+const siteUrl = (process.env["ZEROLITH_DOCS_URL"] ?? "https://zerolith.dev/").replace(/\/?$/, "/");
 /** The version the site describes, shown in its header. */
 const version = (JSON.parse(await readFile(join(root, "packages", "zerolith", "package.json"), "utf8")) as { version: string }).version;
 const copyIcon = icon("copy");

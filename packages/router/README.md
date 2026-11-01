@@ -11,15 +11,15 @@ Typed client-side routing for zerolith.
 - Back and forward restore the scroll position; new navigations scroll to the top or to the hash.
 - `router.outlet()` renders the current route's view, and the fallback for unknown URLs, for the layout to place.
 
-The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/routing/).
+The guide is on the [docs site](https://zerolith.dev/guide/routing/).
 
 Status: alpha. Install with `npm install @zerolith/router@alpha`; the API may change before 1.0.
 
 ## Documentation
 
-- The [routing guide](https://molexxxx.github.io/zerolith/guide/routing/) explains it with examples that run as tests.
-- The [reference](https://molexxxx.github.io/zerolith/reference/zerolith-router/) lists every export, generated from the source.
-- New to zerolith? The [tutorial](https://molexxxx.github.io/zerolith/learn/) builds an app step by step, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs code in the browser.
+- The [routing guide](https://zerolith.dev/guide/routing/) explains it with examples that run as tests.
+- The [reference](https://zerolith.dev/reference/zerolith-router/) lists every export, generated from the source.
+- New to zerolith? The [tutorial](https://zerolith.dev/learn/) builds an app step by step, and the [playground](https://zerolith.dev/playground/) runs code in the browser.
 
 ## License
 

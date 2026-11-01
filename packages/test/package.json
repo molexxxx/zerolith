@@ -4,7 +4,7 @@
     "description": "Test helpers for zerolith: mount views with automatic cleanup, settle async work, check a view's server markup against hydration, and find the accessibility defects a test can catch",
     "license": "Apache-2.0",
     "author": "molexxxx",
-    "homepage": "https://github.com/molexxxx/zerolith#readme",
+    "homepage": "https://zerolith.dev/",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/molexxxx/zerolith.git",

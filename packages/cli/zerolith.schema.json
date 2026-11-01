@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://molexxxx.github.io/zerolith/zerolith.schema.json",
+    "$id": "https://zerolith.dev/zerolith.schema.json",
     "title": "zerolith.json",
     "description": "The settings zerolith dev, serve, build, and preview share. A flag given on the command line overrides the file.",
     "type": "object",

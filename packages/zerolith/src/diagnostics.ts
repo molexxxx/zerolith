@@ -78,7 +78,7 @@ export interface DiagnosticText
 }
 
 /** Base of every diagnostic URL; the code is appended as the path. */
-export const DIAGNOSTIC_URL: string = "https://molexxxx.github.io/zerolith/e/";
+export const DIAGNOSTIC_URL: string = "https://zerolith.dev/e/";
 
 /** The codes the runtime can emit. Every code has exactly one catalog entry. */
 export type DiagnosticCode =

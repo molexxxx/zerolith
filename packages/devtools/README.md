@@ -12,15 +12,15 @@ The dock shows the live reactive graph (every signal, computed value, and effect
 
 The package reads the hook the core publishes in development builds as `globalThis.__ZEROLITH_DEVTOOLS__`. Under the `development` export condition it is the inspector; otherwise it is a no-op, so the call can stay in application code.
 
-The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/dev-tools/).
+The guide is on the [docs site](https://zerolith.dev/guide/dev-tools/).
 
 Status: alpha. Install with `npm install @zerolith/devtools@alpha`, at the version of `zerolith` the project uses: the two share the `zerolith/internal` entry, and `mountDevtools` stops with `package_version_mismatch` on any other version. The API may change before 1.0.
 
 ## Documentation
 
-- The [dev tools guide](https://molexxxx.github.io/zerolith/guide/dev-tools/) explains it with examples that run as tests.
-- The [reference](https://molexxxx.github.io/zerolith/reference/zerolith-devtools/) lists every export, generated from the source.
-- New to zerolith? The [tutorial](https://molexxxx.github.io/zerolith/learn/) builds an app step by step, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs code in the browser.
+- The [dev tools guide](https://zerolith.dev/guide/dev-tools/) explains it with examples that run as tests.
+- The [reference](https://zerolith.dev/reference/zerolith-devtools/) lists every export, generated from the source.
+- New to zerolith? The [tutorial](https://zerolith.dev/learn/) builds an app step by step, and the [playground](https://zerolith.dev/playground/) runs code in the browser.
 
 ## License
 

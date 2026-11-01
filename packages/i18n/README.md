@@ -16,15 +16,15 @@ format.number(1234.5, { style: "currency", currency: "EUR" });
 - `formatters` wraps `Intl.NumberFormat`, `DateTimeFormat`, `RelativeTimeFormat`, `ListFormat`, and `PluralRules`, cached per locale and options, reading the locale signal when called.
 - `zerolith-i18n` compiles MessageFormat 2 catalogs (`messages/en.json`) into one module per locale, with a function per message and typed arguments, so a locale is one chunk and no message runtime is loaded.
 
-The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/i18n/).
+The guide is on the [docs site](https://zerolith.dev/guide/i18n/).
 
 Status: alpha. Install with `npm install @zerolith/i18n@alpha`; the API may change before 1.0.
 
 ## Documentation
 
-- The [internationalization guide](https://molexxxx.github.io/zerolith/guide/i18n/) explains it with examples that run as tests.
-- The [reference](https://molexxxx.github.io/zerolith/reference/zerolith-i18n/) lists every export, generated from the source.
-- New to zerolith? The [tutorial](https://molexxxx.github.io/zerolith/learn/) builds an app step by step, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs code in the browser.
+- The [internationalization guide](https://zerolith.dev/guide/i18n/) explains it with examples that run as tests.
+- The [reference](https://zerolith.dev/reference/zerolith-i18n/) lists every export, generated from the source.
+- New to zerolith? The [tutorial](https://zerolith.dev/learn/) builds an app step by step, and the [playground](https://zerolith.dev/playground/) runs code in the browser.
 
 ## License
 

@@ -16,15 +16,15 @@ tracedHydrate(App(router), "#app", tracer);
 - `tracedHydrate` wraps `hydrate` in a span and records the number of mismatches.
 - `tracedTransport` wraps a client transport in a client span per request, with the method, URL, and status, and injects a `traceparent` header from the active span so the server's trace continues the browser's.
 
-The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/observability/).
+The guide is on the [docs site](https://zerolith.dev/guide/observability/).
 
 Status: alpha. Install with `npm install @zerolith/otel@alpha`; the API may change before 1.0.
 
 ## Documentation
 
-- The [observability guide](https://molexxxx.github.io/zerolith/guide/observability/) explains it with examples that run as tests.
-- The [reference](https://molexxxx.github.io/zerolith/reference/zerolith-otel/) lists every export, generated from the source.
-- New to zerolith? The [tutorial](https://molexxxx.github.io/zerolith/learn/) builds an app step by step, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs code in the browser.
+- The [observability guide](https://zerolith.dev/guide/observability/) explains it with examples that run as tests.
+- The [reference](https://zerolith.dev/reference/zerolith-otel/) lists every export, generated from the source.
+- New to zerolith? The [tutorial](https://zerolith.dev/learn/) builds an app step by step, and the [playground](https://zerolith.dev/playground/) runs code in the browser.
 
 ## License
 

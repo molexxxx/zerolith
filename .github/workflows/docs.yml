@@ -3,8 +3,9 @@ name: Docs
 # Builds the documentation site and deploys it to GitHub Pages. The release
 # workflow calls it with the commit it just published, so the site always
 # describes what the registry serves; a manual run redeploys a given ref.
-# The base path comes from the Pages configuration, so the same build
-# serves the project site under /zerolith/ and a custom domain at its root.
+# The base path and the address for canonical links come from the Pages
+# configuration, so the same build serves the project site under
+# /zerolith/ and a custom domain at its root.
 
 on:
   workflow_call:
@@ -55,6 +56,7 @@ jobs:
       - name: Build the site
         env:
           ZEROLITH_DOCS_BASE: ${{ steps.pages.outputs.base_path }}/
+          ZEROLITH_DOCS_URL: ${{ steps.pages.outputs.base_url }}/
         run: npm run docs
 
       - name: Upload

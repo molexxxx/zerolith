@@ -12,6 +12,6 @@ describe("the version check", () =>
 
     it("names both versions and both ways to align them", () =>
     {
-        expect(() => checkCoreVersion("0.1.0-alpha.6", "0.1.0-alpha.5")).toThrow("zerolith: package_version_mismatch: @zerolith/devtools 0.1.0-alpha.6 requires zerolith 0.1.0-alpha.6, and zerolith 0.1.0-alpha.5 is installed. Install one version of both, with npm install @zerolith/devtools@0.1.0-alpha.5 or npm install zerolith@0.1.0-alpha.6. https://molexxxx.github.io/zerolith/e/package_version_mismatch");
+        expect(() => checkCoreVersion("0.1.0-alpha.6", "0.1.0-alpha.5")).toThrow("zerolith: package_version_mismatch: @zerolith/devtools 0.1.0-alpha.6 requires zerolith 0.1.0-alpha.6, and zerolith 0.1.0-alpha.5 is installed. Install one version of both, with npm install @zerolith/devtools@0.1.0-alpha.5 or npm install zerolith@0.1.0-alpha.6. https://zerolith.dev/e/package_version_mismatch");
     });
 });

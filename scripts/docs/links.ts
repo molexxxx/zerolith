@@ -9,7 +9,7 @@
 import { posix } from "node:path";
 
 /** Where the docs site lives. */
-export const DOCS_URL = "https://molexxxx.github.io/zerolith/";
+export const DOCS_URL = "https://zerolith.dev/";
 
 const SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 

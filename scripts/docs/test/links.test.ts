@@ -14,14 +14,14 @@ describe("docs links", () =>
         expect(sitePath("index.md#install", "guide", "docs/guide/a.md")).toBe("/guide/#install");
         expect(sitePath("../learn/state.md", "guide", "docs/guide/a.md")).toBe("/learn/state/");
         expect(sitePath("../guide/forms.md#fields", "learn", "docs/learn/a.md")).toBe("/guide/forms/#fields");
-        expect(sitePath("https://molexxxx.github.io/zerolith/e/template_frozen_read/", "guide", "docs/guide/a.md")).toBe("/e/template_frozen_read/");
+        expect(sitePath("https://zerolith.dev/e/template_frozen_read/", "guide", "docs/guide/a.md")).toBe("/e/template_frozen_read/");
         expect(sitePath("https://vite.dev", "guide", "docs/guide/a.md")).toBe("https://vite.dev");
         expect(sitePath("#effects", "guide", "docs/guide/a.md")).toBe("#effects");
     });
 
     it("refuse root-relative links and files outside the docs", () =>
     {
-        expect(() => sitePath("/guide/structure/", "guide", "docs/guide/a.md")).toThrow("docs/guide/a.md: the link /guide/structure/ resolves on the docs site only; link the page's file, such as structure.md, or the full address https://molexxxx.github.io/zerolith/guide/structure/, so the link works on GitHub too");
+        expect(() => sitePath("/guide/structure/", "guide", "docs/guide/a.md")).toThrow("docs/guide/a.md: the link /guide/structure/ resolves on the docs site only; link the page's file, such as structure.md, or the full address https://zerolith.dev/guide/structure/, so the link works on GitHub too");
         expect(() => sitePath("../ROADMAP.md", "guide", "docs/guide/a.md")).toThrow(/is not a page of the docs/);
     });
 

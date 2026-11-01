@@ -58,7 +58,7 @@ Each of these fails with a coded error before anything reaches the DOM: a `<scri
 
 ## Diagnostics
 
-Every error and warning carries a stable code and a page at `https://molexxxx.github.io/zerolith/e/<code>/` with the cause and the fix. When a code appears, read its entry in [references/diagnostic-codes.md](references/diagnostic-codes.md) and apply the fix it names. Never suppress a diagnostic or work around it. In development, a warning that no `onDiagnostic` listener hears is printed to the console as `[zerolith] <code>: <cause> <fix> <url>`.
+Every error and warning carries a stable code and a page at `https://zerolith.dev/e/<code>/` with the cause and the fix. When a code appears, read its entry in [references/diagnostic-codes.md](references/diagnostic-codes.md) and apply the fix it names. Never suppress a diagnostic or work around it. In development, a warning that no `onDiagnostic` listener hears is printed to the console as `[zerolith] <code>: <cause> <fix> <url>`.
 
 ## Commands
 

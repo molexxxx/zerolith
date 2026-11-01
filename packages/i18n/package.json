@@ -4,7 +4,7 @@
     "description": "Internationalization for zerolith built on Intl with nothing shipped: locale negotiation and state, direction and document language, cached formatters, and a compiler that turns MessageFormat 2 catalogs into per-locale modules",
     "license": "Apache-2.0",
     "author": "molexxxx",
-    "homepage": "https://github.com/molexxxx/zerolith#readme",
+    "homepage": "https://zerolith.dev/",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/molexxxx/zerolith.git",

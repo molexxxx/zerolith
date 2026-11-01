@@ -469,9 +469,9 @@ export const routes = defineRoutes({
 
 const MARK: &str = r#"<svg viewBox="14.29 4 35.42 56" aria-hidden="true"><path fill-rule="evenodd" fill="currentColor" d="M26 4h12q6 0 6.64 5.97l5.04 47.05Q50 60 47 60H17q-3 0-2.68-2.98l5.04-47.05Q20 4 26 4ZM30 13h4q3 0 3.26 2.99l2.56 29.02Q40 47 38 47H26q-2 0-1.82-1.99l2.56-29.02Q27 13 30 13Z"/></svg>"#;
 
-const FOOTER: &str = r#"Built with <a href="https://molexxxx.github.io/zerolith/">zerolith</a>."#;
+const FOOTER: &str = r#"Built with <a href="https://zerolith.dev/">zerolith</a>."#;
 
-const FOOTER_DEVTOOLS: &str = r#"Built with <a href="https://molexxxx.github.io/zerolith/">zerolith</a>. Press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> for the inspector."#;
+const FOOTER_DEVTOOLS: &str = r#"Built with <a href="https://zerolith.dev/">zerolith</a>. Press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> for the inspector."#;
 
 const LAYOUT_STYLES: &str = r#"const frame = css`
     :scope { min-height: 100vh; display: grid; grid-template-rows: auto 1fr auto; }
@@ -655,7 +655,7 @@ const HOME_HTML: &str = r#"    return html`
             </ol>
             <div class="next">
                 <a class="button primary" href=${router.href("counter")}>Try the counter</a>
-                <a class="button" href="https://molexxxx.github.io/zerolith/guide/">Read the guide</a>
+                <a class="button" href="https://zerolith.dev/guide/">Read the guide</a>
             </div>
         </section>`;"#;
 
@@ -672,7 +672,7 @@ const HOME_JSX_BODY: &str = r#"    return (
             </ol>
             <div class="next">
                 <a class="button primary" href={router.href("counter")}>Try the counter</a>
-                <a class="button" href="https://molexxxx.github.io/zerolith/guide/">Read the guide</a>
+                <a class="button" href="https://zerolith.dev/guide/">Read the guide</a>
             </div>
         </section>
     );"#;
@@ -1091,9 +1091,9 @@ fn steps(tool: Tool) -> (&'static str, &'static str, &'static str) {
 /// Where the project's AGENTS.md sends an agent for zerolith's own rules: the skill in the project, or the command that adds it.
 fn skill_pointer(choice: Choice) -> String {
     if choice.skill {
-        "zerolith's own rules and patterns are in the zerolith skill in `.agents/skills/zerolith/`, also at `.claude/skills/zerolith/` for Claude Code; `npx zerolith skill` brings it to the installed version after an upgrade. The guides at https://molexxxx.github.io/zerolith/guide/ cover each concept in full.".to_string()
+        "zerolith's own rules and patterns are in the zerolith skill in `.agents/skills/zerolith/`, also at `.claude/skills/zerolith/` for Claude Code; `npx zerolith skill` brings it to the installed version after an upgrade. The guides at https://zerolith.dev/guide/ cover each concept in full.".to_string()
     } else {
-        "zerolith's own rules and patterns are in the zerolith skill, which `npx zerolith skill` adds to the project. The guides at https://molexxxx.github.io/zerolith/guide/ cover each concept in full.".to_string()
+        "zerolith's own rules and patterns are in the zerolith skill, which `npx zerolith skill` adds to the project. The guides at https://zerolith.dev/guide/ cover each concept in full.".to_string()
     }
 }
 
@@ -1201,7 +1201,7 @@ fn readme(name: &str, choice: Choice) -> String {
     };
     let syntax = if choice.jsx {
         format!(
-            "\n\nComponents are written in JSX, which {lowering} to `html` templates before the browser sees them: write `class` rather than `className`, `on:click` for events, `prop:value` for properties, and `bool:disabled` for boolean attributes. Lists and conditions are `each` and `when`. The [templates guide](https://molexxxx.github.io/zerolith/guide/templates/) has the whole mapping."
+            "\n\nComponents are written in JSX, which {lowering} to `html` templates before the browser sees them: write `class` rather than `className`, `on:click` for events, `prop:value` for properties, and `bool:disabled` for boolean attributes. Lists and conditions are `each` and `when`. The [templates guide](https://zerolith.dev/guide/templates/) has the whole mapping."
         )
     } else {
         String::new()
@@ -1289,7 +1289,7 @@ The project deploys as one Node application on Node 24 or newer: install the dep
 
 The data lives in memory and starts over when the server restarts, and the members and their passwords are written in `server/data.ts`; move both to a database, with password hashes, before relying on it.
 
-To serve `dist/` from a static host or another web server instead, give it the same rules: `index.html` for every path under `/app/` that names no file, a year of caching for `assets/`, and `/api` forwarded to the backend. The [building and serving guide](https://molexxxx.github.io/zerolith/guide/deploying/) has the setup for static hosts, nginx, IIS, Express, and ASP.NET Core.
+To serve `dist/` from a static host or another web server instead, give it the same rules: `index.html` for every path under `/app/` that names no file, a year of caching for `assets/`, and `/api` forwarded to the backend. The [building and serving guide](https://zerolith.dev/guide/deploying/) has the setup for static hosts, nginx, IIS, Express, and ASP.NET Core.
 
 ## Environment variables
 

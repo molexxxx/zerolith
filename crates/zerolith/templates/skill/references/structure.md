@@ -82,7 +82,7 @@ An agent reads one file before touching a project. The scaffold writes this one 
 ```markdown AGENTS.md
 # my-app: guide for coding agents
 
-A zerolith application. The project develops and builds on the zerolith command line; packages load from `node_modules` with no import map, and there is no Vite config. This file holds what is specific to this project. zerolith's own rules and patterns are in the zerolith skill in `.agents/skills/zerolith/`, also at `.claude/skills/zerolith/` for Claude Code; `npx zerolith skill` brings it to the installed version after an upgrade. The guides at https://molexxxx.github.io/zerolith/guide/ cover each concept in full.
+A zerolith application. The project develops and builds on the zerolith command line; packages load from `node_modules` with no import map, and there is no Vite config. This file holds what is specific to this project. zerolith's own rules and patterns are in the zerolith skill in `.agents/skills/zerolith/`, also at `.claude/skills/zerolith/` for Claude Code; `npx zerolith skill` brings it to the installed version after an upgrade. The guides at https://zerolith.dev/guide/ cover each concept in full.
 
 ## Commands
 
