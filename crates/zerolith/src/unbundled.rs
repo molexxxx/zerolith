@@ -228,8 +228,9 @@ fn rewrite(
             Some(absolute) => root.join(absolute),
             None => folder.join(path),
         };
+        let target = css::canonical(&target).unwrap_or_else(|_| css::plain(&target));
         imports
-            .entry((css::plain(&target), form))
+            .entry((target, form))
             .or_insert_with(|| format!("{shown}: the import of {specifier}"));
         Some(name)
     })
@@ -605,6 +606,26 @@ mod tests {
             error.contains("src/main.ts: the import of ./missing.css?scoped names no file"),
             "{error}"
         );
+        let outside = root.with_file_name(format!(
+            "zerolith-unbundled-outside-{}.txt",
+            std::process::id()
+        ));
+        fs::write(&outside, "secret").unwrap();
+        let name = outside.file_name().unwrap().to_string_lossy().into_owned();
+        fs::write(
+            root.join("src/main.ts"),
+            format!("import text from \"../../{name}?raw\";\nconsole.log(text);\n"),
+        )
+        .unwrap();
+        let error = build(&root, Path::new("dist"), false)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("names a file outside the project"),
+            "{error}"
+        );
+        assert!(!root.join(format!("{name}.raw.js")).exists());
+        let _ = fs::remove_file(&outside);
         let _ = fs::remove_dir_all(&root);
     }
 }

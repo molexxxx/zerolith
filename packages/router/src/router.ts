@@ -259,6 +259,16 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         return typeof saved === "number" ? saved : undefined;
     };
     /**
+     * The history entry's state as an object the router can add its keys to,
+     * keeping what other code on the page stored there; a state that is not
+     * an object, such as a string, starts over as an empty one.
+     */
+    const entryState = (): Record<string, unknown> =>
+    {
+        const state: unknown = win?.history.state;
+        return typeof state === "object" && state !== null ? { ...state } : {};
+    };
+    /**
      * Saves the scroll position into the state of the history entry shown.
      * The browser keeps that state with the entry, so the position survives a
      * reload and a later return to the entry, and it goes away with the entry.
@@ -273,7 +283,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         }
         try
         {
-            win.history.replaceState({ ...win.history.state, scroll: win.scrollY }, "");
+            win.history.replaceState({ ...entryState(), scroll: win.scrollY }, "");
         }
         catch
         {
@@ -478,7 +488,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             }
             else
             {
-                win.history.replaceState({ ...win.history.state }, "", target.href);
+                win.history.replaceState(entryState(), "", target.href);
             }
         }
         commit(target, resolved, restored);

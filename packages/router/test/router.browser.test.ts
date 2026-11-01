@@ -228,6 +228,23 @@ describe("router", () =>
         }
     });
 
+    it("keeps an object state other code stored in the entry and replaces one that is not an object", async () =>
+    {
+        history.replaceState("set by another script", "", "/");
+        const pages = defineRoutes({
+            home: route({ path: "/", view: () => html`<h1>Home</h1>` })
+        });
+        router = createRouter(pages, { window });
+        await settled(router);
+        await vi.waitFor(() => expect(typeof history.state).toBe("object"));
+        expect(Object.keys(history.state as object).some((key) => /^\d+$/.test(key))).toBe(false);
+        router.dispose();
+        history.replaceState({ owner: "another script" }, "", "/");
+        router = createRouter(pages, { window });
+        await settled(router);
+        expect((history.state as { owner?: string }).owner).toBe("another script");
+    });
+
     it("follows back and forward between hash entries of the page shown without loading it again", async () =>
     {
         history.replaceState(null, "", "/");
