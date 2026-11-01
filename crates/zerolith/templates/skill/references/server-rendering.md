@@ -46,7 +46,7 @@ const markup = renderToString(html`<span class=${badge}>new</span>`);
 const head = renderStyles();            // a <style> with its @scope rules
 ```
 
-A `css` literal creates its stylesheet when its module loads, so importing the components is enough for their styles to be included.
+A `css` literal, or a stylesheet imported with `?scoped`, creates its stylesheet when its module loads, so importing the components is enough for their styles to be included.
 
 ## Hydration
 
