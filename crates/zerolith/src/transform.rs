@@ -81,7 +81,7 @@ pub(crate) fn parse_errors(
         .map(|diagnostic| fail(diagnostic.render_with_source_code(source.to_string())))
 }
 
-/// Removes the types from a TypeScript module and prints it as JavaScript.
+/// Removes the types from a TypeScript module and prints it as JavaScript. An import whose names are used only as types goes with them, as TypeScript removes it without `verbatimModuleSyntax` and as the bundled build does, so `zerolith dev`, `build --unbundled`, and `build` load the same modules.
 pub fn strip_types(path: &Path, source: &str) -> Result<String, TransformError> {
     let allocator = Allocator::default();
     let parsed = Parser::new(&allocator, source, SourceType::ts()).parse();
@@ -94,8 +94,7 @@ pub fn strip_types(path: &Path, source: &str) -> Result<String, TransformError> 
         return Err(error);
     }
     let scoping = semantic.semantic.into_scoping();
-    let mut options = TransformOptions::default();
-    options.typescript.only_remove_type_imports = true;
+    let options = TransformOptions::default();
     let result =
         Transformer::new(&allocator, path, &options).build_with_scoping(scoping, &mut program);
     if let Some(error) = parse_errors(result.diagnostics, source) {
@@ -598,6 +597,12 @@ mod tests {
         assert!(stripped.contains("export function add(a, b) {"));
         assert!(!stripped.contains("interface"));
         assert!(!stripped.contains(": number"));
+        let typed = strip_types(Path::new("b.ts"), "import { Props } from \"./types.ts\";\nimport { render } from \"zerolith\";\nexport const props: Props = {};\nrender(props);\n").unwrap();
+        assert!(!typed.contains("./types.ts"), "{typed}");
+        assert!(
+            typed.contains("import { render } from \"zerolith\""),
+            "{typed}"
+        );
         let tsx = transform(Path::new("c.tsx"), "import { signal } from \"zerolith\";\nexport function C({ n }: { n: number }) {\n    const count = signal(n);\n    return <p>{count}</p>;\n}\n").unwrap();
         assert!(tsx.contains("__zl_html`<p>${count}</p>`"));
         assert!(!tsx.contains(": number"));

@@ -317,6 +317,13 @@ impl Plugin for Zerolith {
         {
             let specifier = &args.specifier[..args.specifier.len() - query.len()];
             if let Ok(resolved) = ctx.resolve(specifier, args.importer, None).await? {
+                if let Some(importer) = args.importer {
+                    css::reach(
+                        &self.root,
+                        Path::new(importer),
+                        Path::new(resolved.id.as_str()),
+                    )?;
+                }
                 return Ok(Some(HookResolveIdOutput {
                     id: format!("{}{query}", resolved.id.as_str()).into(),
                     ..Default::default()

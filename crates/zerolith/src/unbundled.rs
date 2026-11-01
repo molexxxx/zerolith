@@ -581,7 +581,7 @@ mod tests {
         .unwrap();
         fs::write(
             root.join("src/main.ts"),
-            "import { html } from \"zerolith\";\nimport { App } from \"./app.tsx\";\nexport const n: number = 1;\nexport const v = html`<p>${n}</p>`;\n",
+            "import { html } from \"zerolith\";\nimport { App } from \"./app.tsx\";\nexport const n: number = 1;\nexport const v = html`<p>${n}</p>`;\nexport const app = App;\n",
         )
         .unwrap();
         fs::write(

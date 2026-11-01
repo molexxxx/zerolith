@@ -183,6 +183,34 @@ pub enum Located {
 }
 
 /// Finds the file a local URL names: a root-absolute URL in the public folder first and then in the project, a relative one next to the file that holds it. The query and fragment are not part of the lookup.
+/// Refuses a file that a dependency, a file installed under a `node_modules` folder, refers to outside that folder, so a package's stylesheet or `?raw` import cannot copy a file of the project, such as `.env`, or of the disk into the build's output. Paths are compared once links are resolved, so a package of the workspace that `node_modules` links to is the project's own, and the outermost `node_modules` above the file counts, so one installed package may refer to another's files.
+pub fn reach(root: &Path, referrer: &Path, target: &Path) -> io::Result<()> {
+    let referrer = canonical(referrer).unwrap_or_else(|_| referrer.to_path_buf());
+    let Some(installed) = referrer
+        .ancestors()
+        .filter(|folder| {
+            folder
+                .file_name()
+                .is_some_and(|name| name == "node_modules")
+        })
+        .last()
+    else {
+        return Ok(());
+    };
+    let target = canonical(target).unwrap_or_else(|_| target.to_path_buf());
+    if target.starts_with(installed) {
+        return Ok(());
+    }
+    Err(io::Error::new(
+        io::ErrorKind::PermissionDenied,
+        format!(
+            "{}: refers to {}, outside the node_modules folder it is installed in; a dependency may refer only to installed files, so the build does not copy a file of the project or of the disk into its output",
+            shown(root, &referrer),
+            shown(root, &target)
+        ),
+    ))
+}
+
 pub fn locate(root: &Path, folder: &Path, url: &str) -> Located {
     let path = percent_decode(url.split(['?', '#']).next().unwrap_or(url));
     if let Some(absolute) = path.strip_prefix('/') {
@@ -360,7 +388,10 @@ struct Combiner<'a> {
     root: &'a Path,
     base: &'a str,
     refs: Refs<'a>,
-    seen: HashSet<PathBuf>,
+    /// Each file inlined so far, with the chain of conditions it was imported under.
+    seen: HashSet<(PathBuf, String)>,
+    /// Whether a layer has been declared so far, by an `@layer` statement or block or a local import with `layer()`.
+    layered: bool,
     hoisted: Vec<String>,
     spliced: Vec<String>,
     warnings: Vec<String>,
@@ -464,6 +495,7 @@ impl<'a> Combiner<'a> {
             base,
             refs,
             seen: HashSet::new(),
+            layered: false,
             hoisted: Vec::new(),
             spliced: Vec::new(),
             warnings: Vec::new(),
@@ -479,11 +511,11 @@ impl<'a> Combiner<'a> {
         if let Refs::Served(url_of) = &self.refs {
             let path = percent_decode(url.split(['?', '#']).next().unwrap_or(url));
             let found = folder.join(path);
-            return Ok(if url.starts_with('/') || !found.is_file() {
-                url.to_string()
-            } else {
-                format!("{}{}", url_of(&canonical(&found)?), suffix(url))
-            });
+            if url.starts_with('/') || !found.is_file() {
+                return Ok(url.to_string());
+            }
+            reach(self.root, file, &found)?;
+            return Ok(format!("{}{}", url_of(&canonical(&found)?), suffix(url)));
         }
         if let Refs::Mirrored(module) = &self.refs {
             let path = percent_decode(url.split(['?', '#']).next().unwrap_or(url));
@@ -491,6 +523,7 @@ impl<'a> Combiner<'a> {
             if url.starts_with('/') || !found.is_file() {
                 return Ok(url.to_string());
             }
+            reach(self.root, file, &found)?;
             let from_module = relative(module, &canonical(&found)?);
             self.spliced.push(format!("{from_module}{}", suffix(url)));
             return Ok(format!("{PLACEHOLDER}{}__", self.spliced.len() - 1));
@@ -509,10 +542,14 @@ impl<'a> Combiner<'a> {
                 ));
             }
             Located::File(found) if !module => {
+                reach(self.root, file, &found)?;
                 return Ok(format!("{}{}", assets.copy(&found)?, suffix(url)));
             }
             Located::Public(path) => path,
-            Located::File(found) => format!("assets/{}", assets.copy(&found)?),
+            Located::File(found) => {
+                reach(self.root, file, &found)?;
+                format!("assets/{}", assets.copy(&found)?)
+            }
             Located::Missing => {
                 self.warnings.push(format!(
                     "{} refers to {url}, which is in neither the public folder nor the project; it is left as written",
@@ -541,8 +578,9 @@ impl<'a> Combiner<'a> {
 
     /// The scoped stylesheet's rules with what its module needs besides.
     fn scoped(self, code: String) -> Scoped {
-        let mut files: Vec<PathBuf> = self.seen.into_iter().collect();
+        let mut files: Vec<PathBuf> = self.seen.into_iter().map(|(file, _)| file).collect();
         files.sort();
+        files.dedup();
         Scoped {
             code,
             spliced: self.spliced,
@@ -551,10 +589,10 @@ impl<'a> Combiner<'a> {
         }
     }
 
-    /// One stylesheet with its local imports inlined, each file once.
-    fn read(&mut self, file: &Path) -> io::Result<String> {
+    /// One stylesheet with its local imports inlined: each file once under each chain of `conditions` it is imported under, since the browser applies a stylesheet imported again under other conditions again.
+    fn read(&mut self, file: &Path, conditions: &str) -> io::Result<String> {
         let file = canonical(file).map_err(|error| located(self.root, file, error))?;
-        if !self.seen.insert(file.clone()) {
+        if !self.seen.insert((file.clone(), conditions.to_string())) {
             return Ok(String::new());
         }
         let source = fs::read_to_string(&file).map_err(|error| located(self.root, &file, error))?;
@@ -630,9 +668,22 @@ impl<'a> Combiner<'a> {
                 Prelude::Layers(statement) => {
                     out.push_str(&statement);
                     out.push('\n');
+                    self.layered = true;
                 }
                 Prelude::Import(import) => {
                     if is_remote(&import.url) {
+                        if !conditions.is_empty() {
+                            return Err(io::Error::other(format!(
+                                "{name}:{}: @import \"{}\" is a remote stylesheet in a stylesheet imported under conditions, which it would lose when it moves to the top of the combined stylesheet; import it from a stylesheet imported without conditions, or give the import those conditions",
+                                import.line, import.url
+                            )));
+                        }
+                        if import.layer.is_some() && self.layered {
+                            return Err(io::Error::other(format!(
+                                "{name}:{}: @import \"{}\" puts a remote stylesheet in a layer after other layers are declared, and moving it to the top of the combined stylesheet would change the order of the layers; save the stylesheet in the project and import it from there",
+                                import.line, import.url
+                            )));
+                        }
                         self.hoisted.push(import.rule);
                         continue;
                     }
@@ -645,7 +696,19 @@ impl<'a> Combiner<'a> {
                             ),
                         ));
                     };
-                    let mut inner = self.read(&target)?;
+                    reach(self.root, &file, &target)?;
+                    let mut nested = conditions.to_string();
+                    if import.layer.is_some() || import.supports.is_some() || import.media.is_some()
+                    {
+                        nested.push_str(&format!(
+                            "|{:?}|{:?}|{:?}",
+                            import.layer, import.supports, import.media
+                        ));
+                    }
+                    let mut inner = self.read(&target, &nested)?;
+                    if import.layer.is_some() {
+                        self.layered = true;
+                    }
                     if let Some(layer) = &import.layer {
                         inner = match layer {
                             Some(name) => format!("@layer {name} {{\n{inner}}}\n"),
@@ -661,6 +724,9 @@ impl<'a> Combiner<'a> {
                     out.push_str(&inner);
                 }
             }
+        }
+        if body.contains("@layer") {
+            self.layered = true;
         }
         out.push_str(&body);
         out.push('\n');
@@ -700,7 +766,7 @@ pub fn bundle(files: &[PathBuf], options: &Options, assets: &mut Assets) -> io::
     let mut combiner = Combiner::new(options.root, options.base, Refs::Stylesheet(assets));
     let mut body = String::new();
     for file in files {
-        body.push_str(&combiner.read(file)?);
+        body.push_str(&combiner.read(file, "")?);
     }
     let mut combined = combiner.hoisted.join("\n");
     combined.push('\n');
@@ -714,7 +780,7 @@ pub fn bundle(files: &[PathBuf], options: &Options, assets: &mut Assets) -> io::
 /// The rules of a stylesheet imported with `?scoped`, for the module the build writes in its place: imports inlined, references rewritten, lowered, and minified as `bundle` does. A constructable stylesheet resolves references against the page, so each one is an absolute URL under an absolute base and, under `./`, a placeholder the module resolves against its own URL. A remote `@import` fails, since a constructable stylesheet loads no imports.
 pub fn bundle_scoped(file: &Path, options: &Options, assets: &mut Assets) -> io::Result<Scoped> {
     let mut combiner = Combiner::new(options.root, options.base, Refs::Module(assets));
-    let body = combiner.read(file)?;
+    let body = combiner.read(file, "")?;
     combiner.refuse_remote(file)?;
     let code = lowered(&body, &shown(options.root, file), options.minify)?;
     Ok(combiner.scoped(code))
@@ -724,7 +790,7 @@ pub fn bundle_scoped(file: &Path, options: &Options, assets: &mut Assets) -> io:
 pub fn mirrored_scoped(file: &Path, root: &Path) -> io::Result<Scoped> {
     let folder = canonical(file.parent().unwrap_or(root))?;
     let mut combiner = Combiner::new(root, "/", Refs::Mirrored(folder));
-    let code = combiner.read(file)?;
+    let code = combiner.read(file, "")?;
     combiner.refuse_remote(file)?;
     Ok(combiner.scoped(code))
 }
@@ -736,7 +802,7 @@ pub fn served_scoped(
     url_of: &dyn Fn(&Path) -> String,
 ) -> io::Result<Scoped> {
     let mut combiner = Combiner::new(root, "/", Refs::Served(url_of));
-    let code = combiner.read(file)?;
+    let code = combiner.read(file, "")?;
     combiner.refuse_remote(file)?;
     Ok(combiner.scoped(code))
 }
@@ -769,6 +835,104 @@ mod tests {
         let paths: Vec<PathBuf> = files.iter().map(|file| root.join(file)).collect();
         let bundled = bundle(&paths, &options, &mut assets).unwrap();
         (bundled.code, bundled.warnings)
+    }
+
+    #[test]
+    fn inlines_a_stylesheet_again_under_other_conditions_and_refuses_what_hoisting_would_change() {
+        let root = project(
+            "conditions",
+            &[
+                (
+                    "src/app.css",
+                    "@import \"./reset.css\" print;\n@import \"./reset.css\";\n@import \"./reset.css\";\n.app { color: red; }\n",
+                ),
+                ("src/reset.css", "* { margin: 0; }\n"),
+                (
+                    "src/print.css",
+                    "@import \"https://fonts.example/a.css\";\n.p { color: red; }\n",
+                ),
+                ("src/nested.css", "@import \"./print.css\" print;\n"),
+                (
+                    "src/layered.css",
+                    "@import \"./reset.css\" layer(reset);\n@import \"https://fonts.example/b.css\" layer(fonts);\n",
+                ),
+            ],
+        );
+        let (code, _) = run(&root, &["src/app.css"], "/", true);
+        assert_eq!(code.matches("margin:0").count(), 2, "{code}");
+        assert!(code.contains("@media print{*{margin:0}}"), "{code}");
+        assert!(
+            code.replace("@media print{*{margin:0}}", "")
+                .contains("*{margin:0}"),
+            "{code}"
+        );
+        let refused = |file: &str| {
+            let mut assets = Assets::new(root.join("dist/assets"));
+            let options = Options {
+                root: &root,
+                base: "/",
+                minify: false,
+            };
+            bundle(&[root.join(file)], &options, &mut assets)
+                .unwrap_err()
+                .to_string()
+        };
+        let nested = refused("src/nested.css");
+        assert!(
+            nested.contains("src/print.css:1: @import \"https://fonts.example/a.css\" is a remote stylesheet in a stylesheet imported under conditions"),
+            "{nested}"
+        );
+        let layered = refused("src/layered.css");
+        assert!(
+            layered.contains("src/layered.css:2: @import \"https://fonts.example/b.css\" puts a remote stylesheet in a layer after other layers are declared"),
+            "{layered}"
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn refuses_a_reference_from_a_dependency_outside_node_modules() {
+        let root = project(
+            "reach",
+            &[
+                ("src/app.css", "@import \"theme\";\n"),
+                (
+                    "node_modules/theme/package.json",
+                    "{\"style\":\"theme.css\"}",
+                ),
+                (
+                    "node_modules/theme/theme.css",
+                    "@import \"./base.css\";\n.a { background: url(./dot.svg); }\n.b { background: url(../../.env); }\n",
+                ),
+                ("node_modules/theme/base.css", ".base { color: red; }\n"),
+                (
+                    "node_modules/theme/dot.svg",
+                    "<svg xmlns=\"http://www.w3.org/2000/svg\"/>",
+                ),
+                (".env", "SECRET=1\n"),
+            ],
+        );
+        let mut assets = Assets::new(root.join("dist/assets"));
+        let options = Options {
+            root: &root,
+            base: "/",
+            minify: false,
+        };
+        let error = bundle(&[root.join("src/app.css")], &options, &mut assets)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("node_modules/theme/theme.css: refers to .env, outside the node_modules folder it is installed in"),
+            "{error}"
+        );
+        fs::write(
+            root.join("node_modules/theme/theme.css"),
+            "@import \"./base.css\";\n.a { background: url(./dot.svg); }\n",
+        )
+        .unwrap();
+        let (code, _) = run(&root, &["src/app.css"], "/", false);
+        assert!(code.contains(".base") && code.contains("dot-"), "{code}");
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
@@ -817,7 +981,11 @@ mod tests {
         assert!(at("@media print {") < at("@supports (display: grid) {"));
         assert!(at("@supports (display: grid) {") < at("line-height: 1.15"));
         assert!(at("line-height: 1.15") < at(".app {") && at(".app {") < at(".other {"));
-        assert_eq!(code.matches("margin: 0").count(), 1, "{code}");
+        assert_eq!(
+            code.matches("margin: 0").count(),
+            2,
+            "reset.css again, outside the layer that app.css imports it into: {code}"
+        );
         assert!(
             warnings
                 .iter()
