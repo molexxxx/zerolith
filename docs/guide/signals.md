@@ -25,6 +25,13 @@ A template binding is an effect too: `${count}` in a template is an effect that 
 
 `set` ignores a value equal to the current one, by `Object.is` unless the signal was given its own `equals`. An ignored write notifies nothing, so a write that changes nothing costs nothing downstream.
 
+`signal` and `computed` take the same options:
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `name` | None | Labels the signal in the inspector; `zerolith dev` and the Vite plugin keep a named signal's value across an edit |
+| `equals` | `Object.is` | Decides whether a new value counts as a change; a value it calls equal notifies nothing |
+
 > [!TIP]
 > Give state a name, as `signal(0, { name: "count" })`. The inspector lists the signal under that name, and hot replacement in `zerolith dev` and the Vite plugin keeps its value when you edit the module that created it.
 
@@ -90,3 +97,16 @@ A resource is itself a signal of its value, with its state beside it:
 | `reload()` | Runs the loader again with the current params |
 
 A result that arrives after newer params have started a load is dropped, so a slow first request never overwrites a fast second one. The abort signal fires when the params change, on `reload()`, and when the resource's owner is disposed; passing it to `fetch`, as above, cancels the request itself.
+
+## The functions at a glance
+
+| Function | Takes | Returns |
+| --- | --- | --- |
+| `signal(value, options)` | The starting value, and `name` and `equals` | A signal, with `get()` and `set(value)` |
+| `computed(fn, options)` | A function that reads signals, and `name` and `equals` | A read-only signal of what `fn` returns |
+| `effect(fn)` | A function that may return a cleanup | A function that disposes the effect |
+| `untracked(fn)` | A function whose reads subscribe nothing | What `fn` returns |
+| `batch(fn)` | A function whose writes apply together | What `fn` returns |
+| `scope(fn)` | A function whose effects belong to a new owner | The owner, with `value`, what `fn` returned, and `dispose()` |
+| `onDispose(fn)` | A cleanup | Nothing; the running owner calls `fn` when it is disposed |
+| `resource({ params, loader })` | A tracked `params` function, and a `loader` that receives `{ params, abort }` | A resource, as the table above describes |

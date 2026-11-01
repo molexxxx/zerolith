@@ -184,6 +184,11 @@ user.set("Ada");                        // swaps the link for the greeting
 
 A branch is built only when it first shows, and taken down when it hides, which stops the effects it started. A change that keeps the condition's truthiness, such as from one user name to another, keeps the branch as it is; the greeting above updates through its own `${user}` binding instead.
 
+`when` reads its condition when it is a signal and takes any other value as it is.
+
+> [!WARNING]
+> A function is not a condition. `when(() => count.get() > 0, ...)` receives a function, which is always truthy, so it always shows the first branch. Derive the condition as a signal instead: `when(computed(() => count.get() > 0), ...)`.
+
 ## The same component in JSX
 
 With a build step, the same template can be spelled as JSX in a `.jsx` or `.tsx` file. It is another spelling, not another runtime: the Vite plugin and the command line rewrite each JSX expression into the `html` call it stands for before any other step, components stay the functions they are, and everything above holds unchanged, binding the signal included.
@@ -240,6 +245,17 @@ Lists and conditions are `each` and `when`, called as functions, exactly as in a
 
 > [!CAUTION]
 > Never pass user input to `unsafeHtml`. Anything it receives runs as markup, scripts in event attributes included.
+
+## The functions at a glance
+
+| Function | Takes | Returns |
+| --- | --- | --- |
+| `` html`...` `` | A template literal with `${}` bindings | A view |
+| `render(view, target)` | A view, and an element, a fragment, or a selector for one | A root, with `container` and `dispose()` |
+| `hydrate(view, target)` | The same, over markup the server rendered | A root that also lists its `mismatches` |
+| `each(items, key, row)` | An array or a signal of one; `key(item, index)`; and `row(item, index)`, which receives both as signals | A view of the rows, matched by key |
+| `when(condition, then, otherwise)` | A signal or a value, and one or two functions that return views | A view of the branch the condition picks |
+| `unsafeHtml(markup)` | A string of markup you trust | A view of that markup, unescaped |
 
 ## What the renderer refuses
 

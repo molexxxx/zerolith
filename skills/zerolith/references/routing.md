@@ -26,7 +26,30 @@ export const routes = defineRoutes({
 });
 ```
 
-A route's `view` takes any function of the route's context, `{ params, data, url }`, so a page component is a view as it is, and a page small enough to write in place can be, as `view: () => <h1>About</h1>`. A route's `load` and lazy view resolve before the URL changes, and `router.pending` is true meanwhile. A view declared with `lazy()` loads as a chunk of its own the first time a reader opens it, and with `@zerolith/vite` a build that also imports it statically fails with [`lazy_module_not_split`](https://molexxxx.github.io/zerolith/e/lazy_module_not_split/) instead of quietly bundling it into the page.
+Each entry is a `route()` with up to four fields:
+
+| Field | Takes | What it does |
+| --- | --- | --- |
+| `path` | A pattern, such as `"/releases/:tag"` | Matched against the URL; its parameters become `params` |
+| `view` | A function of `{ params, data, url }`, or `lazy(() => import(...))` | Renders the page, once per navigation to the route |
+| `load` | An async function of `{ params, url, abort }` | Runs before the URL changes; what it resolves to is the view's `data` |
+| `head` | `{ title, description }`, or a function of `{ params, data, url }` that returns it | The document's title and description while the route is shown |
+
+A page component is a view as it is, and a page small enough to write in place can be one, as `view: () => <h1>About</h1>`. A route's `load` and lazy view resolve before the URL changes, and `router.pending` is true meanwhile. A view declared with `lazy()` loads as a chunk of its own the first time a reader opens it, and `zerolith build` and the Vite plugin fail a build that also imports it statically, with `lazy_module_not_split`, instead of quietly bundling it into the page.
+
+> [!TIP]
+> Write `load` before `view` in an entry. TypeScript infers the data type from the fields in the order they are written, so the view, and the page component it renders, then see `data` typed.
+
+### Path patterns
+
+| Pattern | Matches | Params |
+| --- | --- | --- |
+| `/` | The root | `{}` |
+| `/settings` | `/settings` and `/settings/`; matching is case-sensitive | `{}` |
+| `/releases/:tag` | One segment after `/releases/`, as `/releases/1.0` | `{ tag: "1.0" }` |
+| `/files/*path` | Everything after `/files/`, slashes included, as `/files/docs/a.md` | `{ path: "docs/a.md" }` |
+
+Parameter values are decoded from the URL, and `href` encodes them back. Routes are tried in the order the table lists them, and the first match wins, so a `*rest` route that would also match a more specific path goes after it.
 
 ## Pages are components
 
@@ -76,6 +99,16 @@ function Notes({ items }: { items: readonly string[] }): View
 }
 ```
 
+A page component receives the route's context as its props:
+
+| Prop | Holds |
+| --- | --- |
+| `params` | The path's parameters, as strings, typed from the path |
+| `data` | What `load` resolved to, typed from the loader, or `undefined` for a route without one |
+| `url` | The page's full URL, with its query string and hash |
+
+A loader receives `params` and `url` too, and `abort`, an `AbortSignal` that fires when a newer navigation replaces this one. Pass it to `fetch`, so a request nobody is waiting for stops.
+
 A page composes other components as any component does, as `ReleasePage` does with `Notes`. With html templates instead of JSX, a component is called as the function it is, `${Notes({ items: data.notes })}`; the [templates guide](templates.md) shows both spellings.
 
 Every page renders inside an owner of its own, so its signals, effects, and `onDispose` cleanups end when the reader moves to another route. The settings page starts a clock and leaves stopping it to `onDispose`, and navigates from code when the reader is done:
@@ -113,6 +146,15 @@ export const router = createRouter(routes, {
     fallback: (url) => NotFound({ path: url.pathname })
 });
 ```
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `fallback` | Nothing renders | Renders when no route matches, given the URL |
+| `base` | `"/"` | The path the application is served under; see [Under a base path](#under-a-base-path) |
+| `onError` | `navigate` rejects | Receives the error and the URL when a loader or a lazy import throws |
+| `scroll` | `true` | `false` leaves scrolling to the application |
+| `observe` | None | Receives each navigation's start, commit, error, and cancel; see [Observability](observability.md) |
+| `window` | The global window | `null` attaches to none, as on the server |
 
 > [!WARNING]
 > These modules import each other in a loop: `router.ts` imports the route table, the table imports the page components, and a component that builds links imports `router.ts` back. The loop is safe while components read `router` inside their functions, which run after every module has loaded, as every component on this page does. A use at a module's top level, such as `const home = router.href("home");` outside any function, runs before the router exists, and the app fails to start with an error such as `Cannot access 'router' before initialization`.
@@ -155,6 +197,21 @@ import { router } from "./router.ts";
 await router.ready;
 render(<Layout content={router.outlet()} />, "#app");
 ```
+
+## What the router offers
+
+| Member | What it is |
+| --- | --- |
+| `outlet()` | The current page as a view, for the layout to place |
+| `href(name, params)` | The path of a named route, with the base and the parameters encoded; a misspelled name or a missing parameter fails to type-check |
+| `navigate(to, { replace })` | Goes to a path or URL after the route's loader, and resolves once the page has changed; `replace` replaces the history entry instead of adding one |
+| `matches(path, { exact })` | A signal, true while the URL is at `path` or below it, segment by segment, so `/notes` covers `/notes/7` and not `/notesy`; `exact` requires the path itself |
+| `current` | A signal of the current match, with its `name`, `params`, `url`, and `data`, or `undefined` while the fallback shows |
+| `url` | A signal of the current URL |
+| `pending` | A signal, true while a navigation loads |
+| `head` | A signal of the current route's title and description |
+| `ready` | A promise that settles once the first navigation, loader included, has committed |
+| `dispose()` | Detaches the router from the window |
 
 ## Links and navigation
 

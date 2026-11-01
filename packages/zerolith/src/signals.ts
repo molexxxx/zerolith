@@ -33,7 +33,7 @@ export interface SignalOptions<T>
 {
     /** Defaults to `Object.is`. */
     equals?: Equals<T>;
-    /** A label shown by the dev tools; it has no effect on behavior. */
+    /** A label for the dev tools; `zerolith dev` and the Vite plugin also keep a named signal's value across an edit. */
     name?: string;
 }
 
