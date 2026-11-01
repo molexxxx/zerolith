@@ -2,7 +2,7 @@
 // application code the documentation shows with its imports, and its
 // comments say what it prints; the checks after it compare what it printed.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DIAGNOSTIC_URL, type ZerolithError, batch, computed, effect, onDiagnostic, onDispose, resource, scope, signal } from "zerolith";
+import { DIAGNOSTIC_URL, type ZerolithError, batch, computed, effect, onDiagnostic, onDispose, resource, scope, signal, untracked } from "zerolith";
 
 let printed: unknown[][] = [];
 
@@ -69,6 +69,24 @@ describe("signals guide", () =>
         dispose();                              // prints "goodbye Grace"
         // #endregion effects
         expect(printed).toEqual([["hello Ada"], ["goodbye Ada"], ["hello Grace"], ["goodbye Grace"]]);
+    });
+
+    it("untracked", () =>
+    {
+        // #region untracked
+        const query = signal("zerolith");
+        const page = signal(1);
+
+        effect(() =>
+        {
+            const from = untracked(() => page.get());
+            console.log(`search ${query.get()} from page ${from}`);
+        });                                     // prints "search zerolith from page 1"
+
+        page.set(2);                            // prints nothing: the page was read untracked
+        query.set("signals");                   // prints "search signals from page 2"
+        // #endregion untracked
+        expect(printed).toEqual([["search zerolith from page 1"], ["search signals from page 2"]]);
     });
 
     it("batch", () =>
