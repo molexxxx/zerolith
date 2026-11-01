@@ -9,9 +9,9 @@ import { type ProjectDetail, type Task, type TaskStatus, statuses } from "../../
 import { newTaskSchema } from "../../shared/schema.ts";
 import { due, format } from "../locale.ts";
 import { router } from "../router.ts";
-import { api, refresh } from "../store.ts";
+import { api, expired, refresh } from "../store.ts";
 import page from "./project.css?scoped";
-import { Empty, Field } from "./ui.ts";
+import { Alert, Empty, Field, FormError, failureOf } from "./ui.ts";
 
 const TITLES: Record<TaskStatus, string> = { todo: "To do", doing: "Doing", done: "Done" };
 
@@ -43,6 +43,14 @@ export function ProjectPage({ data }: Props): View
     const { id } = data.project;
     const detail = signal(data);
     const confirming = signal<Task | undefined>(undefined);
+    const failure = signal("");
+
+    /** Runs a change from a button, and says so on the page when it fails. */
+    const attempt = (change: () => Promise<void>): void =>
+    {
+        failure.set("");
+        change().catch((error: unknown) => failure.set(`${failureOf(error)} The change was not saved.`));
+    };
 
     const reload = async (): Promise<void> =>
     {
@@ -72,7 +80,7 @@ export function ProjectPage({ data }: Props): View
             await reload();
         }
     };
-    const form = createForm({ schema: newTaskSchema, reset: true, onSuccess: () => void reload() });
+    const form = createForm({ schema: newTaskSchema, reset: true, onSuccess: () => attempt(reload), onFailure: expired });
 
     const card = (task: ReadableSignal<Task>): View =>
     {
@@ -88,7 +96,7 @@ export function ProjectPage({ data }: Props): View
                 ${when(deadline, () => html`
                     <p class="due" data-late=${computed(() => String(deadline.get()?.late === true && task.get().status !== "done"))}>Due ${computed(() => deadline.get()?.label ?? "")}</p>`)}
                 <div class="actions">
-                    ${moves.map(({ to, label }) => html`<button @click=${() => void move(task.get(), to)}>${label}</button>`)}
+                    ${moves.map(({ to, label }) => html`<button @click=${() => attempt(() => move(task.get(), to))}>${label}</button>`)}
                     <button class="danger" aria-label=${computed(() => `Delete ${task.get().title}`)} @click=${() => confirming.set(task.get())}>Delete</button>
                 </div>
             </li>`;
@@ -114,6 +122,7 @@ export function ProjectPage({ data }: Props): View
                 <h1>${computed(() => project.get().name)}</h1>
                 <p>${computed(() => project.get().summary)}</p>
                 <span class="counts">${computed(() => `${format.number(project.get().open)} open, ${format.number(project.get().done)} done`)}</span>
+                ${Alert({ text: failure })}
             </div>
             <div class="layout">
                 <div class="board">${statuses.map(column)}</div>
@@ -121,6 +130,7 @@ export function ProjectPage({ data }: Props): View
                     <h2>Add a task</h2>
                     ${Field({ form, name: "title", label: "Title", required: true })}
                     ${Field({ form, name: "due", label: "Due", type: "date" })}
+                    ${FormError({ form })}
                     <button class="primary" ?disabled=${form.pending}>Add task</button>
                 </form>
             </div>
@@ -132,7 +142,7 @@ export function ProjectPage({ data }: Props): View
                         <p id="confirm-text"><strong>${computed(() => confirming.get()?.title ?? "")}</strong> goes for good, for everyone on the project.</p>
                         <div class="actions">
                             <button @click=${cancel}>Keep it</button>
-                            <button class="danger" @click=${() => void remove()}>Delete</button>
+                            <button class="danger" @click=${() => attempt(remove)}>Delete</button>
                         </div>
                     </div>
                 </div>`)}

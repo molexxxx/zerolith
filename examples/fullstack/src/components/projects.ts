@@ -7,8 +7,8 @@ import type { Project } from "../../shared/model.ts";
 import { newProjectSchema } from "../../shared/schema.ts";
 import { format } from "../locale.ts";
 import { router } from "../router.ts";
-import { projects, refresh } from "../store.ts";
-import { Empty, Field } from "./ui.ts";
+import { expired, projects, refresh } from "../store.ts";
+import { Empty, Field, FormError } from "./ui.ts";
 
 const page = css`
     :scope { display: grid; gap: clamp(2rem, 5vw, 3rem); }
@@ -44,7 +44,7 @@ function Card({ project }: { project: ReadableSignal<Project> }): View
 
 export function Projects(): View
 {
-    const form = createForm({ schema: newProjectSchema, reset: true, onSuccess: () => refresh() });
+    const form = createForm({ schema: newProjectSchema, reset: true, onSuccess: () => refresh(), onFailure: expired });
     const list = computed(() => projects.get() ?? []);
     return html`
         <div class=${page}>
@@ -60,6 +60,7 @@ export function Projects(): View
                     <h2>New project</h2>
                     ${Field({ form, name: "name", label: "Name", required: true })}
                     ${Field({ form, name: "summary", label: "Summary", multiline: true })}
+                    ${FormError({ form })}
                     <button class="primary" ?disabled=${form.pending}>Create project</button>
                 </form>
             </div>

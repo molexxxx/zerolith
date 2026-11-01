@@ -53,6 +53,12 @@ jobs:
       - name: Test (browser)
         run: npm run test:browser
 
+      - name: Size budget
+        run: npm run size
+
+      - name: Docs
+        run: npm run docs
+
       - name: SBOM
         run: npm run sbom > sbom.cdx.json
 
@@ -113,3 +119,18 @@ jobs:
         run: npm run test:cli
         env:
           ZEROLITH_BINARY_PATH: target/release/zerolith
+
+  rust-windows:
+    name: Rust on Windows
+    runs-on: windows-2025
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Toolchain
+        run: rustup show active-toolchain
+
+      - name: Test
+        run: cargo test --locked

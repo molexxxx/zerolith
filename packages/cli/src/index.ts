@@ -17,7 +17,7 @@ export const PLATFORMS: Readonly<Record<string, string>> = {
 
 /** The route around a missing binary, appended to every error. */
 export const CARGO_HINT =
-    "Alternatively install the crate with `cargo install zerolith` and point ZEROLITH_BINARY_PATH at the binary.";
+    "Alternatively install the crate with `cargo install zerolith --locked` and point ZEROLITH_BINARY_PATH at the binary.";
 
 /** What locating needs from the host. */
 export interface Host

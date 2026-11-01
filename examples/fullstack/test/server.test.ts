@@ -83,6 +83,23 @@ it("asks for a session, and signs in with the right password only", async () =>
     expect(await session.json()).toEqual({ user: { id: 1, name: "Ada Lovelace", email: "ada@harbor.test" } });
 });
 
+it("refuses a change sent from another site, and a body larger than the API reads", async () =>
+{
+    const app = createApp();
+    const cookie = await signIn(app);
+    const post = (headers: Record<string, string>): Request => request("/api/projects", { method: "POST", headers: { cookie, ...headers }, body: new URLSearchParams({ name: "Sneaky", summary: "" }) });
+    expect((await app(post({ "sec-fetch-site": "cross-site" }))).status).toBe(403);
+    expect((await app(post({ "sec-fetch-site": "same-site" }))).status).toBe(403);
+    expect((await app(post({ origin: "https://evil.example" }))).status).toBe(403);
+    expect((await app(post({ "sec-fetch-site": "same-origin" }))).status).toBe(201);
+    const projects = (await (await app(request("/api/projects", { headers: { cookie } }))).json()) as Project[];
+    expect(projects.filter((project) => project.name === "Sneaky")).toHaveLength(1);
+
+    const large = await app(request("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: "x".repeat(1_000_000) }));
+    expect(large.status).toBe(413);
+    expect((await app(request("/api/session", { method: "POST", headers: { "content-length": "1000000" } }))).status).toBe(413);
+});
+
 it("checks input with the shared schemas, then creates a project and a task and finishes it", async () =>
 {
     const app = createApp();

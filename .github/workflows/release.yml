@@ -1,9 +1,11 @@
 name: Release
 
 # Publishes the npm packages and the crate with provenance. A tag of the
-# form <package>@<version> publishes that package; a manual run publishes
-# the package named in the input, or every package in dependency order
-# with "all". Trusted publishing on npmjs.com (owner molexxxx, repository
+# form <package>@<version> publishes that package, and fails unless the
+# version is the manifests' own; a manual run publishes the package named in
+# the input, or every package in dependency order with "all". A package
+# already on the registry at the version is skipped, so a run of "all" that
+# failed partway completes when it is run again. Trusted publishing on npmjs.com (owner molexxxx, repository
 # zerolith, workflow release.yml) is the normal credential; the NPM_TOKEN
 # secret is only read when it exists, for the first publish of a package
 # that has no trusted publisher yet. The crate publishes through crates.io
@@ -91,7 +93,8 @@ jobs:
           set -eu
           version="$(node scripts/canary.ts version "$(date -u +%Y%m%d)" "$GITHUB_SHA")"
           publish=true
-          if previous="$(npm view zerolith@canary version 2>/dev/null)" && [ -n "$previous" ]; then
+          # @zerolith/cli publishes last, so its canary names the last run that finished.
+          if previous="$(npm view @zerolith/cli@canary version 2>/dev/null)" && [ -n "$previous" ]; then
             commit="$(node scripts/canary.ts commit "$previous")"
             if [ -n "$commit" ] && git cat-file -e "$commit^{commit}" 2>/dev/null \
               && git diff --quiet "$commit" HEAD -- packages crates Cargo.toml Cargo.lock package.json package-lock.json; then
@@ -147,6 +150,18 @@ jobs:
       - name: Build
         run: cargo build --release --locked --package zerolith
 
+      - name: Run the binary
+        shell: bash
+        run: |
+          set -eu
+          expected="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)"
+          printed="$(target/release/${{ matrix.binary }} --version)"
+          echo "$printed"
+          case "$printed" in
+            *"$expected"*) ;;
+            *) echo "::error::the binary printed $printed, not version $expected"; exit 1 ;;
+          esac
+
       - name: Upload
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -179,6 +194,18 @@ jobs:
       - name: npm
         run: npm install --global npm@11.21.1
 
+      - name: Tag version
+        if: github.event_name == 'push'
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -eu
+          version="$(node -p "require('./package.json').version")"
+          if [ "${REF_NAME##*@}" != "$version" ]; then
+            echo "::error::the tag $REF_NAME names ${REF_NAME##*@}, but the manifests hold $version"
+            exit 1
+          fi
+
       - name: Install
         run: npm ci
 
@@ -188,14 +215,19 @@ jobs:
       - name: Full check
         run: npm run check
 
-      - name: SBOM
-        run: npm run sbom > sbom.cdx.json
-
       - name: Canary version
         if: needs.canary.outputs.publish == 'true'
         env:
           VERSION: ${{ needs.canary.outputs.version }}
-        run: node scripts/version.ts "$VERSION"
+        run: |
+          node scripts/version.ts "$VERSION"
+          npm run build
+
+      - name: Built versions
+        run: node scripts/built-versions.ts
+
+      - name: SBOM
+        run: npm run sbom > sbom.cdx.json
 
       - name: Binaries
         if: needs.binaries.result == 'success'
@@ -263,6 +295,13 @@ jobs:
             esac
           }
           for package in $packages; do
+            if [ "$DRY_RUN" != "true" ] && [ "$(npm view "$package@$version" version 2>/dev/null || true)" = "$version" ]; then
+              echo "$package@$version is on the registry already"
+              if [ "$tag" != "latest" ] && [ "$CANARY" != "true" ] && [ "$selection" = "all" ]; then
+                move_latest "$package"
+              fi
+              continue
+            fi
             echo "publishing $package"
             case "$package" in
               @zerolith/cli-*)
@@ -294,7 +333,8 @@ jobs:
                 npm publish --workspace "$package" $flags
                 ;;
             esac
-            if [ "$DRY_RUN" != "true" ] && [ "$tag" != "latest" ] && [ "$CANARY" != "true" ]; then
+            # A single package moves only its own tag: latest names a set released together.
+            if [ "$DRY_RUN" != "true" ] && [ "$tag" != "latest" ] && [ "$CANARY" != "true" ] && [ "$selection" = "all" ]; then
               move_latest "$package"
             fi
           done
@@ -358,7 +398,8 @@ jobs:
 
   crate:
     name: crates.io
-    if: github.event.inputs.canary != 'true' && (startsWith(github.ref_name, 'crate@') || github.event.inputs.crate == 'true')
+    needs: npm
+    if: ${{ !cancelled() && github.event.inputs.canary != 'true' && ((startsWith(github.ref_name, 'crate@') && needs.npm.result == 'skipped') || (github.event.inputs.crate == 'true' && needs.npm.result == 'success')) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -371,6 +412,18 @@ jobs:
 
       - name: Toolchain
         run: rustup show active-toolchain
+
+      - name: Tag version
+        if: github.event_name == 'push'
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -eu
+          version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)"
+          if [ "${REF_NAME##*@}" != "$version" ]; then
+            echo "::error::the tag $REF_NAME names ${REF_NAME##*@}, but Cargo.toml holds $version"
+            exit 1
+          fi
 
       - name: Check
         run: |

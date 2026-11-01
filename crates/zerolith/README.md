@@ -14,7 +14,7 @@ zerolith build [root] --unbundled [--out dist] [--no-prepare]
 zerolith new [name] [--example fullstack] [--template tsx|ts|jsx|js] [--vite] [--buildless] [--no-devtools] [--no-skill] [--no-install] [--yes]
 ```
 
-Install it from npm as `@zerolith/cli`, which carries a prebuilt binary for Linux (glibc), macOS, and Windows on x64 and arm64, or from crates.io with `cargo install zerolith`.
+Install it from npm as `@zerolith/cli`, which carries a prebuilt binary for Linux (glibc), macOS, and Windows on x64 and arm64, or from crates.io with `cargo install zerolith --locked`, which builds it with the dependencies it was tested with.
 
 `dev` serves a project with its package imports resolved from `node_modules` the way `build` resolves them, so the page needs no import map; TypeScript and JSX become JavaScript, and stylesheets, JSON, and other files imported from code become modules. It serves `public/` at the root, falls back to the nearest index for client-side routes, injects a small client into HTML pages, and announces file changes over server-sent events. A changed stylesheet is swapped in place; any other change reloads the page after the client saves the values of named signals, which the development build of zerolith restores on the next load. It also serves Chrome's automatic-workspace file on loopback so DevTools can edit sources in place. `--proxy` forwards a path to a backend, streaming bodies and joining WebSocket connections, so the page reaches its API on its own origin; `--base` serves the application under a path; and when the default port is taken, the next free one is used.
 

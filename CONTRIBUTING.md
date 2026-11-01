@@ -52,7 +52,7 @@ Each example's README walks through what it shows and what the build writes.
 | `docs/ROADMAP.md` | What is shipped, next, and planned |
 | `brand/` | The brand system; `brand/README.md` describes the rules |
 | `benchmarks/` | The keyed-table benchmark against a vanilla DOM baseline |
-| `scripts/` | The docs build, the size budget, the static server, the runner for this checkout's command line (`zerolith.ts`), the brand renderer, and the release tooling (`version.ts`, `release-notes.ts`, `platforms.ts`) |
+| `scripts/` | The docs build, the size budget, the static server, the runner for this checkout's command line (`zerolith.ts`), the brand renderer, and the release tooling (`version.ts`, `built-versions.ts`, `release-notes.ts`, `platforms.ts`) |
 
 ## Commands
 
@@ -101,7 +101,7 @@ Each example's README walks through what it shows and what the build writes.
 
 ## Rust
 
-The command line lives in `crates/zerolith`. `rust-toolchain.toml` pins the compiler for rustup users and CI; the crate also builds on the minimum version in `Cargo.toml`, 1.97, which the oxc crates require. Rust code follows default `rustfmt` formatting, `unsafe_code` is forbidden, and CI runs `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, and a release build, then builds the examples with that binary and drives them in a browser through `npm run test:cli`.
+The command line lives in `crates/zerolith`. `rust-toolchain.toml` pins the compiler for rustup users and CI; the crate also builds on the minimum version in `Cargo.toml`, 1.97, which the oxc crates require. Rust code follows default `rustfmt` formatting, `unsafe_code` is forbidden, and CI runs `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test` on Linux and Windows, and a release build, then builds the examples with that binary and drives them in a browser through `npm run test:cli`.
 
 ## Commits
 

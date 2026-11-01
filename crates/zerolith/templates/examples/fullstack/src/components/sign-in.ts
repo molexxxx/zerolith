@@ -1,12 +1,14 @@
 // The sign-in page, for anyone without a session. The form posts to the API
 // as a native form would; @zerolith/forms sends it with fetch, runs the
 // shared schema first, and shows the backend's answer next to its field.
+// When the backend cannot be asked for the session at all, the page says so
+// and offers to try again.
 import { createForm } from "@zerolith/forms";
 import { type View, css, html } from "zerolith";
 import { signInSchema } from "../../shared/schema.ts";
 import { router } from "../router.ts";
 import { reloadSession } from "../store.ts";
-import { Field } from "./ui.ts";
+import { Field, FormError } from "./ui.ts";
 
 const page = css`
     :scope { min-height: 100vh; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); }
@@ -14,7 +16,7 @@ const page = css`
     .poster .eyebrow { color: var(--on-accent); }
     .poster h1 { max-width: 11ch; font-size: var(--display); }
     .poster p:last-child { max-width: 30rem; font-size: 1.125rem; font-weight: 500; }
-    form { display: grid; align-content: center; gap: 1rem; width: 100%; max-width: 30rem; margin: 0 auto; padding: clamp(2rem, 6vw, 5rem) clamp(1rem, 4vw, 3rem); }
+    form, .retry { display: grid; align-content: center; gap: 1rem; width: 100%; max-width: 30rem; margin: 0 auto; padding: clamp(2rem, 6vw, 5rem) clamp(1rem, 4vw, 3rem); }
     h2 { font-size: 2.25rem; }
     .hint { color: var(--muted); font-size: 0.875rem; }
 `;
@@ -40,8 +42,26 @@ export function SignIn(): View
                 <h2>Sign in</h2>
                 ${Field({ form, name: "email", label: "Email", type: "email", required: true, autocomplete: "username" })}
                 ${Field({ form, name: "password", label: "Password", type: "password", required: true, autocomplete: "current-password" })}
+                ${FormError({ form })}
                 <button class="primary" ?disabled=${form.pending}>Sign in</button>
                 <p class="hint">Try <code>ada@harbor.test</code> with the password <code>analytical</code>.</p>
             </form>
+        </main>`;
+}
+
+/** What the page shows when the session could not be asked for, as when the backend is not running. */
+export function Unreachable(): View
+{
+    return html`
+        <main class=${page}>
+            <section class="poster">
+                <p class="eyebrow">Harbor</p>
+                <h1>The harbor is out of reach.</h1>
+                <p>The server did not answer. Check that the backend is running, then try again.</p>
+            </section>
+            <div class="retry">
+                <h2>Cannot connect</h2>
+                <button class="primary" @click=${reloadSession}>Try again</button>
+            </div>
         </main>`;
 }

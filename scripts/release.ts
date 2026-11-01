@@ -79,6 +79,12 @@ export function changelogSection(changelog: string, version: string): string | u
 }
 
 /** The notes of the GitHub release for `version`: its changelog section and how to install it. */
+/** The version a built `version.js` exports, or undefined when it exports none. */
+export function builtVersion(code: string): string | undefined
+{
+    return /^export const version = "([^"]*)";$/m.exec(code)?.[1];
+}
+
 export function releaseNotes(changelog: string, version: string): string
 {
     const section = changelogSection(changelog, version);
@@ -94,7 +100,7 @@ export function releaseNotes(changelog: string, version: string): string
         "```sh",
         `npm install zerolith@${version}`,
         `npx @zerolith/cli@${version} new my-app`,
-        `cargo install zerolith --version ${version}`,
+        `cargo install zerolith --version ${version} --locked`,
         "```",
         "",
         "Every npm package is published with provenance, and the CycloneDX SBOM of the release is attached.",

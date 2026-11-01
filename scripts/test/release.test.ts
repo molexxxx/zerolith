@@ -1,6 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { changelogSection, checkVersion, releaseNotes, withCrateVersion, withFirstPartyRanges, withPackageVersion, withSourceVersion } from "../release.ts";
+import { builtVersion, changelogSection, checkVersion, releaseNotes, withCrateVersion, withFirstPartyRanges, withPackageVersion, withSourceVersion } from "../release.ts";
 
 const root = new URL("../../", import.meta.url);
 
@@ -53,6 +53,12 @@ describe("the release helpers", () =>
         const text = "/** The version. */\nexport const version: string = \"0.1.0-alpha.1\";\n";
         expect(withSourceVersion(text, "0.1.0-alpha.2")).toBe(text.replace("0.1.0-alpha.1", "0.1.0-alpha.2"));
         expect(() => withSourceVersion("export const other = 1;\n", "1.0.0")).toThrow(/no version constant/);
+    });
+
+    it("reads the version a built version.js exports", () =>
+    {
+        expect(builtVersion("/** The version. */\nexport const version = \"0.1.0-alpha.6\";\n//# sourceMappingURL=version.js.map\n")).toBe("0.1.0-alpha.6");
+        expect(builtVersion("export const other = 1;\n")).toBeUndefined();
     });
 
     it("sets the crate version", () =>
@@ -130,5 +136,28 @@ describe("the repository", () =>
         expect(libraries.toSorted()).toEqual(workspaces.map((manifest) => manifest.name).filter((name) => name !== "@zerolith/cli").toSorted());
         expect(published.toSorted()).toEqual(platforms.map((manifest) => manifest.name).toSorted());
         expect(built.map((name) => `@zerolith/cli-${name}`).toSorted()).toEqual(platforms.map((manifest) => manifest.name).toSorted());
+    });
+
+    it("orders the release so a failure leaves nothing half published and a rerun completes it", async () =>
+    {
+        const workflow = await read(".github/workflows/release.yml");
+        expect(workflow.slice(workflow.indexOf("\n  crate:\n"))).toContain("\n    needs: npm\n");
+        const npm = workflow.slice(workflow.indexOf("\n  npm:\n"), workflow.indexOf("\n  docs:\n"));
+        expect(npm.indexOf("name: Canary version")).toBeLessThan(npm.indexOf("name: Built versions"));
+        expect(npm.indexOf("name: Built versions")).toBeLessThan(npm.indexOf("name: Publish"));
+        expect(npm).toContain("is on the registry already");
+        expect(npm).toContain("name: Tag version");
+    });
+
+    it("runs every check of npm run check in CI", async () =>
+    {
+        const manifest = JSON.parse(await read("package.json")) as { scripts: Record<string, string> };
+        const ci = await read(".github/workflows/ci.yml");
+        const chained = [...(manifest.scripts["check"] ?? "").matchAll(/npm run ([a-z:]+)/g)].map((match) => match[1] ?? "");
+        for (const script of chained)
+        {
+            const covered = script === "test:all" ? ci.includes("npm test") && ci.includes("npm run test:browser") : ci.includes(`npm run ${script}`);
+            expect(covered, script).toBe(true);
+        }
     });
 });

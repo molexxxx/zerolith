@@ -11,7 +11,7 @@ To start a project of your own from this example, without a clone of the reposit
 | Part | Where | What to look at |
 | --- | --- | --- |
 | Shared types and validation | `shared/` | One `Api` contract that the backend answers and the typed client calls, and Standard Schemas that the forms run in the browser and the API runs again |
-| Sessions | `server/api.ts`, `src/store.ts`, `src/main.ts` | An HttpOnly cookie on the app's own origin, and the sign-in page shown until the backend knows the member |
+| Sessions | `server/api.ts`, `src/store.ts`, `src/main.ts` | An HttpOnly cookie on the app's own origin, changes from other sites refused through `Sec-Fetch-Site`, and the sign-in page shown until the backend knows the member |
 | Forms | `src/components/sign-in.ts`, `projects.ts`, `project.ts` | Native forms sent with `@zerolith/forms`, with field errors from the shared schema or from the backend |
 | Live updates | `server/events.ts`, `src/components/dashboard.ts` | Server-sent events, closed with the page through `onDispose`, and announced to screen readers |
 | Routing | `src/routes.ts` | A loader, a title from the loaded data, and a page whose code loads on its first visit |

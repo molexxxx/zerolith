@@ -10,6 +10,9 @@ import type { Events } from "./events.ts";
 
 const COOKIE = "harbor_session";
 
+/** The largest request body the API reads, well above what any of its forms sends. */
+const BODY_LIMIT = 64 * 1024;
+
 const MOVED: Record<TaskStatus, string> = { todo: "moved back to To do", doing: "started", done: "finished" };
 
 /** What a route's handler receives. */
@@ -23,22 +26,94 @@ interface Context
 
 type Route = [method: string, path: RegExp, handle: (context: Context) => Response | Promise<Response>];
 
-/** The request's body, from JSON or from a submitted form. */
-async function body(request: Request): Promise<FormData | Record<string, unknown>>
+function tooLarge(): Response
 {
-    if ((request.headers.get("content-type") ?? "").includes("json"))
+    return problemResponse({ status: 413, title: "The request is too large" });
+}
+
+/** The request's body, read up to `BODY_LIMIT` bytes as they arrive, so a body without a length cannot grow without bound; a 413 problem past the limit. */
+async function bytes(request: Request): Promise<Blob | Response>
+{
+    if (Number(request.headers.get("content-length") ?? "0") > BODY_LIMIT)
     {
-        const parsed: unknown = await request.json().catch(() => undefined);
+        return tooLarge();
+    }
+    if (request.body === null)
+    {
+        return new Blob([]);
+    }
+    let size = 0;
+    const counted = request.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, controller)
+        {
+            size += chunk.byteLength;
+            if (size > BODY_LIMIT)
+            {
+                controller.error(new RangeError("The request is too large"));
+                return;
+            }
+            controller.enqueue(chunk);
+        }
+    }));
+    return new Response(counted).blob().catch((error: unknown) =>
+    {
+        if (size > BODY_LIMIT)
+        {
+            return tooLarge();
+        }
+        throw error;
+    });
+}
+
+/** The request's body, from JSON or from a submitted form, or the problem to answer with. */
+async function body(request: Request): Promise<FormData | Record<string, unknown> | Response>
+{
+    const read = await bytes(request);
+    if (read instanceof Response)
+    {
+        return read;
+    }
+    const type = request.headers.get("content-type") ?? "";
+    const copy = new Response(read, { headers: { "content-type": type } });
+    if (type.includes("json"))
+    {
+        const parsed: unknown = await copy.json().catch(() => undefined);
         return typeof parsed === "object" && parsed !== null ? parsed as Record<string, unknown> : {};
     }
-    return request.formData().catch(() => new FormData());
+    return copy.formData().catch(() => new FormData());
 }
 
 /** The request's body checked by `schema`: the parsed value, or the problem to answer with. */
 async function check<T>(request: Request, schema: StandardSchema<unknown, T>): Promise<T | Response>
 {
-    const validation = await validateForm(schema, await body(request));
+    const input = await body(request);
+    if (input instanceof Response)
+    {
+        return input;
+    }
+    const validation = await validateForm(schema, input);
     return validation.problem === undefined ? validation.value : problemResponse(validation.problem);
+}
+
+/**
+ * True when a request that changes data comes from another site. The
+ * session cookie is `SameSite=Lax`, which a sibling subdomain's form post
+ * passes, so the API also asks the browser: `Sec-Fetch-Site`, or `Origin`
+ * from a browser that does not send it.
+ */
+function crossSite(request: Request): boolean
+{
+    if (request.method === "GET" || request.method === "HEAD")
+    {
+        return false;
+    }
+    const site = request.headers.get("sec-fetch-site");
+    if (site !== null)
+    {
+        return site !== "same-origin";
+    }
+    const origin = request.headers.get("origin");
+    return origin !== null && origin !== new URL(request.url).origin;
 }
 
 /** The session id the request's cookie carries. */
@@ -179,6 +254,10 @@ export function createApi(data: Data, events: Events): (request: Request) => Pro
     return async (request) =>
     {
         const { pathname } = new URL(request.url);
+        if (crossSite(request))
+        {
+            return problemResponse({ status: 403, title: "Requests from other sites are refused" });
+        }
         if (request.method === "POST" && pathname === "/api/session")
         {
             return signIn(request);

@@ -26,8 +26,8 @@ Alpha and beta versions (`0.1.0-alpha.1` and on) are published under the `alpha`
 
 1. The release manager opens a release pull request that updates package versions and `CHANGELOG.md` entries, generated from the merged pull requests since the last release.
 2. CI runs the full matrix on the pull request, including the size and benchmark assertions for runtime packages.
-3. After merge, the release manager runs the release workflow for every package with the crate selected, first as a dry run, or pushes a `<package>@<version>` tag to release one package.
-4. The release workflow builds from the release commit, runs the full check again, publishes to npm with provenance through trusted publishing, publishes the crate to crates.io when it changed, and creates a GitHub release tagged `zerolith@<version>` whose notes are the version's changelog section, with the CycloneDX SBOM attached.
+3. After merge, the release manager runs the release workflow for every package with the crate selected, first as a dry run, or pushes a `<package>@<version>` tag to release one package. The tag's version has to be the manifests' own, and a single package moves only its own dist-tag, so `latest` always names a set released together.
+4. The release workflow builds from the release commit, runs each binary it built, runs the full check again, publishes to npm with provenance through trusted publishing, publishes the crate to crates.io once npm has the version, and creates a GitHub release tagged `zerolith@<version>` whose notes are the version's changelog section, with the CycloneDX SBOM attached.
 5. The release workflow rebuilds the documentation site from the commit it published and deploys it to GitHub Pages, so the docs always describe what the registry serves; the API reference and the agent index (`llms.txt`, the API manifest) are regenerated from that build, never hand-edited. Pushes to the default branch do not redeploy the site, and a manual run of the docs workflow redeploys a given ref.
 
 No step publishes from a developer machine. Publishing credentials do not exist outside the workflow.

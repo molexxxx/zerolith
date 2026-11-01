@@ -307,7 +307,7 @@ fn manifest(
     )
 }
 
-/// The development dependencies every project has: the command line, the test helpers, and the tools the checks run.
+/// The development dependencies every project has: the command line, the test helpers, and the tools the checks run. `vite` is pinned in every project, since Vitest and `@zerolith/vite` need it as a peer, and Yarn installs no peers.
 fn tools() -> Vec<String> {
     let framework = framework_version();
     let mut dev = vec![
@@ -319,6 +319,7 @@ fn tools() -> Vec<String> {
         "oxlint",
         "playwright",
         "typescript",
+        "vite",
         "vitest",
     ] {
         dev.push(dependency(tool, &version_of(tool)));
@@ -344,10 +345,7 @@ fn package_json(name: &str, choice: Choice) -> String {
             "zerolith build --unbundled",
             "zerolith preview",
         ),
-        Tool::Vite => {
-            dev.push(dependency("vite", &version_of("vite")));
-            ("vite", "vite build", "vite preview")
-        }
+        Tool::Vite => ("vite", "vite build", "vite preview"),
     };
     manifest(
         name,
@@ -1101,6 +1099,7 @@ fn skill_pointer(choice: Choice) -> String {
 
 fn agents_md(name: &str, choice: Choice) -> String {
     let ext = choice.ext();
+    let messages = if choice.typescript { "" } else { " --js" };
     let component = choice.component_ext();
     let tool = match choice.tool {
         Tool::Vite => "The project develops and builds on Vite with `@zerolith/vite`.",
@@ -1118,7 +1117,7 @@ fn agents_md(name: &str, choice: Choice) -> String {
         "Components are capitalized functions returning `html` templates, one per file under `src/components/`, with their styles next to the markup, in a `css` literal or in a stylesheet beside the component imported with `?scoped`."
     };
     format!(
-        "# {name}: guide for coding agents\n\nA zerolith application. {tool} This file holds what is specific to this project. {skill}\n\n## Commands\n\n- `npm run dev` serves the app with live reload; `npm run build` writes `dist/`; `npm run preview` serves `dist/`.\n- `npm run check` is the gate: typecheck, lint, browser tests, and the build.\n- With `@zerolith/client` installed, `npx zerolith-client openapi.json --out src/api.{ext}` regenerates the typed client from the API contract; with `@zerolith/i18n` installed, `npx zerolith-i18n messages --out src/messages` regenerates the message modules.\n\n## Rules\n\n- Bind the signal, not its value: a live binding takes `count`, never `count.get()`, which freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.\n- {syntax}\n- State that must survive an edit is a named signal: `signal(0, {{ name: \"count\" }})`.\n- `src/api.{ext}` and `src/messages/` are generated when they exist; change their inputs and regenerate, never edit them.\n- A new page is a route in `src/routes.{ext}` and a component; shared state goes in `src/store.{ext}`, created with the first piece of it.\n- Read `router` inside functions only: `src/router.{ext}` imports the route table, which imports the components, so a component module that uses `router` at its top level runs before the router exists.\n- Files served as they are, such as data, icons, and `robots.txt`, go in `public/`.\n- Only `.env` variables named `PUBLIC_*` reach the browser, as `import.meta.env.PUBLIC_*`.\n\n## Where things go\n\n| Change | Location |\n| --- | --- |\n| A page | `src/routes.{ext}` and `src/components/<page>.{component}` |\n| Shared state or a request | `src/store.{ext}` |\n| A message, once the project uses `@zerolith/i18n` | `messages/<locale>.json`, then regenerate |\n| A style token | `src/styles.css`; component styles stay with the component |\n| A static file | `public/` |\n"
+        "# {name}: guide for coding agents\n\nA zerolith application. {tool} This file holds what is specific to this project. {skill}\n\n## Commands\n\n- `npm run dev` serves the app with live reload; `npm run build` writes `dist/`; `npm run preview` serves `dist/`.\n- `npm run check` is the gate: typecheck, lint, browser tests, and the build.\n- With `@zerolith/client` installed, `npx zerolith-client openapi.json --out src/api.ts` regenerates the typed client from the API contract, in TypeScript, which the build serves in a JavaScript project too; with `@zerolith/i18n` installed, `npx zerolith-i18n messages --out src/messages{messages}` regenerates the message modules.\n\n## Rules\n\n- Bind the signal, not its value: a live binding takes `count`, never `count.get()`, which freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.\n- {syntax}\n- State that must survive an edit is a named signal: `signal(0, {{ name: \"count\" }})`.\n- `src/api.ts` and `src/messages/` are generated when they exist; change their inputs and regenerate, never edit them.\n- A new page is a route in `src/routes.{ext}` and a component; shared state goes in `src/store.{ext}`, created with the first piece of it.\n- Read `router` inside functions only: `src/router.{ext}` imports the route table, which imports the components, so a component module that uses `router` at its top level runs before the router exists.\n- Files served as they are, such as data, icons, and `robots.txt`, go in `public/`.\n- Only `.env` variables named `PUBLIC_*` reach the browser, as `import.meta.env.PUBLIC_*`.\n\n## Where things go\n\n| Change | Location |\n| --- | --- |\n| A page | `src/routes.{ext}` and `src/components/<page>.{component}` |\n| Shared state or a request | `src/store.{ext}` |\n| A message, once the project uses `@zerolith/i18n` | `messages/<locale>.json`, then regenerate |\n| A style token | `src/styles.css`; component styles stay with the component |\n| A static file | `public/` |\n"
     )
 }
 
@@ -1224,7 +1223,7 @@ The commands below are the project's npm scripts: `dev` and `build` run the zero
 | Part | Where | What to look at |
 | --- | --- | --- |
 | Shared types and validation | `shared/` | One `Api` contract that the backend answers and the typed client calls, and Standard Schemas that the forms run in the browser and the API runs again |
-| Sessions | `server/api.ts`, `src/store.ts`, `src/main.ts` | An HttpOnly cookie on the app's own origin, and the sign-in page shown until the backend knows the member |
+| Sessions | `server/api.ts`, `src/store.ts`, `src/main.ts` | An HttpOnly cookie on the app's own origin, changes from other sites refused through `Sec-Fetch-Site`, and the sign-in page shown until the backend knows the member |
 | Forms | `src/components/sign-in.ts`, `projects.ts`, `project.ts` | Native forms sent with `@zerolith/forms`, with field errors from the shared schema or from the backend |
 | Live updates | `server/events.ts`, `src/components/dashboard.ts` | Server-sent events, closed with the page through `onDispose`, and announced to screen readers |
 | Routing | `src/routes.ts` | A loader, a title from the loaded data, and a page whose code loads on its first visit |
@@ -1846,6 +1845,11 @@ fn package_manager() -> &'static str {
         .unwrap_or("npm")
 }
 
+/// The settings file a package manager needs before it installs: Yarn 2 and later install with Plug'n'Play unless told otherwise, and the command line resolves packages from `node_modules`. Yarn 1 ignores the file.
+fn manager_settings(manager: &str) -> Option<(&'static str, &'static str)> {
+    (manager == "yarn").then_some((".yarnrc.yml", "nodeLinker: node-modules\n"))
+}
+
 /// Runs `<manager> install` in the new project, through `cmd` on Windows, where the managers are batch files.
 fn install(root: &Path, manager: &str) -> io::Result<bool> {
     let status = if cfg!(windows) {
@@ -1893,6 +1897,17 @@ pub fn run(root: &Path, choice: Choice, install_dependencies: bool) -> io::Resul
         );
     }
     let manager = package_manager();
+    if let Some((file, settings)) = manager_settings(manager) {
+        fs::write(root.join(file), settings)?;
+        anstream::println!(
+            "{}",
+            term::row(
+                "wrote",
+                term::done,
+                format!("{file}, so {manager} installs into node_modules")
+            )
+        );
+    }
     let mut installed = false;
     if install_dependencies {
         anstream::println!(
@@ -2098,6 +2113,16 @@ mod tests {
     }
 
     #[test]
+    fn tells_yarn_to_install_into_node_modules() {
+        assert_eq!(
+            super::manager_settings("yarn"),
+            Some((".yarnrc.yml", "nodeLinker: node-modules\n"))
+        );
+        assert_eq!(super::manager_settings("npm"), None);
+        assert_eq!(super::manager_settings("pnpm"), None);
+    }
+
+    #[test]
     fn writes_each_choice_with_the_name_and_pinned_versions() {
         let base = std::env::temp_dir().join(format!("zerolith-new-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
@@ -2185,8 +2210,8 @@ mod tests {
                     && parsed["devDependencies"]["@zerolith/test"].is_string()
             );
             assert_eq!(
-                parsed["devDependencies"]["vite"].is_string(),
-                choice.tool == Tool::Vite
+                parsed["devDependencies"]["vite"].as_str(),
+                Some(super::version_of("vite").as_str())
             );
             assert!(parsed["devDependencies"]["@zerolith/vite"].is_string());
             assert_eq!(
@@ -2239,6 +2264,12 @@ mod tests {
             assert!(home.contains(&format!("<code>{develop}</code>")), "{home}");
             let agents = fs::read_to_string(root.join("AGENTS.md")).unwrap();
             assert!(agents.contains(&format!("# {folder}: guide for coding agents")));
+            assert!(agents.contains("--out src/api.ts"), "{agents}");
+            assert_eq!(
+                agents.contains("zerolith-i18n messages --out src/messages --js"),
+                !choice.typescript,
+                "{agents}"
+            );
         }
         assert!(scaffold(&base.join("tsx-app"), "tsx-app", Choice::DEFAULT).is_err());
         let _ = fs::remove_dir_all(&base);
@@ -2371,6 +2402,7 @@ mod tests {
                 "oxlint",
                 "playwright",
                 "typescript",
+                "vite",
                 "vitest",
             ]
         );
