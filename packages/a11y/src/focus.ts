@@ -6,12 +6,26 @@
  */
 import { type ReadableSignal, onDispose, signal } from "zerolith";
 
-const FOCUSABLE = "a[href], area[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex=\"-1\"]), [contenteditable=\"true\"], audio[controls], video[controls], details > summary, iframe";
+const FOCUSABLE = "a[href], area[href], button:not(:disabled), input:not(:disabled):not([type=hidden]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex=\"-1\"]):not(:disabled), [contenteditable=\"true\"], audio[controls], video[controls], details > summary, iframe";
 
-/** True when an element is rendered and outside any `inert` subtree, so it can take focus. */
+/** True when an element is rendered, visible, and outside any `inert` subtree, so it can take focus. */
 function reachable(element: Element): boolean
 {
-    return element.getClientRects().length > 0 && element.closest("[inert]") === null;
+    return element.getClientRects().length > 0 && element.closest("[inert]") === null && (element.ownerDocument.defaultView ?? window).getComputedStyle(element).visibility === "visible";
+}
+
+/** True for a control that uses the arrow keys itself: a text field, a list box, or editable text. */
+function editsText(target: EventTarget | null): boolean
+{
+    if (!(target instanceof HTMLElement))
+    {
+        return false;
+    }
+    if (target instanceof HTMLInputElement)
+    {
+        return !["button", "checkbox", "color", "file", "hidden", "image", "radio", "range", "reset", "submit"].includes(target.type);
+    }
+    return target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target.isContentEditable;
 }
 
 /** The elements inside `root` that take Tab focus, in document order, skipping anything hidden. */
@@ -199,6 +213,10 @@ export function rovingTabindex(options: RovingOptions = {}): (element: Element) 
         const onKeydown = (event: Event): void =>
         {
             const key = event as KeyboardEvent;
+            if (editsText(key.target) && !items().includes(key.target as HTMLElement))
+            {
+                return;
+            }
             const horizontal = orientation !== "vertical";
             const vertical = orientation !== "horizontal";
             if ((key.key === "ArrowRight" && horizontal) || (key.key === "ArrowDown" && vertical))

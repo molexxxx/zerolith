@@ -23,7 +23,7 @@ export interface MountOptions
 {
     /** Renders into this element instead of a new `div`. */
     container?: HTMLElement;
-    /** Appends a new container to `document.body`. Defaults to true; layout and focus need it. */
+    /** Appends a new container to `document.body`. Defaults to true; layout and focus need it. Ignored with `container`. */
     attach?: boolean;
 }
 
@@ -34,7 +34,10 @@ const mounted: Mounted[] = [];
  * function that returns the view, as `mount(() => Page())`, it hands the
  * function to `render`, which calls it inside the root's owner, so a
  * component that registers cleanups with `onDispose` mounts as it is, and
- * its cleanups run when the view is unmounted.
+ * its cleanups run when the view is unmounted. A component that takes
+ * props, passed uncalled, fails with `mount_component_uncalled`, as
+ * `render` does. A container `mount` created is removed even when
+ * rendering throws.
  */
 export function mount(view: unknown, options: MountOptions = {}): Mounted
 {
@@ -43,7 +46,19 @@ export function mount(view: unknown, options: MountOptions = {}): Mounted
     {
         document.body.append(container);
     }
-    const root = render(view, container);
+    let root: Root;
+    try
+    {
+        root = render(view, container);
+    }
+    catch (error)
+    {
+        if (options.container === undefined)
+        {
+            container.remove();
+        }
+        throw error;
+    }
     const entry: Mounted = {
         container,
         root,
@@ -54,10 +69,16 @@ export function mount(view: unknown, options: MountOptions = {}): Mounted
             {
                 mounted.splice(index, 1);
             }
-            root.dispose();
-            if (options.container === undefined)
+            try
             {
-                container.remove();
+                root.dispose();
+            }
+            finally
+            {
+                if (options.container === undefined)
+                {
+                    container.remove();
+                }
             }
         }
     };
@@ -65,19 +86,33 @@ export function mount(view: unknown, options: MountOptions = {}): Mounted
     return entry;
 }
 
-/** Unmounts everything `mount` created, newest first. Register it as the runner's after-each hook. */
+/** Unmounts everything `mount` created, newest first, each even when another's cleanup throws, and then throws the first error. Register it as the runner's after-each hook. */
 export function cleanup(): void
 {
+    const errors: unknown[] = [];
     for (const entry of mounted.toReversed())
     {
-        entry.unmount();
+        try
+        {
+            entry.unmount();
+        }
+        catch (error)
+        {
+            errors.push(error);
+        }
+    }
+    if (errors.length > 0)
+    {
+        throw errors[0];
     }
 }
 
 /**
- * Waits for the asynchronous work a test started: resources, lazy routes,
- * and anything scheduled with promises or a timer of zero. Effects run
- * synchronously when a signal changes, so they need no settling.
+ * Waits `rounds` turns of the timer queue, two by default: enough for
+ * promise chains, a resource whose loader resolves at once, and zero-delay
+ * timers. Effects run synchronously when a signal changes, so they need no
+ * settling. For a module import or a request, wait on its result with the
+ * runner's `waitFor` instead.
  */
 export function settle(rounds = 2): Promise<void>
 {
@@ -118,18 +153,37 @@ export interface AccessibilityIssue
     readonly element: Element;
 }
 
+/** True when an element has an accessible name from an attribute: `aria-label`, `aria-labelledby`, or `title`. */
+function namedByAttribute(element: Element): boolean
+{
+    return (element.getAttribute("aria-label") ?? "").trim() !== "" || element.hasAttribute("aria-labelledby") || (element.getAttribute("title") ?? "").trim() !== "";
+}
+
+/** The text an element shows to assistive technology: its text content, leaving out every `aria-hidden="true"` subtree. */
+function exposedText(element: Element): string
+{
+    let text = "";
+    for (const node of element.childNodes)
+    {
+        if (node.nodeType === Node.TEXT_NODE)
+        {
+            text += node.textContent ?? "";
+        }
+        else if (node instanceof Element && node.getAttribute("aria-hidden") !== "true")
+        {
+            text += exposedText(node);
+        }
+    }
+    return text;
+}
+
 function hasName(element: Element): boolean
 {
-    const label = element.getAttribute("aria-label") ?? "";
-    if (label.trim() !== "" || element.hasAttribute("aria-labelledby") || (element.getAttribute("title") ?? "").trim() !== "")
+    if (namedByAttribute(element) || exposedText(element).trim() !== "")
     {
         return true;
     }
-    if ((element.textContent ?? "").trim() !== "")
-    {
-        return true;
-    }
-    return [...element.querySelectorAll("img[alt]")].some((image) => (image.getAttribute("alt") ?? "").trim() !== "");
+    return [...element.querySelectorAll("img[alt]")].some((image) => (image.getAttribute("alt") ?? "").trim() !== "" && image.closest("[aria-hidden=\"true\"]") === null);
 }
 
 function isLabeled(control: Element): boolean
@@ -139,7 +193,8 @@ function isLabeled(control: Element): boolean
         return true;
     }
     const id = control.getAttribute("id");
-    return id !== null && id !== "" && control.ownerDocument.querySelector(`label[for="${CSS.escape(id)}"]`) !== null;
+    const tree = control.getRootNode() as ParentNode;
+    return id !== null && id !== "" && [...tree.querySelectorAll("label[for]")].some((label) => (label as HTMLLabelElement).htmlFor === id);
 }
 
 /**
@@ -179,7 +234,7 @@ export function accessibilityIssues(container: ParentNode): AccessibilityIssue[]
     }
     for (const frame of container.querySelectorAll("iframe"))
     {
-        if ((frame.getAttribute("title") ?? "").trim() === "")
+        if (!namedByAttribute(frame))
         {
             issues.push({ code: "frame_without_title", element: frame });
         }

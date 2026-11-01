@@ -69,7 +69,9 @@ function canonical(tag: string): string
  * `Accept-Language` header, `navigator.languages`, or one tag. Each range
  * is tried in order of quality, first as an exact match, then by dropping
  * subtags from the end as RFC 4647 lookup does, then as the language of a
- * more specific supported locale. `*` and no match at all give `fallback`.
+ * more specific supported locale, preferring one written in the same
+ * script, so `zh-HK` finds `zh-TW` before `zh-CN`. `*` and no match at all
+ * give `fallback`.
  */
 export function negotiateLocale(requested: string | readonly string[] | null | undefined, supported: readonly string[], fallback: string): string
 {
@@ -91,18 +93,33 @@ export function negotiateLocale(requested: string | readonly string[] | null | u
             }
         }
         const language = wanted.split("-")[0] ?? wanted;
-        const related = candidates.find((candidate) => candidate.lower.startsWith(`${language}-`));
-        if (related !== undefined)
+        const related = candidates.filter((candidate) => candidate.lower.startsWith(`${language}-`));
+        if (related.length > 0)
         {
-            return related.tag;
+            const script = scriptOf(range);
+            return (related.find((candidate) => scriptOf(candidate.tag) === script) ?? related[0])?.tag ?? fallback;
         }
     }
     return fallback;
 }
 
-const RTL_LANGUAGES = new Set(["ar", "arc", "ckb", "dv", "fa", "he", "iw", "ks", "ku", "nqo", "pa-arab", "ps", "sd", "syr", "ug", "ur", "yi"]);
+/** The script a locale is written in, with the likely script filled in, as `Hant` for `zh-TW`; undefined for a tag that does not parse. */
+function scriptOf(tag: string): string | undefined
+{
+    try
+    {
+        return new Intl.Locale(tag).maximize().script;
+    }
+    catch
+    {
+        return undefined;
+    }
+}
 
-/** The writing direction of a locale, from `Intl.Locale` where the engine provides it and from the script or language otherwise. */
+/** The scripts written right to left, by their ISO 15924 codes in lowercase. */
+const RTL_SCRIPTS: ReadonlySet<string> = new Set(["adlm", "arab", "hebr", "mand", "mend", "nkoo", "rohg", "samr", "syrc", "thaa", "yezi"]);
+
+/** The writing direction of a locale, from `Intl.Locale` where the engine provides it and otherwise from its script, the likely one when the tag names none, as engines decide. */
 export function localeDirection(locale: string): "ltr" | "rtl"
 {
     try
@@ -114,13 +131,7 @@ export function localeDirection(locale: string): "ltr" | "rtl"
         {
             return info.direction === "rtl" ? "rtl" : "ltr";
         }
-        const language = parsed.language.toLowerCase();
-        const script = parsed.script?.toLowerCase();
-        if (script === "arab" || script === "hebr" || script === "thaa" || script === "syrc" || script === "nkoo")
-        {
-            return "rtl";
-        }
-        return RTL_LANGUAGES.has(language) || RTL_LANGUAGES.has(`${language}-${script ?? ""}`) ? "rtl" : "ltr";
+        return RTL_SCRIPTS.has((parsed.maximize().script ?? "").toLowerCase()) ? "rtl" : "ltr";
     }
     catch
     {
@@ -133,7 +144,7 @@ export interface LocaleOptions
 {
     /** The locales the application ships, most preferred first. */
     supported: readonly string[];
-    /** The locale used when nothing matches. Defaults to the first supported one. */
+    /** The locale used when nothing matches, one of `supported`. Defaults to the first supported one. */
     fallback?: string;
     /** What to negotiate from at first: an `Accept-Language` header, `navigator.languages`, or a tag. Defaults to the fallback. */
     initial?: string | readonly string[] | null;
@@ -152,11 +163,19 @@ export interface LocaleState
     set(requested: string | readonly string[]): void;
 }
 
-/** Creates the locale state for an application. */
+/** Creates the locale state for an application. Throws a `TypeError` when `supported` is empty or `fallback` is not one of its locales, since the locale must always be one of them. */
 export function createLocale(options: LocaleOptions): LocaleState
 {
     const supported = [...options.supported];
-    const fallback = options.fallback ?? supported[0] ?? "en";
+    if (supported.length === 0)
+    {
+        throw new TypeError("zerolith/i18n: createLocale needs at least one supported locale");
+    }
+    const fallback = options.fallback === undefined ? (supported[0] ?? "") : supported.find((tag) => canonical(tag).toLowerCase() === canonical(options.fallback ?? "").toLowerCase());
+    if (fallback === undefined)
+    {
+        throw new TypeError(`zerolith/i18n: the fallback ${options.fallback ?? ""} is not one of the supported locales, ${supported.join(", ")}`);
+    }
     const locale: Signal<string> = signal(negotiateLocale(options.initial ?? fallback, supported, fallback), { name: "locale" });
     return {
         locale,

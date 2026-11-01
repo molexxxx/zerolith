@@ -11,6 +11,47 @@ import { type Catalog, compileIndex, compileMessages, messageNames } from "./com
 
 const USAGE = "usage: zerolith-i18n <folder> [--out <folder>] [--js] [--strict]\n";
 
+/** The locale a catalog's file name gives, refusing a name that is not a BCP 47 language tag, such as `en_US.json`. */
+function localeOf(file: string): string
+{
+    const locale = basename(file, ".json");
+    try
+    {
+        Intl.getCanonicalLocales(locale);
+    }
+    catch
+    {
+        throw new Error(`${locale} is not a language tag; name the file as en.json or pt-BR.json`);
+    }
+    return locale;
+}
+
+/** A catalog's messages, refusing a file that is not a JSON object of strings. */
+function catalogOf(text: string): Catalog
+{
+    const parsed: unknown = JSON.parse(text);
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed))
+    {
+        throw new Error("a catalog is a JSON object of messages");
+    }
+    for (const [key, value] of Object.entries(parsed))
+    {
+        if (typeof value !== "string")
+        {
+            throw new Error(`the message "${key}" is not a string`);
+        }
+    }
+    return parsed as Catalog;
+}
+
+/** Reports why a catalog cannot be compiled, naming its file, and gives the exit code; nothing has been written. */
+function failure(file: string, error: unknown): number
+{
+    const message = error instanceof Error ? error.message.replace(/^zerolith\/i18n: /, "") : String(error);
+    process.stderr.write(`zerolith-i18n: ${file}: ${message}\n`);
+    return 1;
+}
+
 interface Arguments
 {
     folder: string | undefined;
@@ -84,10 +125,25 @@ export async function main(argv: readonly string[]): Promise<number>
         return 1;
     }
     const out = parsed.out ?? parsed.folder;
-    await mkdir(out, { recursive: true });
     const language = parsed.javascript ? "js" : "ts";
     const folder = parsed.folder;
-    const catalogs = new Map<string, Catalog>(await Promise.all(files.map(async (file): Promise<[string, Catalog]> => [basename(file, ".json"), JSON.parse(await readFile(join(folder, file), "utf8")) as Catalog])));
+    const read = await Promise.all(files.map(async (file) =>
+    {
+        try
+        {
+            return { file, locale: localeOf(file), catalog: catalogOf(await readFile(join(folder, file), "utf8")) };
+        }
+        catch (error)
+        {
+            return { file, error };
+        }
+    }));
+    const unreadable = read.find((entry) => "error" in entry);
+    if (unreadable !== undefined)
+    {
+        return failure(unreadable.file, unreadable.error);
+    }
+    const catalogs = new Map<string, Catalog>(read.map((entry) => [entry.locale ?? "", entry.catalog ?? {}]));
     const all = new Set<string>();
     for (const catalog of catalogs.values())
     {
@@ -97,7 +153,7 @@ export async function main(argv: readonly string[]): Promise<number>
         }
     }
     let missing = 0;
-    const writes: Promise<void>[] = [];
+    const modules = new Map<string, string>();
     for (const [locale, catalog] of catalogs)
     {
         const present = new Set(messageNames(catalog));
@@ -109,11 +165,18 @@ export async function main(argv: readonly string[]): Promise<number>
                 process.stderr.write(`zerolith-i18n: ${locale} lacks ${name}\n`);
             }
         }
-        const compiled = compileMessages(locale, catalog, { language, source: `${locale}.json` });
-        writes.push(writeFile(join(out, `${locale}.${language}`), compiled.code));
+        try
+        {
+            modules.set(`${locale}.${language}`, compileMessages(locale, catalog, { language, source: `${locale}.json` }).code);
+        }
+        catch (error)
+        {
+            return failure(`${locale}.json`, error);
+        }
     }
-    writes.push(writeFile(join(out, `index.${language}`), compileIndex([...catalogs.keys()], { language })));
-    await Promise.all(writes);
+    modules.set(`index.${language}`, compileIndex([...catalogs.keys()], { language }));
+    await mkdir(out, { recursive: true });
+    await Promise.all([...modules].map(([name, code]) => writeFile(join(out, name), code)));
     process.stdout.write(`zerolith-i18n: ${catalogs.size} locale(s), ${all.size} message(s), written to ${out}\n`);
     return missing > 0 && parsed.strict ? 1 : 0;
 }

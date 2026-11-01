@@ -84,6 +84,15 @@ describe("focusTrap", () =>
     });
 });
 
+describe("focusables", () =>
+{
+    it("leaves out controls a disabled fieldset disables and elements that are invisible", () =>
+    {
+        const { container } = mount(html`<fieldset disabled><button>In</button></fieldset><button style="visibility: hidden">Hidden</button><button>Out</button>`);
+        expect(focusables(container).map((element) => element.textContent)).toEqual(["Out"]);
+    });
+});
+
 describe("rovingTabindex", () =>
 {
     it("keeps one item tabbable, moves with the arrow keys, and follows selection and focus", () =>
@@ -116,6 +125,19 @@ describe("rovingTabindex", () =>
         tab("d").focus();
         expect(tab("d").tabIndex).toBe(0);
         expect(tab("a").tabIndex).toBe(-1);
+    });
+
+    it("leaves the arrow keys to a text field inside an item", () =>
+    {
+        const { container } = mount(html`
+            <div role="listbox" ref=${rovingTabindex({ orientation: "horizontal" })}>
+                <div role="option" id="one">One <input id="rename" value="One"></div>
+                <div role="option" id="two">Two</div>
+            </div>`);
+        const field = container.querySelector("#rename") as HTMLInputElement;
+        field.focus();
+        expect(press(field, "ArrowRight")).toBe(true);
+        expect(document.activeElement).toBe(field);
     });
 
     it("skips items that are hidden, such as the children of a collapsed tree item", () =>

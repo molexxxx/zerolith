@@ -81,6 +81,40 @@ describe("settle", () =>
     });
 });
 
+describe("mount and cleanup when something throws", () =>
+{
+    it("removes the container of a render that throws, and unmounts every view when a cleanup throws", () =>
+    {
+        const before = document.body.children.length;
+        expect(() => mount(() =>
+        {
+            throw new Error("render failed");
+        })).toThrow("render failed");
+        expect(document.body.children.length).toBe(before);
+        mount(() =>
+        {
+            onDispose(() =>
+            {
+                throw new Error("cleanup failed");
+            });
+            return html`<p>one</p>`;
+        });
+        mount(html`<p>two</p>`);
+        expect(() => cleanup()).toThrow("cleanup failed");
+        expect(document.body.children.length).toBe(before);
+    });
+});
+
+describe("accessibilityIssues on the edges", () =>
+{
+    it("finds a label in a detached tree, ignores hidden text as a name, and accepts aria-label on a frame", () =>
+    {
+        const detached = document.createElement("div");
+        detached.innerHTML = "<label for=\"q\">Search</label><input id=\"q\"><button><span aria-hidden=\"true\">x</span></button><iframe aria-label=\"Map\"></iframe>";
+        expect(accessibilityIssues(detached).map((issue) => issue.code)).toEqual(["button_without_name"]);
+    });
+});
+
 describe("hydrationMismatches", () =>
 {
     it("is empty for a view whose markup and client structure agree, and lists the differences otherwise", () =>

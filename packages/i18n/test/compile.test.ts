@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -191,5 +191,34 @@ describe("zerolith-i18n", () =>
         expect(await main([])).toBe(2);
         expect(await main([folder, "--bogus"])).toBe(2);
         vi.restoreAllMocks();
+    });
+
+    it("names the catalog it cannot compile and writes nothing", async () =>
+    {
+        const input = await mkdtemp(join(tmpdir(), "zerolith-i18n-bad-"));
+        const out = join(input, "out");
+        const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+        try
+        {
+            await writeFile(join(input, "de.json"), JSON.stringify({ hello: "Hallo" }));
+            await writeFile(join(input, "en.json"), JSON.stringify({ hello: "{$x :shout}" }));
+            expect(await main([input, "--out", out])).toBe(1);
+            expect(String(stderr.mock.calls.at(-1)?.[0])).toBe("zerolith-i18n: en.json: message \"hello\": unknown function :shout\n");
+            await expect(readdir(out)).rejects.toThrow();
+
+            await writeFile(join(input, "en.json"), JSON.stringify({ hello: 1 }));
+            expect(await main([input, "--out", out])).toBe(1);
+            expect(String(stderr.mock.calls.at(-1)?.[0])).toBe("zerolith-i18n: en.json: the message \"hello\" is not a string\n");
+
+            await rm(join(input, "en.json"));
+            await writeFile(join(input, "en_US.json"), JSON.stringify({ hello: "Hello" }));
+            expect(await main([input, "--out", out])).toBe(1);
+            expect(String(stderr.mock.calls.at(-1)?.[0])).toContain("zerolith-i18n: en_US.json: en_US is not a language tag");
+        }
+        finally
+        {
+            vi.restoreAllMocks();
+            await rm(input, { recursive: true, force: true });
+        }
     });
 });

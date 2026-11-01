@@ -28,6 +28,8 @@ describe("negotiateLocale", () =>
         expect(negotiateLocale("pt", supported, "en")).toBe("pt-BR");
         expect(negotiateLocale("zh-TW", supported, "en")).toBe("zh-Hant");
         expect(negotiateLocale(["fr-CA", "pt-PT"], supported, "en")).toBe("pt-BR");
+        expect(negotiateLocale("zh-HK", ["en", "zh-CN", "zh-TW"], "en")).toBe("zh-TW");
+        expect(negotiateLocale("zh-SG", ["en", "zh-TW", "zh-CN"], "en")).toBe("zh-CN");
     });
 
     it("honors header order and quality and falls back", () =>
@@ -51,10 +53,42 @@ describe("localeDirection", () =>
         expect(localeDirection("ur-Arab")).toBe("rtl");
         expect(localeDirection("nonsense tag")).toBe("ltr");
     });
+
+    it("decides by the script where the engine gives no text info", () =>
+    {
+        const prototype = Intl.Locale.prototype as unknown as Record<string, unknown>;
+        const saved = ["getTextInfo", "textInfo"].map((name) => [name, Object.getOwnPropertyDescriptor(prototype, name)] as const);
+        for (const [name] of saved)
+        {
+            delete prototype[name];
+        }
+        try
+        {
+            expect(["ar", "ckb", "pa-Arab", "he", "dv"].map(localeDirection)).toEqual(["rtl", "rtl", "rtl", "rtl", "rtl"]);
+            expect(["en", "ku", "pa", "ja"].map(localeDirection)).toEqual(["ltr", "ltr", "ltr", "ltr"]);
+        }
+        finally
+        {
+            for (const [name, descriptor] of saved)
+            {
+                if (descriptor !== undefined)
+                {
+                    Object.defineProperty(prototype, name, descriptor);
+                }
+            }
+        }
+    });
 });
 
 describe("createLocale and formatters", () =>
 {
+    it("refuses an empty supported list and a fallback outside it", () =>
+    {
+        expect(() => createLocale({ supported: [] })).toThrow(/at least one supported locale/);
+        expect(() => createLocale({ supported: ["en", "de"], fallback: "fr" })).toThrow(/the fallback fr is not one of the supported locales, en, de/);
+        expect(createLocale({ supported: ["en-US", "de"], fallback: "en-us" }).locale.get()).toBe("en-US");
+    });
+
     it("negotiates the initial locale, switches within the supported set, and formats for the current one", () =>
     {
         const state = createLocale({ supported: ["en", "de", "ar"], initial: "de-AT,en;q=0.5" });
