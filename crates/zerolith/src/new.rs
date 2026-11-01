@@ -1966,7 +1966,8 @@ fn on_path(program: &str) -> bool {
 mod tests {
     use super::{
         Answers, Choice, FAVICON, FULLSTACK_FILES, Start, TOOL_VERSIONS, Tool, agents_md, ask,
-        confirm, package_json, package_name, pick, scaffold, settle, settle_from,
+        confirm, display_name, package_json, package_name, pick, scaffold, settle, settle_from,
+        starter_files,
     };
     use std::fs;
     use std::io::{self, Cursor};
@@ -1975,18 +1976,70 @@ mod tests {
     #[test]
     fn writes_the_agents_md_the_structure_guide_shows() {
         let guide = include_str!("../../../docs/guide/structure.md");
-        let written = agents_md(
-            "my-app",
-            Choice {
-                jsx: false,
-                ..Choice::DEFAULT
-            },
-        );
+        let written = agents_md("my-app", Choice::DEFAULT);
         assert!(
             guide.contains(&format!("```markdown AGENTS.md\n{written}```")),
-            "docs/guide/structure.md should show the AGENTS.md a TypeScript starter gets:
+            "docs/guide/structure.md should show the AGENTS.md the default starter gets:
 {written}"
         );
+    }
+
+    #[test]
+    fn writes_the_layout_the_structure_guide_shows() {
+        let guide = include_str!("../../../docs/guide/structure.md");
+        let tree = guide
+            .split_once("```tree\n")
+            .and_then(|(_, rest)| rest.split_once("```"))
+            .map(|(tree, _)| tree)
+            .expect("docs/guide/structure.md should draw the starter in a tree block");
+        let mut shown: Vec<String> = Vec::new();
+        let mut folders: Vec<String> = Vec::new();
+        for line in tree.lines().skip(1).filter(|line| !line.trim().is_empty()) {
+            let depth = (line.len() - line.trim_start().len()) / 4;
+            let name = line.trim_start().split("  ").next().unwrap_or_default();
+            folders.truncate(depth.saturating_sub(1));
+            shown.push(format!("{}{name}", folders.concat()));
+            if name.ends_with('/') {
+                folders.push(name.to_string());
+            }
+        }
+        let mut written: Vec<String> =
+            starter_files("my-app", &display_name("my-app"), Choice::DEFAULT)
+                .into_iter()
+                .map(|(relative, _)| relative)
+                .collect();
+        written.extend(
+            crate::skill::FOLDERS
+                .iter()
+                .map(|folder| format!("{folder}/SKILL.md")),
+        );
+        let collapsed: Vec<&String> = shown
+            .iter()
+            .filter(|path| {
+                path.ends_with('/')
+                    && !shown
+                        .iter()
+                        .any(|other| other != *path && other.starts_with(path.as_str()))
+            })
+            .collect();
+        for file in &written {
+            assert!(
+                shown.contains(file)
+                    || collapsed
+                        .iter()
+                        .any(|folder| file.starts_with(folder.as_str())),
+                "docs/guide/structure.md should show {file}, which the default starter writes"
+            );
+        }
+        for path in &shown {
+            assert!(
+                written
+                    .iter()
+                    .any(|file| file == path
+                        || (path.ends_with('/') && file.starts_with(path.as_str()))),
+                "docs/guide/structure.md shows {path}, which the default starter does not write"
+            );
+        }
     }
 
     /// The files under `folder` as paths relative to `prefix`, leaving out build output and installed packages.

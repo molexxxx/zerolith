@@ -115,7 +115,7 @@ describe("documentation site", () =>
         expect(await page.locator(".toc a").allTextContents()).not.toContain("Commands");
         expect(await page.locator("#commands").count()).toBe(0);
         const tree = page.locator(".tree");
-        expect(await tree.locator("li").count()).toBe(20);
+        expect(await tree.locator("li").count()).toBe(27);
         expect(await tree.locator("li").first().textContent()).toBe("my-app/");
         expect(await tree.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
         expect(errors).toEqual([]);
