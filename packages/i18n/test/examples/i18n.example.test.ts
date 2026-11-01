@@ -54,11 +54,11 @@ describe("internationalization guide", () =>
     it("messages", async () =>
     {
         const folder = new URL("../fixtures/messages/", import.meta.url);
-        for (const name of ["en", "de"])
+        await Promise.all(["en", "de"].map(async (name) =>
         {
             const catalog = JSON.parse(await readFile(new URL(`${name}.json`, folder), "utf8")) as Record<string, string>;
             expect(compileMessages(name, catalog, { language: "ts", source: `${name}.json` }).code).toBe(await readFile(new URL(`${name}.ts`, folder), "utf8"));
-        }
+        }));
         expect(compileIndex(["en", "de"], { language: "ts" })).toBe(await readFile(new URL("index.ts", folder), "utf8"));
         // #region use
         const saved = Date.UTC(2026, 9, 28, 9, 30);
