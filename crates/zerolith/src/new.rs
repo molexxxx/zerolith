@@ -31,7 +31,7 @@ pub enum Tool {
 pub enum Start {
     /// The starter, written in the language and for the tools chosen.
     Starter,
-    /// The fullstack example: a notes app under `/app/` with its own Node backend.
+    /// The fullstack example: Harbor, a team's projects and tasks under `/app/`, with its own Node backend.
     Fullstack,
 }
 
@@ -71,13 +71,13 @@ impl Choice {
         skill: true,
     };
 
-    /// The fullstack example as it is: TypeScript with `html` templates on the command line, without the inspector.
+    /// The fullstack example as it is: TypeScript with `html` templates on the command line, with the inspector.
     pub const FULLSTACK: Choice = Choice {
         start: Start::Fullstack,
         tool: Tool::CommandLine,
         typescript: true,
         jsx: false,
-        devtools: false,
+        devtools: true,
         skill: true,
     };
 
@@ -102,39 +102,119 @@ const TOOL_VERSIONS: &str = include_str!("../versions.json");
 /// The favicon from `brand/app-icon`, copied into the crate so the published crate carries it; a test keeps the two in step.
 const FAVICON: &str = include_str!("../templates/favicon.svg");
 
-/// The application files of `examples/fullstack`, copied into the crate so the published crate carries them. The example's README and its test, which runs this repository's build of the command line, stay behind; the scaffold writes its own. A test keeps the copy in step with the example, apart from the schema path in `zerolith.json`, which points into `node_modules` in a project of its own.
-const FULLSTACK_FILES: [(&str, &str); 8] = [
+/// The files of `examples/fullstack`, its tests among them, copied into the crate so the published crate carries them. The example's README and its end-to-end test, which runs this repository's build of the command line, stay behind; the scaffold writes its own README. A test keeps the copy in step with the example, apart from the schema path in `zerolith.json`, which points into `node_modules` in a project of its own.
+const FULLSTACK_FILES: [(&str, &str); 28] = [
     (
         "index.html",
         include_str!("../templates/examples/fullstack/index.html"),
     ),
     (
-        "server.ts",
-        include_str!("../templates/examples/fullstack/server.ts"),
+        "server/api.ts",
+        include_str!("../templates/examples/fullstack/server/api.ts"),
     ),
     (
-        "zerolith.json",
-        include_str!("../templates/examples/fullstack/zerolith.json"),
+        "server/app.ts",
+        include_str!("../templates/examples/fullstack/server/app.ts"),
+    ),
+    (
+        "server/data.ts",
+        include_str!("../templates/examples/fullstack/server/data.ts"),
+    ),
+    (
+        "server/events.ts",
+        include_str!("../templates/examples/fullstack/server/events.ts"),
+    ),
+    (
+        "server/main.ts",
+        include_str!("../templates/examples/fullstack/server/main.ts"),
+    ),
+    (
+        "server/node.ts",
+        include_str!("../templates/examples/fullstack/server/node.ts"),
+    ),
+    (
+        "server/static.ts",
+        include_str!("../templates/examples/fullstack/server/static.ts"),
+    ),
+    (
+        "shared/api.ts",
+        include_str!("../templates/examples/fullstack/shared/api.ts"),
+    ),
+    (
+        "shared/model.ts",
+        include_str!("../templates/examples/fullstack/shared/model.ts"),
+    ),
+    (
+        "shared/schema.ts",
+        include_str!("../templates/examples/fullstack/shared/schema.ts"),
+    ),
+    (
+        "src/components/dashboard.ts",
+        include_str!("../templates/examples/fullstack/src/components/dashboard.ts"),
+    ),
+    (
+        "src/components/not-found.ts",
+        include_str!("../templates/examples/fullstack/src/components/not-found.ts"),
+    ),
+    (
+        "src/components/project.ts",
+        include_str!("../templates/examples/fullstack/src/components/project.ts"),
+    ),
+    (
+        "src/components/projects.ts",
+        include_str!("../templates/examples/fullstack/src/components/projects.ts"),
+    ),
+    (
+        "src/components/shell.ts",
+        include_str!("../templates/examples/fullstack/src/components/shell.ts"),
+    ),
+    (
+        "src/components/sign-in.ts",
+        include_str!("../templates/examples/fullstack/src/components/sign-in.ts"),
+    ),
+    (
+        "src/components/ui.ts",
+        include_str!("../templates/examples/fullstack/src/components/ui.ts"),
     ),
     (
         "src/env.d.ts",
         include_str!("../templates/examples/fullstack/src/env.d.ts"),
     ),
     (
-        "src/main.ts",
-        include_str!("../templates/examples/fullstack/src/main.ts"),
+        "src/locale.ts",
+        include_str!("../templates/examples/fullstack/src/locale.ts"),
     ),
     (
-        "src/notes.ts",
-        include_str!("../templates/examples/fullstack/src/notes.ts"),
+        "src/main.ts",
+        include_str!("../templates/examples/fullstack/src/main.ts"),
     ),
     (
         "src/router.ts",
         include_str!("../templates/examples/fullstack/src/router.ts"),
     ),
     (
+        "src/routes.ts",
+        include_str!("../templates/examples/fullstack/src/routes.ts"),
+    ),
+    (
+        "src/store.ts",
+        include_str!("../templates/examples/fullstack/src/store.ts"),
+    ),
+    (
         "src/styles.css",
         include_str!("../templates/examples/fullstack/src/styles.css"),
+    ),
+    (
+        "test/app.browser.test.ts",
+        include_str!("../templates/examples/fullstack/test/app.browser.test.ts"),
+    ),
+    (
+        "test/server.test.ts",
+        include_str!("../templates/examples/fullstack/test/server.test.ts"),
+    ),
+    (
+        "zerolith.json",
+        include_str!("../templates/examples/fullstack/zerolith.json"),
     ),
 ];
 
@@ -275,7 +355,7 @@ fn package_json(name: &str, choice: Choice) -> String {
     )
 }
 
-/// The fullstack example's package.json: `dev` and `build` on the command line, `api` running the backend, and `start` running it over the build.
+/// The fullstack example's package.json: `dev` and `build` on the command line, `api` running the backend in watch mode, and `start` running it over the build.
 fn fullstack_package_json(name: &str) -> String {
     let framework = framework_version();
     let mut dev = tools();
@@ -284,13 +364,18 @@ fn fullstack_package_json(name: &str) -> String {
         name,
         &[
             ("dev", "zerolith dev"),
-            ("api", "node server.ts"),
+            ("api", "node --watch server/main.ts"),
             ("build", "zerolith build"),
-            ("start", "node server.ts --production"),
+            ("start", "node server/main.ts --production"),
         ],
         vec![
             dependency("zerolith", framework),
             dependency("@zerolith/router", framework),
+            dependency("@zerolith/forms", framework),
+            dependency("@zerolith/client", framework),
+            dependency("@zerolith/i18n", framework),
+            dependency("@zerolith/a11y", framework),
+            dependency("@zerolith/devtools", framework),
         ],
         dev,
     )
@@ -965,7 +1050,7 @@ const OXLINTRC: &str = "{\n    \"plugins\": [\"typescript\", \"unicorn\", \"impo
 
 fn tsconfig(choice: Choice) -> String {
     let files = match (choice.start, choice.tool) {
-        (Start::Fullstack, _) => "\"server.ts\", \"src\", \"test\", \"vitest.config.ts\"",
+        (Start::Fullstack, _) => "\"server\", \"shared\", \"src\", \"test\", \"vitest.config.ts\"",
         (Start::Starter, Tool::Vite) => {
             "\"src\", \"test\", \"vite.config.ts\", \"vitest.config.ts\""
         }
@@ -1137,9 +1222,21 @@ fn readme(name: &str, choice: Choice) -> String {
 
 const FULLSTACK_README: &str = r##"# __NAME__
 
-A zerolith application with its own backend, written from the fullstack example: a notes page under `/app/` that lists and adds notes through a JSON API under `/api`. The backend is `server.ts`, plain Node with no dependencies, which Node 24 or newer runs as TypeScript with no build step.
+A zerolith application with its own backend, written from the fullstack example: Harbor, where a small team keeps its projects and tasks. A member signs in, sees the day's numbers and the team's activity live on the dashboard, starts projects, and moves tasks across a project's board. The app is served under `/app/` and talks to a JSON API under `/api`; the backend, in `server/`, is plain Node with no dependencies, which Node 24 or newer runs as TypeScript with no build step.
 
 The commands below are the project's npm scripts: `dev` and `build` run the zerolith command line that `npm install` put in `node_modules`, and `api` and `start` run the backend.
+
+## What it shows
+
+| Part | Where | What to look at |
+| --- | --- | --- |
+| Shared types and validation | `shared/` | One `Api` contract that the backend answers and the typed client calls, and Standard Schemas that the forms run in the browser and the API runs again |
+| Sessions | `server/api.ts`, `src/store.ts`, `src/main.ts` | An HttpOnly cookie on the app's own origin, and the sign-in page shown until the backend knows the member |
+| Forms | `src/components/sign-in.ts`, `projects.ts`, `project.ts` | Native forms sent with `@zerolith/forms`, with field errors from the shared schema or from the backend |
+| Live updates | `server/events.ts`, `src/components/dashboard.ts` | Server-sent events, closed with the page through `onDispose`, and announced to screen readers |
+| Routing | `src/routes.ts` | A loader, a title from the loaded data, and a page whose code loads on its first visit |
+| Formatting | `src/locale.ts` | Relative times and numbers in the reader's format, through `Intl`, with nothing shipped |
+| Tests | `test/` | The backend called as a function in Node, and the pages in Chromium |
 
 ## Develop
 
@@ -1149,13 +1246,13 @@ While you develop, two processes run side by side. Start the backend in one term
 npm run api
 ```
 
-It serves the API at http://127.0.0.1:3001/api/notes. Then start the app in a second terminal:
+It serves the API at http://127.0.0.1:3001/api/ in watch mode: a change to a file under `server/` or `shared/` restarts it, and its data, which lives in memory, starts over. Then start the app in a second terminal:
 
 ```
 npm run dev
 ```
 
-`zerolith dev` serves the app at http://127.0.0.1:8080/app/ with live reload, or on the next free port when 8080 is taken, as its banner says, and the site root redirects to `/app/`. It forwards every request under `/api` to the backend, as `zerolith.json` says, so the page calls `fetch("/api/notes")` on its own origin, with no CORS to configure, and cookies work as they will in production:
+`zerolith dev` serves the app at http://127.0.0.1:8080/app/ with live reload, or on the next free port when 8080 is taken, as its banner says, and the site root redirects to `/app/`. It forwards every request under `/api` to the backend, as `zerolith.json` says, so the app calls the API on its own origin, with no CORS to configure, and the session cookie works as it will in production:
 
 ```json
 {
@@ -1167,7 +1264,7 @@ npm run dev
 }
 ```
 
-An edit under `src/` reloads the page; an edit to `server.ts` needs the backend restarted. To run the backend on another port, set `PORT`, as in `PORT=4000 npm run api`, and point the proxy at it.
+Sign in as `ada@harbor.test` with the password `analytical`. In a second window, sign in as `grace@harbor.test` with `compiler`, and what one member does appears on the other's dashboard as it happens. To run the backend on another port, set `PORT`, as in `PORT=4000 npm run api`, and point the proxy at it.
 
 ## Build
 
@@ -1175,7 +1272,7 @@ An edit under `src/` reloads the page; an edit to `server.ts` needs the backend 
 npm run build
 ```
 
-`zerolith build` bundles and minifies the app into `dist/` for the base in `zerolith.json`, so every URL in `dist/index.html` starts with `/app/`, such as `/app/assets/index-<hash>.js`. The router follows the same base through `import.meta.env.BASE_URL`, so its links are `/app/` and `/app/about` while developing and in production alike.
+`zerolith build` bundles and minifies the app into `dist/` for the base in `zerolith.json`, so every URL in `dist/index.html` starts with `/app/`. The project board, which the router loads with `lazy()`, is a chunk of its own, fetched the first time a member opens a project.
 
 ## Run the build
 
@@ -1183,13 +1280,15 @@ npm run build
 npm start
 ```
 
-`npm start` runs `node server.ts --production`: one server answers the API and serves `dist/` under `/app/`, at http://127.0.0.1:3001/app/. The hashed files under `assets/` are cached for a year, and every other path under `/app/` gets `index.html`, uncached, so a route such as `/app/about` loads directly and a new build is picked up at once.
+`npm start` runs `node server/main.ts --production`: one server answers the API and serves `dist/` under `/app/`, at http://127.0.0.1:3001/app/. The hashed files under `assets/` are cached for a year, and every other path under `/app/` gets `index.html`, uncached, so a route such as `/app/projects/1` loads directly and a new build is picked up at once.
 
 To check the build without the backend serving it, `npx zerolith preview` serves `dist/` under the same base and forwards `/api` the same way, with `npm run api` running.
 
 ## Deploy
 
-The project deploys as one Node application on Node 24 or newer: install the dependencies, run `npm run build`, and start it with `npm start`, with `PORT` set to the port it should listen on. The server listens on 127.0.0.1, so put a reverse proxy such as nginx or Caddy in front of it, or change the address in `server.ts` to `0.0.0.0` on a host that routes traffic to the port directly. The notes live in memory and start over when the server restarts; move them to a database before relying on them.
+The project deploys as one Node application on Node 24 or newer: install the dependencies, run `npm run build`, and start it with `npm start`, with `PORT` set to the port it should listen on. The server listens on 127.0.0.1, so put a reverse proxy such as Caddy or nginx in front of it to serve HTTPS. When the proxy sends `X-Forwarded-Proto: https`, as Caddy does and nginx does with `proxy_set_header X-Forwarded-Proto $scheme;`, the session cookie is marked `Secure`.
+
+The data lives in memory and starts over when the server restarts, and the members and their passwords are written in `server/data.ts`; move both to a database, with password hashes, before relying on it.
 
 To serve `dist/` from a static host or another web server instead, give it the same rules: `index.html` for every path under `/app/` that names no file, a year of caching for `assets/`, and `/api` forwarded to the backend. The [building and serving guide](https://molexxxx.github.io/zerolith/guide/deploying/) has the setup for static hosts, nginx, IIS, Express, and ASP.NET Core.
 
@@ -1199,20 +1298,34 @@ Variables in `.env` whose names start with `PUBLIC_` reach the app's code as `im
 
 ## Tests and checks
 
-`npm test` runs the tests in `test/`: `server.test.ts` starts the backend on a free port and checks the API and how it serves a build, in Node, and `notes.browser.test.ts` renders the notes page against an API kept in memory, in headless Chromium; run `npx playwright install chromium` once first. `npm run check` runs the type check, the linter, the tests, and the build.
+`npm test` runs the tests in `test/`: `server.test.ts` calls the backend as the function it is, with no port, and checks sessions, validation, the live stream, and how it serves a build, in Node; `app.browser.test.ts` renders the pages against an API kept in memory, in headless Chromium; run `npx playwright install chromium` once first. `npm run check` runs the type check, the linter, the tests, and the build.
 
 ## Layout
 
 ```
-server.ts                the backend: the API, and the built app with --production
-zerolith.json            the base, /app/, and the proxy from /api to the backend
-index.html               the page: the stylesheet and the entry module
-src/main.ts              the entry: navigation and the current page
-src/router.ts            the routes, under the base from zerolith.json
-src/notes.ts             the notes page, which calls the API
-src/styles.css           the global styles
-src/env.d.ts             the types of import.meta.env
-test/                    the backend's tests and the page's
+server/               the backend, plain Node: no dependencies, no build step
+    main.ts           starts it: the API, and the built app with --production
+    app.ts            one function from Request to Response: /api, then the app
+    api.ts            the API's routes, with sessions and validation
+    data.ts           the data, in memory, and the numbers derived from it
+    events.ts         the live activity stream, as server-sent events
+    static.ts         serves dist/ under /app/ with the right caching
+    node.ts           runs the function on Node's HTTP server
+shared/               imported by the app and the backend alike
+    model.ts          the types both sides exchange
+    api.ts            the API contract the typed client follows
+    schema.ts         the validation the forms and the API share
+src/                  the app
+    main.ts           the entry: the sign-in page or the app
+    routes.ts         the route table
+    router.ts         the router, under the base /app/
+    store.ts          the typed client, the session, and shared data
+    locale.ts         dates and numbers in the reader's format
+    styles.css        the tokens and global styles
+    components/       one file per page, and ui.ts for shared pieces
+test/                 the backend's tests in Node, the pages' in Chromium
+zerolith.json         the base, /app/, and the proxy from /api to the backend
+index.html            the page: the stylesheet and the entry module
 ```
 
 `AGENTS.md` is the same map for coding agents, and it points them at the zerolith skill.
@@ -1220,31 +1333,39 @@ test/                    the backend's tests and the page's
 
 const FULLSTACK_AGENTS: &str = r##"# __NAME__: guide for coding agents
 
-A zerolith application with its own backend, written from the fullstack example. The app is served under `/app/` and calls a JSON API under `/api`; `server.ts` is the backend, plain Node with no dependencies, and serves the build in production. The app develops and builds on the zerolith command line; packages load from `node_modules` with no import map, and there is no Vite config. This file holds what is specific to this project. __SKILL__
+A zerolith application with its own backend, written from the fullstack example: Harbor, a team's projects and tasks. The app is served under `/app/` and calls a JSON API under `/api`; `server/` is the backend, plain Node with no dependencies, which also serves the build in production, and `shared/` holds what both sides import. The app develops and builds on the zerolith command line; packages load from `node_modules` with no import map, and there is no Vite config. This file holds what is specific to this project. __SKILL__
 
 ## Commands
 
-- Development runs two processes: `npm run api` starts the backend on port 3001, and `npm run dev` serves the app under `/app/` with live reload, forwarding `/api` to the backend as `zerolith.json` says. Restart `npm run api` after changing `server.ts`.
+- Development runs two processes: `npm run api` starts the backend on port 3001 and restarts it when `server/` or `shared/` changes, and `npm run dev` serves the app under `/app/` with live reload, forwarding `/api` to the backend as `zerolith.json` says.
 - `npm run build` writes `dist/` for the base `/app/`; `npm start` serves the API and `dist/` from the backend.
-- `npm run check` is the gate: typecheck, lint, the backend's tests in Node and the page's in Chromium, and the build.
+- `npm run check` is the gate: typecheck, lint, the backend's tests in Node and the pages' in Chromium, and the build.
+- Sign in as `ada@harbor.test` with the password `analytical`.
 
 ## Rules
 
 - Bind the signal, not its value: a live binding takes `count`, never `count.get()`, which freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.
-- Components are capitalized functions returning `html` templates, with their `css` literal next to the markup.
-- The page calls the API by path on its own origin, such as `fetch("/api/notes")`, never by host and port: the proxy forwards the request while developing, and the backend answers it in production.
-- The base `/app/` is set in `zerolith.json` and served by `server.ts`; change the two together. Links come from `router.href`, never a written-out `/app/` path.
-- `server.ts` runs on Node with its types stripped, so it uses erasable TypeScript only: no `enum`, `namespace`, or parameter properties.
+- Components are capitalized functions returning `html` templates, one file per page under `src/components/`, with their `css` literal next to the markup; pieces several pages share go in `src/components/ui.ts`.
+- What both sides need goes in `shared/`: the types in `model.ts`, the API contract in `api.ts`, and the validation in `schema.ts`. Change a route in `shared/api.ts` and `server/api.ts` together.
+- The app calls the API through the typed client in `src/store.ts`, or through a form whose `action` is the API's path, never by host and port: the proxy forwards the request while developing, and the backend answers it in production.
+- Every API route but signing in needs the session cookie. A failure answers with a problem document, and a form shows its `fields` next to the inputs.
+- A page that starts something, such as a timer or a stream, stops it with `onDispose`; a test mounts it as `mount(() => Page())`, so it runs inside an owner.
+- Read `router` inside functions only: `src/router.ts` imports the route table, which imports the components, so a component module that uses `router` at its top level runs before the router exists.
+- The base `/app/` is set in `zerolith.json` and served by `server/app.ts`; change the two together. Links come from `router.href`, never a written-out `/app/` path.
+- The backend runs on Node with its types stripped, so `server/` and `shared/` use erasable TypeScript only: no `enum`, `namespace`, or parameter properties.
 - Only `.env` variables named `PUBLIC_*` reach the browser, as `import.meta.env.PUBLIC_*`.
 
 ## Where things go
 
 | Change | Location |
 | --- | --- |
-| An API route | `server.ts`, under `/api`, with a test in `test/server.test.ts` |
-| A page | A route in `src/router.ts` and a component in `src/` |
+| An API route | Its contract in `shared/api.ts`, its handler in `server/api.ts`, and a test in `test/server.test.ts` |
+| A type both sides use | `shared/model.ts` |
+| Validation | `shared/schema.ts`, run by the form and by the API |
+| A page | A route in `src/routes.ts` and a component in `src/components/` |
+| State more than one page reads | `src/store.ts` |
 | A style token or a global style | `src/styles.css`; component styles stay in the component |
-| The base path or the backend's port | `zerolith.json` and `server.ts`, together |
+| The base path or the backend's port | `zerolith.json` and `server/`, together |
 | A test | `test/*.test.ts` runs in Node, `test/*.browser.test.ts` in Chromium |
 | A static file | `public/`, which the build copies into `dist/` |
 "##;
@@ -1252,7 +1373,7 @@ A zerolith application with its own backend, written from the fullstack example.
 const FULLSTACK_VITEST_CONFIG: &str = r#"import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
 
-// The backend's tests run in Node, and the page's in headless Chromium.
+// The backend's tests run in Node, and the pages' in headless Chromium.
 export default defineConfig({
     test: {
         projects: [
@@ -1263,119 +1384,16 @@ export default defineConfig({
                 test: {
                     name: "browser",
                     include: ["test/**/*.browser.test.ts"],
-                    browser: { enabled: true, headless: true, provider: playwright(), instances: [{ browser: "chromium" }] }
+                    browser: {
+                        enabled: true,
+                        headless: true,
+                        provider: playwright(),
+                        instances: [{ browser: "chromium" }]
+                    }
                 }
             }
         ]
     }
-});
-"#;
-
-const FULLSTACK_SERVER_TEST: &str = r#"import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import type { Server } from "node:http";
-import type { AddressInfo } from "node:net";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterAll, expect, it } from "vitest";
-import { createBackend } from "../server.ts";
-
-const servers: Server[] = [];
-const dist = mkdtempSync(join(tmpdir(), "dist-"));
-
-/** Starts a backend on a free port and resolves with its origin. */
-function listen(server: Server): Promise<string>
-{
-    servers.push(server);
-    return new Promise((resolve) =>
-    {
-        server.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}`));
-    });
-}
-
-afterAll(() =>
-{
-    for (const server of servers)
-    {
-        server.close();
-    }
-    rmSync(dist, { recursive: true, force: true });
-});
-
-it("lists the notes and adds one", async () =>
-{
-    const origin = await listen(createBackend());
-    const listed = await fetch(`${origin}/api/notes`);
-    const before = (await listed.json()) as unknown[];
-    const added = await fetch(`${origin}/api/notes`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text: "Test the API" })
-    });
-    expect(added.status).toBe(201);
-    expect(await added.json()).toMatchObject({ text: "Test the API" });
-    const after = await fetch(`${origin}/api/notes`);
-    expect(await after.json()).toHaveLength(before.length + 1);
-});
-
-it("refuses a note without text", async () =>
-{
-    const origin = await listen(createBackend());
-    const response = await fetch(`${origin}/api/notes`, { method: "POST", body: JSON.stringify({ text: " " }) });
-    expect(response.status).toBe(400);
-});
-
-// A stand-in for what npm run build writes, so the test needs no build first.
-it("serves the build under /app/, with index.html for routes and the hashed files cached", async () =>
-{
-    mkdirSync(join(dist, "assets"));
-    writeFileSync(join(dist, "index.html"), "<!doctype html><title>Notes</title>");
-    writeFileSync(join(dist, "assets", "index-1a2b3c4d.js"), "");
-    const origin = await listen(createBackend({ dist }));
-    const home = await fetch(`${origin}/`, { redirect: "manual" });
-    expect(home.headers.get("location")).toBe("/app/");
-    const route = await fetch(`${origin}/app/about`);
-    expect(route.headers.get("cache-control")).toBe("no-cache");
-    expect(await route.text()).toContain("<title>Notes</title>");
-    const asset = await fetch(`${origin}/app/assets/index-1a2b3c4d.js`);
-    expect(asset.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
-    const missing = await fetch(`${origin}/app/assets/missing.js`);
-    expect(missing.status).toBe(404);
-});
-"#;
-
-const FULLSTACK_PAGE_TEST: &str = r#"import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, mount, settle } from "@zerolith/test";
-import type { Note } from "../src/notes.ts";
-
-// The notes page against an API kept in memory. The page asks for the notes
-// as soon as its module runs, so fetch is replaced before it is imported.
-const saved: Note[] = [{ id: 1, text: "Write the first note" }];
-
-vi.stubGlobal("fetch", (_url: string, init?: RequestInit) =>
-{
-    if (init?.method === "POST")
-    {
-        const note = { id: saved.length + 1, text: (JSON.parse(String(init.body)) as { text: string }).text };
-        saved.push(note);
-        return Promise.resolve(Response.json(note, { status: 201 }));
-    }
-    return Promise.resolve(Response.json(saved));
-});
-
-const { Notes } = await import("../src/notes.ts");
-
-afterEach(cleanup);
-
-it("lists the notes from the API and adds one through the form", async () =>
-{
-    const { container } = mount(Notes());
-    await settle();
-    expect(container.querySelectorAll("li")).toHaveLength(1);
-    const input = container.querySelector("input") as HTMLInputElement;
-    input.value = "Add a second note";
-    input.form?.requestSubmit();
-    await settle();
-    expect(Array.from(container.querySelectorAll("li"), (item) => item.textContent)).toEqual(["Write the first note", "Add a second note"]);
 });
 "#;
 
@@ -1541,14 +1559,6 @@ fn fullstack_files(name: &str, shown: &str, choice: Choice) -> Vec<(String, Stri
             FULLSTACK_VITEST_CONFIG.to_string(),
         ),
         (".gitignore".to_string(), GITIGNORE.to_string()),
-        (
-            "test/server.test.ts".to_string(),
-            FULLSTACK_SERVER_TEST.to_string(),
-        ),
-        (
-            "test/notes.browser.test.ts".to_string(),
-            FULLSTACK_PAGE_TEST.to_string(),
-        ),
     ];
     files.extend(
         FULLSTACK_FILES
@@ -1741,7 +1751,7 @@ fn settle_from(
             "Starting point",
             &[
                 "The starter: three pages in the brand style, in the language and with the tools you pick next",
-                "The fullstack example: a notes app under /app/ with its own Node backend, in TypeScript on the command line",
+                "The fullstack example: Harbor, a team's projects and tasks under /app/ with its own Node backend, in TypeScript on the command line",
             ],
         )? {
             1 => Start::Fullstack,
@@ -2252,7 +2262,7 @@ mod tests {
         let root =
             std::env::temp_dir().join(format!("zerolith-new-fullstack-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
-        let mut files = scaffold(&root, "My Notes", Choice::FULLSTACK).unwrap();
+        let mut files = scaffold(&root, "My Harbor", Choice::FULLSTACK).unwrap();
         files.sort();
         let mut found = Vec::new();
         files_under(&root, "", &mut found);
@@ -2267,13 +2277,31 @@ mod tests {
                 "README.md",
                 "index.html",
                 "package.json",
-                "server.ts",
+                "server/api.ts",
+                "server/app.ts",
+                "server/data.ts",
+                "server/events.ts",
+                "server/main.ts",
+                "server/node.ts",
+                "server/static.ts",
+                "shared/api.ts",
+                "shared/model.ts",
+                "shared/schema.ts",
+                "src/components/dashboard.ts",
+                "src/components/not-found.ts",
+                "src/components/project.ts",
+                "src/components/projects.ts",
+                "src/components/shell.ts",
+                "src/components/sign-in.ts",
+                "src/components/ui.ts",
                 "src/env.d.ts",
+                "src/locale.ts",
                 "src/main.ts",
-                "src/notes.ts",
                 "src/router.ts",
+                "src/routes.ts",
+                "src/store.ts",
                 "src/styles.css",
-                "test/notes.browser.test.ts",
+                "test/app.browser.test.ts",
                 "test/server.test.ts",
                 "tsconfig.json",
                 "vitest.config.ts",
@@ -2290,7 +2318,7 @@ mod tests {
 
         let manifest: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(root.join("package.json")).unwrap()).unwrap();
-        assert_eq!(manifest["name"], "my-notes");
+        assert_eq!(manifest["name"], "my-harbor");
         let scripts = manifest["scripts"].as_object().unwrap();
         let mut names: Vec<&str> = scripts.keys().map(String::as_str).collect();
         names.sort_unstable();
@@ -2308,9 +2336,9 @@ mod tests {
             ]
         );
         assert_eq!(scripts["dev"], "zerolith dev");
-        assert_eq!(scripts["api"], "node server.ts");
+        assert_eq!(scripts["api"], "node --watch server/main.ts");
         assert_eq!(scripts["build"], "zerolith build");
-        assert_eq!(scripts["start"], "node server.ts --production");
+        assert_eq!(scripts["start"], "node server/main.ts --production");
         let starter: serde_json::Value =
             serde_json::from_str(&package_json("starter", Choice::DEFAULT)).unwrap();
         for script in ["check", "typecheck", "lint", "test"] {
@@ -2332,6 +2360,11 @@ mod tests {
         assert_eq!(
             pinned("dependencies"),
             [
+                ("@zerolith/a11y".to_string(), framework.to_string()),
+                ("@zerolith/client".to_string(), framework.to_string()),
+                ("@zerolith/devtools".to_string(), framework.to_string()),
+                ("@zerolith/forms".to_string(), framework.to_string()),
+                ("@zerolith/i18n".to_string(), framework.to_string()),
                 ("@zerolith/router".to_string(), framework.to_string()),
                 ("zerolith".to_string(), framework.to_string()),
             ]
@@ -2372,7 +2405,7 @@ mod tests {
         assert!(
             tsconfig.contains("\"types\": [\"node\"]")
                 && tsconfig.contains(
-                    "\"include\": [\"server.ts\", \"src\", \"test\", \"vitest.config.ts\"]"
+                    "\"include\": [\"server\", \"shared\", \"src\", \"test\", \"vitest.config.ts\"]"
                 ),
             "{tsconfig}"
         );
@@ -2380,7 +2413,8 @@ mod tests {
         for relative in &files {
             let text = fs::read_to_string(root.join(relative)).unwrap();
             assert!(
-                !text.contains("../../")
+                !text.contains("../../packages")
+                    && !text.contains("../../scripts")
                     && !text.contains("examples/fullstack")
                     && !text.contains("scripts/zerolith")
                     && !text.contains("npm run fullstack")
@@ -2389,15 +2423,15 @@ mod tests {
             );
         }
         let readme = fs::read_to_string(root.join("README.md")).unwrap();
-        assert!(readme.starts_with("# My Notes\n"));
+        assert!(readme.starts_with("# My Harbor\n"));
         for section in ["## Develop", "## Build", "## Run the build", "## Deploy"] {
             assert!(readme.contains(section), "README.md lacks {section}");
         }
         assert!(readme.contains("npm run api") && readme.contains("npm run dev"));
         let agents = fs::read_to_string(root.join("AGENTS.md")).unwrap();
-        assert!(agents.starts_with("# My Notes: guide for coding agents\n"));
+        assert!(agents.starts_with("# My Harbor: guide for coding agents\n"));
         assert!(agents.contains("two processes"));
-        assert!(scaffold(&root, "My Notes", Choice::FULLSTACK).is_err());
+        assert!(scaffold(&root, "My Harbor", Choice::FULLSTACK).is_err());
         let _ = fs::remove_dir_all(&root);
     }
 
@@ -2414,7 +2448,12 @@ mod tests {
         )];
         let mut found = Vec::new();
         files_under(&example, "", &mut found);
-        found.retain(|relative| relative != "README.md" && !relative.starts_with("test/"));
+        found.retain(|relative| {
+            relative != "README.md"
+                && relative != "test/fullstack.cli.test.ts"
+                && !relative.starts_with("dist/")
+                && !relative.starts_with("node_modules/")
+        });
         found.sort();
         let mut copied: Vec<&str> = FULLSTACK_FILES
             .iter()

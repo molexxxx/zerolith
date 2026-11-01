@@ -64,15 +64,14 @@ While developing, the application and its backend usually run as two servers, su
 
 A request whose path starts with a prefix goes to that backend with its path and query, the longest prefix first; `stripPrefix` removes the prefix, so `/auth/login` reaches the second backend as `/login`. Request and response bodies stream through, server-sent events included, and WebSocket connections are joined end to end. The backend receives its own address as `Host`, with the original request in `X-Forwarded-Host`, `X-Forwarded-Proto`, and `X-Forwarded-For`, and a redirect it sends to its own address comes back as a path on the dev server. When the backend is down, the request answers 502 and the terminal says why. `zerolith preview` forwards the same paths, and `--proxy /api=http://127.0.0.1:3000` adds a path for one run. The proxy forwards to `http://` addresses only for now.
 
-The [fullstack example](https://github.com/molexxxx/zerolith/tree/main/examples/fullstack) runs this setup end to end: a Node backend with an API under `/api`, and the application under `/app/`. `zerolith new my-app --example fullstack` starts a project of your own from it.
+The [fullstack example](https://github.com/molexxxx/zerolith/tree/main/examples/fullstack) runs this setup end to end: Harbor, an application under `/app/` with a Node backend that answers its API under `/api`, with a session cookie and a live stream of server-sent events, both through the proxy. `zerolith new my-app --example fullstack` starts a project of your own from it.
 
 ## Served by a backend
 
-A backend that already runs in production can serve the build from its static file handler, which keeps the application and its API on one origin. Build into the backend's folder with `"build": { "out": "../server/public" }` in `zerolith.json`, or copy `dist/` there as a deploy step, and apply the same rules. In plain Node, with the application under `/app/`:
+A backend that already runs in production can serve the build from its static file handler, which keeps the application and its API on one origin. Build into the backend's folder with `"build": { "out": "../server/public" }` in `zerolith.json`, or copy `dist/` there as a deploy step, and apply the same rules. With the application under `/app/`, as a function from `Request` to `Response` that Node, Deno, Bun, or a worker can run:
 
 ```ts
 import { readFile } from "node:fs/promises";
-import type { IncomingMessage, ServerResponse } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
 
 const types: Record<string, string> = {
@@ -94,43 +93,35 @@ const types: Record<string, string> = {
  * and any other path under the base gets index.html, uncached, so routes
  * load directly and a new build is picked up at once.
  */
-async function serveApp(request: IncomingMessage, response: ServerResponse, dist: string, base: string): Promise<void>
+export async function serveApp(request: Request, dist: string, base: string): Promise<Response>
 {
-    const { pathname } = new URL(request.url ?? "/", "http://localhost");
+    const { pathname } = new URL(request.url);
     if (pathname === "/" || pathname === base.slice(0, -1))
     {
-        response.writeHead(302, { location: base }).end();
-        return;
-    }
-    if (!pathname.startsWith(base))
-    {
-        response.writeHead(404).end();
-        return;
+        return new Response(null, { status: 302, headers: { location: base } });
     }
     const relative = normalize(decodeURIComponent(pathname.slice(base.length)));
     const file = resolve(dist, relative);
-    if (!file.startsWith(resolve(dist) + sep) && file !== resolve(dist))
+    if (!pathname.startsWith(base) || (!file.startsWith(resolve(dist) + sep) && file !== resolve(dist)))
     {
-        response.writeHead(404).end();
-        return;
+        return new Response(null, { status: 404 });
     }
     if (extname(file) === "")
     {
-        response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" });
-        response.end(await readFile(join(dist, "index.html")));
-        return;
+        const page = await readFile(join(dist, "index.html"));
+        return new Response(page, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" } });
     }
     const content = await readFile(file).catch(() => undefined);
     if (content === undefined)
     {
-        response.writeHead(404).end();
-        return;
+        return new Response(null, { status: 404 });
     }
-    response.writeHead(200, {
-        "content-type": types[extname(file)] ?? "application/octet-stream",
-        "cache-control": relative.startsWith(`assets${sep}`) ? "public, max-age=31536000, immutable" : "no-cache"
+    return new Response(content, {
+        headers: {
+            "content-type": types[extname(file)] ?? "application/octet-stream",
+            "cache-control": relative.startsWith(`assets${sep}`) ? "public, max-age=31536000, immutable" : "no-cache"
+        }
     });
-    response.end(content);
 }
 ```
 

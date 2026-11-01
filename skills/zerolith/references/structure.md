@@ -50,6 +50,7 @@ Some files appear only when an application needs them, and they have places of t
 | `src/schema.ts` | A form validates its input | The Standard Schemas a form checks, which the server imports too |
 | `openapi.json`, `src/api.ts` | The app calls a backend that publishes an OpenAPI document | The contract, and the typed client `zerolith-client` generates from it |
 | `messages/`, `src/messages/`, `src/locale.ts` | The app speaks more than one language | A catalog per locale, the modules `zerolith-i18n` compiles from them, and the locale signal with its loaders |
+| `server/`, `shared/` | The backend is TypeScript in the same project | The backend, and the types, the API contract, and the schemas both sides import, as in the fullstack example |
 
 ## What each file owns
 
@@ -124,6 +125,6 @@ The command line comes from npm as `@zerolith/cli`, so `npx @zerolith/cli@alpha 
 | `zerolith new my-app --template js` | JavaScript with `html` templates and JSDoc types |
 | `zerolith new my-app --vite` | A project that develops and builds on Vite with `@zerolith/vite` |
 | `zerolith new my-app --buildless` | A project that deploys its modules behind an import map instead of a bundle |
-| `zerolith new my-app --example fullstack` | The fullstack example: an app under `/app/` with its own Node backend |
+| `zerolith new my-app --example fullstack` | The fullstack example: Harbor, a team's projects and tasks under `/app/`, with its own Node backend |
 
 Every starter pins the tool versions this repository tests with and installs its dependencies unless given `--no-install`. `cd my-app && npm run dev` starts it.

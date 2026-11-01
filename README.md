@@ -105,7 +105,7 @@ Everything below runs, is tested in this repository, and is published under the 
 | Command line | `@zerolith/cli` | The Rust command line with prebuilt binaries: `new`, `dev` with packages resolved from `node_modules`, a proxy to backends, and a base path, `build`, which bundles and minifies with templates prepared ahead of time, `preview`, `skill`, which writes the zerolith skill for coding agents, `importmap` with integrity hashes, and `doctor`, with shared settings in `zerolith.json` |
 | Vite | `@zerolith/vite` | For projects on Vite: JSX lowering, hot replacement that keeps named state, transform-time warnings, templates prepared at build time, and a production build check |
 
-Three example applications show it end to end: [notes](examples/notes), plain JavaScript on `zerolith dev` and `zerolith build`; [tasks](examples/tasks), TypeScript with a backend API, a typed client, and compiled messages, developed on Vite and bundled by `zerolith build`; and [fullstack](examples/fullstack), an app under `/app/` with a Node backend, reached through the dev server's proxy while developing and serving the build in production.
+Three example applications show it end to end: [notes](examples/notes), plain JavaScript on `zerolith dev` and `zerolith build`; [tasks](examples/tasks), TypeScript with a backend API, a typed client, and compiled messages, developed on Vite and bundled by `zerolith build`; and [fullstack](examples/fullstack), Harbor, a team's projects and tasks under `/app/` with a Node backend that shares its types and validation with the app, signs members in with a session cookie, streams activity live, and serves the build in production.
 
 ## Where it's going
 

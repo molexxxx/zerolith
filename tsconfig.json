@@ -41,6 +41,8 @@
         "benchmarks/*.ts",
         "examples/*/*.js",
         "examples/*/*.ts",
+        "examples/*/server",
+        "examples/*/shared",
         "examples/*/src",
         "examples/*/test",
         "vitest.config.ts"

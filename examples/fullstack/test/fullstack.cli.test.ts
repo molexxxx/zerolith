@@ -1,12 +1,14 @@
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { readFileSync, rmSync } from "node:fs";
+import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Browser, chromium } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { zerolithBinary } from "../../../scripts/zerolith.ts";
-import { createBackend } from "../server.ts";
+import { createApp } from "../server/app.ts";
+import { serve } from "../server/node.ts";
 
 /**
  * Runs the fullstack example as its README describes: the backend serves the
@@ -19,7 +21,7 @@ import { createBackend } from "../server.ts";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const out = join(root, "dist");
 const children: ChildProcess[] = [];
-const backends: ReturnType<typeof createBackend>[] = [];
+const backends: Server[] = [];
 let browser: Browser;
 
 function binary(): string
@@ -33,14 +35,11 @@ function binary(): string
 }
 
 /** Starts the backend on a free port and resolves with its origin. */
-function backend(dist?: string): Promise<string>
+async function backend(dist?: string): Promise<string>
 {
-    const server = dist === undefined ? createBackend() : createBackend({ dist });
+    const server = await serve(createApp(dist === undefined ? {} : { dist }), 0);
     backends.push(server);
-    return new Promise((resolve) =>
-    {
-        server.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}`));
-    });
+    return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 }
 
 /** Starts a zerolith server on a free port and resolves with its origin once it listens. */
@@ -66,7 +65,12 @@ function start(args: string[]): Promise<string>
     });
 }
 
-/** Lists the notes, adds one, follows a link, and loads a route directly; returns what went wrong. */
+/**
+ * Signs in, reads the dashboard, creates a project, opens a project's board,
+ * adds a task to it, and loads a route and a missing page directly; returns
+ * what went wrong. The 401 the page gets while nobody is signed in is the
+ * expected answer, so it is not counted.
+ */
 async function exercise(origin: string): Promise<string[]>
 {
     const page = await browser.newPage();
@@ -74,7 +78,7 @@ async function exercise(origin: string): Promise<string[]>
     page.on("pageerror", (error) => problems.push(error.message));
     page.on("console", (message) =>
     {
-        if (message.type() === "error")
+        if (message.type() === "error" && !message.text().includes("status of 401"))
         {
             problems.push(message.text());
         }
@@ -82,19 +86,28 @@ async function exercise(origin: string): Promise<string[]>
     try
     {
         await page.goto(`${origin}/`);
-        await page.waitForSelector("main li");
+        await page.waitForSelector("form[action='/api/session']");
         expect(new URL(page.url()).pathname).toBe("/app/");
-        expect(await page.locator("main li").count()).toBe(2);
-        await page.fill("input[name=text]", "Added through the proxy");
-        await page.click("form button");
-        await page.waitForFunction(() => document.querySelectorAll("main li").length === 3);
-        await page.click("nav a[href='/app/about']");
-        await page.waitForSelector("section h1:text('About')");
-        expect(new URL(page.url()).pathname).toBe("/app/about");
-        await page.goto(`${origin}/app/about`);
-        await page.waitForSelector("section h1:text('About')");
+        await page.fill("input[name=email]", "ada@harbor.test");
+        await page.fill("input[name=password]", "analytical");
+        await page.click("form button.primary");
+        await page.waitForSelector("h1:text('Welcome back, Ada.')");
+        expect(await page.locator(".stat .value").count()).toBe(4);
+        await page.click("nav a[href='/app/projects']");
+        await page.waitForSelector("h1:text('3 in motion.')");
+        await page.fill("input[name=name]", "Launch party");
+        await page.click("form button.primary");
+        await page.waitForSelector("li h2:text('Launch party')");
+        await page.click("li a:has(h2:text('Website relaunch'))");
+        await page.waitForSelector("h1:text('Website relaunch')");
+        expect(await page.title()).toBe("Website relaunch | Harbor");
+        await page.fill("input[name=title]", "Order the banners");
+        await page.click("form button.primary");
+        await page.waitForSelector(".task h3:text('Order the banners')");
+        await page.goto(`${origin}/app/projects/2`);
+        await page.waitForSelector("h1:text('Mobile app')");
         await page.goto(`${origin}/app/nowhere`);
-        await page.waitForSelector("section h1:text('Not found')");
+        await page.waitForSelector("h1:text('Nothing here.')");
         return problems;
     }
     finally
@@ -128,9 +141,8 @@ describe("fullstack example", () =>
     {
         const api = await backend();
         const origin = await start(["dev", root, "--proxy", `/api=${api}`]);
-        const notes = await fetch(`${origin}/api/notes`);
-        expect(notes.status).toBe(200);
-        expect(await notes.json()).toHaveLength(2);
+        const session = await fetch(`${origin}/api/session`);
+        expect(session.status).toBe(401);
         expect(await exercise(origin)).toEqual([]);
     });
 
@@ -146,7 +158,7 @@ describe("fullstack example", () =>
         const script = /src="(\/app\/assets\/index-[\w-]+\.js)"/.exec(page)?.[1] ?? "";
         const asset = await fetch(`${production}${script}`);
         expect(asset.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
-        expect((await fetch(`${production}/app/about`)).headers.get("cache-control")).toBe("no-cache");
+        expect((await fetch(`${production}/app/projects`)).headers.get("cache-control")).toBe("no-cache");
         expect(await exercise(production)).toEqual([]);
 
         const api = await backend();

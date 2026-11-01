@@ -1,18 +1,251 @@
+/*
+ * Harbor's tokens and global styles, in the zerolith brand turned up:
+ * basalt surfaces, square corners, 2 px rules, display type at poster sizes,
+ * and chartreuse for the mark, the primary action, the current page, and
+ * the one number that needs attention. Form controls are at least 44 px tall
+ * and show focus, invalid, and disabled states. Component styles live next
+ * to their markup in the css literals under src/components.
+ */
 :root
 {
-    color-scheme: light dark;
-    font-family: system-ui, sans-serif;
+    --bg: #0F1114;
+    --surface: #171A1F;
+    --raised: #1E2228;
+    --line: #2A2F37;
+    --control: #737C88;
+    --text: #E8EAED;
+    --muted: #9AA3AD;
+    --accent: #AACF16;
+    --accent-hover: #C8E679;
+    --on-accent: #0F1114;
+    --accent-text: #AACF16;
+    --focus: #AACF16;
+    --danger: #FF7B72;
+    --font-display: "Unbounded", system-ui, sans-serif;
+    --font-text: "Onest", system-ui, sans-serif;
+    --font-mono: "Martian Mono", ui-monospace, monospace;
+    --display: clamp(2.25rem, 5vw + 1rem, 4.5rem);
+    color-scheme: dark;
+    accent-color: var(--accent);
+}
+
+@media (prefers-color-scheme: light)
+{
+    :root
+    {
+        --bg: #F5F6F8;
+        --surface: #FFFFFF;
+        --raised: #ECEEF1;
+        --line: #D5DAE0;
+        --text: #0F1114;
+        --muted: #4F5864;
+        --accent-text: #4B5E00;
+        --focus: #4B5E00;
+        --danger: #C42B2B;
+        color-scheme: light;
+    }
+}
+
+*,
+*::before,
+*::after
+{
+    box-sizing: border-box;
 }
 
 body
 {
-    max-width: 40rem;
-    margin: 2rem auto;
-    padding: 0 1rem;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 1rem/1.6 var(--font-text);
 }
 
-nav
+h1,
+h2,
+h3
 {
-    display: flex;
-    gap: 1rem;
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1;
+}
+
+p
+{
+    margin: 0;
+}
+
+a
+{
+    color: inherit;
+    text-decoration-color: var(--control);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.25em;
+}
+
+a:hover
+{
+    text-decoration-color: var(--accent);
+}
+
+code
+{
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+}
+
+.eyebrow
+{
+    color: var(--accent-text);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+button
+{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 1.25rem;
+    border: 2px solid var(--text);
+    border-radius: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+button:hover
+{
+    background: var(--text);
+    color: var(--bg);
+}
+
+button.primary
+{
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
+}
+
+button.primary:hover
+{
+    border-color: var(--accent-hover);
+    background: var(--accent-hover);
+}
+
+button.danger
+{
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+button.danger:hover
+{
+    background: var(--danger);
+    color: var(--bg);
+}
+
+button:disabled
+{
+    border-style: dashed;
+    border-color: var(--control);
+    background: transparent;
+    color: var(--muted);
+    cursor: not-allowed;
+}
+
+input,
+select,
+textarea
+{
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0 0.75rem;
+    border: 2px solid var(--control);
+    border-radius: 0;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+}
+
+textarea
+{
+    min-height: 5.5rem;
+    padding: 0.5rem 0.75rem;
+    resize: vertical;
+}
+
+input:hover,
+select:hover,
+textarea:hover
+{
+    border-color: var(--text);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible
+{
+    outline: none;
+    border-color: var(--focus);
+    box-shadow: inset 0 0 0 1px var(--focus);
+}
+
+[aria-invalid="true"]
+{
+    border-color: var(--danger);
+}
+
+progress
+{
+    appearance: none;
+    width: 100%;
+    height: 0.5rem;
+    border: 0;
+    background: var(--line);
+}
+
+progress::-webkit-progress-bar
+{
+    background: var(--line);
+}
+
+progress::-webkit-progress-value
+{
+    background: var(--accent-text);
+}
+
+progress::-moz-progress-bar
+{
+    background: var(--accent-text);
+}
+
+:focus-visible
+{
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference)
+{
+    :root
+    {
+        --enter: enter 400ms ease-out;
+    }
+}
+
+@keyframes enter
+{
+    from
+    {
+        background: color-mix(in srgb, var(--accent) 24%, transparent);
+    }
 }
