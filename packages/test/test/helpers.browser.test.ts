@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { computed, html, resource, signal } from "zerolith";
+import { type View, computed, html, onDispose, resource, signal } from "zerolith";
 import { accessibilityIssues, cleanup, hydrationMismatches, mount, settle } from "@zerolith/test";
 
 afterEach(cleanup);
@@ -41,6 +41,21 @@ describe("mount and cleanup", () =>
         expect(host.textContent).toBe("");
         expect(document.body.contains(host)).toBe(true);
         host.remove();
+    });
+
+    it("calls a function inside an owner of its own, and runs its cleanups on unmount", () =>
+    {
+        const stopped: string[] = [];
+        function Ticker(): View
+        {
+            const tick = signal(0);
+            onDispose(() => stopped.push("ticker"));
+            return html`<p>${tick}</p>`;
+        }
+        const { container, unmount } = mount(() => Ticker());
+        expect(container.textContent).toBe("0");
+        unmount();
+        expect(stopped).toEqual(["ticker"]);
     });
 
     it("can stay detached", () =>

@@ -37,7 +37,7 @@ A project with `html` templates instead of JSX leaves the plugin out. `npm test`
 
 | Helper | What it does |
 | --- | --- |
-| `mount(view)` | Renders the view into a new container in the document and returns its `container`, its `root`, and `unmount()` |
+| `mount(view)` | Renders the view, or what a function returns, into a new container in the document, and returns its `container`, its `root`, and `unmount()` |
 | `cleanup()` | Unmounts everything `mount` created, newest first; register it with `afterEach` |
 | `settle()` | Waits for the asynchronous work a test started |
 | `hydrationMismatches(() => view)` | Renders the view on the server, hydrates a second copy over that markup, and returns every disagreement |
@@ -49,7 +49,12 @@ A project with `html` templates instead of JSX leaves the plugin out. `npm test`
 
 @include packages/test/test/examples/testing.example.browser.test.ts#mount test
 
-The container is a normal element: query it, dispatch events on it, or hand it to the runner's locator API. `mount` takes two options:
+The container is a normal element: query it, dispatch events on it, or hand it to the runner's locator API.
+
+> [!TIP]
+> A component that registers cleanups with `onDispose`, such as a page that starts a timer, needs an owner while it runs. Pass a function, as `mount(() => Dashboard())`: `mount` calls it inside an owner of its own, and the cleanups run when the test unmounts it. Called directly, as `mount(Dashboard())`, the component runs before any owner exists and fails with `on_dispose_outside_scope`.
+
+`mount` takes two options:
 
 | Option | What it does |
 | --- | --- |

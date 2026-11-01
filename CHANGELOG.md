@@ -6,6 +6,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Added
 
+- `@zerolith/test`: `mount` takes a function that returns the view, as `mount(() => Dashboard())`, and calls it inside an owner of its own, so a component that registers cleanups with `onDispose` mounts as it is, and its cleanups run when the test unmounts it. Called with the view itself, such a component ran before any owner existed and failed with `on_dispose_outside_scope`.
 - `@zerolith/router`: `observe` receives a `cancel` event for a navigation that a newer one replaced before it committed, so every `start` has an end. `@zerolith/otel` ends that navigation's span with `zerolith.navigation.canceled` and no error status.
 
 ### Changed
