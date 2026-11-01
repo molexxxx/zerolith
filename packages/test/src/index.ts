@@ -89,15 +89,17 @@ export function settle(rounds = 2): Promise<void>
 }
 
 /**
- * Renders `view()` with the server renderer, hydrates a second `view()` over
- * that markup, and returns every disagreement. An empty array means the
- * component hydrates cleanly; the container is discarded afterwards.
+ * Renders `view` with the server renderer, hydrates it over that markup,
+ * and returns every disagreement. Each pass calls `view` inside its own
+ * owner, so the effects and `onDispose` cleanups a component registers end
+ * before the helper returns. An empty array means the component hydrates
+ * cleanly; the container is discarded afterwards.
  */
 export function hydrationMismatches(view: () => unknown): HydrationMismatch[]
 {
     const container = document.createElement("div");
-    container.innerHTML = renderToString(view());
-    const result = hydrate(view(), container);
+    container.innerHTML = renderToString(view);
+    const result = hydrate(view, container);
     const mismatches = [...result.mismatches];
     result.dispose();
     return mismatches;

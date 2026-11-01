@@ -93,6 +93,41 @@ export interface Form
 
 const EMPTY: readonly string[] = [];
 
+/**
+ * The problem a failed response describes: its body when that is a problem
+ * document, or one built from the status. The server is a trust boundary,
+ * so `fields` keeps only own keys whose value is a message or a list of
+ * messages, a lone message becoming a list of one.
+ */
+function problemOf(body: unknown, response: Response): Problem
+{
+    if (!isProblem(body))
+    {
+        return { status: response.status, title: response.statusText === "" ? `HTTP ${response.status}` : response.statusText };
+    }
+    if (body.fields === undefined)
+    {
+        return body;
+    }
+    const fields: Record<string, readonly string[]> = Object.create(null) as Record<string, readonly string[]>;
+    for (const [name, value] of Object.entries(body.fields as Record<string, unknown>))
+    {
+        if (typeof value === "string")
+        {
+            fields[name] = [value];
+        }
+        else if (Array.isArray(value))
+        {
+            const messages = value.filter((message): message is string => typeof message === "string");
+            if (messages.length > 0)
+            {
+                fields[name] = messages;
+            }
+        }
+    }
+    return { ...body, fields };
+}
+
 function entries(data: FormData): [string, string][]
 {
     return [...data].map(([name, value]) => [name, typeof value === "string" ? value : value.name]);
@@ -198,16 +233,15 @@ export function createForm(options: FormOptions = {}): Form
         {
             return;
         }
-        const type = response.headers.get("content-type") ?? "";
-        if (type.includes(PROBLEM_MEDIA_TYPE))
+        const type = (response.headers.get("content-type") ?? "").toLowerCase();
+        if (type.includes(PROBLEM_MEDIA_TYPE) || !response.ok)
         {
-            fail((await response.json()) as Problem, element);
-            return;
-        }
-        if (!response.ok)
-        {
-            const body = type.includes("json") ? await response.json().catch(() => undefined) : undefined;
-            fail(isProblem(body) ? body : { status: response.status, title: response.statusText === "" ? `HTTP ${response.status}` : response.statusText }, element);
+            const body: unknown = type.includes("json") ? await response.json().catch(() => undefined) : undefined;
+            if (current.signal.aborted)
+            {
+                return;
+            }
+            fail(problemOf(body, response), element);
             return;
         }
         const parsed = response.redirected ? undefined : await parseBody(response);
@@ -242,7 +276,11 @@ export function createForm(options: FormOptions = {}): Form
             let field = fields.get(name);
             if (field === undefined)
             {
-                const errors = computed<readonly string[]>(() => problem.get()?.fields?.[name] ?? EMPTY);
+                const errors = computed<readonly string[]>(() =>
+                {
+                    const found = problem.get()?.fields;
+                    return found !== undefined && Object.hasOwn(found, name) ? found[name] ?? EMPTY : EMPTY;
+                });
                 field = {
                     errors,
                     error: computed(() => errors.get()[0]),

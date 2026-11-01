@@ -40,7 +40,11 @@ export interface Resource<T> extends ReadableSignal<T | undefined>
     reload(): void;
 }
 
-/** Creates a resource owned by the current effect or scope. */
+/**
+ * Creates a resource owned by the current effect or scope. The resource is
+ * a read-only signal of its value, so it binds in a template and drives
+ * `when` and `each` like any other signal, with its request state beside it.
+ */
 export function resource<P, T>(options: ResourceOptions<P, T>): Resource<T>
 {
     const value = signal<T | undefined>(undefined);
@@ -116,14 +120,13 @@ export function resource<P, T>(options: ResourceOptions<P, T>): Resource<T>
         };
     });
 
-    return {
-        get: () => value.get(),
+    return Object.assign(computed(() => value.get()), {
         status,
         pending: computed(() => status.get() === "pending"),
         error,
-        reload: () =>
+        reload: (): void =>
         {
             load(current);
         }
-    };
+    });
 }

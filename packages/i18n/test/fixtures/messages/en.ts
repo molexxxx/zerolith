@@ -11,31 +11,31 @@ interface Variant
     keys: string[];
     pattern: () => string;
 }
-const formats: Map<string, unknown> = new Map();
-function cached<T>(kind: string, options: object, create: () => T): T
+const $formats: Map<string, unknown> = new Map();
+function $cached<T>(kind: string, options: object, create: () => T): T
 {
     const key = kind + JSON.stringify(options);
-    let instance = formats.get(key) as T | undefined;
+    let instance = $formats.get(key) as T | undefined;
     if (instance === undefined)
     {
         instance = create();
-        formats.set(key, instance);
+        $formats.set(key, instance);
     }
     return instance;
 }
-function number(value: number, options: Intl.NumberFormatOptions): string
+function $number(value: number, options: Intl.NumberFormatOptions): string
 {
-    return cached("n", options, () => new Intl.NumberFormat(locale, options)).format(value);
+    return $cached("n", options, () => new Intl.NumberFormat(locale, options)).format(value);
 }
-function date(value: Date | number, options: Intl.DateTimeFormatOptions): string
+function $date(value: Date | number, options: Intl.DateTimeFormatOptions): string
 {
-    return cached("d", options, () => new Intl.DateTimeFormat(locale, options)).format(value);
+    return $cached("d", options, () => new Intl.DateTimeFormat(locale, options)).format(value);
 }
-function plural(value: number, type: "cardinal" | "ordinal"): string
+function $plural(value: number, type: "cardinal" | "ordinal", options: Intl.NumberFormatOptions): string
 {
-    return cached("p", { type }, () => new Intl.PluralRules(locale, { type })).select(value);
+    return $cached("p" + type, options, () => new Intl.PluralRules(locale, { ...$cached("n", options, () => new Intl.NumberFormat(locale, options)).resolvedOptions(), type })).select(value);
 }
-function better(rank: number[], current: number[] | undefined): boolean
+function $better(rank: number[], current: number[] | undefined): boolean
 {
     if (current === undefined)
     {
@@ -51,7 +51,7 @@ function better(rank: number[], current: number[] | undefined): boolean
     }
     return false;
 }
-function select(selectors: Selector[], variants: Variant[]): string
+function $select(selectors: Selector[], variants: Variant[]): string
 {
     let best: Variant | undefined;
     let bestRank: number[] | undefined;
@@ -80,7 +80,7 @@ function select(selectors: Selector[], variants: Variant[]): string
                 break;
             }
         }
-        if (matches && better(rank, bestRank))
+        if (matches && $better(rank, bestRank))
         {
             best = variant;
             bestRank = rank;
@@ -98,7 +98,7 @@ function select(selectors: Selector[], variants: Variant[]): string
  */
 export function notesCount(args: { count: number }): string
 {
-    return select([{ value: String(args.count), categories: [plural(args.count, "cardinal")] }], [{ keys: ["0"], pattern: () => "No notes yet" }, { keys: ["one"], pattern: () => "One note" }, { keys: ["*"], pattern: () => number(args.count, {  }) + " notes" }]);
+    return $select([{ value: String(args.count), categories: [$plural(args.count, "cardinal", {  })] }], [{ keys: ["0"], pattern: () => "No notes yet" }, { keys: ["one"], pattern: () => "One note" }, { keys: ["*"], pattern: () => $number(args.count, {  }) + " notes" }]);
 }
 
 /**
@@ -106,7 +106,7 @@ export function notesCount(args: { count: number }): string
  */
 export function savedAt(args: { when: Date | number }): string
 {
-    return "Saved " + date(args.when, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC", hour12: false });
+    return "Saved " + $date(args.when, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC", hour12: false });
 }
 
 /**

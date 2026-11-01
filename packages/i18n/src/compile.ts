@@ -414,6 +414,18 @@ const NUMBER_OPTIONS: Record<string, string> = {
     numberingSystem: "numberingSystem"
 };
 
+/** Names a module cannot bind; a message named so is exported under its name from a binding of its own. */
+const RESERVED: ReadonlySet<string> = new Set(["arguments", "await", "break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete", "do", "else", "enum", "eval", "export", "extends", "false", "finally", "for", "function", "if", "implements", "import", "in", "instanceof", "interface", "let", "new", "null", "package", "private", "protected", "public", "return", "static", "super", "switch", "this", "throw", "true", "try", "typeof", "var", "void", "while", "with", "yield"]);
+
+/** An argument or local name JavaScript can write as it is; MessageFormat also allows `-` and `.`, as in `$first-name`. */
+const PLAIN_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/** A property name as code: as it is when plain, quoted otherwise. */
+function property(name: string): string
+{
+    return PLAIN_NAME.test(name) ? name : JSON.stringify(name);
+}
+
 function identifier(key: string): string
 {
     const words = key.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[^A-Za-z0-9]+/).filter((word) => word !== "");
@@ -456,7 +468,7 @@ class Emitter
         {
             this.fail(`$${name} is used both as ${existing} and as ${type}`);
         }
-        return `args.${name}`;
+        return PLAIN_NAME.test(name) ? `args.${name}` : `args[${JSON.stringify(name)}]`;
     }
 
     private optionValue(value: Literal | Variable | undefined): string | undefined
@@ -577,13 +589,13 @@ class Emitter
         return value;
     }
 
-    /** Resolves a plain `{$x}` to its declaration when one exists. */
-    private resolve(expression: Expression): Expression
+    /** Resolves a plain `{$x}` to its `.input` declaration when one exists, or with `locals` to its `.local` one too, so a selector on a local selects as its expression does. */
+    private resolve(expression: Expression, locals = false): Expression
     {
         if (expression.fn === undefined && expression.operand?.kind === "variable")
         {
             const declared = this.message.declarations.get(expression.operand.name);
-            if (declared !== undefined && !declared.local)
+            if (declared !== undefined && (locals || !declared.local))
             {
                 return declared.expression;
             }
@@ -607,7 +619,7 @@ class Emitter
         }
         if (NUMBER_FUNCTIONS.has(fn))
         {
-            return `number(${this.numeric(expression)}, ${this.numberOptions(expression)})`;
+            return `$number(${this.numeric(expression)}, ${this.numberOptions(expression)})`;
         }
         if (DATE_FUNCTIONS.has(fn))
         {
@@ -617,7 +629,7 @@ class Emitter
                 this.fail(`:${fn} needs an operand`);
             }
             const value = operand.kind === "literal" ? `new Date(${JSON.stringify(operand.value)})` : this.argument(operand.name, "date");
-            return `date(${value}, ${this.dateOptions(expression)})`;
+            return `$date(${value}, ${this.dateOptions(expression)})`;
         }
         this.fail(`unknown function :${fn}`);
     }
@@ -625,7 +637,7 @@ class Emitter
     /** The JavaScript for a selector: its comparable value and the categories it matches. */
     selector(raw: Expression): string
     {
-        const expression = this.resolve(raw);
+        const expression = this.resolve(raw, true);
         const fn = expression.fn ?? "string";
         if (NUMBER_FUNCTIONS.has(fn))
         {
@@ -636,7 +648,7 @@ class Emitter
             {
                 return `{ value: String(${value}), categories: [] }`;
             }
-            return `{ value: String(${value}), categories: [plural(${value}, ${JSON.stringify(mode === "ordinal" ? "ordinal" : "cardinal")})] }`;
+            return `{ value: String(${value}), categories: [$plural(${value}, ${JSON.stringify(mode === "ordinal" ? "ordinal" : "cardinal")}, ${this.numberOptions(expression)})] }`;
         }
         if (fn === "string")
         {
@@ -667,8 +679,9 @@ class Emitter
             if (declaration.local)
             {
                 const value = this.format(declaration.expression);
-                this.locals.set(name, `local_${name}`);
-                this.prelude.push(`const local_${name} = ${value};`);
+                const binding = PLAIN_NAME.test(name) ? `local_${name}` : `local_${this.locals.size}`;
+                this.locals.set(name, binding);
+                this.prelude.push(`const ${binding} = ${value};`);
             }
         }
         if (this.message.pattern !== undefined)
@@ -677,35 +690,35 @@ class Emitter
         }
         const selectors = this.message.selectors.map((selector) => this.selector(selector));
         const variants = this.message.variants.map((variant) => `{ keys: ${JSON.stringify(variant.keys)}, pattern: () => ${this.pattern(variant.pattern)} }`);
-        return `select([${selectors.join(", ")}], [${variants.join(", ")}])`;
+        return `$select([${selectors.join(", ")}], [${variants.join(", ")}])`;
     }
 }
 
-const HELPERS = `const formats = new Map();
-function cached(kind, options, create)
+const HELPERS = `const $formats = new Map();
+function $cached(kind, options, create)
 {
     const key = kind + JSON.stringify(options);
-    let instance = formats.get(key);
+    let instance = $formats.get(key);
     if (instance === undefined)
     {
         instance = create();
-        formats.set(key, instance);
+        $formats.set(key, instance);
     }
     return instance;
 }
-function number(value, options)
+function $number(value, options)
 {
-    return cached("n", options, () => new Intl.NumberFormat(locale, options)).format(value);
+    return $cached("n", options, () => new Intl.NumberFormat(locale, options)).format(value);
 }
-function date(value, options)
+function $date(value, options)
 {
-    return cached("d", options, () => new Intl.DateTimeFormat(locale, options)).format(value);
+    return $cached("d", options, () => new Intl.DateTimeFormat(locale, options)).format(value);
 }
-function plural(value, type)
+function $plural(value, type, options)
 {
-    return cached("p", { type }, () => new Intl.PluralRules(locale, { type })).select(value);
+    return $cached("p" + type, options, () => new Intl.PluralRules(locale, { ...$cached("n", options, () => new Intl.NumberFormat(locale, options)).resolvedOptions(), type })).select(value);
 }
-function select(selectors, variants)
+function $select(selectors, variants)
 {
     let best;
     let bestRank;
@@ -738,7 +751,7 @@ function select(selectors, variants)
         {
             continue;
         }
-        if (matches && better(rank, bestRank))
+        if (matches && $better(rank, bestRank))
         {
             best = variant;
             bestRank = rank;
@@ -746,7 +759,7 @@ function select(selectors, variants)
     }
     return best === undefined ? "" : best.pattern();
 }
-function better(rank, current)
+function $better(rank, current)
 {
     if (current === undefined)
     {
@@ -773,31 +786,31 @@ interface Variant
     keys: string[];
     pattern: () => string;
 }
-const formats: Map<string, unknown> = new Map();
-function cached<T>(kind: string, options: object, create: () => T): T
+const $formats: Map<string, unknown> = new Map();
+function $cached<T>(kind: string, options: object, create: () => T): T
 {
     const key = kind + JSON.stringify(options);
-    let instance = formats.get(key) as T | undefined;
+    let instance = $formats.get(key) as T | undefined;
     if (instance === undefined)
     {
         instance = create();
-        formats.set(key, instance);
+        $formats.set(key, instance);
     }
     return instance;
 }
-function number(value: number, options: Intl.NumberFormatOptions): string
+function $number(value: number, options: Intl.NumberFormatOptions): string
 {
-    return cached("n", options, () => new Intl.NumberFormat(locale, options)).format(value);
+    return $cached("n", options, () => new Intl.NumberFormat(locale, options)).format(value);
 }
-function date(value: Date | number, options: Intl.DateTimeFormatOptions): string
+function $date(value: Date | number, options: Intl.DateTimeFormatOptions): string
 {
-    return cached("d", options, () => new Intl.DateTimeFormat(locale, options)).format(value);
+    return $cached("d", options, () => new Intl.DateTimeFormat(locale, options)).format(value);
 }
-function plural(value: number, type: "cardinal" | "ordinal"): string
+function $plural(value: number, type: "cardinal" | "ordinal", options: Intl.NumberFormatOptions): string
 {
-    return cached("p", { type }, () => new Intl.PluralRules(locale, { type })).select(value);
+    return $cached("p" + type, options, () => new Intl.PluralRules(locale, { ...$cached("n", options, () => new Intl.NumberFormat(locale, options)).resolvedOptions(), type })).select(value);
 }
-function better(rank: number[], current: number[] | undefined): boolean
+function $better(rank: number[], current: number[] | undefined): boolean
 {
     if (current === undefined)
     {
@@ -813,7 +826,7 @@ function better(rank: number[], current: number[] | undefined): boolean
     }
     return false;
 }
-function select(selectors: Selector[], variants: Variant[]): string
+function $select(selectors: Selector[], variants: Variant[]): string
 {
     let best: Variant | undefined;
     let bestRank: number[] | undefined;
@@ -842,7 +855,7 @@ function select(selectors: Selector[], variants: Variant[]): string
                 break;
             }
         }
-        if (matches && better(rank, bestRank))
+        if (matches && $better(rank, bestRank))
         {
             best = variant;
             bestRank = rank;
@@ -884,6 +897,11 @@ export function compileMessages(locale: string, catalog: Catalog, options: Compi
         {
             throw new Error(`zerolith/i18n: keys "${key}" and another one both become ${name}`);
         }
+        if (name === "locale")
+        {
+            throw new Error(`zerolith/i18n: key "${key}" becomes locale, which every compiled module exports; rename the key`);
+        }
+        const binding = RESERVED.has(name) ? `message_${name}` : name;
         seen.add(name);
         names.push(name);
         const message = new Parser(source, key).parse();
@@ -891,16 +909,16 @@ export function compileMessages(locale: string, catalog: Catalog, options: Compi
         const body = emitter.body();
         const args = [...emitter.arguments.entries()].toSorted(([a], [b]) => a.localeCompare(b));
         const doc = source.replace(/\*\//g, "* /").split(/\r?\n/).map((line) => ` * ${line}`.trimEnd()).join("\n");
-        const argumentType = `{ ${args.map(([argument, type]) => `${argument}: ${typeOf(type)}`).join("; ")} }`;
+        const argumentType = `{ ${args.map(([argument, type]) => `${property(argument)}: ${typeOf(type)}`).join("; ")} }`;
         if (javascript)
         {
             out.push(`/**\n${doc}${args.length > 0 ? `\n * @param {${argumentType}} args` : ""}\n * @returns {string}\n */`);
-            out.push(`export function ${name}(${args.length > 0 ? "args" : ""})`);
+            out.push(`${binding === name ? "export " : ""}function ${binding}(${args.length > 0 ? "args" : ""})`);
         }
         else
         {
             out.push(`/**\n${doc}\n */`);
-            out.push(`export function ${name}(${args.length > 0 ? `args: ${argumentType}` : ""}): string`);
+            out.push(`${binding === name ? "export " : ""}function ${binding}(${args.length > 0 ? `args: ${argumentType}` : ""}): string`);
         }
         out.push("{");
         for (const line of emitter.prelude)
@@ -909,6 +927,10 @@ export function compileMessages(locale: string, catalog: Catalog, options: Compi
         }
         out.push(`    return ${body};`);
         out.push("}");
+        if (binding !== name)
+        {
+            out.push(`export { ${binding} as ${name} };`);
+        }
         out.push("");
     }
     return { code: out.join("\n"), names };

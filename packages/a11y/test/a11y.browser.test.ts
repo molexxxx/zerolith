@@ -45,6 +45,27 @@ describe("focusTrap", () =>
         expect(document.activeElement).toBe(outsideButton);
     });
 
+    it("lets only the newest of two traps act, and hands control back when it is removed", async () =>
+    {
+        const first = mount(html`<div ref=${focusTrap()}><button id="first-a">A</button><button id="first-b">B</button></div>`);
+        await settle();
+        const inFirst = first.container.querySelector("#first-b") as HTMLElement;
+        inFirst.focus();
+        const second = mount(html`<div ref=${focusTrap()}><button id="second">OK</button></div>`);
+        await settle();
+        expect(document.activeElement?.id).toBe("second");
+        (first.container.querySelector("#first-a") as HTMLElement).focus();
+        expect(document.activeElement?.id).toBe("second");
+
+        second.unmount();
+        expect(document.activeElement).toBe(inFirst);
+        const outside = document.createElement("button");
+        document.body.append(outside);
+        outside.focus();
+        expect(first.container.contains(document.activeElement)).toBe(true);
+        outside.remove();
+    });
+
     it("honors the initial option and leaves focus alone when told to", async () =>
     {
         const outside = mount(html`<button>outside</button>`);
@@ -95,6 +116,22 @@ describe("rovingTabindex", () =>
         tab("d").focus();
         expect(tab("d").tabIndex).toBe(0);
         expect(tab("a").tabIndex).toBe(-1);
+    });
+
+    it("skips items that are hidden, such as the children of a collapsed tree item", () =>
+    {
+        const { container } = mount(html`
+            <div role="tree" ref=${rovingTabindex({ orientation: "vertical" })}>
+                <div role="treeitem" id="parent" aria-expanded="false">Parent</div>
+                <div role="treeitem" id="child" hidden>Child</div>
+                <div role="treeitem" id="next">Next</div>
+            </div>`);
+        const item = (id: string): HTMLElement => container.querySelector(`#${id}`) as HTMLElement;
+        item("parent").focus();
+        press(item("parent"), "ArrowDown");
+        expect(document.activeElement).toBe(item("next"));
+        expect(item("child").tabIndex).toBe(-1);
+        expect(item("next").tabIndex).toBe(0);
     });
 
     it("stops at the ends without loop and picks up items added later", async () =>

@@ -113,7 +113,7 @@ export interface RouterOptions
 {
     /** Renders when no route matches. */
     fallback?: (url: URL) => unknown;
-    /** Called when a loader or a lazy import throws. Without it the error propagates from `navigate()`. */
+    /** Called when a loader, a lazy import, or a route's `head` throws, or when the new page throws as it renders. Without it the error propagates from `navigate()`. */
     onError?: (error: unknown, url: URL) => void;
     /** Set false to leave scrolling to the application. Defaults to true. */
     scroll?: boolean;
@@ -156,7 +156,7 @@ export interface Router<T extends RouteTable>
     readonly ready: Promise<void>;
     /** Builds a URL path for a named route. */
     href<N extends keyof T & string>(name: N, ...args: HrefArgs<T[N]["path"]>): string;
-    /** Navigates to a path or URL, running the route's loader first. */
+    /** Navigates to a path or URL, running the route's loader first. A URL on another origin is left to the browser, through `location.assign`, or `location.replace` with `replace`. */
     navigate(to: string, options?: { replace?: boolean }): Promise<void>;
     /** A signal that is true while the URL is at `path` or below it; `exact` requires equality. */
     matches(path: string, options?: { exact?: boolean }): ReadableSignal<boolean>;
@@ -360,7 +360,6 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             return { match: undefined, view: undefined, compiled: undefined };
         }
         const { compiled, params } = found;
-        controller?.abort();
         const abort = new AbortController();
         controller = abort;
         let view = compiled.view ?? views.get(compiled.name);
@@ -407,7 +406,8 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         }
     };
 
-    const scrollTo = (target: URL, restored: number | undefined): void =>
+    /** Restores a saved position, or moves to the hash; failing both, to the top unless `top` is false, as on the first navigation, where the browser has placed the page. */
+    const scrollTo = (target: URL, restored: number | undefined, top = true): void =>
     {
         if (win === undefined || options.scroll === false)
         {
@@ -427,15 +427,17 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
                 return;
             }
         }
-        win.scrollTo(0, 0);
+        if (top)
+        {
+            win.scrollTo(0, 0);
+        }
     };
 
     let matchedView: RouteView<unknown, unknown> | undefined;
 
-    const commit = (target: URL, resolved: Resolved, restored: number | undefined): void =>
+    const commit = (target: URL, resolved: Resolved, value: Head, restored: number | undefined, first: boolean): void =>
     {
         matchedView = resolved.view;
-        const value = headOf(resolved);
         batch(() =>
         {
             url.set(target);
@@ -444,18 +446,37 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             pending.set(false);
         });
         applyHead(value);
-        scrollTo(target, restored);
+        scrollTo(target, restored, !first);
     };
 
-    const go = async (target: URL, mode: "push" | "replace" | "pop", restored?: number): Promise<void> =>
+    /**
+     * Runs one navigation: aborts the loader of the one before it, resolves
+     * the route and its head before the URL changes, then commits. A failure
+     * at any step clears `pending` and ends in an `error` event.
+     */
+    const go = async (target: URL, mode: "push" | "replace" | "pop", restored?: number, first = false): Promise<void> =>
     {
         const run = ++generation;
+        controller?.abort();
+        controller = undefined;
         pending.set(true);
         options.observe?.({ type: "start", id: run, url: target, mode });
+        const failed = (error: unknown): void =>
+        {
+            pending.set(false);
+            options.observe?.({ type: "error", id: run, url: target, mode, error });
+            if (options.onError === undefined)
+            {
+                throw error;
+            }
+            options.onError(error, target);
+        };
         let resolved: Resolved;
+        let value: Head;
         try
         {
             resolved = await resolve(target);
+            value = headOf(resolved);
         }
         catch (error)
         {
@@ -464,13 +485,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
                 options.observe?.({ type: "cancel", id: run, url: target, mode });
                 return;
             }
-            pending.set(false);
-            options.observe?.({ type: "error", id: run, url: target, mode, error });
-            if (options.onError === undefined)
-            {
-                throw error;
-            }
-            options.onError(error, target);
+            failed(error);
             return;
         }
         if (run !== generation)
@@ -478,20 +493,28 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             options.observe?.({ type: "cancel", id: run, url: target, mode });
             return;
         }
-        if (win !== undefined && mode !== "pop")
+        try
         {
-            if (mode === "push")
+            if (win !== undefined && mode !== "pop")
             {
-                clearTimeout(scrollPause);
-                saveScroll();
-                win.history.pushState({}, "", target.href);
+                if (mode === "push")
+                {
+                    clearTimeout(scrollPause);
+                    saveScroll();
+                    win.history.pushState({}, "", target.href);
+                }
+                else
+                {
+                    win.history.replaceState(entryState(), "", target.href);
+                }
             }
-            else
-            {
-                win.history.replaceState(entryState(), "", target.href);
-            }
+            commit(target, resolved, value, restored, first);
         }
-        commit(target, resolved, restored);
+        catch (error)
+        {
+            failed(error);
+            return;
+        }
         options.observe?.({ type: "commit", id: run, url: target, mode, name: resolved.match?.name });
     };
 
@@ -565,7 +588,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             win.addEventListener("scroll", onScroll, { passive: true });
         }
     }
-    const ready = win === undefined ? Promise.resolve() : go(initial, "replace", savedScroll());
+    const ready = win === undefined ? Promise.resolve() : go(initial, "replace", savedScroll(), true);
 
     /**
      * The current page as a list of one entry per committed navigation, so
@@ -606,7 +629,20 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         },
         navigate(to, navigation = {})
         {
-            return go(toUrl(within(to)), navigation.replace === true ? "replace" : "push");
+            const target = toUrl(within(to));
+            if (win !== undefined && target.origin !== win.location.origin)
+            {
+                if (navigation.replace === true)
+                {
+                    win.location.replace(target.href);
+                }
+                else
+                {
+                    win.location.assign(target.href);
+                }
+                return Promise.resolve();
+            }
+            return go(target, navigation.replace === true ? "replace" : "push");
         },
         matches(path, matching = {})
         {

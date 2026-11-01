@@ -351,6 +351,117 @@ describe("router", () =>
         expect(el.textContent).toBe("home");
     });
 
+    it("fails a navigation whose head throws before the URL changes, and leaves another origin to the browser", async () =>
+    {
+        history.replaceState(null, "", "/");
+        const onError = vi.fn();
+        const events: string[] = [];
+        const load = vi.fn(() => Promise.resolve(null));
+        const pages = defineRoutes({
+            home: route({ path: "/", view: () => html`<p>home</p>` }),
+            record: route({
+                path: "/records/:id",
+                load,
+                view: () => html`<p>record</p>`,
+                head: (): { title: string } =>
+                {
+                    throw new Error("head");
+                }
+            })
+        });
+        const assigned: string[] = [];
+        const fakeLocation = new Proxy({}, {
+            get: (_target, key) => key === "assign" ? (href: string) => assigned.push(href) : Reflect.get(window.location, key) as unknown
+        });
+        const fakeWindow = new Proxy(window, {
+            get: (target, key) =>
+            {
+                if (key === "location")
+                {
+                    return fakeLocation;
+                }
+                const value = Reflect.get(target, key) as unknown;
+                return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(target) : value;
+            }
+        });
+        router = createRouter(pages, { window: fakeWindow, onError, observe: (event) => events.push(`${event.type} ${event.url.pathname}`) });
+        await settled(router);
+        const el = mount(html`<main>${router.outlet()}</main>`);
+
+        await router.navigate("/records/7");
+        expect(onError).toHaveBeenCalledTimes(1);
+        expect(router.pending.get()).toBe(false);
+        expect(location.pathname).toBe("/");
+        expect(el.textContent).toBe("home");
+        expect(events.slice(-2)).toEqual(["start /records/7", "error /records/7"]);
+
+        load.mockClear();
+        await router.navigate("https://example.com/records/8");
+        expect(assigned).toEqual(["https://example.com/records/8"]);
+        expect(load).not.toHaveBeenCalled();
+        expect(router.pending.get()).toBe(false);
+    });
+
+    it("aborts the loader of a navigation that one to an unmatched path replaces", async () =>
+    {
+        history.replaceState(null, "", "/");
+        const events: string[] = [];
+        let aborted = false;
+        const pages = defineRoutes({
+            home: route({ path: "/", view: () => html`<p>home</p>` }),
+            hanging: route({
+                path: "/hanging",
+                load: ({ abort }) => new Promise<string>((_resolve, reject) =>
+                {
+                    abort.addEventListener("abort", () =>
+                    {
+                        aborted = true;
+                        reject(new DOMException("The navigation was replaced.", "AbortError"));
+                    });
+                }),
+                view: ({ data }) => html`<p>${data}</p>`
+            })
+        });
+        router = createRouter(pages, { window, fallback: () => html`<p>missing</p>`, observe: (event) => events.push(`${event.type} ${event.url.pathname}`) });
+        await settled(router);
+        const el = mount(html`<main>${router.outlet()}</main>`);
+        events.length = 0;
+
+        const hanging = router.navigate("/hanging");
+        await router.navigate("/nowhere");
+        await hanging;
+        expect(aborted).toBe(true);
+        expect(events).toEqual(expect.arrayContaining(["cancel /hanging", "commit /nowhere"]));
+        expect(el.textContent).toBe("missing");
+    });
+
+    it("leaves the scroll position alone on the first navigation of a fresh visit", async () =>
+    {
+        history.replaceState(null, "", "/");
+        const tall = document.createElement("div");
+        tall.style.height = "6000px";
+        document.body.append(tall);
+        try
+        {
+            window.scrollTo(0, 900);
+            const pages = defineRoutes({
+                home: route({
+                    path: "/",
+                    load: () => new Promise<string>((resolve) => setTimeout(() => resolve("ready"), 20)),
+                    view: ({ data }) => html`<h1>${data}</h1>`
+                })
+            });
+            router = createRouter(pages, { window });
+            await router.ready;
+            expect(window.scrollY).toBe(900);
+        }
+        finally
+        {
+            window.scrollTo(0, 0);
+            tall.remove();
+        }
+    });
+
     it("cancels a navigation a newer one replaced, without reporting its aborted loader as an error", async () =>
     {
         history.replaceState(null, "", "/");

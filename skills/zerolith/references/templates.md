@@ -295,4 +295,4 @@ These fail with a coded error before anything reaches the page, each linked to i
 | Gives `@event` something other than a function or a `handleEvent` object | `event_handler_not_function` |
 | Gives `when` a function as its condition, which would always count as true | `when_condition_function` |
 
-One more is reported without failing the render: a `javascript:` or `vbscript:` URL, or a `data:` URL that is not an image, in `href`, `src`, `action`, `formaction`, or `poster` is removed and reported as `unsafe_url_blocked`.
+One more is reported without failing the render: a `javascript:` or `vbscript:` URL, or a `data:` URL that is not an image, in `href`, `src`, `action`, `formaction`, or `poster`, bound as an attribute or as a property such as `.href`, is removed and reported as `unsafe_url_blocked`.

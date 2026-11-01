@@ -128,6 +128,15 @@ describe("hydrate", () =>
         expect(result?.mismatches).toEqual([]);
     });
 
+    it("hydrates an empty string without a mismatch and keeps updating it", () =>
+    {
+        const message = signal("");
+        const el = serverThenClient(html`<p>${""}</p><span>${message}</span>`);
+        expect(result?.mismatches).toEqual([]);
+        message.set("saved");
+        expect(el.querySelector("span")?.textContent).toBe("saved");
+    });
+
     it("repairs a differing text node and records the mismatch", () =>
     {
         const seen: Diagnostic[] = [];

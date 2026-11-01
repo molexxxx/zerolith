@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { type View, computed, html, onDispose, resource, signal } from "zerolith";
+import { type View, computed, effect, html, onDispose, resource, signal } from "zerolith";
 import { accessibilityIssues, cleanup, hydrationMismatches, mount, settle } from "@zerolith/test";
 
 afterEach(cleanup);
@@ -95,6 +95,28 @@ describe("hydrationMismatches", () =>
             return html`<p>${calls === 1 ? "server" : "client"}</p>`;
         });
         expect(mismatches.map((mismatch) => mismatch.kind)).toEqual(["text"]);
+    });
+
+    it("runs each pass inside an owner that ends before it returns", () =>
+    {
+        const tick = signal(0);
+        const stopped: string[] = [];
+        let runs = 0;
+        const Ticker = (): unknown =>
+        {
+            effect(() =>
+            {
+                tick.get();
+                runs++;
+            });
+            onDispose(() => stopped.push("ticker"));
+            return html`<p>tick</p>`;
+        };
+        expect(hydrationMismatches(() => Ticker())).toEqual([]);
+        expect(stopped).toEqual(["ticker", "ticker"]);
+        const before = runs;
+        tick.set(1);
+        expect(runs).toBe(before);
     });
 });
 

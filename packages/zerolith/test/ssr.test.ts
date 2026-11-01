@@ -55,6 +55,18 @@ describe("renderToString", () =>
         expect(seen.map((d) => d.code)).toEqual(["unsafe_url_blocked"]);
     });
 
+    it("decides a URL from its scheme, however long the URL is", () =>
+    {
+        const seen: Diagnostic[] = [];
+        const off = onDiagnostic((d) => seen.push(d));
+        const photo = `data:image/jpeg;base64,${"A".repeat(2_000_000)}`;
+        const out = plain(html`<img src=${photo}><a href=${"\u0000 j\na\tvascript:alert(1)"}>x</a><iframe src=${"data:text/html,<p>"}></iframe>`);
+        off();
+        expect(out.startsWith("<img src=\"data:image/jpeg;base64,AAAA")).toBe(true);
+        expect(out.endsWith("<a>x</a><iframe></iframe>")).toBe(true);
+        expect(seen.map((d) => d.code)).toEqual(["unsafe_url_blocked", "unsafe_url_blocked"]);
+    });
+
     it("prints a warning no listener hears, and leaves it to a listener once one is registered", () =>
     {
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);

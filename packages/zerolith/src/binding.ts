@@ -6,7 +6,14 @@
 /** Attributes whose value is a URL the browser will navigate to or load. */
 export const URL_ATTRIBUTES: ReadonlySet<string> = new Set(["href", "src", "action", "formaction", "xlink:href", "poster"]);
 
-/** True when a URL may be assigned to a navigating or loading attribute. */
+/** The most characters `safeUrl` reads, enough for the longest prefix it checks, `data:image/x-icon;`. */
+const CHECKED_LENGTH = 24;
+
+/**
+ * True when a URL may be assigned to a navigating or loading attribute.
+ * Only the scheme decides, so it reads the first characters that are not
+ * spaces or control characters and stops, whatever the URL's length.
+ */
 export function safeUrl(value: string): boolean
 {
     let scheme = "";
@@ -15,6 +22,10 @@ export function safeUrl(value: string): boolean
         if (character > " ")
         {
             scheme += character;
+            if (scheme.length === CHECKED_LENGTH)
+            {
+                break;
+            }
         }
     }
     scheme = scheme.toLowerCase();

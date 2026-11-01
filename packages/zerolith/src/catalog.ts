@@ -76,7 +76,7 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
     },
     unsafe_url_blocked:
     {
-        cause: "A URL attribute received a value with a scheme that can run script, and the attribute was removed.",
+        cause: "A URL attribute or property received a value with a scheme that can run script, and the attribute was removed.",
         fix: "Pass http, https, mailto, tel, or a relative URL; data URLs are allowed only for images."
     },
     unrenderable_value:

@@ -57,6 +57,12 @@ function submit(element: HTMLFormElement): void
     element.requestSubmit(element.querySelector("button"));
 }
 
+/** A response that answers with `body` as a problem document. */
+function problem(body: unknown, type = "application/problem+json"): () => Promise<Response>
+{
+    return () => Promise.resolve(new Response(JSON.stringify(body), { status: 422, statusText: "Unprocessable", headers: { "content-type": type } }));
+}
+
 async function settled(form: Form): Promise<void>
 {
     await vi.waitFor(() =>
@@ -110,6 +116,30 @@ describe("createForm", () =>
         expect(form.result.get()).toBeUndefined();
         expect(host.querySelector("[data-testid=\"error\"]")?.textContent).toBe("");
         expect(host.querySelector("input")?.getAttribute("aria-invalid")).toBe("false");
+    });
+
+    it("reads the server's problem document defensively", async () =>
+    {
+        const { form, element } = harness([
+            problem({ title: "Invalid", fields: { title: "Too short", constructor: 7, other: [1, "Taken"] } }, "Application/Problem+JSON"),
+            problem(null),
+            problem(["not", "a", "problem"])
+        ]);
+        submit(element);
+        await settled(form);
+        expect(form.field("title").errors.get()).toEqual(["Too short"]);
+        expect(form.field("other").errors.get()).toEqual(["Taken"]);
+        expect(form.field("constructor").invalid.get()).toBe(false);
+        expect(form.field("toString").invalid.get()).toBe(false);
+
+        submit(element);
+        await settled(form);
+        expect(form.problem.get()).toEqual({ status: 422, title: "Unprocessable" });
+
+        submit(element);
+        await settled(form);
+        expect(form.problem.get()).toEqual({ status: 422, title: "Unprocessable" });
+        expect(form.field("title").invalid.get()).toBe(false);
     });
 
     it("turns other failing responses into a problem", async () =>

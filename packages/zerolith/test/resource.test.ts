@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { effect, resource, scope, signal } from "zerolith";
+import { effect, html, resource, scope, signal, when } from "zerolith";
+import { renderToString } from "zerolith/ssr";
 
 function deferred<T>(): PromiseWithResolvers<T>
 {
@@ -33,6 +34,19 @@ describe("resource", () =>
         expect(user.get()).toBe("ann");
         expect(user.status.get()).toBe("resolved");
         expect(user.pending.get()).toBe(false);
+    });
+
+    it("is a read-only signal of its value that templates and when read", async () =>
+    {
+        const pending = deferred<string>();
+        const user = resource({ params: () => 1, loader: () => pending.promise });
+        const view = (): unknown => html`<p>${user}</p>${when(user, () => "loaded", () => "loading")}`;
+        expect("set" in user).toBe(false);
+        expect(renderToString(view()).replace(/<!--\/?zl:p-->/g, "")).toBe("<p></p>loading");
+
+        pending.resolve("ann");
+        await settle();
+        expect(renderToString(view()).replace(/<!--\/?zl:p-->/g, "")).toBe("<p>ann</p>loaded");
     });
 
     it("aborts the previous request and ignores its late result when params change", async () =>

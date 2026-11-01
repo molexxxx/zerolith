@@ -101,6 +101,39 @@ describe("compileMessages", () =>
         expect(m["exact"]?.({ n: 2 })).toBe("not one");
     });
 
+    it("names messages after any key, reserved words and the helpers' names included, and reads any argument name", async () =>
+    {
+        const m = await load("en", {
+            delete: "Delete",
+            date: "Date",
+            select: "Select a file",
+            number: "{$n :number} items",
+            greet: "Hi {$first-name}",
+            total: ".local $sum-all = {$n :number minimumFractionDigits=1}\n{{Total {$sum-all}}}"
+        });
+        expect(m["delete"]?.()).toBe("Delete");
+        expect(m["date"]?.()).toBe("Date");
+        expect(m["select"]?.()).toBe("Select a file");
+        expect(m["number"]?.({ n: 3 })).toBe("3 items");
+        expect(m["greet"]?.({ "first-name": "Ada" })).toBe("Hi Ada");
+        expect(m["total"]?.({ n: 2 })).toBe("Total 2.0");
+        expect(compile({ greet: "Hi {$first-name}" })).toContain("export function greet(args: { \"first-name\": string | number }): string");
+        expect(() => compile({ locale: "x" })).toThrow(/key "locale" becomes locale/);
+    });
+
+    it("selects the plural category of the number the message shows", async () =>
+    {
+        const m = await load("en", {
+            stars: ".input {$n :number minimumFractionDigits=1}\n.match $n\none {{{$n} star}}\n* {{{$n} stars}}",
+            items: ".input {$n :integer}\n.match $n\none {{{$n} item}}\n* {{{$n} items}}",
+            local: ".local $c = {$n :integer}\n.match $c\none {{one item}}\n* {{{$c} items}}"
+        });
+        expect(m["stars"]?.({ n: 1 })).toBe("1.0 stars");
+        expect(m["items"]?.({ n: 0.6 })).toBe("1 item");
+        expect(m["local"]?.({ n: 1 })).toBe("one item");
+        expect(m["local"]?.({ n: 4 })).toBe("4 items");
+    });
+
     it("types the arguments from the placeholders in TypeScript output", () =>
     {
         const { code, names } = compileMessages("en", { report: ".input {$count :number}\n.match $count\n* {{{$count} by {$author} on {$when :date}}}", title: "Title" });
@@ -108,7 +141,7 @@ describe("compileMessages", () =>
         expect(code).toContain("export function report(args: { author: string | number; count: number; when: Date | number }): string");
         expect(code).toContain("export function title(): string");
         expect(code).toContain("export const locale: string = \"en\";");
-        expect(code).toContain("function number(value: number, options: Intl.NumberFormatOptions): string");
+        expect(code).toContain("function $number(value: number, options: Intl.NumberFormatOptions): string");
         expect(code).not.toContain(": any");
         const js = compileMessages("en", { title: "Title" }, { language: "js" }).code;
         expect(js).toContain("// @ts-check");

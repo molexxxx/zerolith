@@ -38,7 +38,7 @@ Vitest reads each module through Vite, not through `zerolith dev`, so the plugin
 | `mount(view)` | Renders the view, or what a function returns, into a new container in the document, and returns its `container`, its `root`, and `unmount()` |
 | `cleanup()` | Unmounts everything `mount` created, newest first; register it with `afterEach` |
 | `settle()` | Waits for the asynchronous work a test started |
-| `hydrationMismatches(() => view)` | Renders the view on the server, hydrates a second copy over that markup, and returns every disagreement |
+| `hydrationMismatches(() => view)` | Renders the view on the server, hydrates a second copy over that markup, and returns every disagreement; each pass runs inside its own owner, disposed before it returns |
 | `accessibilityIssues(container)` | Returns the accessibility defects a test can see |
 
 ## Mount and interact

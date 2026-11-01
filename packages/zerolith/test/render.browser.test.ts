@@ -284,6 +284,39 @@ describe("attribute bindings", () =>
         expect(el.querySelector("img")?.getAttribute("src")).toBe("data:image/png;base64,AA==");
         expect(seen.map((d) => d.code)).toEqual(["unsafe_url_blocked"]);
     });
+
+    it("blocks scriptable URLs bound as properties", () =>
+    {
+        const seen: Diagnostic[] = [];
+        const off = onDiagnostic((d) => seen.push(d));
+        const url = signal("https://example.com/");
+        const el = mount(html`<a .href=${url}>x</a><iframe .src=${"java\tscript:alert(1)"}></iframe>`);
+        const link = el.querySelector("a") as HTMLAnchorElement;
+        expect(link.href).toBe("https://example.com/");
+        url.set(" JAVASCRIPT:alert(1)");
+        off();
+        expect(link.hasAttribute("href")).toBe(false);
+        expect(el.querySelector("iframe")?.hasAttribute("src")).toBe(false);
+        expect(seen.map((d) => d.code)).toEqual(["unsafe_url_blocked", "unsafe_url_blocked"]);
+    });
+
+    it("keeps a ref and a ref callback's setup when a signal applies the same template again", () =>
+    {
+        const n = signal(0);
+        const input = signal<Element | undefined>(undefined);
+        const log: string[] = [];
+        const tooltip = (element: Element): void =>
+        {
+            log.push(`setup ${element.tagName}`);
+            onDispose(() => log.push("cleanup"));
+        };
+        const el = mount(html`<div>${computed(() => html`<input ref=${input} value=${n.get()}><p ref=${tooltip}></p>`)}</div>`);
+        const mounted = el.querySelector("input");
+        n.set(1);
+        expect(el.querySelector("input")).toBe(mounted);
+        expect(input.get()).toBe(mounted);
+        expect(log).toEqual(["setup P", "cleanup", "setup P"]);
+    });
 });
 
 describe("each", () =>

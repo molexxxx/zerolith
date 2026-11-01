@@ -26,7 +26,7 @@ A modal dialog must take focus when it opens, keep Tab inside, and give focus ba
 
 @include packages/a11y/test/examples/accessibility.example.browser.test.ts#dialog
 
-Focus that lands outside the dialog, by script or by a click, is pulled back in.
+Focus that lands outside the dialog, by script or by a click, is pulled back in. When a dialog opens another, such as a confirmation, only the newest trap acts; closing it hands focus and control back to the dialog below.
 
 | Option | Default | What it does |
 | --- | --- | --- |
@@ -35,7 +35,7 @@ Focus that lands outside the dialog, by script or by a click, is pulled back in.
 
 ## Composite widgets: roving tabindex
 
-Tabs, menus, listboxes, radio groups, and trees are one Tab stop with arrow keys inside. `rovingTabindex` keeps exactly one item in the Tab order, moves between items with the arrow keys, Home, and End, starts on the item that is selected or checked, skips disabled items, and picks up items added later:
+Tabs, menus, listboxes, radio groups, and trees are one Tab stop with arrow keys inside. `rovingTabindex` keeps exactly one item in the Tab order, moves between items with the arrow keys, Home, and End, starts on the item that is selected or checked, skips disabled items and the ones that are hidden or inert, such as the children of a collapsed tree item, and picks up items added later:
 
 @include packages/a11y/test/examples/accessibility.example.browser.test.ts#tabs
 

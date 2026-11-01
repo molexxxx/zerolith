@@ -8,11 +8,20 @@ import { type ReadableSignal, onDispose, signal } from "zerolith";
 
 const FOCUSABLE = "a[href], area[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex=\"-1\"]), [contenteditable=\"true\"], audio[controls], video[controls], details > summary, iframe";
 
+/** True when an element is rendered and outside any `inert` subtree, so it can take focus. */
+function reachable(element: Element): boolean
+{
+    return element.getClientRects().length > 0 && element.closest("[inert]") === null;
+}
+
 /** The elements inside `root` that take Tab focus, in document order, skipping anything hidden. */
 export function focusables(root: Element): HTMLElement[]
 {
-    return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((element) => element.getClientRects().length > 0 && element.closest("[inert]") === null);
+    return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(reachable);
 }
+
+/** The elements with an attached focus trap, newest last. Only the newest acts, so a dialog opened from another keeps focus, and removing it hands control back. */
+const traps: Element[] = [];
 
 /** Options for `focusTrap`. */
 export interface FocusTrapOptions
@@ -27,6 +36,8 @@ export interface FocusTrapOptions
  * A `ref` that keeps Tab and Shift+Tab inside the element, pulls focus back
  * when it lands outside, moves focus in once the element is in the document,
  * and returns it where it came from when the element's template is removed.
+ * With traps on several elements, as when a dialog opens a confirmation,
+ * only the newest acts until its template is removed.
  */
 export function focusTrap(options: FocusTrapOptions = {}): (element: Element) => void
 {
@@ -48,6 +59,7 @@ export function focusTrap(options: FocusTrapOptions = {}): (element: Element) =>
             return element as HTMLElement;
         };
         let disposed = false;
+        traps.push(element);
         const initial = options.initial;
         const focusInitial = (): void =>
         {
@@ -72,7 +84,7 @@ export function focusTrap(options: FocusTrapOptions = {}): (element: Element) =>
         const onKeydown = (event: Event): void =>
         {
             const key = event as KeyboardEvent;
-            if (key.key !== "Tab")
+            if (key.key !== "Tab" || traps.at(-1) !== element)
             {
                 return;
             }
@@ -98,7 +110,7 @@ export function focusTrap(options: FocusTrapOptions = {}): (element: Element) =>
         };
         const onFocusIn = (event: Event): void =>
         {
-            if (!element.contains(event.target as Node))
+            if (traps.at(-1) === element && !element.contains(event.target as Node))
             {
                 fallback().focus();
             }
@@ -108,6 +120,11 @@ export function focusTrap(options: FocusTrapOptions = {}): (element: Element) =>
         onDispose(() =>
         {
             disposed = true;
+            const index = traps.lastIndexOf(element);
+            if (index !== -1)
+            {
+                traps.splice(index, 1);
+            }
             element.removeEventListener("keydown", onKeydown);
             doc.removeEventListener("focusin", onFocusIn);
             if (options.restore !== false && previous !== null && previous.isConnected)
@@ -134,7 +151,8 @@ const ROVING_ITEMS = "[data-roving], [role=\"tab\"], [role=\"menuitem\"], [role=
 /**
  * A `ref` for a composite widget: exactly one item is in the Tab order, the
  * arrow keys, Home, and End move between items, and the item that was
- * selected or checked starts as the current one.
+ * selected or checked starts as the current one. Disabled, hidden, and
+ * inert items are skipped, as the children of a collapsed tree item are.
  */
 export function rovingTabindex(options: RovingOptions = {}): (element: Element) => void
 {
@@ -143,20 +161,21 @@ export function rovingTabindex(options: RovingOptions = {}): (element: Element) 
     const loop = options.loop !== false;
     return (element) =>
     {
-        const items = (): HTMLElement[] => [...element.querySelectorAll<HTMLElement>(selector)].filter((item) => !item.hasAttribute("disabled") && item.getAttribute("aria-disabled") !== "true");
+        const all = (): HTMLElement[] => [...element.querySelectorAll<HTMLElement>(selector)];
+        const items = (): HTMLElement[] => all().filter((item) => !item.hasAttribute("disabled") && item.getAttribute("aria-disabled") !== "true");
         let current: HTMLElement | undefined;
         const apply = (next: HTMLElement | undefined): void =>
         {
             const list = items();
             current = next !== undefined && list.includes(next) ? next : list.find((item) => item.getAttribute("aria-selected") === "true" || item.getAttribute("aria-checked") === "true") ?? list[0];
-            for (const item of list)
+            for (const item of all())
             {
                 item.tabIndex = item === current ? 0 : -1;
             }
         };
         const move = (step: number, edge?: "first" | "last"): void =>
         {
-            const list = items();
+            const list = items().filter(reachable);
             if (list.length === 0)
             {
                 return;

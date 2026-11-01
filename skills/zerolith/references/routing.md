@@ -163,7 +163,7 @@ export const router = createRouter(routes, {
 | --- | --- | --- |
 | `fallback` | Nothing renders | Renders when no route matches, given the URL |
 | `base` | `"/"` | The path the application is served under; see [Under a base path](#under-a-base-path) |
-| `onError` | `navigate` rejects | Receives the error and the URL when a loader or a lazy import throws |
+| `onError` | `navigate` rejects | Receives the error and the URL when a loader, a lazy import, or a route's `head` throws, or when the new page throws as it renders |
 | `scroll` | `true` | `false` leaves scrolling to the application |
 | `observe` | None | Receives each navigation's start, commit, error, and cancel; see [Observability](observability.md) |
 | `window` | The global window | `null` attaches to none, as on the server |
@@ -217,7 +217,7 @@ render(() => <Layout content={router.outlet()} />, "#app");
 | --- | --- |
 | `outlet()` | The current page as a view, for the layout to place |
 | `href(name, params)` | The path of a named route, with the base and the parameters encoded; a misspelled name or a missing parameter fails to type-check |
-| `navigate(to, { replace })` | Goes to a path or URL after the route's loader, and resolves once the page has changed; `replace` replaces the history entry instead of adding one |
+| `navigate(to, { replace })` | Goes to a path or URL after the route's loader, and resolves once the page has changed; `replace` replaces the history entry instead of adding one. A URL on another origin is left to the browser, through `location.assign`, or `location.replace` with `replace` |
 | `matches(path, { exact })` | A signal, true while the URL is at `path` or below it, segment by segment, so `/notes` covers `/notes/7` and not `/notesy`; `exact` requires the path itself |
 | `current` | A signal of the current match, with its `name`, `params`, `url`, and `data`, or `undefined` while the fallback shows |
 | `url` | A signal of the current URL |
@@ -230,9 +230,9 @@ render(() => <Layout content={router.outlet()} />, "#app");
 
 Plain anchors navigate, as the links in the layout and the home page do. One delegated listener handles same-origin links clicked without modifier keys and leaves `download`, `target`, and `rel="external"` links, and any link with a modifier key, to the browser. Code navigates with `router.navigate`, as the settings page does.
 
-Back and forward restore the scroll position, and so does a reload, since the router keeps each position in its history entry's state; a new navigation scrolls to the top or to the hash. A link to a hash on the page shown is left to the browser, and back and forward between the entries it adds move to the hash without loading the page again. Pass `scroll: false` to keep control of scrolling.
+Back and forward restore the scroll position, and so does a reload, since the router keeps each position in its history entry's state; a new navigation scrolls to the top or to the hash. The first navigation of a fresh visit leaves the scroll where the browser and the reader put it, since a server-rendered page is readable, and scrollable, before the router starts. A link to a hash on the page shown is left to the browser, and back and forward between the entries it adds move to the hash without loading the page again. Pass `scroll: false` to keep control of scrolling.
 
-A navigation whose loader fails calls `onError` with the error and the URL; without `onError`, `navigate` rejects. A navigation that a newer one replaces before it commits is canceled rather than failed: its loader's `abort` signal fires, and `onError` is not called for it.
+A navigation whose loader fails calls `onError` with the error and the URL; without `onError`, `navigate` rejects. The route's `head` runs before the URL changes, so one that throws fails the navigation the same way and leaves the page as it was. A navigation that a newer one replaces before it commits is canceled rather than failed: its loader's `abort` signal fires as the newer one starts, wherever it goes, and `onError` is not called for it.
 
 ## Under a base path
 

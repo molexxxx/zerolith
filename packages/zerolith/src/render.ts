@@ -607,6 +607,11 @@ class ChildPart implements BoundPart
         if (isText(value))
         {
             const text = String(value);
+            if (text === "" && cursor === anchor)
+            {
+                this.apply(value);
+                return;
+            }
             if (cursor.nodeType === 3 && cursor.nextSibling === anchor)
             {
                 const node = cursor as Text;
@@ -894,6 +899,12 @@ class AttributePart implements BoundPart
             this.write(before === "" && after === "" ? String(value) : before + String(value) + after);
             return;
         }
+        if (URL_ATTRIBUTES.has(spec.name.toLowerCase()) && value !== null && value !== undefined && !safeUrl(String(value)))
+        {
+            element.removeAttribute(spec.name);
+            report(diagnostic("unsafe_url_blocked", "warning", { attribute: `.${spec.name}`, value: String(value) }));
+            return;
+        }
         (element as unknown as Record<string, unknown>)[spec.name] = value;
     }
 
@@ -910,19 +921,28 @@ class AttributePart implements BoundPart
         element.setAttribute(spec.name, text);
     }
 
-    /** Hands the element to a writable signal or a callback; the signal is reset when the element's template is removed. */
+    /**
+     * Hands the element to a writable signal or a callback; the signal is
+     * reset when the element's template is removed. When the owner around
+     * the binding is disposed while the element stays, as when a signal
+     * applies the template again, the next bind hands the element over again.
+     */
     private reference(target: unknown): void
     {
         if (target === this.target)
         {
             return;
         }
-        this.target = target;
         this.owner?.dispose();
+        this.target = target;
         const owner = createOwner();
         this.owner = owner;
         owner.run(() =>
         {
+            onDispose(() =>
+            {
+                this.target = undefined;
+            });
             const { element } = this;
             if (typeof target === "function")
             {
