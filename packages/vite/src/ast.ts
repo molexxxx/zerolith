@@ -1,6 +1,7 @@
 /**
- * What the plugin's rewrites share: a walk over ESTree nodes, text edits
- * applied by offset, and the line-preserving identity source map.
+ * What the plugin's rewrites share: a walk over ESTree nodes, where an
+ * import may go, text edits applied by offset, and the line-preserving
+ * identity source map.
  */
 
 /** What every ESTree node carries. */
@@ -65,6 +66,25 @@ export function walk(value: unknown, visit: (node: AstNode) => unknown): void
             walk(child, visit);
         }
     }
+}
+
+/**
+ * The offset just past a module's directive prologue, such as `"use strict";`
+ * or `"use client";`, where an added import goes, since a directive stays a
+ * directive only before every other statement; 0 for a module with none.
+ */
+export function prologueEnd(program: { body: readonly AstNode[] }): number
+{
+    let end = 0;
+    for (const statement of program.body)
+    {
+        if (statement.type !== "ExpressionStatement" || typeof (statement as AstNode & { directive?: unknown }).directive !== "string")
+        {
+            break;
+        }
+        end = statement.end;
+    }
+    return end;
 }
 
 /** Applies non-overlapping edits to `code`; inserts at one offset keep their order. */

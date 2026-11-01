@@ -66,5 +66,5 @@
             }
         }
     ],
-    "ignorePatterns": ["dist", "coverage", "node_modules", "docs/research", "packages/vite/test/fixture-prepare", "packages/vite/test/fixture-lint"]
+    "ignorePatterns": ["dist", "coverage", "node_modules", "docs/research", "packages/vite/test/fixture-prepare", "packages/vite/test/fixture-lower", "packages/vite/test/fixture-lint"]
 }

@@ -9,16 +9,26 @@ use std::collections::{BTreeSet, HashSet};
 
 use oxc_allocator::Allocator;
 use oxc_ast::ast::{
-    BindingIdentifier, Expression, IdentifierReference, ImportDeclarationSpecifier, Program,
-    Statement, StaticMemberExpression, TSType, TaggedTemplateExpression,
+    BindingIdentifier, Expression, Function, IdentifierReference, ImportDeclarationSpecifier,
+    Program, Statement, StaticMemberExpression, TSExternalModuleDeclaration, TSGlobalDeclaration,
+    TSInterfaceDeclaration, TSNamespaceDeclaration, TSType, TSTypeAliasDeclaration,
+    TSTypeParameterDeclaration, TaggedTemplateExpression,
 };
 use oxc_ast_visit::{Visit, walk};
 use oxc_parser::Parser;
+use oxc_semantic::ScopeFlags;
 use oxc_span::{GetSpan, SourceType, Span};
 
 use crate::lint::position;
 use crate::scan::scan;
-use crate::transform::{Edit, TransformError, apply_edits, fail, json, parse_errors};
+use crate::transform::{Edit, TransformError, apply_edits, fail, json, parse_errors, prologue_end};
+
+/// Why a template's strings cannot be carried: an escape with no value leaves its cooked string undefined.
+const NO_VALUE: &str =
+    "this template has an escape sequence with no value, which the prepare pass cannot lower";
+
+/// Why a template's strings cannot be carried: half of a surrogate pair, which a Rust string cannot hold.
+const LONE_SURROGATE: &str = "this template holds a lone surrogate, half of a character that takes two, which the prepare pass cannot carry; write the whole character, or move it into a binding";
 
 /// The binding the lowered code imports `prepared` under, chosen not to clash with user code.
 pub const PREPARED_BINDING: &str = "__zl_prepared";
@@ -35,7 +45,7 @@ const NO_PREPARE_HINT: &str = "; build with --no-prepare to keep the scanner";
 struct Template {
     span: Span,
     tag: Span,
-    strings: Option<Vec<String>>,
+    strings: Result<Vec<String>, &'static str>,
     expressions: Vec<Span>,
 }
 
@@ -83,22 +93,41 @@ impl Finder<'_> {
 impl<'a> Visit<'a> for Finder<'_> {
     fn visit_ts_type(&mut self, _it: &TSType<'a>) {}
 
+    fn visit_ts_type_alias_declaration(&mut self, _it: &TSTypeAliasDeclaration<'a>) {}
+
+    fn visit_ts_interface_declaration(&mut self, _it: &TSInterfaceDeclaration<'a>) {}
+
+    fn visit_ts_type_parameter_declaration(&mut self, _it: &TSTypeParameterDeclaration<'a>) {}
+
+    fn visit_ts_namespace_declaration(&mut self, it: &TSNamespaceDeclaration<'a>) {
+        if !it.declare {
+            walk::walk_ts_namespace_declaration(self, it);
+        }
+    }
+
+    fn visit_ts_external_module_declaration(&mut self, _it: &TSExternalModuleDeclaration<'a>) {}
+
+    fn visit_ts_global_declaration(&mut self, _it: &TSGlobalDeclaration<'a>) {}
+
+    fn visit_function(&mut self, it: &Function<'a>, flags: ScopeFlags) {
+        if it.body.is_some() && !it.declare {
+            walk::walk_function(self, it, flags);
+        }
+    }
+
     fn visit_tagged_template_expression(&mut self, it: &TaggedTemplateExpression<'a>) {
         if self.error.is_some() {
             return;
         }
         if self.is_tag(&it.tag) {
             self.allowed.insert(it.tag.span().start);
-            let strings: Option<Vec<String>> = it
+            let strings: Result<Vec<String>, &'static str> = it
                 .quasi
                 .quasis
                 .iter()
-                .map(|quasi| {
-                    quasi
-                        .value
-                        .cooked
-                        .and_then(|cooked| cooked.as_str())
-                        .map(str::to_string)
+                .map(|quasi| match quasi.value.cooked {
+                    None => Err(NO_VALUE),
+                    Some(cooked) => cooked.as_str().map(str::to_string).ok_or(LONE_SURROGATE),
                 })
                 .collect();
             self.templates.push(Template {
@@ -247,18 +276,20 @@ pub fn prepare_source(source: &str, source_type: SourceType) -> Result<String, T
     if finder.templates.is_empty() {
         return Ok(source.to_string());
     }
+    let head = prologue_end(&parsed.program);
     let mut edits = vec![Edit {
-        start: 0,
-        end: 0,
+        start: head,
+        end: head,
         text: format!("import {{ prepared as {PREPARED_BINDING} }} from \"zerolith/internal\";"),
     }];
     let mut hoisted = String::new();
     for (index, template) in finder.templates.iter().enumerate() {
-        let Some(strings) = &template.strings else {
-            let (line, column) = position(source, template.span.start);
-            return Err(fail(format!(
-                "this template has an escape sequence with no value, which the prepare pass cannot lower ({line}:{column})"
-            )));
+        let strings = match &template.strings {
+            Ok(strings) => strings,
+            Err(reason) => {
+                let (line, column) = position(source, template.span.start);
+                return Err(fail(format!("{reason} ({line}:{column})")));
+            }
         };
         let scanned = scan(strings).map_err(|error| {
             let (line, column) = position(source, template.span.start);
@@ -328,9 +359,46 @@ pub fn prepare_source(source: &str, source_type: SourceType) -> Result<String, T
 
 #[cfg(test)]
 mod tests {
-    use super::prepare;
+    use super::{prepare, prepare_source};
+    use oxc_span::SourceType;
     use std::fs;
     use std::path::Path;
+
+    #[test]
+    fn skips_type_declarations_and_overloads_keeps_directives_first_and_refuses_lone_surrogates() {
+        let typed = prepare_source(
+            "import { html } from \"zerolith\";\ninterface Sanitizer { clean(html: string): string }\ntype html = string;\nfunction pick<html>(value: html): void;\nfunction pick(value: unknown) {}\nexport const v = html`<p>${1}</p>`;\n",
+            SourceType::ts(),
+        );
+        assert!(typed.is_ok(), "{typed:?}");
+        let directive = prepare(
+            "\"use strict\";\nimport { html } from \"zerolith\";\nexport const v = html`<p>${1}</p>`;\n",
+        )
+        .unwrap();
+        assert!(
+            directive.starts_with("\"use strict\";import { prepared as __zl_prepared }"),
+            "{directive}"
+        );
+        let surrogate =
+            prepare("import { html } from \"zerolith\";\nexport const v = html`\\uD800`;\n")
+                .unwrap_err()
+                .to_string();
+        assert!(surrogate.contains("holds a lone surrogate"), "{surrogate}");
+    }
+
+    /// The TypeScript half of the shared fixture: type declarations, overloads, labels, aliases, a directive, a namespace, and a parameter property, which both passes treat alike.
+    #[test]
+    fn matches_the_vite_plugin_on_the_shared_typescript_fixture() {
+        let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        if !repository.join("package.json").is_file() {
+            return;
+        }
+        let fixture = repository.join("packages/vite/test/fixture-prepare");
+        let input = fs::read_to_string(fixture.join("input.ts"))
+            .expect("the shared fixture packages/vite/test/fixture-prepare/input.ts");
+        let expected = fs::read_to_string(fixture.join("output.ts")).unwrap();
+        assert_eq!(prepare_source(&input, SourceType::ts()).unwrap(), expected);
+    }
 
     #[test]
     fn hoists_the_scan_and_calls_html_with_it() {

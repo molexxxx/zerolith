@@ -10,6 +10,18 @@ function lower(code: string, id = "/src/app.tsx"): string | null
     return lowerJsx(code, id, parse)?.code ?? null;
 }
 
+describe("the shared lowering fixture", () =>
+{
+    it("lowers to the committed output the Rust command line is held to, reading tags as React does", async () =>
+    {
+        const { readFile } = await import("node:fs/promises");
+        const folder = new URL("./fixture-lower/", import.meta.url);
+        const input = await readFile(new URL("input.tsx", folder), "utf8");
+        const output = await readFile(new URL("output.tsx", folder), "utf8");
+        expect(lower(input, "/src/input.tsx")).toBe(output);
+    });
+});
+
 describe("lowerJsx", () =>
 {
     it("leaves modules without JSX untouched", () =>

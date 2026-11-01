@@ -6,7 +6,7 @@
  * replacement that is shorter in lines than the JSX it replaces is padded
  * inside the parentheses that wrap it.
  */
-import { type AstNode, type Edit, type IdentityMap, applyEdits, identityMap, walk } from "./ast.js";
+import { type AstNode, type Edit, type IdentityMap, applyEdits, identityMap, prologueEnd, walk } from "./ast.js";
 import type { ModuleParser } from "./transform.js";
 
 /** The result of lowering one module. */
@@ -161,6 +161,12 @@ function elementName(name: JsxElementName): string
     }
 }
 
+/**
+ * Whether a tag is a component, read as oxc and React read it: a name that
+ * starts with a lowercase ASCII letter or holds a dash is an element, and
+ * any other name, as `<Card>`, `<_Row>`, `<$slot>`, `<ñandú>`, a member
+ * such as `<ui.Card>`, or `<this>`, is a component.
+ */
 function isComponent(name: JsxElementName): boolean
 {
     if (name.type === "JSXMemberExpression")
@@ -171,8 +177,8 @@ function isComponent(name: JsxElementName): boolean
     {
         return false;
     }
-    const first = name.name.charAt(0);
-    return first !== first.toLowerCase() && !name.name.includes("-");
+    const first = name.name.charCodeAt(0);
+    return name.name === "this" || (!(first >= 97 && first <= 122) && !name.name.includes("-"));
 }
 
 /** The template attribute spelling of a JSX attribute name: `prop:value` is `.value`, `on:click` is `@click`, `bool:open` is `?open`. */
@@ -416,7 +422,8 @@ export function lowerJsx(code: string, id: string, parse: ModuleParser): JsxOutp
     {
         return null;
     }
-    edits.push({ start: 0, end: 0, text: `import { html as ${HTML_BINDING} } from "zerolith"; ` });
+    const head = prologueEnd(program as unknown as { body: readonly AstNode[] });
+    edits.push({ start: head, end: head, text: `import { html as ${HTML_BINDING} } from "zerolith"; ` });
     const output = applyEdits(code, edits);
     return { code: output, map: identityMap(id, code, output) };
 }

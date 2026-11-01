@@ -136,4 +136,18 @@ describe("the shared fixture", () =>
         const output = await readFile(new URL("output.js", folder), "utf8");
         expect(prepare(input, "/src/input.js")).toBe(output);
     });
+
+    it("lowers the TypeScript input, with its declarations, overloads, labels, aliases, and directive, to the committed output", async () =>
+    {
+        const { readFile } = await import("node:fs/promises");
+        const folder = new URL("./fixture-prepare/", import.meta.url);
+        const input = await readFile(new URL("input.ts", folder), "utf8");
+        const output = await readFile(new URL("output.ts", folder), "utf8");
+        expect(prepare(input, "/src/input.ts")).toBe(output);
+    });
+
+    it("refuses a lone surrogate, which the Rust pass cannot carry, with its own reason", () =>
+    {
+        expect(() => prepare("import { html } from \"zerolith\";\nexport const v = html`\\uD800`;\n")).toThrow(/holds a lone surrogate/);
+    });
 });

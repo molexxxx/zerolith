@@ -17,6 +17,7 @@ use oxc_allocator::Allocator;
 use oxc_ast::ast::{
     Expression, JSXAttribute, JSXAttributeItem, JSXAttributeName, JSXAttributeValue, JSXChild,
     JSXElement, JSXElementName, JSXFragment, JSXMemberExpression, JSXMemberExpressionObject,
+    Program,
 };
 use oxc_ast_visit::Visit;
 use oxc_codegen::{Codegen, CodegenOptions};
@@ -182,15 +183,12 @@ fn element_name(name: &JSXElementName<'_>) -> String {
     }
 }
 
+/// Whether a tag is a component, as oxc reads it the way React does: a name that starts with a lowercase ASCII letter or holds a dash is an element, parsed as an `Identifier`, and any other name, as `<Card>`, `<_Row>`, `<$slot>`, `<ñandú>`, a member such as `<ui.Card>`, or `<this>`, is a component.
 fn is_component(name: &JSXElementName<'_>) -> bool {
-    match name {
-        JSXElementName::Identifier(identifier) => {
-            let text = identifier.name.as_str();
-            text.chars().next().is_some_and(|c| c.is_uppercase()) && !text.contains('-')
-        }
-        JSXElementName::NamespacedName(_) => false,
-        _ => true,
-    }
+    !matches!(
+        name,
+        JSXElementName::Identifier(_) | JSXElementName::NamespacedName(_)
+    )
 }
 
 /// The template attribute spelling of a JSX attribute name: `prop:value` is `.value`, `on:click` is `@click`, `bool:open` is `?open`.
@@ -298,6 +296,12 @@ impl Lowering<'_> {
         Ok(format!("({call}{})", "\n".repeat(padding)))
     }
 
+    /// A source offset as `line:column`, as the prepare pass reports positions.
+    fn at(&self, offset: u32) -> String {
+        let (line, column) = crate::lint::position(self.source, offset);
+        format!("{line}:{column}")
+    }
+
     fn element(&self, element: &JSXElement<'_>) -> Result<String, TransformError> {
         let opening = &element.opening_element;
         if is_component(&opening.name) {
@@ -313,8 +317,8 @@ impl Lowering<'_> {
                 }
                 JSXAttributeItem::SpreadAttribute(spread) => {
                     return Err(fail(format!(
-                        "spread attributes on <{tag}> cannot become a template; spread onto a component instead (offset {})",
-                        spread.span.start
+                        "spread attributes on <{tag}> cannot become a template; spread onto a component instead ({})",
+                        self.at(spread.span.start)
                     )));
                 }
             }
@@ -372,8 +376,8 @@ impl Lowering<'_> {
                 }
                 JSXChild::Spread(spread) => {
                     return Err(fail(format!(
-                        "spread children cannot become a template (offset {})",
-                        spread.span.start
+                        "spread children cannot become a template ({})",
+                        self.at(spread.span.start)
                     )));
                 }
             }
@@ -401,8 +405,8 @@ impl Lowering<'_> {
             }
             JSXChild::Spread(spread) => {
                 return Err(fail(format!(
-                    "spread children cannot become a template (offset {})",
-                    spread.span.start
+                    "spread children cannot become a template ({})",
+                    self.at(spread.span.start)
                 )));
             }
         })
@@ -468,6 +472,14 @@ impl Lowering<'_> {
 }
 
 /// Lowers every JSX expression in a module to `html` calls and imports `html` under a private name; a module without JSX comes back unchanged.
+/// The offset just past a module's directive prologue, such as `"use strict";` or `"use client";`, where an added import goes, since a directive stays a directive only before every other statement; 0 for a module with none.
+pub(crate) fn prologue_end(program: &Program<'_>) -> u32 {
+    program
+        .directives
+        .last()
+        .map_or(0, |directive| directive.span.end)
+}
+
 pub fn lower_jsx(source: &str, source_type: SourceType) -> Result<String, TransformError> {
     if !source.contains('<') {
         return Ok(source.to_string());
@@ -492,9 +504,10 @@ pub fn lower_jsx(source: &str, source_type: SourceType) -> Result<String, Transf
         return Ok(source.to_string());
     }
     let mut edits = collector.edits;
+    let head = prologue_end(&parsed.program);
     edits.push(Edit {
-        start: 0,
-        end: 0,
+        start: head,
+        end: head,
         text: format!("import {{ html as {HTML_BINDING} }} from \"zerolith\"; "),
     });
     Ok(apply_edits(source, edits))
@@ -505,6 +518,20 @@ mod tests {
     use super::{lower_jsx, strip_types, transform};
     use oxc_span::SourceType;
     use std::path::Path;
+
+    /// Compares with the lowering fixture the Vite plugin's test reads; skipped only outside the repository, as in the published crate.
+    #[test]
+    fn lowers_jsx_as_the_vite_plugin_does_on_the_shared_fixture() {
+        let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        if !repository.join("package.json").is_file() {
+            return;
+        }
+        let fixture = repository.join("packages/vite/test/fixture-lower");
+        let input = std::fs::read_to_string(fixture.join("input.tsx"))
+            .expect("the shared fixture packages/vite/test/fixture-lower/input.tsx");
+        let expected = std::fs::read_to_string(fixture.join("output.tsx")).unwrap();
+        assert_eq!(lower_jsx(&input, SourceType::tsx()).unwrap(), expected);
+    }
 
     fn lower(source: &str) -> String {
         lower_jsx(source, SourceType::tsx()).unwrap()

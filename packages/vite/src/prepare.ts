@@ -5,7 +5,7 @@
  * without scanning it and the scanner leaves the bundle. Pure string work
  * over the parser's tree; the lowered module keeps its line count.
  */
-import { type AstNode, type Edit, type IdentityMap, applyEdits, identityMap, walk } from "./ast.js";
+import { type AstNode, type Edit, type IdentityMap, applyEdits, identityMap, prologueEnd, walk } from "./ast.js";
 import type { ModuleParser } from "./transform.js";
 
 /** The result of preparing one module. */
@@ -41,8 +41,11 @@ export const VIEW_BINDING: string = "__zl_v";
 const SPECIFIER = "zerolith";
 const HEAD = `import { prepared as ${PREPARED_BINDING} } from "zerolith/internal";`;
 
-/** TypeScript nodes that hold only types, which the walk skips; every other node is walked, since an enum initializer, a namespace, or a parameter property's default can hold a template. */
-const TS_TYPES: ReadonlySet<string> = new Set(["TSTypeAnnotation", "TSTypeAliasDeclaration", "TSInterfaceDeclaration", "TSTypeParameterDeclaration", "TSTypeParameterInstantiation", "TSDeclareFunction"]);
+/** TypeScript nodes that hold only types, which the walk skips, as the Rust pass does, the signatures of an overload or an abstract method among them; every other node is walked, since an enum initializer, a namespace, or a parameter property's default can hold a template. */
+const TS_TYPES: ReadonlySet<string> = new Set(["TSTypeAnnotation", "TSTypeAliasDeclaration", "TSInterfaceDeclaration", "TSTypeParameterDeclaration", "TSTypeParameterInstantiation", "TSDeclareFunction", "TSEmptyBodyFunctionExpression"]);
+
+/** Why a template's strings cannot be carried into the hoisted registration: half of a surrogate pair, which the Rust pass cannot hold either. */
+const LONE_SURROGATE = "this template holds a lone surrogate, half of a character that takes two, which the prepare pass cannot carry; write the whole character, or move it into a binding";
 
 interface Identifier extends AstNode
 {
@@ -153,8 +156,13 @@ export function prepareModule(code: string, id: string, parse: ModuleParser, sca
     const namespaces = new Set<string>();
     const allowed = new Set<number>();
     let firstStatement: number | undefined;
+    const prologue = prologueEnd(parsed.program);
     for (const statement of parsed.program.body)
     {
+        if (statement.end <= prologue)
+        {
+            continue;
+        }
         if (reExportsHtml(statement))
         {
             throw new PrepareError("html from zerolith is re-exported here, so templates tagged through this module would reach the browser unprepared; import html from zerolith in each module that uses it, or pass prepare: false to the plugin to keep the scanner", statement.start);
@@ -234,11 +242,48 @@ export function prepareModule(code: string, id: string, parse: ModuleParser, sca
             case "Property":
             case "MethodDefinition":
             case "PropertyDefinition":
+            case "TSAbstractMethodDefinition":
+            case "TSAbstractPropertyDefinition":
             {
                 const keyed = node as AstNode & { key: AstNode; computed: boolean; shorthand?: boolean };
                 if (!keyed.computed && keyed.shorthand !== true)
                 {
                     allowed.add(keyed.key.start);
+                }
+                break;
+            }
+            case "LabeledStatement":
+            case "BreakStatement":
+            case "ContinueStatement":
+            {
+                const label = (node as AstNode & { label: AstNode | null }).label;
+                if (label !== null)
+                {
+                    allowed.add(label.start);
+                }
+                break;
+            }
+            case "ImportSpecifier":
+            case "ExportSpecifier":
+            {
+                const specifier = node as AstNode & { local: AstNode; imported?: AstNode; exported?: AstNode };
+                const named = specifier.imported ?? specifier.exported;
+                if (named !== undefined && named.start !== specifier.local.start)
+                {
+                    allowed.add(named.start);
+                }
+                break;
+            }
+            case "ExportNamedDeclaration":
+            {
+                const declaration = node as AstNode & { source: AstNode | null; specifiers: readonly (AstNode & { local: AstNode; exported: AstNode })[] };
+                if (declaration.source !== null)
+                {
+                    for (const specifier of declaration.specifiers)
+                    {
+                        allowed.add(specifier.local.start);
+                        allowed.add(specifier.exported.start);
+                    }
                 }
                 break;
             }
@@ -257,7 +302,7 @@ export function prepareModule(code: string, id: string, parse: ModuleParser, sca
     {
         return null;
     }
-    const edits: Edit[] = [{ start: 0, end: 0, text: HEAD }];
+    const edits: Edit[] = [{ start: prologue, end: prologue, text: HEAD }];
     let hoisted = "";
     for (const [index, template] of templates.entries())
     {
@@ -267,6 +312,10 @@ export function prepareModule(code: string, id: string, parse: ModuleParser, sca
             if (quasi.value.cooked === null)
             {
                 throw new PrepareError("this template has an escape sequence with no value, which the prepare pass cannot lower", template.start);
+            }
+            if (/\p{Cs}/u.test(quasi.value.cooked))
+            {
+                throw new PrepareError(LONE_SURROGATE, template.start);
             }
             strings.push(quasi.value.cooked);
         }

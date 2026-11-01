@@ -122,7 +122,7 @@ Every client build also keeps lazy modules apart. A view declared with `lazy()` 
 
 ## JSX
 
-Ahead of every other transform, the plugin lowers each JSX expression in a `.jsx` or `.tsx` file to the `html` call it stands for: elements become template markup, the `prop:`, `on:`, and `bool:` namespaces become the other binding forms, and capitalized tags become component calls with a `children` prop. The lowered module keeps its line count, and nothing from JSX reaches the browser. `zerolith/jsx-runtime` exists for the types a `tsconfig` with `"jsxImportSource": "zerolith"` reads, and throws a `jsx_not_lowered` diagnostic if it is ever called. The [templates guide](templates.md) shows the same component in both spellings.
+Ahead of every other transform, the plugin lowers each JSX expression in a `.jsx` or `.tsx` file to the `html` call it stands for: elements become template markup, the `prop:`, `on:`, and `bool:` namespaces become the other binding forms, and a tag that does not start with a lowercase letter, as `<Card>`, `<ui.Card>`, or `<_Row>`, becomes a component call with a `children` prop, as React reads tags. The lowered module keeps its line count, and nothing from JSX reaches the browser. `zerolith/jsx-runtime` exists for the types a `tsconfig` with `"jsxImportSource": "zerolith"` reads, and throws a `jsx_not_lowered` diagnostic if it is ever called. The [templates guide](templates.md) shows the same component in both spellings.
 
 ## Development warnings
 

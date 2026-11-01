@@ -53,6 +53,7 @@
         "**/node_modules",
         "**/dist",
         "packages/vite/test/fixture-prepare",
+        "packages/vite/test/fixture-lower",
         "packages/vite/test/fixture-lint",
         "scripts/docs/playground"
     ]
