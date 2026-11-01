@@ -2,16 +2,22 @@
 
 # Building and serving
 
-`zerolith build` writes the application into `dist/` as static files, so it runs on any host and next to any backend. Serving it well comes down to three rules:
+`zerolith build` writes the application into `dist/` as static files, so it runs on any host and next to any backend. Serving it well comes down to two rules, one for routing and one for caching:
 
 | Request | Answer |
 | --- | --- |
 | A file that exists in `dist/` | The file, with its media type |
 | Any other path in the application, such as `/notes/7` | `index.html`, so the router renders the route |
+
+| File | Cache |
+| --- | --- |
 | A file under `assets/` | Cached for a year: `Cache-Control: public, max-age=31536000, immutable` |
 | `index.html` and the other files | `Cache-Control: no-cache`, so a new build is picked up at once |
 
-Every file under `assets/` has a content hash in its name, so a changed file gets a new name and the old one can be cached forever. `index.html` keeps its name, so it has to be checked on every visit. A missing file with an extension, such as `/assets/old.js`, should get a 404 rather than `index.html`, so a stale script fails clearly instead of being parsed as HTML.
+Every file under `assets/` has a content hash in its name, so a changed file gets a new name and the old one can be cached forever. `index.html` keeps its name, so it has to be checked on every visit.
+
+> [!WARNING]
+> A missing file with an extension, such as `/assets/old.js`, should get a 404 rather than `index.html`. A stale script then fails clearly instead of being parsed as HTML.
 
 ## What the build writes
 
@@ -62,7 +68,7 @@ The [fullstack example](https://github.com/molexxxx/zerolith/tree/main/examples/
 
 ## Served by a backend
 
-A backend that already runs in production can serve the build from its static file handler, which keeps the application and its API on one origin. Build into the backend's folder with `"build": { "out": "../server/public" }` in `zerolith.json`, or copy `dist/` there as a deploy step, and apply the three rules. In plain Node, with the application under `/app/`:
+A backend that already runs in production can serve the build from its static file handler, which keeps the application and its API on one origin. Build into the backend's folder with `"build": { "out": "../server/public" }` in `zerolith.json`, or copy `dist/` there as a deploy step, and apply the same rules. In plain Node, with the application under `/app/`:
 
 ```ts
 import { readFile } from "node:fs/promises";
@@ -167,7 +173,7 @@ app.UseStaticFiles(files);
 app.MapFallbackToFile("/app/{*path:nonfile}", "app/index.html", files);
 ```
 
-Any other backend applies the same three rules with its own static file handler and a catch-all route for the application's paths.
+Any other backend applies the same rules with its own static file handler and a catch-all route for the application's paths.
 
 ## Web servers
 
@@ -241,8 +247,14 @@ A static host serves the files and needs one setting for the routes. A file the 
 
 Hosts and CDNs compress text on the fly; a server of your own should enable gzip or Brotli for scripts, stylesheets, HTML, JSON, and SVG. The build prints each file's gzip size, which is close to what is sent.
 
-zerolith needs neither `unsafe-eval` nor inline scripts, so a strict policy such as `Content-Security-Policy: default-src 'self'` works with a built application; add the origins of any API on another domain to `connect-src`. Components' scoped styles are constructed stylesheets, which the policy's `style-src` does not restrict, while an inline `<style>` element is blocked. A server-rendered page that writes `renderStyles()` into its head adds `<style>` elements, which need a nonce or `'unsafe-inline'` in `style-src`.
+zerolith needs neither `unsafe-eval` nor inline scripts, so a strict policy such as `Content-Security-Policy: default-src 'self'` works with a built application; add the origins of any API on another domain to `connect-src`. Components' scoped styles are constructed stylesheets, which the policy's `style-src` does not restrict, while an inline `<style>` element is blocked.
+
+> [!NOTE]
+> A server-rendered page that writes `renderStyles()` into its head adds `<style>` elements, which need a nonce or `'unsafe-inline'` in `style-src`.
 
 ## Unbundled output
 
-`zerolith build --unbundled` writes the modules as they are, with the packages in `vendor/` behind an import map with integrity hashes. The same routing rule applies, but no file has a content hash in its name, so every file should be served with `no-cache`, and the integrity hashes catch a stale file that slips through. The unbundled output is served from the root; a base path needs the bundled build.
+`zerolith build --unbundled` writes the modules as they are, with the packages in `vendor/` behind an import map with integrity hashes. The same routing rule applies, but no file has a content hash in its name, so every file should be served with `no-cache`, and the integrity hashes catch a stale file that slips through.
+
+> [!NOTE]
+> The unbundled output is served from the root; an application under a path needs the bundled build.
