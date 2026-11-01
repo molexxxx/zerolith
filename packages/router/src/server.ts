@@ -25,7 +25,10 @@ export function renderHead(head: Head): string
  * browser, where the router reuses it for the initial navigation instead of
  * running the loader again, as long as the route and URL still match.
  * Empty when nothing matched or the route produced no data. The data goes
- * through JSON, so anything JSON cannot carry needs the loader to run.
+ * through JSON, so the browser's first navigation receives the JSON form: a
+ * `Date` arrives as a string, a `Map` as an empty object, a field holding
+ * `undefined` is left out, and a `BigInt` throws here. Return plain JSON
+ * from a loader whose page is server-rendered.
  */
 export function renderRouteState(router: Router<RouteTable>): string
 {

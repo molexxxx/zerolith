@@ -44,6 +44,17 @@ describe("generateClient", () =>
         expect(referenced).toMatch(/output: Base & \{\s+more\?: boolean;\s+\};/);
     });
 
+    it("leaves out the methods fetch refuses to send, and types other media as Blob", () =>
+    {
+        const binary = { "200": { description: "ok", content: { "application/octet-stream": {} } } };
+        const code = generateClient(document({ "/p": { get: { operationId: "download", responses: binary }, trace: { operationId: "traceP", responses: ok }, additionalOperations: { TRACK: { operationId: "trackP", responses: ok }, COPY: { operationId: "copyP", responses: ok } } } as never }));
+        expect(code).toContain("download: {");
+        expect(code).toMatch(/download: \{[^}]*output: Blob;/);
+        expect(code).toContain("copyP: {");
+        expect(code).not.toContain("traceP");
+        expect(code).not.toContain("trackP");
+    });
+
     it("accepts only OpenAPI 3.x documents", () =>
     {
         expect(() => generateClient({ openapi: "2.0" })).toThrow(/OpenAPI 3/);

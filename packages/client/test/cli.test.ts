@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -31,6 +31,21 @@ describe("zerolith-client", () =>
         const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
         expect(await main([fixture])).toBe(0);
         expect(String(stdout.mock.calls[0]?.[0])).toContain("export interface Api");
+    });
+
+    it("reports a missing file or an invalid document in one line with exit code 1", async () =>
+    {
+        const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+        expect(await main([join(tmpdir(), "zerolith-client-missing.json")])).toBe(1);
+        const folder = await mkdtemp(join(tmpdir(), "zerolith-client-"));
+        const invalid = join(folder, "invalid.json");
+        await writeFile(invalid, JSON.stringify({ openapi: "2.0" }));
+        expect(await main([invalid])).toBe(1);
+        await rm(folder, { recursive: true, force: true });
+        const lines = stderr.mock.calls.map((call) => String(call[0]));
+        expect(lines).toHaveLength(2);
+        expect(lines.every((line) => line.startsWith("zerolith-client: ") && line.trimEnd().split("\n").length === 1)).toBe(true);
+        expect(lines[1]).toContain("OpenAPI 3");
     });
 
     it("reports usage errors with exit code 2", async () =>

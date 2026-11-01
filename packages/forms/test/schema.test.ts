@@ -2,6 +2,23 @@ import { describe, expect, it } from "vitest";
 import { isProblem } from "zerolith";
 import { type StandardSchema, formValues, problemFromIssues, problemResponse, validateForm } from "@zerolith/forms";
 
+describe("form values", () =>
+{
+    it("keeps a field named after an Object member as a field", () =>
+    {
+        const data = new FormData();
+        data.append("constructor", "a");
+        data.append("__proto__", "b");
+        data.append("toString", "c");
+        data.append("toString", "d");
+        const values = formValues(data);
+        expect(Object.keys(values)).toEqual(["constructor", "__proto__", "toString"]);
+        expect(values["__proto__"]).toBe("b");
+        expect(values["toString"]).toEqual(["c", "d"]);
+        expect(problemFromIssues([{ message: "Taken", path: ["constructor"] }]).fields?.["constructor"]).toEqual(["Taken"]);
+    });
+});
+
 describe("formValues", () =>
 {
     it("keeps single values flat and collects repeated names into arrays in order", () =>

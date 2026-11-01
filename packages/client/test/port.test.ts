@@ -48,7 +48,7 @@ describe("portTransport and servePort", () =>
         expect((missing as ProblemError).problem).toEqual({ status: 404, title: "No such note" });
         const failed = await portTransport(client)(new Request("https://app.local/boom"));
         expect(failed.status).toBe(500);
-        await expect(failed.json()).resolves.toEqual({ title: "handler failed", status: 500 });
+        await expect(failed.json()).resolves.toEqual({ title: "The handler failed", status: 500 });
         expect(seen).toEqual(["GET /notes?q=x t1", "POST /notes t1", "DELETE /notes/gone t1", "GET /notes/missing t1", "GET /boom "]);
         close();
     });

@@ -142,6 +142,50 @@ describe("createForm", () =>
         expect(form.field("title").invalid.get()).toBe(false);
     });
 
+    it("reports an error a callback throws without failing the submission", async () =>
+    {
+        const reported = vi.fn();
+        vi.stubGlobal("reportError", reported);
+        try
+        {
+            const { form, element } = harness([() => Promise.resolve(Response.json({ id: 1 }))], { onSuccess: () => { throw new Error("app bug"); } });
+            submit(element);
+            await settled(form);
+            expect(form.status.get()).toBe("success");
+            expect((reported.mock.calls[0]?.[0] as Error | undefined)?.message).toBe("app bug");
+        }
+        finally
+        {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it("submits an unknown method as the browser would, and keeps the submitter where FormData drops it", async () =>
+    {
+        const { element, requests } = harness([() => Promise.resolve(new Response(null, { status: 204 }))], {}, "method=\"PUT\" action=\"/notes\"");
+        submit(element);
+        await vi.waitFor(() => expect(requests).toHaveLength(1));
+        expect(requests[0]?.method).toBe("GET");
+        expect(new URL(requests[0]?.url ?? "").searchParams.get("intent")).toBe("save");
+
+        const Native = FormData;
+        vi.stubGlobal("FormData", function FormDataWithoutSubmitter(form?: HTMLFormElement): FormData
+        {
+            return new Native(form);
+        });
+        try
+        {
+            const posted = harness([() => Promise.resolve(new Response(null, { status: 204 }))]);
+            submit(posted.element);
+            await vi.waitFor(() => expect(posted.requests).toHaveLength(1));
+            expect(await posted.requests[0]?.text()).toBe("title=Hello&intent=save");
+        }
+        finally
+        {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it("turns other failing responses into a problem", async () =>
     {
         const { form, element } = harness([() => Promise.resolve(new Response("nope", { status: 500, statusText: "Server Error" }))]);

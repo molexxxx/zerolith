@@ -112,8 +112,8 @@ export type HrefArgs<Path extends string> = Record<string, never> extends Params
 
 /**
  * What `observe` receives: a navigation starting, then committing, failing,
- * or canceled because a newer navigation started before it committed, with
- * one id per navigation.
+ * or canceled because a newer navigation started before it committed or the
+ * router was disposed, with one id per navigation.
  */
 export interface NavigationEvent
 {
@@ -142,7 +142,7 @@ export interface RouterOptions
     scroll?: boolean;
     /** The window to attach to. Defaults to the global window; `null` attaches to none, as on the server, even where a window exists. */
     window?: Window | null;
-    /** Receives one event when a navigation starts and one when it commits or fails; the hook tracing and logging attach to. */
+    /** Receives one event when a navigation starts and one when it commits, fails, or is canceled by a newer navigation or by `dispose()`; the hook tracing and logging attach to. */
     observe?: (event: NavigationEvent) => void;
     /**
      * The path the application is served under, such as `"/app/"`, or `import.meta.env.BASE_URL` to follow the build.
@@ -257,6 +257,19 @@ function headOf(resolved: Resolved): Head
     return typeof declared === "function" ? declared({ params: resolved.match.params, data: resolved.match.data, url: resolved.match.url }) : declared;
 }
 
+/** A fragment percent-decoded, or as it is when its escapes are malformed, as in `#100%`. */
+function decoded(fragment: string): string
+{
+    try
+    {
+        return decodeURIComponent(fragment);
+    }
+    catch
+    {
+        return fragment;
+    }
+}
+
 /** Creates a router over the given table and attaches it to the window when one exists. */
 export function createRouter<const T extends RouteTable>(routes: T, options: RouterOptions = {}): Router<T>
 {
@@ -292,7 +305,8 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
     const entryState = (): Record<string, unknown> =>
     {
         const state: unknown = win?.history.state;
-        return typeof state === "object" && state !== null ? { ...state } : {};
+        const plain = typeof state === "object" && state !== null && !Array.isArray(state) && [Object.prototype, null].includes(Object.getPrototypeOf(state) as object | null);
+        return plain ? { ...(state as Record<string, unknown>) } : {};
     };
     /**
      * Saves the scroll position into the state of the history entry shown.
@@ -446,7 +460,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         }
         if (target.hash !== "")
         {
-            const element = win.document.getElementById(decodeURIComponent(target.hash.slice(1)));
+            const element = win.document.getElementById(target.hash.slice(1)) ?? win.document.getElementById(decoded(target.hash.slice(1)));
             if (element !== null)
             {
                 element.scrollIntoView();
@@ -572,7 +586,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             return;
         }
         event.preventDefault();
-        void go(target, "push");
+        void go(target, target.href === win.location.href ? "replace" : "push");
     };
 
     /**

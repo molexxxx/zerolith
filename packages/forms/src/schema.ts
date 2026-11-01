@@ -50,10 +50,10 @@ export type Validation<Output> =
     | { readonly value: Output; readonly problem?: undefined }
     | { readonly value?: undefined; readonly problem: Problem };
 
-/** Turns `FormData` into a plain object. A name that appears once maps to its value; a name that appears more than once maps to an array of its values, in order. */
+/** Turns `FormData` into a plain object with no prototype, so a field named `constructor` or `__proto__` is a field like any other. A name that appears once maps to its value; a name that appears more than once maps to an array of its values, in order. */
 export function formValues(data: FormData): FormValues
 {
-    const values: FormValues = {};
+    const values = Object.create(null) as FormValues;
     for (const [name, value] of data)
     {
         const current = values[name];
@@ -85,7 +85,7 @@ function fieldName(path: ReadonlyArray<PropertyKey | StandardPathSegment> | unde
 /** Groups issues into a problem: path-bearing issues under `fields`, the rest in `detail`. */
 export function problemFromIssues(issues: ReadonlyArray<StandardIssue>): Problem
 {
-    const fields: Record<string, string[]> = {};
+    const fields = Object.create(null) as Record<string, string[]>;
     const general: string[] = [];
     for (const issue of issues)
     {

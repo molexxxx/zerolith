@@ -56,7 +56,7 @@ export function compile(path: string): Pattern
     return { source: path, names, expression: new RegExp("^/" + parts.join("/") + "/?$") };
 }
 
-/** Matches a pathname against a compiled pattern and returns the decoded parameters, or undefined. */
+/** Matches a pathname against a compiled pattern and returns the decoded parameters, or undefined; a malformed percent escape in a parameter does not match, so the next route or the fallback answers. */
 export function match(pattern: Pattern, pathname: string): Record<string, string> | undefined
 {
     const result = pattern.expression.exec(pathname === "" ? "/" : pathname);
@@ -69,13 +69,34 @@ export function match(pattern: Pattern, pathname: string): Record<string, string
     {
         const name = pattern.names[i] ?? "";
         const value = result[i + 1] ?? "";
-        params[name] = decodeURIComponent(value);
+        try
+        {
+            params[name] = decodeURIComponent(value);
+        }
+        catch
+        {
+            return undefined;
+        }
     }
     return params;
 }
 
-/** Builds a pathname from a pattern and parameters, encoding each value. */
+/** Builds a pathname from a pattern and parameters, reading the segments as `compile` does: a `:name` value is encoded whole, and a `*rest` value one segment at a time, so its slashes stay slashes. */
 export function build(path: string, params: Readonly<Record<string, string>>): string
 {
-    return path.replace(/[:*]([A-Za-z0-9_]+)/g, (_, name: string) => encodeURIComponent(params[name] ?? ""));
+    return path
+        .split("/")
+        .map((segment) =>
+        {
+            if (segment.startsWith(":"))
+            {
+                return encodeURIComponent(params[segment.slice(1)] ?? "");
+            }
+            if (segment.startsWith("*"))
+            {
+                return (params[segment.slice(1)] ?? "").split("/").map(encodeURIComponent).join("/");
+            }
+            return segment;
+        })
+        .join("/");
 }

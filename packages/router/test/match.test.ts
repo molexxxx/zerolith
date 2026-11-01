@@ -38,7 +38,11 @@ describe("path patterns", () =>
     it("builds paths with encoded parameters", () =>
     {
         expect(build("/releases/:tag", { tag: "v1.3 beta" })).toBe("/releases/v1.3%20beta");
-        expect(build("/docs/*path", { path: "a/b" })).toBe("/docs/a%2Fb");
+        expect(build("/docs/*path", { path: "a/b c" })).toBe("/docs/a/b%20c");
+        expect(build("/releases/:release-id", { "release-id": "v1" })).toBe("/releases/v1");
+        expect(build("/files/:name/raw", { name: "a/b" })).toBe("/files/a%2Fb/raw");
+        expect(match(compile("/releases/:tag"), "/releases/%ZZ")).toBeUndefined();
+        expect(match(compile("/releases/:release-id"), "/releases/v1")).toEqual({ "release-id": "v1" });
     });
 });
 

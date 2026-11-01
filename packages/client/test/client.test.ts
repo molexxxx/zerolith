@@ -154,3 +154,63 @@ describe("an operation with another method", () =>
         expect(methods).toEqual(["COPY /notes/7"]);
     });
 });
+
+/** A contract with a binary download and a streamed upload. */
+interface Files
+{
+    download: { method: "get"; path: "/files/{id}"; params: { id: string }; output: Blob };
+    upload: { method: "post"; path: "/files"; body: ReadableStream<Uint8Array>; output: undefined };
+}
+
+describe("bodies beyond JSON and text", () =>
+{
+    it("resolves another media type to a Blob and sends a stream body", async () =>
+    {
+        const files = { download: { method: "get", path: "/files/{id}" }, upload: { method: "post", path: "/files" } } as const satisfies RouteTable<Files>;
+        const sent: string[] = [];
+        const api = createClient<Files>(files, {
+            baseUrl: "https://api.test",
+            transport: async (request) =>
+            {
+                if (request.method === "POST")
+                {
+                    sent.push(await request.text());
+                    return new Response(null, { status: 204 });
+                }
+                return new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "application/octet-stream" } });
+            }
+        });
+        const blob = await api.call("download", { params: { id: "a" } });
+        expect(blob).toBeInstanceOf(Blob);
+        expect(new Uint8Array(await blob.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
+        const body = new ReadableStream<Uint8Array>({
+            start(controller)
+            {
+                controller.enqueue(new TextEncoder().encode("streamed"));
+                controller.close();
+            }
+        });
+        await api.call("upload", { body });
+        expect(sent).toEqual(["streamed"]);
+    });
+
+    it("aborts a query's request when the caller's signal aborts", async () =>
+    {
+        const files = { download: { method: "get", path: "/files/{id}" }, upload: { method: "post", path: "/files" } } as const satisfies RouteTable<Files>;
+        const signals: AbortSignal[] = [];
+        const api = createClient<Files>(files, {
+            baseUrl: "https://api.test",
+            transport: (request) =>
+            {
+                signals.push(request.signal);
+                return new Promise<Response>(() => undefined);
+            }
+        });
+        const caller = new AbortController();
+        api.query("download", () => ({ params: { id: "a" } }), { signal: caller.signal });
+        await vi.waitFor(() => expect(signals).toHaveLength(1));
+        expect(signals[0]?.aborted).toBe(false);
+        caller.abort();
+        expect(signals[0]?.aborted).toBe(true);
+    });
+});

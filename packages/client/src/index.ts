@@ -11,7 +11,7 @@ import { PROBLEM_MEDIA_TYPE, type Problem, type Resource, isProblem, resource } 
  * being the HTTP QUERY method, or any other method token, as an OpenAPI 3.2
  * `additionalOperations` entry such as `copy` gives.
  */
-export type Method = "get" | "put" | "post" | "delete" | "options" | "head" | "patch" | "trace" | "query" | (string & {});
+export type Method = "get" | "put" | "post" | "delete" | "options" | "head" | "patch" | "query" | (string & {});
 
 /** One operation as the generated `Api` interface describes it. */
 export interface Operation
@@ -24,7 +24,7 @@ export interface Operation
     readonly params?: Record<string, string | number | boolean>;
     /** Query parameters; arrays repeat the key, objects are JSON. */
     readonly query?: Record<string, unknown>;
-    /** The request body; JSON unless it is a `FormData`, `URLSearchParams`, `Blob`, `ArrayBuffer`, or string. */
+    /** The request body; JSON unless it is a `FormData`, `URLSearchParams`, `Blob`, `ArrayBuffer`, `ReadableStream`, or string, which are sent as they are. */
     readonly body?: unknown;
     /** What a successful call resolves to. */
     readonly output: unknown;
@@ -158,6 +158,10 @@ function buildRequest(route: { method: Method; path: string }, input: LooseInput
         if (isRawBody(input.body))
         {
             init.body = input.body;
+            if (input.body instanceof ReadableStream)
+            {
+                (init as RequestInit & { duplex: "half" }).duplex = "half";
+            }
         }
         else
         {
@@ -171,19 +175,50 @@ function buildRequest(route: { method: Method; path: string }, input: LooseInput
     return new Request(`${base}${path}${searchOf(input.query ?? {})}`, init);
 }
 
+/** A successful response's body: JSON parsed, text for `text/*` or no type, a `Blob` for any other type, such as an image, and `undefined` when it is empty. */
 async function readBody(response: Response): Promise<unknown>
 {
     if (response.status === 204 || response.status === 205)
     {
         return undefined;
     }
-    const type = response.headers.get("content-type") ?? "";
+    const type = (response.headers.get("content-type") ?? "").toLowerCase();
     if (type.includes("json"))
     {
         return response.json();
     }
-    const text = await response.text();
-    return text === "" ? undefined : text;
+    if (type === "" || type.startsWith("text/"))
+    {
+        const text = await response.text();
+        return text === "" ? undefined : text;
+    }
+    return response.blob();
+}
+
+/** Calls `run` with a signal that aborts when either `own` or `caller` does, and stops listening to the caller once the call settles. */
+async function withSignals<T>(own: AbortSignal, caller: AbortSignal | undefined, run: (signal: AbortSignal) => Promise<T>): Promise<T>
+{
+    if (caller === undefined)
+    {
+        return run(own);
+    }
+    const combined = new AbortController();
+    const abort = (): void => combined.abort();
+    if (own.aborted || caller.aborted)
+    {
+        combined.abort();
+    }
+    own.addEventListener("abort", abort);
+    caller.addEventListener("abort", abort);
+    try
+    {
+        return await run(combined.signal);
+    }
+    finally
+    {
+        own.removeEventListener("abort", abort);
+        caller.removeEventListener("abort", abort);
+    }
 }
 
 async function settle(response: Response): Promise<unknown>
@@ -234,7 +269,7 @@ export function createClient<A extends Contract<A>>(routes: RouteTable<A>, optio
         {
             return resource<Input<A[K]>, Output<A[K]>>({
                 params: input,
-                loader: ({ params, abort }) => call(name, params as LooseInput, { ...callOptions, signal: abort }) as Promise<Output<A[K]>>
+                loader: ({ params, abort }) => withSignals(abort, callOptions.signal, (signal) => call(name, params as LooseInput, { ...callOptions, signal }) as Promise<Output<A[K]>>)
             });
         },
         request<K extends keyof A>(name: K, ...args: InputArgs<A[K]>): Request

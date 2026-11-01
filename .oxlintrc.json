@@ -54,7 +54,7 @@
             }
         },
         {
-            "files": ["packages/zerolith/src/devtools.ts", "packages/zerolith/src/diagnostics.ts"],
+            "files": ["packages/zerolith/src/devtools.ts", "packages/zerolith/src/diagnostics.ts", "packages/client/src/port.ts"],
             "rules": {
                 "no-console": "off"
             }

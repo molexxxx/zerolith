@@ -96,6 +96,66 @@ export interface Form
 
 const EMPTY: readonly string[] = [];
 
+/** Calls an application callback, reporting what it throws as an uncaught error would be, without changing the form's state. */
+function guarded(callback: () => void): void
+{
+    try
+    {
+        callback();
+    }
+    catch (thrown)
+    {
+        if (typeof reportError === "function")
+        {
+            reportError(thrown);
+        }
+        else
+        {
+            queueMicrotask(() =>
+            {
+                throw thrown;
+            });
+        }
+    }
+}
+
+/** The `FormData` implementation probed, and whether its constructor adds the submitter's entry, which browsers before Chrome 112 and Firefox 111 skip. */
+let probed: { implementation: typeof FormData; keepsSubmitter: boolean } | undefined;
+
+/** The form's data as the browser submits it, with the submitter's entry added where `new FormData(form, submitter)` leaves it out. */
+function submittedData(element: HTMLFormElement, submitter: HTMLElement | null): FormData
+{
+    const data = new FormData(element, submitter ?? undefined);
+    if (submitter === null)
+    {
+        return data;
+    }
+    if (probed?.implementation !== FormData)
+    {
+        const form = document.createElement("form");
+        const button = document.createElement("button");
+        button.name = "probe";
+        button.value = "kept";
+        form.append(button);
+        probed = { implementation: FormData, keepsSubmitter: new FormData(form, button).get("probe") === "kept" };
+    }
+    const name = submitter.getAttribute("name");
+    if (probed.keepsSubmitter || name === null || name === "")
+    {
+        return data;
+    }
+    if (submitter instanceof HTMLInputElement && submitter.type === "image")
+    {
+        data.append(`${name}.x`, "0");
+        data.append(`${name}.y`, "0");
+    }
+    else
+    {
+        data.append(name, (submitter as HTMLButtonElement | HTMLInputElement).value);
+    }
+    return data;
+}
+
 /**
  * The problem a failed response describes: its body when that is a problem
  * document, or one built from the status. The server is a trust boundary,
@@ -151,7 +211,7 @@ async function defaultSend(submission: Submission, headers: HeadersInit | undefi
         url.search = new URLSearchParams(entries(data)).toString();
         return fetchImpl(url, init);
     }
-    const enctype = submitter?.getAttribute("formenctype") ?? element.enctype;
+    const enctype = submitter !== null && submitter.hasAttribute("formenctype") ? (submitter as HTMLButtonElement).formEnctype : element.enctype;
     if (enctype === "multipart/form-data")
     {
         init.body = data;
@@ -205,12 +265,12 @@ export function createForm(options: FormOptions = {}): Form
             problem.set(found);
             status.set("failure");
         });
-        options.onFailure?.(found, element);
+        guarded(() => options.onFailure?.(found, element));
     };
 
     const run = async (element: HTMLFormElement, submitter: HTMLElement | null, method: string, action: URL, current: AbortController): Promise<void> =>
     {
-        const data = new FormData(element, submitter ?? undefined);
+        const data = submittedData(element, submitter);
         batch(() =>
         {
             status.set("pending");
@@ -261,7 +321,7 @@ export function createForm(options: FormOptions = {}): Form
         {
             element.reset();
         }
-        options.onSuccess?.({ result: parsed, response, element });
+        guarded(() => options.onSuccess?.({ result: parsed, response, element }));
         if (response.redirected)
         {
             (options.navigate ?? ((url) => location.assign(url)))(response.url);
@@ -297,7 +357,7 @@ export function createForm(options: FormOptions = {}): Form
         {
             const element = event.currentTarget as HTMLFormElement;
             const submitter = event.submitter;
-            const method = (submitter?.getAttribute("formmethod") ?? element.getAttribute("method") ?? "get").toLowerCase();
+            const method = submitter !== null && submitter.hasAttribute("formmethod") ? (submitter as HTMLButtonElement).formMethod : element.method;
             if (method === "dialog")
             {
                 return;
@@ -318,7 +378,7 @@ export function createForm(options: FormOptions = {}): Form
                     error.set(thrown);
                     status.set("error");
                 });
-                options.onError?.(thrown, element);
+                guarded(() => options.onError?.(thrown, element));
             });
         },
         reset(): void

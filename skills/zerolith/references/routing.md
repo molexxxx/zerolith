@@ -57,7 +57,7 @@ A page component is a view as it is, and a page small enough to write in place c
 | `/releases/:tag` | One segment after `/releases/`, as `/releases/1.0` | `{ tag: "1.0" }` |
 | `/files/*path` | Everything after `/files/`, slashes included, as `/files/docs/a.md` | `{ path: "docs/a.md" }` |
 
-Parameter values are decoded from the URL, and `href` encodes them back. Routes are tried in the order the table lists them, and the first match wins, so a `*rest` route that would also match a more specific path goes after it.
+Parameter values are decoded from the URL, and `href` encodes them back, a `*rest` value one segment at a time, so its slashes stay slashes. A path whose percent escapes are malformed matches no route and renders the fallback. Routes are tried in the order the table lists them, and the first match wins, so a `*rest` route that would also match a more specific path goes after it.
 
 ## Pages are components
 

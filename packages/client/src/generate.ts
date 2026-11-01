@@ -86,7 +86,7 @@ export interface ResponseObject
     $ref?: string;
     /** A description of the response; the generator does not carry it into the output. */
     description?: string;
-    /** The response body by media type: a JSON type, when present, gives its schema's type, `text/*` gives `string`, any other type gives `unknown`, and no content gives `undefined`. */
+    /** The response body by media type: a JSON type, when present, gives its schema's type, `text/*` gives `string`, any other type gives `Blob`, as the client reads it, and no content gives `undefined`. */
     content?: Record<string, MediaTypeObject>;
 }
 
@@ -170,7 +170,11 @@ export interface GenerateOptions
     apiName?: string;
 }
 
-const METHODS = ["get", "put", "post", "delete", "options", "head", "patch", "trace", "query"] as const;
+/** The methods a Path Item names that the client can send; `trace` is left out, since `fetch` refuses TRACE. */
+const METHODS = ["get", "put", "post", "delete", "options", "head", "patch", "query"] as const;
+
+/** Methods `fetch` refuses to send, left out of `additionalOperations` too. */
+const FORBIDDEN_METHODS: ReadonlySet<string> = new Set(["connect", "trace", "track"]);
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
 interface Context
@@ -539,7 +543,7 @@ function outputType(context: Context, operation: OperationObject): string
                 types.add("undefined");
                 break;
             default:
-                types.add("unknown");
+                types.add("Blob");
         }
     }
     return [...types].join(" | ");
@@ -616,6 +620,10 @@ export function generateClient(document: OpenApiDocument, options: GenerateOptio
             if (!/^[a-z0-9!#$%&'*+.^_`|~-]+$/i.test(method))
             {
                 fail(`${JSON.stringify(path)} has the additional operation ${JSON.stringify(method)}, which is not an HTTP method name`);
+            }
+            if (FORBIDDEN_METHODS.has(method.toLowerCase()))
+            {
+                continue;
             }
             operations.push([method.toLowerCase(), operation]);
         }

@@ -64,7 +64,7 @@ describe("router", () =>
         const typed = router as unknown as Router<ReturnType<typeof table>>;
         expect(typed.href("home")).toBe("/");
         expect(typed.href("release", { tag: "v1 beta" })).toBe("/releases/v1%20beta");
-        expect(typed.href("docs", { path: "a/b" })).toBe("/docs/a%2Fb");
+        expect(typed.href("docs", { path: "a/b" })).toBe("/docs/a/b");
         // @ts-expect-error a parameter is required
         typed.href("release");
         // @ts-expect-error the route does not exist

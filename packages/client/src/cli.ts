@@ -66,15 +66,23 @@ export async function main(argv: readonly string[]): Promise<number>
         process.stderr.write(USAGE);
         return 2;
     }
-    const document = JSON.parse(await readFile(parsed.input, "utf8")) as OpenApiDocument;
-    const code = generateClient(document, parsed.name === undefined ? {} : { apiName: parsed.name });
-    if (parsed.out === undefined)
+    try
     {
-        process.stdout.write(code);
+        const document = JSON.parse(await readFile(parsed.input, "utf8")) as OpenApiDocument;
+        const code = generateClient(document, parsed.name === undefined ? {} : { apiName: parsed.name });
+        if (parsed.out === undefined)
+        {
+            process.stdout.write(code);
+        }
+        else
+        {
+            await writeFile(parsed.out, code);
+        }
     }
-    else
+    catch (error)
     {
-        await writeFile(parsed.out, code);
+        process.stderr.write(`zerolith-client: ${error instanceof Error ? error.message.replace(/^zerolith\/client: /, "") : String(error)}\n`);
+        return 1;
     }
     return 0;
 }

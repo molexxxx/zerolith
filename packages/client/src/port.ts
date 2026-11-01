@@ -144,8 +144,15 @@ export function servePort(port: PortLike, handler: (request: Request) => Respons
             }
             catch (error)
             {
-                const title = error instanceof Error ? error.message : String(error);
-                response = new Response(JSON.stringify({ title, status: 500 }), { status: 500, headers: { "content-type": "application/problem+json" } });
+                if (typeof reportError === "function")
+                {
+                    reportError(error);
+                }
+                else
+                {
+                    console.error("zerolith/client: a servePort handler threw", error);
+                }
+                response = new Response(JSON.stringify({ title: "The handler failed", status: 500 }), { status: 500, headers: { "content-type": "application/problem+json" } });
             }
             const text = await response.text();
             const reply: PortResponse = { kind: "zerolith:response", id, status: response.status, statusText: response.statusText, headers: [...response.headers], body: text === "" ? null : text };

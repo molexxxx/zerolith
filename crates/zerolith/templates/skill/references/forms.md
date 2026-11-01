@@ -152,15 +152,15 @@ It is the same document the enhancer builds when the schema fails in the browser
 | `fetch` | The `fetch` the default request uses, the global one unless given |
 | `navigate` | Where a redirected response takes the page, `location.assign` unless given; pass a function that calls the router's `navigate` to stay in the application |
 | `reset` | Resets the form element after a successful response |
-| `onSuccess` | Runs after a successful response, with its result |
-| `onFailure` | Runs with the problem, from the schema or the server |
+| `onSuccess` | Runs after a successful response, with its result; an error it throws is reported as an uncaught error is, with `reportError`, and leaves `status` as it is |
+| `onFailure` | Runs with the problem, from the schema or the server; an error it throws is reported the same way |
 | `onError` | Runs when the request itself fails |
 
 ## The request
 
 The default request copies what the browser would send:
 
-- The method and action come from the form, after the submitter's `formmethod` and `formaction`.
+- The method and action come from the form, after the submitter's `formmethod` and `formaction`, read as the browser reads them: a method it does not know, such as `put`, submits as `get`, as a native form would, so a `PUT` or `DELETE` needs a `send` of its own. The submitter's name and value are part of the data in every supported browser.
 - The body follows the encoding, `enctype` or the submitter's `formenctype`: URL-encoded by default, `FormData` for `multipart/form-data`, and lines of text for `text/plain`. A `GET` puts the data in the query string instead.
 - The `Accept` header asks for JSON or a problem, unless `headers` sets one, so a server can tell an enhanced submission from a native one.
 - Cookies go with a request to the same origin.
