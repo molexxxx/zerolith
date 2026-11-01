@@ -204,4 +204,77 @@ describe("templates guide", () =>
         // #endregion styles
         expect(getComputedStyle(host.querySelector("article") as Element).paddingTop).toBe("12px");
     });
+
+    it("boundary", () =>
+    {
+        // #region boundary
+        const note = css`
+            p { margin: 0; }
+        `;
+        const panel = css`
+            :scope { display: grid; gap: 8px; }
+            aside { border: 2px solid gray; }
+            p { font-weight: 700; }
+        `;
+
+        function Note({ text }: { text: string })
+        {
+            return html`<aside class=${note}><p>${text}</p></aside>`;
+        }
+
+        function Panel()
+        {
+            return html`
+                <section class=${panel}>
+                    <p>The panel's own paragraph is bold.</p>
+                    ${Note({ text: "The note's paragraph is not." })}
+                </section>`;
+        }
+
+        render(Panel(), "#app");
+        // #endregion boundary
+        const [own, inner] = Array.from(host.querySelectorAll("p"));
+        expect(getComputedStyle(own as Element).fontWeight).toBe("700");
+        expect(getComputedStyle(inner as Element).fontWeight).toBe("400");
+        expect(getComputedStyle(host.querySelector("aside") as Element).borderTopWidth).toBe("2px");
+    });
+
+    it("compose", () =>
+    {
+        // #region compose
+        const control = css`
+            :scope { padding: 8px 12px; border: 2px solid currentColor; }
+        `;
+        const primary = css`
+            ${control}
+            :scope { font-weight: 700; }
+        `;
+
+        render(html`<button class=${primary}>Save</button>`, "#app");
+        // #endregion compose
+        const button = getComputedStyle(host.querySelector("button") as Element);
+        expect(button.paddingTop).toBe("8px");
+        expect(button.fontWeight).toBe("700");
+    });
+
+    it("dynamic", () =>
+    {
+        // #region dynamic
+        const meter = css`
+            :scope { height: 8px; background: gray; }
+            div { width: var(--level); height: 100%; background: green; }
+        `;
+        const level = signal(30);
+
+        render(html`
+            <div class=${meter}>
+                <div style=${computed(() => `--level: ${level.get()}%`)}></div>
+            </div>`, "#app");
+
+        level.set(60);                          // the bar fills 60 percent
+        // #endregion dynamic
+        const outer = host.querySelector("div") as HTMLElement;
+        const bar = outer.querySelector("div") as HTMLElement;
+        expect(bar.getBoundingClientRect().width / outer.getBoundingClientRect().width).toBeCloseTo(0.6, 2);
+    });
 });
