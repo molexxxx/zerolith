@@ -139,9 +139,7 @@ export function mountDevtools(options: DevtoolsOptions = {}): DevtoolsHandle
 {
     checkCoreVersion();
     const source = hook();
-    const open = signal(options.open === true);
-    const tab = signal<Tab>("signals");
-    const version = signal(0);
+    const { open, tab, version } = devtoolsInternal(() => ({ open: signal(options.open === true), tab: signal<Tab>("signals"), version: signal(0) }));
     const nodes = (): NodeSnapshot[] => (version.get(), source?.nodes() ?? []);
     const roots = (): RootSnapshot[] => (version.get(), source?.roots() ?? []);
     const list = (): Diagnostic[] => (version.get(), source?.diagnostics() ?? []);

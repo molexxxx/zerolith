@@ -15,13 +15,13 @@ A production application wants its navigations, its hydration, and its requests 
 
 | Function | Span | Attributes |
 | --- | --- | --- |
-| `navigationObserver(tracer)` | `navigate`, from the start of a navigation to its commit, failure, or cancel | `url.path`, `url.query`, and `zerolith.navigation.mode`; on commit, `zerolith.route`; on cancel, `zerolith.navigation.canceled` |
-| `tracedTransport(transport, tracer)` | A client span per request, named by method and path, as `GET /notes` | `http.request.method`, `url.full`, and `http.response.status_code` |
+| `navigationObserver(tracer)` | `navigate`, from the start of a navigation to its commit, failure, or cancel | `url.path`, `url.query` when the URL has one, and `zerolith.navigation.mode`; on commit, `zerolith.route`; on cancel, `zerolith.navigation.canceled` |
+| `tracedTransport(transport, tracer)` | A client span per request, named by its method, as `GET` | `http.request.method`, `url.full`, and `http.response.status_code` |
 | `tracedHydrate(view, target, tracer)` | `hydrate`, around the call | `zerolith.hydration.mismatches`, the number of mismatches |
 
 A span ends with an OK status when its work succeeds and an error status when it fails. A loader, a hydration, or a request that throws also records its exception on the span, and a response outside 2xx sets the error status with its code. A canceled navigation leaves the status unset, since nothing failed. The tracer argument can be left out, and each function then uses `trace.getTracer("@zerolith/otel")` from the global tracer provider.
 
-`tracedTransport` wraps the typed client's transport, or `fetch` when it is given `undefined`, and injects a `traceparent` header from the active span, so a server that reads W3C trace context continues the browser's trace.
+`tracedTransport` wraps the typed client's transport, or `fetch` when it is given `undefined`, and injects a `traceparent` header from the active span, so a server that reads W3C trace context continues the browser's trace. A client span is named by its method alone, as the HTTP conventions direct when no route template is known, since a name such as `GET /notes/1` would give every note a span name of its own; the path is in `url.full`. `url.full` and `url.query` record the values of the query keys the URL conventions redact, `sig`, `X-Amz-Signature`, `X-Amz-Credential`, `X-Amz-Security-Token`, and `X-Goog-Signature`, as `REDACTED`, so a signed URL's signature never reaches the trace backend.
 
 ## Wiring an SDK
 

@@ -16,13 +16,28 @@ function defaultTracer(): Tracer
     return trace.getTracer("@zerolith/otel");
 }
 
+/** The query keys whose values the URL conventions redact by default, such as a signed URL's signature. */
+const SENSITIVE_QUERY = new Set(["X-Amz-Signature", "X-Amz-Credential", "X-Amz-Security-Token", "sig", "X-Goog-Signature"]);
+
+/** A URL's query component without its `?`, with the value of each key the conventions redact replaced by `REDACTED`. */
+function redactedQuery(search: string): string
+{
+    return search.replace(/^\?/, "").split("&").map((pair) =>
+    {
+        const key = pair.split("=", 1)[0] ?? "";
+        return SENSITIVE_QUERY.has(key) ? `${key}=REDACTED` : pair;
+    }).join("&");
+}
+
 /**
  * The `observe` function for `createRouter`: a span named `navigate`
  * opens when a navigation starts and ends when it commits, fails, or is
- * canceled by a newer navigation, with `zerolith.route`, `url.path`, and
- * `zerolith.navigation.mode` as attributes, the loader's error recorded on
- * failure, and `zerolith.navigation.canceled` set on a canceled one, whose
- * status stays unset.
+ * canceled by a newer navigation, with `zerolith.route`, `url.path`,
+ * `url.query` when the URL has a query, and `zerolith.navigation.mode` as
+ * attributes, the loader's error recorded on failure, and
+ * `zerolith.navigation.canceled` set on a canceled one, whose status stays
+ * unset. The values of the query keys the URL conventions redact, such as
+ * `sig`, are recorded as `REDACTED`.
  */
 export function navigationObserver(tracer: Tracer = defaultTracer()): (event: NavigationEvent) => void
 {
@@ -31,9 +46,10 @@ export function navigationObserver(tracer: Tracer = defaultTracer()): (event: Na
     {
         if (event.type === "start")
         {
+            const query = redactedQuery(event.url.search);
             const span = tracer.startSpan("navigate", {
                 kind: SpanKind.INTERNAL,
-                attributes: { "url.path": event.url.pathname, "url.query": event.url.search, "zerolith.navigation.mode": event.mode }
+                attributes: { "url.path": event.url.pathname, ...(query === "" ? {} : { "url.query": query }), "zerolith.navigation.mode": event.mode }
             });
             open.set(event.id, span);
             return;
@@ -101,17 +117,23 @@ export function traceparent(active: Context = context.active()): string | undefi
 
 /**
  * Wraps a transport, or `fetch` when none is given, so every request runs
- * in a client span named `METHOD /path` with `http.request.method`,
- * `url.full`, and `http.response.status_code`, carries a `traceparent`
- * header from that span, and records a failed request as an error.
+ * in a client span named by its method, as `GET`, with
+ * `http.request.method`, `url.full`, and `http.response.status_code`,
+ * carries a `traceparent` header from that span, and records a failed
+ * request as an error. The span is not named by the request's path, which
+ * would give every note its own span name; the HTTP conventions name a
+ * client span by its method when no route template is known. `url.full`
+ * records the values of the query keys the conventions redact, such as
+ * `sig`, as `REDACTED`.
  */
 export function tracedTransport(transport: Transport | undefined, tracer: Tracer = defaultTracer()): Transport
 {
     const send: Transport = transport ?? ((request) => fetch(request));
     return (request) =>
     {
-        const url = new URL(request.url);
-        return tracer.startActiveSpan(`${request.method} ${url.pathname}`, { kind: SpanKind.CLIENT, attributes: { "http.request.method": request.method, "url.full": request.url } }, async (span) =>
+        const full = new URL(request.url);
+        full.search = redactedQuery(full.search);
+        return tracer.startActiveSpan(request.method, { kind: SpanKind.CLIENT, attributes: { "http.request.method": request.method, "url.full": full.href } }, async (span) =>
         {
             try
             {

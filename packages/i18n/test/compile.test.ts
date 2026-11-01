@@ -121,6 +121,30 @@ describe("compileMessages", () =>
         expect(() => compile({ locale: "x" })).toThrow(/key "locale" becomes locale/);
     });
 
+    it("creates a formatter whose options are literals once, without serializing the options on each call", async () =>
+    {
+        const m = await load("en", { price: "{$amount :currency currency=EUR}", total: "{$sum :currency currency=EUR}", priced: "{$amount :currency currency=$code}", day: "{$when :date}" });
+        const code = compileMessages("en", { price: "{$amount :currency currency=EUR}", total: "{$sum :currency currency=EUR}" }).code;
+        expect(code.match(/= \$once\(/g)?.length).toBe(1);
+        const stringify = vi.spyOn(JSON, "stringify");
+        try
+        {
+            for (let index = 0; index < 100; index++)
+            {
+                m["price"]?.({ amount: index });
+                m["day"]?.({ when: 0 });
+            }
+            expect(stringify).not.toHaveBeenCalled();
+        }
+        finally
+        {
+            stringify.mockRestore();
+        }
+        expect(m["price"]?.({ amount: 3 })).toBe("€3.00");
+        expect(m["total"]?.({ sum: 4 })).toBe("€4.00");
+        expect(m["priced"]?.({ amount: 3, code: "USD" })).toBe("$3.00");
+    });
+
     it("selects the plural category of the number the message shows", async () =>
     {
         const m = await load("en", {
@@ -141,12 +165,15 @@ describe("compileMessages", () =>
         expect(code).toContain("export function report(args: { author: string | number; count: number; when: Date | number }): string");
         expect(code).toContain("export function title(): string");
         expect(code).toContain("export const locale: string = \"en\";");
-        expect(code).toContain("function $number(value: number, options: Intl.NumberFormatOptions): string");
+        expect(code).toContain("function $once<T>(create: () => T): () => T");
+        expect(code).not.toContain("function $number");
+        expect(compile({ priced: "{$amount :currency currency=$code}" })).toContain("function $number(value: number, options: Intl.NumberFormatOptions): string");
         expect(code).not.toContain(": any");
         const js = compileMessages("en", { title: "Title" }, { language: "js" }).code;
         expect(js).toContain("// @ts-check");
         expect(js).toContain("export function title()");
         expect(js).not.toContain(": string");
+        expect(js).not.toContain("function $");
     });
 
     it("rejects what it cannot compile with the message's key in the error", () =>

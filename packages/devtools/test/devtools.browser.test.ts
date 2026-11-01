@@ -31,6 +31,13 @@ function newest(): number
 
 describe("inspector", () =>
 {
+    it("shows no signals of its own on a page that has none", async () =>
+    {
+        handle = mountDevtools({ open: true });
+        await frame();
+        expect(document.querySelector("[data-zerolith-devtools] aside .empty")?.textContent).toBe("No signals yet.");
+    });
+
     it("lists application signals and roots but not its own, and updates values live", async () =>
     {
         host = document.createElement("main");
@@ -46,7 +53,7 @@ describe("inspector", () =>
         const row = Array.from(dock.querySelectorAll("tbody tr")).find((tr) => tr.textContent?.includes("count"));
         expect(row?.textContent).toContain("state");
         expect(row?.textContent).toContain("1");
-        expect(Array.from(dock.querySelectorAll("tbody tr")).some((tr) => tr.textContent?.includes("Signals"))).toBe(false);
+        expect(Array.from(dock.querySelectorAll("tbody td.value")).map((cell) => cell.textContent)).not.toContain("\"signals\"");
 
         count.set(5);
         await frame();

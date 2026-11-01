@@ -55,11 +55,11 @@ describe("observability guide", () =>
         // A "navigate" span:
         await router.navigate("/");
 
-        // A "GET /notes" span, and a traceparent header on the request:
+        // A "GET" span with the URL in url.full, and a traceparent header:
         await api.call("listNotes");
         // #endregion spans
         const spans = exporter.getFinishedSpans();
-        expect(spans.map((span) => span.name)).toEqual(["navigate", "GET /notes"]);
+        expect(spans.map((span) => span.name)).toEqual(["navigate", "GET"]);
         expect(sent[0]?.headers.get("traceparent")).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/);
         router.dispose();
     });

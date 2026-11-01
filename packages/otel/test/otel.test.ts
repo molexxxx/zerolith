@@ -45,13 +45,14 @@ describe("navigationObserver", () =>
             })
         });
         const router = createRouter(routes, { window: null, observe: navigationObserver(tracer), onError: () => undefined });
-        await router.navigate("/notes/1?tab=a");
+        await router.navigate("/notes/1?tab=a&sig=abc");
         await router.navigate("/notes/bad");
         await router.navigate("/nowhere");
         router.dispose();
         const spans = exporter.getFinishedSpans();
         expect(spans.map((span) => span.name)).toEqual(["navigate", "navigate", "navigate"]);
-        expect(spans[0]?.attributes).toMatchObject({ "url.path": "/notes/1", "url.query": "?tab=a", "zerolith.navigation.mode": "push", "zerolith.route": "note" });
+        expect(spans[0]?.attributes).toMatchObject({ "url.path": "/notes/1", "url.query": "tab=a&sig=REDACTED", "zerolith.navigation.mode": "push", "zerolith.route": "note" });
+        expect(spans[1]?.attributes["url.query"]).toBeUndefined();
         expect(spans[0]?.status.code).toBe(SpanStatusCode.OK);
         expect(spans[1]?.status.code).toBe(SpanStatusCode.ERROR);
         expect(spans[1]?.events[0]?.name).toBe("exception");
@@ -102,7 +103,7 @@ describe("tracedTransport", () =>
         await api.call("fail").catch(() => undefined);
 
         const spans = exporter.getFinishedSpans();
-        expect(spans.map((span) => span.name)).toEqual(["GET /ping", "page", "POST /fail"]);
+        expect(spans.map((span) => span.name)).toEqual(["GET", "page", "POST"]);
         const ping = spans[0];
         const page = spans[1];
         expect(ping?.attributes).toMatchObject({ "http.request.method": "GET", "url.full": "https://api.test/ping", "http.response.status_code": 200 });
@@ -110,6 +111,11 @@ describe("tracedTransport", () =>
         expect(seen[0]?.headers.get("traceparent")).toBe(`00-${ping?.spanContext().traceId}-${ping?.spanContext().spanId}-01`);
         expect(spans[2]?.status).toMatchObject({ code: SpanStatusCode.ERROR, message: "HTTP 500" });
         expect(seen[1]?.headers.get("traceparent")).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/);
+
+        exporter.reset();
+        await transport(new Request("https://api.test/files/1?sig=abc&size=2"));
+        expect(exporter.getFinishedSpans()[0]?.attributes["url.full"]).toBe("https://api.test/files/1?sig=REDACTED&size=2");
+        expect(seen[2]?.url).toBe("https://api.test/files/1?sig=abc&size=2");
     });
 
     it("reports a failed request as an error and still rejects", async () =>

@@ -61,6 +61,14 @@ describe("generateClient", () =>
         expect(() => generateClient({} as OpenApiDocument)).toThrow(/OpenAPI 3/);
     });
 
+    it("refuses a schema whose type name another schema or the module itself already uses", () =>
+    {
+        expect(() => generateClient(document({}, { schemas: { "note-item": { type: "string" }, note_item: { type: "string" } } }))).toThrow(/the schema "note[-_]item" becomes the type NoteItem, which is already the type of the schema "note[-_]item"; rename the schema in the document/);
+        expect(() => generateClient(document({}, { schemas: { record: { type: "object", additionalProperties: { type: "string" } } } }))).toThrow("zerolith/client: the schema \"record\" becomes the type Record, which is already TypeScript's Record type; rename the schema in the document");
+        expect(() => generateClient(document({}, { schemas: { api: { type: "string" } } }))).toThrow(/becomes the type Api, which is already the interface of the operations, which apiName renames/);
+        expect(generateClient(document({}, { schemas: { api: { type: "string" } } }), { apiName: "Contract" })).toContain("export type Api = string;");
+    });
+
     it("names operations from the method and path when operationId is missing, and refuses collisions", () =>
     {
         const code = generateClient(document({ "/users/{userId}/posts": { get: { responses: ok } } }));

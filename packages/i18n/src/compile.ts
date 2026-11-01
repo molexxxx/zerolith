@@ -441,11 +441,29 @@ class Emitter
     readonly prelude: string[] = [];
     private readonly key: string;
     private readonly message: Message;
+    private readonly formatters: Map<string, string>;
+    private readonly used: Set<Helper>;
+    private reads = 0;
 
-    constructor(key: string, message: Message)
+    constructor(key: string, message: Message, formatters: Map<string, string>, used: Set<Helper>)
     {
         this.key = key;
         this.message = message;
+        this.formatters = formatters;
+        this.used = used;
+    }
+
+    /** The module-level binding of a formatter whose options are known at compile time, created on first use and shared by every message that creates it the same way. */
+    private shared(create: string): string
+    {
+        this.used.add("once");
+        let binding = this.formatters.get(create);
+        if (binding === undefined)
+        {
+            binding = `$f${this.formatters.size}`;
+            this.formatters.set(create, binding);
+        }
+        return binding;
     }
 
     private fail(text: string): never
@@ -455,6 +473,7 @@ class Emitter
 
     private argument(name: string, type: ArgumentType): string
     {
+        this.reads++;
         const local = this.locals.get(name);
         if (local !== undefined)
         {
@@ -520,7 +539,7 @@ class Emitter
                 entries.push(`minimumFractionDigits: ${value.value}`, `maximumFractionDigits: ${value.value}`);
             }
         }
-        return `{ ${entries.join(", ")} }`;
+        return entries.length === 0 ? "{}" : `{ ${entries.join(", ")} }`;
     }
 
     private dateOptions(expression: Expression): string
@@ -557,7 +576,7 @@ class Emitter
         {
             entries.push(`timeZoneName: ${JSON.stringify(style)}`);
         }
-        return `{ ${entries.join(", ")} }`;
+        return entries.length === 0 ? "{}" : `{ ${entries.join(", ")} }`;
     }
 
     /** The JavaScript for an expression's numeric value, before formatting. */
@@ -620,7 +639,15 @@ class Emitter
         }
         if (NUMBER_FUNCTIONS.has(fn))
         {
-            return `$number(${this.numeric(expression)}, ${this.numberOptions(expression)})`;
+            const value = this.numeric(expression);
+            const reads = this.reads;
+            const options = this.numberOptions(expression);
+            if (this.reads === reads)
+            {
+                return `${this.shared(`new Intl.NumberFormat(locale, ${options})`)}().format(${value})`;
+            }
+            this.used.add("number");
+            return `$number(${value}, ${options})`;
         }
         if (DATE_FUNCTIONS.has(fn))
         {
@@ -630,7 +657,7 @@ class Emitter
                 this.fail(`:${fn} needs an operand`);
             }
             const value = operand.kind === "literal" ? `new Date(${JSON.stringify(operand.value)})` : this.argument(operand.name, "date");
-            return `$date(${value}, ${this.dateOptions(expression)})`;
+            return `${this.shared(`new Intl.DateTimeFormat(locale, ${this.dateOptions(expression)})`)}().format(${value})`;
         }
         this.fail(`unknown function :${fn}`);
     }
@@ -649,7 +676,15 @@ class Emitter
             {
                 return `{ value: String(${value}), categories: [] }`;
             }
-            return `{ value: String(${value}), categories: [$plural(${value}, ${JSON.stringify(mode === "ordinal" ? "ordinal" : "cardinal")}, ${this.numberOptions(expression)})] }`;
+            const type = JSON.stringify(mode === "ordinal" ? "ordinal" : "cardinal");
+            const reads = this.reads;
+            const options = this.numberOptions(expression);
+            if (this.reads === reads)
+            {
+                return `{ value: String(${value}), categories: [${this.shared(`new Intl.PluralRules(locale, { ...new Intl.NumberFormat(locale, ${options}).resolvedOptions(), type: ${type} })`)}().select(${value})] }`;
+            }
+            this.used.add("plural");
+            return `{ value: String(${value}), categories: [$plural(${value}, ${type}, ${options})] }`;
         }
         if (fn === "string")
         {
@@ -691,11 +726,18 @@ class Emitter
         }
         const selectors = this.message.selectors.map((selector) => this.selector(selector));
         const variants = this.message.variants.map((variant) => `{ keys: ${JSON.stringify(variant.keys)}, pattern: () => ${this.pattern(variant.pattern)} }`);
+        this.used.add("select");
         return `$select([${selectors.join(", ")}], [${variants.join(", ")}])`;
     }
 }
 
-const HELPERS = `const $formats = new Map();
+/** A group of helpers a compiled module shares; each is written only when one of the module's messages uses it. */
+type Helper = "cache" | "once" | "number" | "plural" | "select";
+
+/** The helpers in JavaScript and in TypeScript, in the order a module writes them. */
+const HELPERS: Record<Helper, { js: string; ts: string }> = {
+    cache: {
+        js: `const $formats = new Map();
 function $cached(kind, options, create)
 {
     const key = kind + JSON.stringify(options);
@@ -706,20 +748,54 @@ function $cached(kind, options, create)
         $formats.set(key, instance);
     }
     return instance;
-}
-function $number(value, options)
+}`,
+        ts: `const $formats: Map<string, unknown> = new Map();
+function $cached<T>(kind: string, options: object, create: () => T): T
+{
+    const key = kind + JSON.stringify(options);
+    let instance = $formats.get(key) as T | undefined;
+    if (instance === undefined)
+    {
+        instance = create();
+        $formats.set(key, instance);
+    }
+    return instance;
+}`
+    },
+    once: {
+        js: `function $once(create)
+{
+    let instance;
+    return () => (instance ??= create());
+}`,
+        ts: `function $once<T>(create: () => T): () => T
+{
+    let instance: T | undefined;
+    return () => (instance ??= create());
+}`
+    },
+    number: {
+        js: `function $number(value, options)
 {
     return $cached("n", options, () => new Intl.NumberFormat(locale, options)).format(value);
-}
-function $date(value, options)
+}`,
+        ts: `function $number(value: number, options: Intl.NumberFormatOptions): string
 {
-    return $cached("d", options, () => new Intl.DateTimeFormat(locale, options)).format(value);
-}
-function $plural(value, type, options)
+    return $cached("n", options, () => new Intl.NumberFormat(locale, options)).format(value);
+}`
+    },
+    plural: {
+        js: `function $plural(value, type, options)
 {
     return $cached("p" + type, options, () => new Intl.PluralRules(locale, { ...$cached("n", options, () => new Intl.NumberFormat(locale, options)).resolvedOptions(), type })).select(value);
-}
-function $select(selectors, variants)
+}`,
+        ts: `function $plural(value: number, type: "cardinal" | "ordinal", options: Intl.NumberFormatOptions): string
+{
+    return $cached("p" + type, options, () => new Intl.PluralRules(locale, { ...$cached("n", options, () => new Intl.NumberFormat(locale, options)).resolvedOptions(), type })).select(value);
+}`
+    },
+    select: {
+        js: `function $select(selectors, variants)
 {
     let best;
     let bestRank;
@@ -775,9 +851,8 @@ function $better(rank, current)
         }
     }
     return false;
-}`;
-
-const HELPERS_TS = `interface Selector
+}`,
+        ts: `interface Selector
 {
     value: string;
     categories: string[];
@@ -786,30 +861,6 @@ interface Variant
 {
     keys: string[];
     pattern: () => string;
-}
-const $formats: Map<string, unknown> = new Map();
-function $cached<T>(kind: string, options: object, create: () => T): T
-{
-    const key = kind + JSON.stringify(options);
-    let instance = $formats.get(key) as T | undefined;
-    if (instance === undefined)
-    {
-        instance = create();
-        $formats.set(key, instance);
-    }
-    return instance;
-}
-function $number(value: number, options: Intl.NumberFormatOptions): string
-{
-    return $cached("n", options, () => new Intl.NumberFormat(locale, options)).format(value);
-}
-function $date(value: Date | number, options: Intl.DateTimeFormatOptions): string
-{
-    return $cached("d", options, () => new Intl.DateTimeFormat(locale, options)).format(value);
-}
-function $plural(value: number, type: "cardinal" | "ordinal", options: Intl.NumberFormatOptions): string
-{
-    return $cached("p" + type, options, () => new Intl.PluralRules(locale, { ...$cached("n", options, () => new Intl.NumberFormat(locale, options)).resolvedOptions(), type })).select(value);
 }
 function $better(rank: number[], current: number[] | undefined): boolean
 {
@@ -863,7 +914,20 @@ function $select(selectors: Selector[], variants: Variant[]): string
         }
     }
     return best === undefined ? "" : best.pattern();
-}`;
+}`
+    }
+};
+
+/** The helpers a module's messages use, with the cache that `$number` and `$plural` share. */
+function helpersFor(used: ReadonlySet<Helper>, javascript: boolean): string
+{
+    const needed = new Set(used);
+    if (needed.has("number") || needed.has("plural"))
+    {
+        needed.add("cache");
+    }
+    return (Object.keys(HELPERS) as Helper[]).filter((name) => needed.has(name)).map((name) => HELPERS[name][javascript ? "js" : "ts"]).join("\n");
+}
 
 function typeOf(type: ArgumentType): string
 {
@@ -874,7 +938,11 @@ function typeOf(type: ArgumentType): string
  * Compiles one locale's catalog into a module: `locale`, one exported
  * function per message named from its key, and the `Intl` helpers they
  * share. Each function takes an `args` object typed from the message's
- * placeholders, or nothing when the message has none.
+ * placeholders, or nothing when the message has none. A formatter whose
+ * options are all literals is a module-level binding created on first use
+ * and shared by every message that formats the same way; options that read
+ * an argument find their formatter in a cache keyed by the options. Only
+ * the helpers the messages use are written.
  */
 export function compileMessages(locale: string, catalog: Catalog, options: CompileOptions = {}): CompiledCatalog
 {
@@ -887,8 +955,9 @@ export function compileMessages(locale: string, catalog: Catalog, options: Compi
     }
     out.push(`export const locale${javascript ? "" : ": string"} = ${JSON.stringify(locale)};`);
     out.push("");
-    out.push(javascript ? HELPERS : HELPERS_TS);
-    out.push("");
+    const head = out.length;
+    const formatters = new Map<string, string>();
+    const used = new Set<Helper>();
     const names: string[] = [];
     const seen = new Set<string>();
     for (const [key, source] of Object.entries(catalog))
@@ -906,7 +975,7 @@ export function compileMessages(locale: string, catalog: Catalog, options: Compi
         seen.add(name);
         names.push(name);
         const message = new Parser(source, key).parse();
-        const emitter = new Emitter(key, message);
+        const emitter = new Emitter(key, message, formatters, used);
         const body = emitter.body();
         const args = [...emitter.arguments.entries()].toSorted(([a], [b]) => a.localeCompare(b));
         const doc = source.replace(/\*\//g, "* /").split(/\r?\n/).map((line) => ` * ${line}`.trimEnd()).join("\n");
@@ -934,6 +1003,9 @@ export function compileMessages(locale: string, catalog: Catalog, options: Compi
         }
         out.push("");
     }
+    const helpers = helpersFor(used, javascript);
+    const shared = Array.from(formatters, ([create, binding]) => `const ${binding} = $once(() => ${create});`);
+    out.splice(head, 0, ...(helpers === "" ? [] : [helpers, ""]), ...(shared.length === 0 ? [] : [...shared, ""]));
     return { code: out.join("\n"), names };
 }
 

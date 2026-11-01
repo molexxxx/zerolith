@@ -571,6 +571,20 @@ function entryOf(context: Context, path: string, item: PathItemObject, method: s
     return { name: operationName(operation, method, path), method, path, lines, doc: doc === "" ? undefined : doc };
 }
 
+/** The type names a generated module uses besides its schemas', with what each is, so a schema that would take one is refused. */
+function reservedTypeNames(apiName: string): Map<string, string>
+{
+    return new Map([
+        ["Record", "TypeScript's Record type"],
+        ["Blob", "the global Blob type"],
+        ["FormData", "the global FormData type"],
+        ["URLSearchParams", "the global URLSearchParams type"],
+        ["BodyInit", "the global BodyInit type"],
+        ["RouteTable", "the RouteTable type the module imports"],
+        [apiName, "the interface of the operations, which apiName renames"]
+    ]);
+}
+
 /**
  * Generates the contract module for an OpenAPI 3.x document given as a
  * parsed object (JSON; convert YAML first). Schemas under
@@ -578,7 +592,10 @@ function entryOf(context: Context, path: string, item: PathItemObject, method: s
  * entry of the `Api` interface named by its `operationId` (or by its
  * method and path), and `routes` carries the method and path of each.
  * Header and cookie parameters, security, and non-local references are
- * left out; the client sends headers through its options.
+ * left out; the client sends headers through its options. A schema whose
+ * type name another schema already takes, as `note-item` and `note_item`
+ * both become `NoteItem`, or one the module uses itself, such as `Record`
+ * or the `Api` interface, is refused with both named.
  */
 export function generateClient(document: OpenApiDocument, options: GenerateOptions = {}): string
 {
@@ -595,9 +612,17 @@ export function generateClient(document: OpenApiDocument, options: GenerateOptio
     out.push("");
 
     const schemas = Object.entries(document.components?.schemas ?? {}).toSorted(([a], [b]) => a.localeCompare(b));
+    const taken = reservedTypeNames(context.apiName);
     for (const [name, schema] of schemas)
     {
-        out.push(`${comment(schema.description ?? schema.title, "")}export type ${typeName(name)} = ${typeOf(schema, "")};`);
+        const type = typeName(name);
+        const holder = taken.get(type);
+        if (holder !== undefined)
+        {
+            fail(`the schema ${JSON.stringify(name)} becomes the type ${type}, which is already ${holder}; rename the schema in the document`);
+        }
+        taken.set(type, `the type of the schema ${JSON.stringify(name)}`);
+        out.push(`${comment(schema.description ?? schema.title, "")}export type ${type} = ${typeOf(schema, "")};`);
         out.push("");
     }
 
