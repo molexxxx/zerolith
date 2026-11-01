@@ -4,7 +4,8 @@
  * applications in development, and the template prepare pass and the
  * checks on build output.
  */
-import { relative } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, relative, resolve } from "node:path";
 import { type Plugin, parseSync, perEnvironmentState } from "vite";
 import { DIAGNOSTIC_URL } from "zerolith";
 import { scan } from "zerolith/internal";
@@ -98,6 +99,35 @@ function lower(code: string, id: string): JsxOutput | null
 }
 
 /**
+ * The first `@import` of a remote stylesheet in `file` or in the local
+ * stylesheets it imports, as written, or undefined. A scoped stylesheet
+ * cannot load one, so the plugin refuses it as the command line does.
+ */
+function remoteImport(file: string, seen: Set<string>): string | undefined
+{
+    if (seen.has(file) || !existsSync(file))
+    {
+        return undefined;
+    }
+    seen.add(file);
+    const css = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const match of css.matchAll(/@import\s+(?:url\(\s*(["']?)([^"')]*)\1\s*\)|(["'])([^"']*)\3)[^;]*;?/gi))
+    {
+        const url = match[2] ?? match[4] ?? "";
+        if (url.includes("://") || url.startsWith("//") || url.startsWith("data:") || url.startsWith("#"))
+        {
+            return match[0].trim();
+        }
+        const found = remoteImport(resolve(dirname(file), url.split(/[?#]/)[0] ?? url), seen);
+        if (found !== undefined)
+        {
+            return found;
+        }
+    }
+    return undefined;
+}
+
+/**
  * Creates the plugins. Ahead of every other transform, JSX in `.jsx` and
  * `.tsx` files is lowered to the `html` calls it stands for. A stylesheet
  * imported with `?scoped` becomes a module that hands its rules, as Vite's
@@ -120,6 +150,7 @@ function lower(code: string, id: string): JsxOutput | null
  * plugin fails with `package_version_mismatch` when the installed zerolith
  * is not the version the plugin was released with.
  */
+
 export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
 {
     checkCoreVersion();
@@ -178,6 +209,11 @@ export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
                 return null;
             }
             const file = id.slice(SCOPED_MODULE.length, -".js".length);
+            const remote = remoteImport(file, new Set());
+            if (remote !== undefined)
+            {
+                this.error(`zerolith: ${shown(projectRoot, file)}: ${remote} imports a remote stylesheet, which a scoped stylesheet cannot load; link it from index.html or import it from a global stylesheet`);
+            }
             return [
                 `import { styleFile } from "zerolith/internal";`,
                 `import rules from ${JSON.stringify(file + "?inline")};`,

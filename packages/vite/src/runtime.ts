@@ -26,12 +26,15 @@ interface Mounted
 {
     factory: () => unknown;
     root: core.Root;
+    container: Element | DocumentFragment;
+    /** The call that mounted it, as the plugin names it: the module and the call's place among the module's `render` and `hydrate` calls. */
+    site: string | undefined;
     /** Mounted after the last `save()`, so the module that owns it already rendered the current version. */
     fresh: boolean;
 }
 
 const REGISTRY = "zerolith";
-const mounted: Map<Element | DocumentFragment, Mounted> = new Map();
+const mounted: Set<Mounted> = new Set();
 
 /**
  * Registers a component under its module's hot context and returns the
@@ -73,13 +76,23 @@ export function component<T extends AnyFunction>(hot: HotContext | undefined, na
     return entry.proxy as T;
 }
 
-function unmount(container: Element | DocumentFragment, entry: Mounted): void
+function unmount(entry: Mounted): void
 {
-    if (mounted.get(container) === entry)
-    {
-        mounted.delete(container);
-    }
+    mounted.delete(entry);
     entry.root.dispose();
+}
+
+/** Disposes the root the same call mounted into the same container before, as when the entry module runs again. */
+function replace(target: core.MountTarget, site: string | undefined): void
+{
+    const container = element(target);
+    for (const entry of mounted)
+    {
+        if (entry.container === container && entry.site === site)
+        {
+            unmount(entry);
+        }
+    }
 }
 
 /**
@@ -88,36 +101,29 @@ function unmount(container: Element | DocumentFragment, entry: Mounted): void
  * factory inside the root's owner, so components own their effects and
  * cleanups as they do without the plugin, and calls once more a factory
  * whose expression was itself a function, as in `render(() => App(), "#app")`.
- * A second root mounted into the same container replaces the first, which is
- * what happens when the entry module itself is re-executed.
+ * A root that the same call, `site`, mounted into the same container before
+ * is replaced, which is what happens when the entry module itself is
+ * re-executed; roots from other calls stay, as they do in production.
  */
-export function render(factory: () => unknown, target: core.MountTarget): core.Root
+export function render(factory: () => unknown, target: core.MountTarget, site?: string): core.Root
 {
-    const previous = element(target);
-    if (previous !== null)
-    {
-        mounted.get(previous)?.root.dispose();
-    }
+    replace(target, site);
     const root = core.render(factory, target);
     const { container } = root;
-    const entry: Mounted = { factory, root, fresh: true };
-    mounted.set(container, entry);
-    return { container, dispose: () => unmount(container, entry) };
+    const entry: Mounted = { factory, root, container, site, fresh: true };
+    mounted.add(entry);
+    return { container, dispose: () => unmount(entry) };
 }
 
 /** The `hydrate` counterpart of `render`: hydrates once, then re-renders on updates. */
-export function hydrate(factory: () => unknown, target: core.MountTarget): core.HydrateResult
+export function hydrate(factory: () => unknown, target: core.MountTarget, site?: string): core.HydrateResult
 {
-    const previous = element(target);
-    if (previous !== null)
-    {
-        mounted.get(previous)?.root.dispose();
-    }
+    replace(target, site);
     const result = core.hydrate(factory, target);
     const { container } = result;
-    const entry: Mounted = { factory, root: result, fresh: true };
-    mounted.set(container, entry);
-    return { container, mismatches: result.mismatches, dispose: () => unmount(container, entry) };
+    const entry: Mounted = { factory, root: result, container, site, fresh: true };
+    mounted.add(entry);
+    return { container, mismatches: result.mismatches, dispose: () => unmount(entry) };
 }
 
 /** The element a target names when it exists; `core.render` reports a selector that matches nothing. */
@@ -133,7 +139,7 @@ function element(target: core.MountTarget): Element | DocumentFragment | null
  */
 export function save(): void
 {
-    for (const entry of mounted.values())
+    for (const entry of mounted)
     {
         entry.fresh = false;
     }
@@ -163,7 +169,7 @@ export function save(): void
  */
 export function accept(): void
 {
-    for (const [container, entry] of mounted)
+    for (const entry of mounted)
     {
         if (entry.fresh)
         {
@@ -171,7 +177,7 @@ export function accept(): void
             continue;
         }
         entry.root.dispose();
-        entry.root = core.render(entry.factory, container);
+        entry.root = core.render(entry.factory, entry.container);
     }
     devtoolsSaveRestore({});
 }

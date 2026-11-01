@@ -278,6 +278,7 @@ export function transformModule(code: string, id: string, parse: ModuleParser): 
 
     if (renderLocal !== undefined || hydrateLocal !== undefined)
     {
+        let calls = 0;
         walk(program.body, (node) =>
         {
             if (node.type !== "CallExpression")
@@ -287,14 +288,15 @@ export function transformModule(code: string, id: string, parse: ModuleParser): 
             const call = node as CallExpression;
             const target = call.callee.type === "Identifier" ? call.callee.name : undefined;
             const replacement = target !== undefined && target === renderLocal ? "render" : target !== undefined && target === hydrateLocal ? "hydrate" : undefined;
-            const first = call.arguments[0];
-            if (replacement === undefined || first === undefined || first.type === "SpreadElement" || call.arguments.length < 2)
+            const [first, second] = call.arguments;
+            if (replacement === undefined || first === undefined || second === undefined || first.type === "SpreadElement" || second.type === "SpreadElement" || call.arguments.length !== 2)
             {
                 return;
             }
             edits.push({ start: call.callee.start, end: call.callee.end, text: `${BINDING}.${replacement}` });
             edits.push({ start: first.start, end: first.start, text: "() => (" });
             edits.push({ start: first.end, end: first.end, text: ")" });
+            edits.push({ start: second.end, end: second.end, text: `, ${JSON.stringify(`${id}#${calls++}`)}` });
         });
     }
 

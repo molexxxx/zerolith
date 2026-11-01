@@ -186,6 +186,14 @@ describe("scoped stylesheets", () =>
         await writeFile(join(scopedFolder, "main.js"), "import data from \"./data.json?scoped\";\nconsole.log(data);\n");
         await expect(run(productionEntry, "production", {}, scopedFolder)).rejects.toThrow(/\?scoped applies to a stylesheet/);
     });
+
+    it("refuses a remote @import in a ?scoped stylesheet, as the command line does", { timeout: 60000 }, async () =>
+    {
+        await writeFile(join(scopedFolder, "styles", "remote.css"), "@import url(\"https://example.com/x.css\");\n.remote { color: red; }\n");
+        await writeFile(join(scopedFolder, "styles", "wrapper.css"), "@import \"./remote.css\";\n");
+        await writeFile(join(scopedFolder, "main.js"), "import wrapper from \"./styles/wrapper.css?scoped\";\nconsole.log(wrapper);\n");
+        await expect(run(productionEntry, "production", {}, scopedFolder)).rejects.toThrow(/styles\/wrapper\.css: @import url\("https:\/\/example\.com\/x\.css"\); imports a remote stylesheet/);
+    });
 });
 
 describe("the split check", () =>

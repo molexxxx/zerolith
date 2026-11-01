@@ -48,6 +48,15 @@ describe("roots", () =>
         expect(host.textContent).toBe("two");
     });
 
+    it("keeps the roots that other calls mounted into the same container, and replaces the one the same call mounted", () =>
+    {
+        render(() => html`<p>app</p>`, host, "/src/main.ts#0");
+        render(() => html`<p>toasts</p>`, host, "/src/main.ts#1");
+        expect(host.textContent).toBe("apptoasts");
+        render(() => html`<p>app again</p>`, host, "/src/main.ts#0");
+        expect(Array.from(host.querySelectorAll("p"), (p) => p.textContent)).toEqual(["toasts", "app again"]);
+    });
+
     it("renders every root again on accept and hands saved values to named signals", async () =>
     {
         let renders = 0;

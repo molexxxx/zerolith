@@ -63,8 +63,8 @@ describe("transformModule", () =>
     it("routes render and hydrate calls through the runtime, following import aliases", () =>
     {
         const out = rewrite("import { render as mount, hydrate } from \"zerolith\";\nmount(App(), document.body);\nhydrate({ view: 1 }, el);\nother(App(), el);\nmount(App());\n");
-        expect(out).toContain("__zl$.render(() => (App()), document.body);");
-        expect(out).toContain("__zl$.hydrate(() => ({ view: 1 }), el);");
+        expect(out).toContain("__zl$.render(() => (App()), document.body, \"/src/app.js#0\");");
+        expect(out).toContain("__zl$.hydrate(() => ({ view: 1 }), el, \"/src/app.js#1\");");
         expect(out).toContain("\nother(App(), el);\n");
         expect(out).toContain("\nmount(App());\n");
         expect(out?.endsWith(FOOTER)).toBe(true);
@@ -82,7 +82,7 @@ describe("transformModule", () =>
         expect(result).not.toBeNull();
         const lines = result?.code.split("\n") ?? [];
         expect(lines[2]).toBe("function App$()");
-        expect(lines[7]).toBe("__zl$.render(() => (App()), document.body);");
+        expect(lines[7]).toBe("__zl$.render(() => (App()), document.body, \"/src/main.js#0\");");
         expect(lines.at(-1)).toBe(FOOTER);
         expect(result?.map.mappings.split(";")).toHaveLength(lines.length);
         expect(result?.map.mappings.startsWith("AAAA;AACA;AACA")).toBe(true);
