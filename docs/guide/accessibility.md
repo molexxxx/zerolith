@@ -7,40 +7,75 @@ group: Building apps
 
 # Accessibility
 
-A framework cannot make an application accessible, but it can refuse to leave the hard parts to each project. `@zerolith/a11y` ships the pieces that Angular CDK exposes and React Aria is built on, as plain functions over the DOM with no dependency beyond `zerolith`. Most of them are `ref` callbacks: they attach when the element is created and clean up when its template is removed, so there is nothing to remember to tear down. `@zerolith/test` checks the defects a test can see; the guide on [testing](testing.md) covers it.
+A framework cannot make an application accessible, but it can refuse to leave the hard parts to each project. `@zerolith/a11y` ships the pieces that Angular CDK exposes and React Aria is built on, as plain functions over the DOM with no dependency beyond `zerolith`:
+
+| Primitive | For | How it is used |
+| --- | --- | --- |
+| `focusTrap()` | Modal dialogs | A `ref` on the dialog |
+| `rovingTabindex()` | Tabs, menus, listboxes, radio groups, trees, and grids | A `ref` on the container |
+| `createAnnouncer()` | Messages read aloud without moving focus | Call `announce` |
+| `visuallyHidden` | Text that only assistive technology reads | Bound as a `class` |
+| `focusOrigin()` | Focus rings for keyboard users only | Called once, then styled by an attribute |
+| `mediaQuery()`, `forcedColors()`, `reducedMotion()` | The user's preferences | Read as signals |
+
+The two `ref` primitives attach when the element is created and clean up when its template is removed, so there is nothing to remember to tear down. `@zerolith/test` checks the defects a test can see; the [testing guide](testing.md) covers it.
 
 ## Dialogs: focus trap
 
-A modal dialog must take focus when it opens, keep Tab inside, and give focus back when it closes. `focusTrap` does all three from one `ref`.
+A modal dialog must take focus when it opens, keep Tab inside, and give focus back when it closes. `focusTrap` does all three from one `ref`:
 
 @include packages/a11y/test/examples/accessibility.example.browser.test.ts#dialog
 
-By default focus lands on the first focusable element inside, or on the element itself; `initial` names another target or `false` to leave focus alone, and `restore: false` keeps focus where it is on removal. Focus that lands outside, by script or by a click, is pulled back in.
+Focus that lands outside the dialog, by script or by a click, is pulled back in.
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `initial` | The first focusable element inside, or the dialog itself | Where focus goes on open: a selector inside the dialog, an element, or `false` to leave focus alone |
+| `restore` | `true` | Returns focus to the element that had it before the dialog opened |
 
 ## Composite widgets: roving tabindex
 
-Tabs, menus, listboxes, radio groups, and trees are one Tab stop with arrow keys inside. `rovingTabindex` keeps exactly one item in the Tab order, moves between items with the arrow keys, Home, and End, follows the item that is selected or checked, and picks up items added later.
+Tabs, menus, listboxes, radio groups, and trees are one Tab stop with arrow keys inside. `rovingTabindex` keeps exactly one item in the Tab order, moves between items with the arrow keys, Home, and End, starts on the item that is selected or checked, skips disabled items, and picks up items added later:
 
 @include packages/a11y/test/examples/accessibility.example.browser.test.ts#tabs
 
-`orientation` chooses which arrow keys move, `loop` wraps at the ends, and `items` replaces the default selector of ARIA roles with your own.
+| Option | Default | What it does |
+| --- | --- | --- |
+| `orientation` | `"both"` | Which arrow keys move: `"horizontal"` for left and right, `"vertical"` for up and down |
+| `loop` | `true` | Wraps from the last item to the first and back |
+| `items` | The composite ARIA roles, such as `tab`, `option`, and `menuitem`, and `[data-roving]` | The selector of the items |
 
 ## Announcements and hidden text
 
-`createAnnouncer` writes messages into live regions that assistive technology reads without moving focus; `assertive` interrupts, `polite` waits. `visuallyHidden` is the clip pattern for text that only assistive technology should get.
+`createAnnouncer` adds two live regions to the page, hidden visually, which assistive technology reads without moving focus. `announce(message)` is polite and waits for the reader to finish; `announce(message, "assertive")` interrupts. Each announcement clears its region first, so the same message announced twice is read twice. `visuallyHidden` is the clip pattern for text that only assistive technology should get:
 
 @include packages/a11y/test/examples/accessibility.example.browser.test.ts#announce
 
+> [!TIP]
+> Announce what changed out of sight: an item saved, a filter that left no results, an upload that finished. A change the reader caused and can already see, such as text they typed, needs no announcement.
+
 ## Focus origin
 
-Focus rings belong on keyboard focus and are noise on pointer focus. `focusOrigin` watches how focus arrives and exposes it as a signal and as a `data-focus-origin` attribute on the root element, so one stylesheet rule does the rest:
+Focus rings belong on keyboard focus and are noise on pointer focus. `focusOrigin` watches how focus arrives and exposes it as a signal, `origin`, and as a `data-focus-origin` attribute on the root element, so one stylesheet rule does the rest:
 
 ```css
 [data-focus-origin="keyboard"] :focus { outline: 2px solid var(--accent); }
 ```
 
+| Origin | When |
+| --- | --- |
+| `"keyboard"` | A key was pressed before focus moved |
+| `"pointer"` | A mouse or a pen was pressed |
+| `"touch"` | A finger touched the screen |
+| `"program"` | Anything else, such as `element.focus()` from script |
+| `null` | Nothing in the document has focus |
+
+Call it once, in `main.ts`; `dispose()` removes its listeners and the attribute.
+
 ## Preferences
 
-`mediaQuery` turns a media query into a signal; `forcedColors` and `reducedMotion` wrap the two every interface should follow. Both are false on the server.
+`mediaQuery` turns a media query into a signal that follows its matches. `forcedColors` and `reducedMotion` wrap the two every interface should follow: forced colors, such as Windows high contrast, where the system replaces author colors, and a request for less motion.
 
 @include packages/a11y/test/examples/accessibility.example.browser.test.ts#motion
+
+Each is `false` wherever `matchMedia` does not exist, such as on the server, so a server-rendered page starts with motion and author colors and the browser corrects it once it hydrates.
