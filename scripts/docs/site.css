@@ -759,6 +759,64 @@ article blockquote > :last-child
     }
 }
 
+.callout
+{
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: var(--zl-space-3);
+    margin: var(--zl-space-6) 0;
+    padding: var(--zl-space-4);
+    border: var(--zl-rule) solid var(--zl-line);
+    background: var(--zl-surface);
+}
+
+.callout > svg
+{
+    width: 24px;
+    height: 24px;
+    color: var(--zl-hint);
+}
+
+.callout-warning > svg
+{
+    color: var(--zl-warning);
+}
+
+.callout-error > svg
+{
+    color: var(--zl-danger);
+}
+
+.callout-body > :first-child
+{
+    margin-top: 0;
+}
+
+.callout-body > :last-child
+{
+    margin-bottom: 0;
+}
+
+article .callout :not(pre) > code
+{
+    background: var(--zl-bg);
+}
+
+.code-link
+{
+    text-decoration: none;
+}
+
+.code-link code
+{
+    border-bottom: var(--zl-rule) solid var(--zl-control-line);
+}
+
+.code-link:hover code
+{
+    border-bottom-color: var(--zl-text);
+}
+
 .tree
 {
     margin: var(--zl-space-6) 0;

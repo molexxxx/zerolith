@@ -26,7 +26,7 @@ In order:
 
 1. Migrate the first production site onto zerolith, served buildless with a Lighthouse budget in CI.
 2. Submit the keyed entry to js-framework-benchmark, which is pinned to `0.1.0-alpha.5` and passes the benchmark's checks, and settle the per-row work that remains before the API is frozen: bindings as effects of their own, and whether `@` event bindings delegate to the root, the one choice there that users would notice.
-3. Review the core, templates, and router API through an RFC, with what the migration and the performance work found, and freeze it for 1.0.
+3. Review the core, templates, and router API through an RFC, with what the migration and the performance work found, and freeze it for 1.0. The router's part includes a way for components to build typed links without importing the router, whose module closes an import loop through the route table today.
 
 ## 1.0
 

@@ -74,6 +74,7 @@ A zerolith application. The project develops and builds on the zerolith command 
 - State that must survive an edit is a named signal: `signal(0, { name: "count" })`.
 - `src/api.ts` and `src/messages/` are generated when they exist; change their inputs and regenerate, never edit them.
 - A new page is a route in `src/routes.ts` and a component; shared state goes in `src/store.ts`, created with the first piece of it.
+- Read `router` inside functions only: `src/router.ts` imports the route table, which imports the components, so a component module that uses `router` at its top level runs before the router exists.
 - Files served as they are, such as data, icons, and `robots.txt`, go in `public/`.
 - Only `.env` variables named `PUBLIC_*` reach the browser, as `import.meta.env.PUBLIC_*`.
 

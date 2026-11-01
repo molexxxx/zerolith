@@ -18,6 +18,12 @@ function brandFile(path: string): string
     return readFileSync(new URL(path, brand), "utf8").trim();
 }
 
+/** A diagnostic severity icon from the brand set: `hint`, `warning`, or `error`. */
+export function diagnosticIcon(name: "hint" | "warning" | "error"): string
+{
+    return brandFile(`icons/diagnostics/${name}.svg`);
+}
+
 /** An interface icon from the brand set, inline so it takes the color of the text around it. */
 export function icon(name: string): string
 {

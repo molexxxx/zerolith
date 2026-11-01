@@ -336,9 +336,11 @@ render(Layout({ content: router.outlet() }), "#app");
 mountDevtools();
 "##;
 
-const ROUTER_TS: &str = r#"// The router, in its own module so components can import it for typed
-// links while the route table imports the components. It follows the base
-// path the app is served under, which zerolith.json or --base sets.
+const ROUTER_TS: &str = r#"// The router. Components import it for typed links while the route table
+// it reads imports the components, so read `router` inside a component's
+// function, never at a module's top level, where it does not exist yet. It
+// follows the base path the app is served under, which zerolith.json or
+// --base sets.
 import { createRouter } from "@zerolith/router";
 import { NotFound } from "./components/not-found.__CEXT__";
 import { routes } from "./routes.__EXT__";
@@ -349,9 +351,11 @@ export const router = createRouter(routes, {
 });
 "#;
 
-const ROUTER_JS: &str = r#"// The router, in its own module so components can import it for typed
-// links while the route table imports the components. It follows the base
-// path the app is served under, which zerolith.json or --base sets.
+const ROUTER_JS: &str = r#"// The router. Components import it for typed links while the route table
+// it reads imports the components, so read `router` inside a component's
+// function, never at a module's top level, where it does not exist yet. It
+// follows the base path the app is served under, which zerolith.json or
+// --base sets.
 import { createRouter } from "@zerolith/router";
 import { NotFound } from "./components/not-found.__CEXT__";
 import { routes } from "./routes.__EXT__";
@@ -1006,7 +1010,7 @@ fn agents_md(name: &str, choice: Choice) -> String {
         "Components are capitalized functions returning `html` templates, one per file under `src/components/`, with their `css` literal next to the markup."
     };
     format!(
-        "# {name}: guide for coding agents\n\nA zerolith application. {tool} This file holds what is specific to this project. {skill}\n\n## Commands\n\n- `npm run dev` serves the app with live reload; `npm run build` writes `dist/`; `npm run preview` serves `dist/`.\n- `npm run check` is the gate: typecheck, lint, browser tests, and the build.\n- With `@zerolith/client` installed, `npx zerolith-client openapi.json --out src/api.{ext}` regenerates the typed client from the API contract; with `@zerolith/i18n` installed, `npx zerolith-i18n messages --out src/messages` regenerates the message modules.\n\n## Rules\n\n- Bind the signal, not its value: a live binding takes `count`, never `count.get()`, which freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.\n- {syntax}\n- State that must survive an edit is a named signal: `signal(0, {{ name: \"count\" }})`.\n- `src/api.{ext}` and `src/messages/` are generated when they exist; change their inputs and regenerate, never edit them.\n- A new page is a route in `src/routes.{ext}` and a component; shared state goes in `src/store.{ext}`, created with the first piece of it.\n- Files served as they are, such as data, icons, and `robots.txt`, go in `public/`.\n- Only `.env` variables named `PUBLIC_*` reach the browser, as `import.meta.env.PUBLIC_*`.\n\n## Where things go\n\n| Change | Location |\n| --- | --- |\n| A page | `src/routes.{ext}` and `src/components/<page>.{component}` |\n| Shared state or a request | `src/store.{ext}` |\n| A message, once the project uses `@zerolith/i18n` | `messages/<locale>.json`, then regenerate |\n| A style token | `src/styles.css`; component styles stay in the component |\n| A static file | `public/` |\n"
+        "# {name}: guide for coding agents\n\nA zerolith application. {tool} This file holds what is specific to this project. {skill}\n\n## Commands\n\n- `npm run dev` serves the app with live reload; `npm run build` writes `dist/`; `npm run preview` serves `dist/`.\n- `npm run check` is the gate: typecheck, lint, browser tests, and the build.\n- With `@zerolith/client` installed, `npx zerolith-client openapi.json --out src/api.{ext}` regenerates the typed client from the API contract; with `@zerolith/i18n` installed, `npx zerolith-i18n messages --out src/messages` regenerates the message modules.\n\n## Rules\n\n- Bind the signal, not its value: a live binding takes `count`, never `count.get()`, which freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.\n- {syntax}\n- State that must survive an edit is a named signal: `signal(0, {{ name: \"count\" }})`.\n- `src/api.{ext}` and `src/messages/` are generated when they exist; change their inputs and regenerate, never edit them.\n- A new page is a route in `src/routes.{ext}` and a component; shared state goes in `src/store.{ext}`, created with the first piece of it.\n- Read `router` inside functions only: `src/router.{ext}` imports the route table, which imports the components, so a component module that uses `router` at its top level runs before the router exists.\n- Files served as they are, such as data, icons, and `robots.txt`, go in `public/`.\n- Only `.env` variables named `PUBLIC_*` reach the browser, as `import.meta.env.PUBLIC_*`.\n\n## Where things go\n\n| Change | Location |\n| --- | --- |\n| A page | `src/routes.{ext}` and `src/components/<page>.{component}` |\n| Shared state or a request | `src/store.{ext}` |\n| A message, once the project uses `@zerolith/i18n` | `messages/<locale>.json`, then regenerate |\n| A style token | `src/styles.css`; component styles stay in the component |\n| A static file | `public/` |\n"
     )
 }
 

@@ -21,7 +21,7 @@ import { mapLinks, sitePath } from "./links.ts";
 import { exampleCode, includeExamples } from "./examples.ts";
 import { escapeHtml, highlight } from "./highlight.ts";
 import { type Characteristic, Home, NotFound, homeMarkdown } from "./home.ts";
-import { type Link, type NavGroup, type PageData, fontFaces, icon, markdownTwin, renderPage, siteStyles } from "./layout.ts";
+import { type Link, type NavGroup, type PageData, diagnosticIcon, fontFaces, icon, markdownTwin, renderPage, siteStyles } from "./layout.ts";
 import { Playground, playgroundMarkdown, playgroundModules } from "./playground.ts";
 import { type Entry, type ManifestSymbol, apiReport, extract, referencePage, symbolsOf } from "./reference.ts";
 
@@ -144,6 +144,16 @@ function treeView(source: string): string
     return `<ul class="tree" style="--tree-names: ${names}ch">\n${items.join("\n")}\n</ul>\n`;
 }
 
+/** The callouts GitHub draws for `> [!NOTE]` and its siblings, with the label and severity icon each takes here. */
+const callouts: Record<string, { label: string; icon: "hint" | "warning" | "error" }> = {
+    NOTE: { label: "Note", icon: "hint" },
+    TIP: { label: "Tip", icon: "hint" },
+    IMPORTANT: { label: "Important", icon: "hint" },
+    WARNING: { label: "Warning", icon: "warning" },
+    CAUTION: { label: "Caution", icon: "error" }
+};
+const diagnosticCodes = new Set(Object.keys(diagnosticCatalog));
+
 const preview = new Marked({
     gfm: true,
     renderer: {
@@ -204,6 +214,33 @@ marked.use({
             const label = language === "" ? "" : ` data-language="${language}"`;
             const copy = `<button class="copy" type="button" aria-label="Copy code"><span class="idle">${copyIcon}</span><span class="done">${doneIcon}</span></button>`;
             return `<div class="code"${label}>${copy}<pre><code>${highlight(text, language)}</code></pre></div>\n`;
+        },
+        blockquote({ tokens })
+        {
+            const body = this.parser.parse(tokens);
+            const marker = /^<p>\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/.exec(body);
+            const callout = marker === null ? undefined : callouts[marker[1] ?? ""];
+            if (marker === null || callout === undefined)
+            {
+                return `<blockquote>\n${body}</blockquote>\n`;
+            }
+            const text = `<p><strong>${callout.label}.</strong> ${body.slice(marker[0].length)}`;
+            return `<aside class="callout callout-${callout.icon}">${diagnosticIcon(callout.icon)}<div class="callout-body">${text}</div></aside>\n`;
+        },
+        codespan(token)
+        {
+            const linked = (token as { inLink?: boolean }).inLink === true;
+            return diagnosticCodes.has(token.text) && !linked ? `<a class="code-link" href="/e/${token.text}/"><code>${token.text}</code></a>` : false;
+        }
+    },
+    walkTokens(token)
+    {
+        if (token.type === "link")
+        {
+            for (const child of token.tokens ?? [])
+            {
+                (child as { inLink?: boolean }).inLink = true;
+            }
         }
     },
     hooks: {

@@ -2,7 +2,7 @@
 // Each region is application code the documentation shows with its imports;
 // the checks around it run in a real browser, so the docs cannot drift.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { computed, css, each, html, render, signal, when } from "zerolith";
+import { type ReadableSignal, computed, css, each, html, render, signal, when } from "zerolith";
 
 let host: HTMLElement;
 
@@ -38,6 +38,59 @@ describe("templates guide", () =>
         // #endregion counter
         host.querySelector("button")?.click();
         expect(host.querySelector("p")?.textContent).toBe("Count: 2, doubled: 4");
+    });
+
+    it("frozen", () =>
+    {
+        // #region frozen
+        const count = signal(1);
+
+        render(html`
+            <p class="live">${count}</p>
+            <p class="frozen">${count.get()}</p>`, "#app");
+
+        // The first paragraph now shows 2; the second still shows 1.
+        count.set(2);
+        // #endregion frozen
+        expect(host.querySelector(".live")?.textContent).toBe("2");
+        expect(host.querySelector(".frozen")?.textContent).toBe("1");
+    });
+
+    it("components", () =>
+    {
+        let panels = 0;
+        // #region components
+        function Badge({ count }: { count: ReadableSignal<number> })
+        {
+            return html`<span class="badge">${count}</span>`;
+        }
+
+        function Panel({ title, children }: { title: string; children: unknown })
+        {
+            // #endregion components
+            panels++;
+            // #region components
+            return html`
+                <section>
+                    <h2>${title}</h2>
+                    ${children}
+                </section>`;
+        }
+
+        const unread = signal(3);
+        const inbox = Panel({
+            title: "Inbox",
+            children: html`<p>Unread: ${Badge({ count: unread })}</p>`
+        });
+
+        render(inbox, "#app");
+
+        // The badge now shows 4, and neither Panel nor Badge runs again.
+        unread.set(4);
+        // #endregion components
+        expect(host.querySelector("h2")?.textContent).toBe("Inbox");
+        expect(host.querySelector(".badge")?.textContent).toBe("4");
+        expect(panels).toBe(1);
     });
 
     it("mount", () =>

@@ -33,9 +33,12 @@ Every page renders inside an owner of its own, so its signals, effects, and `onD
 
 ## The layout
 
-`src/router.ts` creates the router. It is a module of its own so components can import it for their links while the route table imports the components, and its fallback renders when no route matches:
+`src/router.ts` creates the router over the route table, and its fallback renders when no route matches:
 
 @include packages/router/test/examples/router.ts
+
+> [!WARNING]
+> These modules import each other in a loop: `router.ts` imports the route table, the table imports the page components, and a component that builds links imports `router.ts` back. The loop is safe while components read `router` inside their functions, which run after every module has loaded, as every component on this page does. A use at a module's top level, such as `const home = router.href("home");` outside any function, runs before the router exists, and the app fails to start with an error such as `Cannot access 'router' before initialization`.
 
 `src/layout.tsx` places the current page, `router.outlet()`, under the navigation, and `router.matches()` tells each link whether its page is the one shown:
 
