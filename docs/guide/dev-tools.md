@@ -7,7 +7,11 @@ group: Tooling
 
 # Dev tools
 
-The inspector is a plain ES module, so it works wherever the application is served: Vite, a static server, electron-vite, or `file://`. Mount it once; in production builds the call is a no-op.
+zerolith's development tools live in the page, not in a browser extension: an inspector that docks at the bottom of the page, a hook any tool can read, and timings in the browser's Performance panel. All three exist only in development builds; a production build ships none of them and records nothing.
+
+## The inspector
+
+The inspector is a plain ES module, so it works wherever the application is served: `zerolith dev`, Vite, a static server, electron-vite, or `file://`. Mount it once, as the starter's `main.ts` does; in a production build the call does nothing, since the package's production entry is an empty stand-in.
 
 ```ts
 import { mountDevtools } from "@zerolith/devtools";
@@ -15,19 +19,46 @@ import { mountDevtools } from "@zerolith/devtools";
 mountDevtools();
 ```
 
-The inspector reads the core through the `zerolith/internal` entry, which can change with every version, so it requires the `zerolith` it was released with: it declares that exact version as a peer dependency, and `mountDevtools` stops with [`package_version_mismatch`](https://molexxxx.github.io/zerolith/e/package_version_mismatch/) when it meets another.
+Press `Alt+Shift+Z` or the launcher button to open the dock. It has three tabs:
 
-Press `Alt+Shift+Z` or the launcher button to open the dock. It shows every signal, computed value, and effect with its current value and the number of nodes that depend on it, the mounted roots, and the diagnostics feed with links to each code's page. Give state a label with the `name` option so the table reads well:
+| Tab | Shows |
+| --- | --- |
+| Signals | Every signal, computed value, and effect, with its kind, its name, how many nodes depend on it, and its current value |
+| Roots | Every mounted root, whether `render` or `hydrate` created it, and the element it lives in |
+| Diagnostics | Every warning and error reported so far, with its severity, its cause, its arguments, and a link to its code's page |
 
-```ts
-const count = signal(0, { name: "count" });
-const doubled = computed(() => count.get() * 2, { name: "doubled" });
-```
+`mountDevtools({ open: true })` starts with the dock open, and the handle it returns has `toggle(open)` and `dispose()`. Everything the inspector creates for itself is marked internal and left out of its own tables.
+
+> [!TIP]
+> Give state a name with the `name` option so the Signals tab reads well. The name also keeps the value across an edit under `zerolith dev` and the Vite plugin.
+>
+> ```ts
+> const count = signal(0, { name: "count" });
+> const doubled = computed(() => count.get() * 2, { name: "doubled" });
+> ```
+
+> [!IMPORTANT]
+> The inspector reads the core through the `zerolith/internal` entry, which can change with every version, so it requires the `zerolith` it was released with. It declares that exact version as a peer dependency, and `mountDevtools` stops with `package_version_mismatch` when it meets another.
 
 ## The hook
 
-Development builds publish `globalThis.__ZEROLITH_DEVTOOLS__`, a small object with `nodes()`, `roots()`, `diagnostics()`, and `subscribe()`. The inspector is one consumer; a browser extension, a test, or an agent's MCP server can read the same hook. Production builds publish nothing and record nothing.
+Development builds publish `globalThis.__ZEROLITH_DEVTOOLS__`, a small object the inspector reads. It is one consumer: a browser extension, a test, or an agent's MCP server can read the same hook.
+
+| Member | Returns |
+| --- | --- |
+| `version` | The version of the hook's shape |
+| `nodes()` | The live reactive nodes, oldest first: each with its `id`, its `kind` (`state`, `computed`, or `effect`), its `name`, its `value`, and how many `observers` depend on it |
+| `roots()` | The mounted roots, each with its `id`, its `kind` (`render` or `hydrate`), and its `container` |
+| `diagnostics()` | The most recent diagnostics, oldest first |
+| `subscribe(listener)` | An unsubscribe function; the listener receives each change as it happens |
+
+A subscriber hears four kinds of event: `node` when a reactive node is created, `root` when a root mounts or is removed, `diagnostic` with each new record, and `flush` with the number of effects that ran after a change.
 
 ## Performance panel
 
-In development the runtime times renders, hydrations, and effect runs as entries on `Render` and `Signals` tracks in Chrome's Performance panel (through `performance.measure` with the DevTools extensibility payload), so framework work is visible next to layout and paint without any extension.
+In development, the runtime times its work as entries in Chrome's Performance panel, through `performance.measure` with the DevTools extensibility payload, so framework work is visible next to layout and paint without any extension. The entries sit in a `zerolith` group:
+
+| Track | Entries |
+| --- | --- |
+| `Render` | `render` and `hydrate`, one per root |
+| `Signals` | `effect`, one per effect run |
