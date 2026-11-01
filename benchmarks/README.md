@@ -10,7 +10,7 @@ The zerolith entry is in [js-framework-benchmark/](js-framework-benchmark/). The
 
 ### Results, 2026-11-01
 
-One full run on one machine with every entry as published, zerolith at 0.1.0-alpha.6 installed from npm. The last column is the run of 2026-10-31, with zerolith at 0.1.0-alpha.5.
+One full run on one machine with every entry as published, zerolith at 0.1.0-alpha.6 installed from npm. The last column is the run of 2026-10-31, with zerolith at 0.1.0-alpha.5. 0.1.0-alpha.7 changes no runtime code, and the entry built with it is the same bundle byte for byte, so these results hold for it as well.
 
 | Framework | Entry | Version | Weighted geometric mean | 2026-10-31 |
 | --- | --- | --- | --- | --- |

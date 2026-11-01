@@ -4,7 +4,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 
 ## Where it stands
 
-`0.1.0-alpha.6` was published on 2026-11-01, the sixth alpha since `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, which writes a starter or the fullstack example, each with the zerolith skill for coding agents, and develops, bundles, and previews a project with no other build tool. It is on npm under the `alpha` dist-tag with provenance, published through trusted publishing with no npm token anywhere, on crates.io, and a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://molexxxx.github.io/zerolith/) is published from the same commit, and redeployed from `main` when only the site changes. The API is not frozen, and minor versions may change it until 1.0.
+`0.1.0-alpha.7` was published on 2026-11-01, the seventh alpha since `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, which writes a starter or the fullstack example, each with the zerolith skill for coding agents, and develops, bundles, and previews a project with no other build tool. It is on npm under the `alpha` dist-tag with provenance, published through trusted publishing with no npm token anywhere, on crates.io, and a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://molexxxx.github.io/zerolith/) is published from the same commit, and redeployed from `main` when only the site changes. The API is not frozen, and minor versions may change it until 1.0.
 
 | Area | State |
 | --- | --- |
@@ -25,7 +25,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 In order:
 
 1. Migrate the first production site onto zerolith, served buildless with a Lighthouse budget in CI.
-2. Submit the keyed entry to js-framework-benchmark, which is pinned to `0.1.0-alpha.6` and passes the benchmark's checks, and settle the per-row work that remains before the API is frozen: bindings as effects of their own, and whether `@` event bindings delegate to the root, the one choice there that users would notice.
+2. Submit the keyed entry to js-framework-benchmark, which is pinned to `0.1.0-alpha.7` and passes the benchmark's checks, and settle the per-row work that remains before the API is frozen: bindings as effects of their own, and whether `@` event bindings delegate to the root, the one choice there that users would notice.
 3. Review the core, templates, and router API through an RFC, with what the migration and the performance work found, and freeze it for 1.0. The router's part includes a way for components to build typed links without importing the router, whose module closes an import loop through the route table today.
 
 ## 1.0
