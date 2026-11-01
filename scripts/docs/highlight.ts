@@ -636,19 +636,29 @@ export function highlight(code: string, language: string): string
         .join("");
 }
 
-/** The identifiers a script uses outside its strings and comments, including those inside `${}` expressions and JSX tags. */
+/**
+ * The identifiers a script uses outside its strings and comments, including
+ * those inside `${}` expressions and JSX tags. A property name after a dot is
+ * not one, since it never names a binding; a spread such as `...rest` is.
+ */
 export function identifiers(code: string): Set<string>
 {
     const found = new Set<string>();
+    let tail = "";
     for (const token of tokenizeScript(code, true))
     {
         if (token.kind === "plain" || token.kind === "tag")
         {
             for (const match of token.text.matchAll(/[A-Za-z_$][\w$]*/g))
             {
-                found.add(match[0]);
+                const preceding = (tail + token.text.slice(0, match.index)).slice(-2);
+                if (!preceding.endsWith(".") || preceding === "..")
+                {
+                    found.add(match[0]);
+                }
             }
         }
+        tail = (tail + token.text).slice(-2);
     }
     return found;
 }

@@ -82,5 +82,6 @@ describe("code coloring", () =>
         const used = identifiers("render(html`<b>Count ${count}</b>`, \"#app\"); // computed");
         expect([...used].toSorted()).toEqual(["b", "count", "html", "render"]);
         expect(identifiers("const v = <Card title={t} />;").has("Card")).toBe(true);
+        expect([...identifiers("messages.get()?.notesCount({ ...rest })")].toSorted()).toEqual(["messages", "rest"]);
     });
 });
