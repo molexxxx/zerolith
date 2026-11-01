@@ -77,7 +77,16 @@ export function resource<P, T>(options: ResourceOptions<P, T>): Resource<T>
             status.set("pending");
             error.set(undefined);
         });
-        options.loader({ params, abort: abort.signal }).then(
+        let request: Promise<T>;
+        try
+        {
+            request = options.loader({ params, abort: abort.signal });
+        }
+        catch (thrown)
+        {
+            request = Promise.reject(thrown);
+        }
+        request.then(
             (result) =>
             {
                 if (run !== generation)

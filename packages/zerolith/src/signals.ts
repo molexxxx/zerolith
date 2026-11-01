@@ -311,6 +311,12 @@ function stale(target: Consumer): boolean
     return false;
 }
 
+/**
+ * Runs the effects a batch notified, round after round until none is
+ * pending. One effect that throws does not stop the others; the error is
+ * thrown once the flush ends, and when several effects threw, an
+ * `AggregateError` holds them all, the first one first.
+ */
 function endBatch(): void
 {
     if (batchDepth > 1)
@@ -318,8 +324,7 @@ function endBatch(): void
         batchDepth--;
         return;
     }
-    let error: unknown;
-    let failed = false;
+    const errors: unknown[] = [];
     let ran = 0;
     while (pending !== undefined)
     {
@@ -343,11 +348,7 @@ function endBatch(): void
                 }
                 catch (caught)
                 {
-                    if (!failed)
-                    {
-                        error = caught;
-                        failed = true;
-                    }
+                    errors.push(caught);
                 }
             }
             node = next;
@@ -359,9 +360,13 @@ function endBatch(): void
     {
         trackFlush(ran);
     }
-    if (failed)
+    if (errors.length === 1)
     {
-        throw error;
+        throw errors[0];
+    }
+    if (errors.length > 1)
+    {
+        throw new AggregateError(errors, `zerolith: ${errors.length} effects threw in one update`);
     }
 }
 
@@ -617,7 +622,7 @@ class Effect implements Consumer, OwnerNode
         const previousOwner = own(this);
         try
         {
-            if (this.fn !== undefined)
+            if (this.fn !== undefined && !(this.flags & DISPOSED))
             {
                 const cleanup = this.flags & INTERNAL ? internal(this.fn) : this.fn();
                 if (typeof cleanup === "function")

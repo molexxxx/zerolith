@@ -36,6 +36,21 @@ describe("resource", () =>
         expect(user.pending.get()).toBe(false);
     });
 
+    it("fails the request when the loader throws before returning a promise", async () =>
+    {
+        const user = resource<number, string>({
+            params: () => 1,
+            loader: () =>
+            {
+                throw new Error("no network");
+            }
+        });
+        await settle();
+        expect(user.status.get()).toBe("error");
+        expect((user.error.get() as Error).message).toBe("no network");
+        expect(user.pending.get()).toBe(false);
+    });
+
     it("is a read-only signal of its value that templates and when read", async () =>
     {
         const pending = deferred<string>();

@@ -97,6 +97,7 @@ export type DiagnosticCode =
     | "unsafe_attribute_binding"
     | "unsafe_url_blocked"
     | "unrenderable_value"
+    | "each_items_function"
     | "event_handler_not_function"
     | "when_condition_function"
     | "mount_component_uncalled"
@@ -194,6 +195,13 @@ export function report(record: Diagnostic): void
     }
     for (const listener of listeners)
     {
-        listener(record);
+        try
+        {
+            listener(record);
+        }
+        catch (error)
+        {
+            console.error("zerolith: an onDiagnostic listener threw", error);
+        }
     }
 }

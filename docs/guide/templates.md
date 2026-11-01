@@ -164,6 +164,7 @@ These fail with a coded error before anything reaches the page, each linked to i
 | Renders a function or a plain object as content, usually a component passed instead of called | `unrenderable_value` |
 | Gives `@event` something other than a function or a `handleEvent` object | `event_handler_not_function` |
 | Gives `when` a function as its condition, which would always count as true | `when_condition_function` |
+| Gives `each` a function as its items, which it would read as no rows | `each_items_function` |
 | Gives `render` or `hydrate` a component that takes props, uncalled | `mount_component_uncalled` |
 
 One more is reported without failing the render: a `javascript:` or `vbscript:` URL, or a `data:` URL other than a PNG, GIF, JPEG, WebP, AVIF, BMP, or icon image (an SVG can carry script), in `href`, `src`, `xlink:href`, `action`, `formaction`, or `poster`, bound as an attribute or as a property such as `.href`, is removed and reported as `unsafe_url_blocked`.

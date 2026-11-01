@@ -94,6 +94,11 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
         cause: "render(), hydrate(), or renderToString() received a component that takes props, passed instead of called, so it would run without them.",
         fix: "Pass a function that calls the component, for example render(() => Counter({ start: 1 }), \"#app\")."
     },
+    each_items_function:
+    {
+        cause: "each() received a function as its items. It reads a signal or an array, so a function would render no rows.",
+        fix: "Pass a signal or a computed value, for example each(computed(() => items.get().filter(open)), (item) => item.id, Row)."
+    },
     when_condition_function:
     {
         cause: "when() received a function as its condition. A function is always truthy, so the first branch would always show.",

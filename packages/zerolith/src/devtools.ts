@@ -303,6 +303,26 @@ export function internal<T>(fn: () => T): T
     }
 }
 
+/**
+ * Records one entry on a custom track of the Performance panel, named
+ * `zerolith:<name>`, and clears it from the page's buffer at once: the
+ * panel has it by then, and a long session would otherwise keep one entry
+ * per effect run. The prefix keeps the clearing off a page's own entries.
+ */
+function timeEntry(track: string, name: string, start: number): void
+{
+    const label = `zerolith:${name}`;
+    try
+    {
+        performance.measure(label, { start, end: performance.now(), detail: { devtools: { dataType: "track-entry", track, trackGroup: "zerolith" } } });
+        performance.clearMeasures(label);
+    }
+    catch
+    {
+        // Some runtimes reject the options form; the measurement is only a convenience.
+    }
+}
+
 /** Times `fn` as an entry on a custom track in the browser's Performance panel. */
 export function measure<T>(track: string, name: string, fn: () => T): T
 {
@@ -317,14 +337,7 @@ export function measure<T>(track: string, name: string, fn: () => T): T
     }
     finally
     {
-        try
-        {
-            performance.measure(name, { start, end: performance.now(), detail: { devtools: { dataType: "track-entry", track, trackGroup: "zerolith" } } });
-        }
-        catch
-        {
-            // Some runtimes reject the options form; the measurement is only a convenience.
-        }
+        timeEntry(track, name, start);
     }
 }
 
@@ -343,13 +356,6 @@ export function measureRun(track: string, name: string, target: { run(): void })
     }
     finally
     {
-        try
-        {
-            performance.measure(name, { start, end: performance.now(), detail: { devtools: { dataType: "track-entry", track, trackGroup: "zerolith" } } });
-        }
-        catch
-        {
-            // Some runtimes reject the options form; the measurement is only a convenience.
-        }
+        timeEntry(track, name, start);
     }
 }

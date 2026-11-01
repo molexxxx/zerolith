@@ -285,6 +285,39 @@ describe("attribute bindings", () =>
         expect(seen.map((d) => d.code)).toEqual(["unsafe_url_blocked"]);
     });
 
+    it("disposes what a failed render started and leaves the container as it was", () =>
+    {
+        const container = document.createElement("div");
+        host = container;
+        container.innerHTML = "<p>kept</p>";
+        document.body.append(container);
+        const count = signal(0);
+        let runs = 0;
+        expect(() => render(() =>
+        {
+            effect(() =>
+            {
+                count.get();
+                runs++;
+            });
+            throw new Error("view failed");
+        }, container)).toThrow("view failed");
+        count.set(1);
+        expect(runs).toBe(1);
+        expect(container.innerHTML).toBe("<p>kept</p>");
+    });
+
+    it("refuses a function as the items of each", () =>
+    {
+        expect(() => each((() => []) as never, (item: number) => item, () => html`<li></li>`)).toThrow(/each_items_function/);
+    });
+
+    it("leaves no development timing in the page's performance buffer", () =>
+    {
+        mount(html`<p>${computed(() => "timed")}</p>`);
+        expect(performance.getEntriesByType("measure").filter((entry) => /^(zerolith:)?(render|hydrate|effect)$/.test(entry.name))).toEqual([]);
+    });
+
     it("blocks scriptable URLs bound as properties", () =>
     {
         const seen: Diagnostic[] = [];

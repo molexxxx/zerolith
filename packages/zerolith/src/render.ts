@@ -1064,13 +1064,22 @@ export function render(view: unknown, target: MountTarget): Root
     container.append(anchor);
     const part = new ChildPart(anchor);
     const owner = createOwner();
-    measure("Render", "render", () =>
+    try
     {
-        owner.run(() =>
+        measure("Render", "render", () =>
         {
-            part.set(produce(view));
+            owner.run(() =>
+            {
+                part.set(produce(view));
+            });
         });
-    });
+    }
+    catch (error)
+    {
+        owner.dispose();
+        part.destroy();
+        throw error;
+    }
     const root: Root = {
         container,
         dispose(): void
@@ -1100,6 +1109,7 @@ export function hydrate(view: unknown, target: MountTarget): HydrateResult
     const end = start === undefined ? undefined : matchingEnd(start);
     const owner = createOwner();
     let part: ChildPart;
+    let rendered: ChildPart | undefined;
     const previous = mismatches;
     mismatches = found;
     try
@@ -1112,6 +1122,7 @@ export function hydrate(view: unknown, target: MountTarget): HydrateResult
                 const anchor = document.createComment("");
                 container.append(anchor);
                 part = new ChildPart(anchor);
+                rendered = part;
                 owner.run(() =>
                 {
                     part.set(produce(view));
@@ -1127,6 +1138,12 @@ export function hydrate(view: unknown, target: MountTarget): HydrateResult
                 });
             }
         });
+    }
+    catch (error)
+    {
+        owner.dispose();
+        rendered?.destroy();
+        throw error;
     }
     finally
     {
@@ -1653,6 +1670,10 @@ class Keyed<T> extends Directive
  */
 export function each<T>(items: ReadableSignal<readonly T[]> | readonly T[], key: KeyOf<T>, row: RowOf<T>): View
 {
+    if (typeof items === "function")
+    {
+        throw fail("each_items_function");
+    }
     return new Keyed(items, key, row);
 }
 

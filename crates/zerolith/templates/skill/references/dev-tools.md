@@ -55,5 +55,7 @@ In development, the runtime times its work as entries in Chrome's Performance pa
 
 | Track | Entries |
 | --- | --- |
-| `Render` | `render` and `hydrate`, one per root |
-| `Signals` | `effect`, one per effect run |
+| `Render` | `zerolith:render` and `zerolith:hydrate`, one per root |
+| `Signals` | `zerolith:effect`, one per effect run |
+
+Each entry is cleared from the page's performance buffer as soon as it is recorded, so `performance.getEntriesByType("measure")` lists none of them and a long session does not accumulate them; the Performance panel keeps every one it recorded.

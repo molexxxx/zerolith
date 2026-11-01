@@ -46,6 +46,12 @@ Cause: A css literal received a value that is not a number or another css result
 
 Fix: Interpolate only numbers and css results; put dynamic values in custom properties set through a style binding.
 
+## each_items_function
+
+Cause: each() received a function as its items. It reads a signal or an array, so a function would render no rows.
+
+Fix: Pass a signal or a computed value, for example each(computed(() => items.get().filter(open)), (item) => item.id, Row).
+
 ## each_key_duplicate
 
 Cause: Two items in an each() list produced the same key.

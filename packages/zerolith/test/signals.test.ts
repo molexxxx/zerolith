@@ -449,6 +449,62 @@ describe("scope", () =>
         handle.dispose();
     });
 
+    it("does not run an effect again that its own cleanup disposed", () =>
+    {
+        const trigger = signal(0);
+        let runs = 0;
+        let stop: (() => void) | undefined;
+        const handle = scope(() =>
+        {
+            stop = effect(() =>
+            {
+                trigger.get();
+                runs++;
+                return () => stop?.();
+            });
+        });
+        trigger.set(1);
+        expect(runs).toBe(1);
+        trigger.set(2);
+        expect(runs).toBe(1);
+        handle.dispose();
+    });
+
+    it("throws every error of one update, the first alone or all in an AggregateError", () =>
+    {
+        const trigger = signal(0);
+        const handle = scope(() =>
+        {
+            effect(() =>
+            {
+                if (trigger.get() > 0)
+                {
+                    throw new Error("first");
+                }
+            });
+            effect(() =>
+            {
+                if (trigger.get() > 1)
+                {
+                    throw new Error("second");
+                }
+            });
+        });
+        expect(() => trigger.set(1)).toThrow("first");
+        let thrown: unknown;
+        try
+        {
+            trigger.set(2);
+        }
+        catch (error)
+        {
+            thrown = error;
+        }
+        expect(thrown).toBeInstanceOf(AggregateError);
+        expect((thrown as AggregateError).errors.map((error: Error) => error.message).toSorted()).toEqual(["first", "second"]);
+        handle.dispose();
+    });
+
     it("disposes what was created before a throwing scope function", () =>
     {
         const a = signal(1);

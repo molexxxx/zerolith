@@ -55,6 +55,26 @@ describe("renderToString", () =>
         expect(seen.map((d) => d.code)).toEqual(["unsafe_url_blocked"]);
     });
 
+    it("keeps calling the other listeners when one throws, and reports the throw", () =>
+    {
+        const failing = vi.spyOn(console, "error").mockImplementation(() => undefined);
+        const heard: string[] = [];
+        const offFirst = onDiagnostic(() => { throw new Error("listener broke"); });
+        const offSecond = onDiagnostic((d) => heard.push(d.code));
+        try
+        {
+            expect(plain(html`<a href=${"javascript:alert(1)"}>x</a>`)).toBe("<a>x</a>");
+            expect(heard).toEqual(["unsafe_url_blocked"]);
+            expect(failing).toHaveBeenCalledTimes(1);
+        }
+        finally
+        {
+            offFirst();
+            offSecond();
+            failing.mockRestore();
+        }
+    });
+
     it("decides a URL from its scheme, however long the URL is", () =>
     {
         const seen: Diagnostic[] = [];
