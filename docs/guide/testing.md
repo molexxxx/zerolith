@@ -55,7 +55,7 @@ Vitest reads each module through Vite, not through `zerolith dev`, so the plugin
 The container is a normal element: query it, dispatch events on it, or hand it to the runner's locator API.
 
 > [!TIP]
-> A component that registers cleanups with `onDispose`, such as a page that starts a timer, needs an owner while it runs. Pass a function, as `mount(() => Dashboard())`: `mount` calls it inside an owner of its own, and the cleanups run when the test unmounts it. Called directly, as `mount(Dashboard())`, the component runs before any owner exists and fails with `on_dispose_outside_scope`.
+> A component that registers cleanups with `onDispose`, such as a page that starts a timer, needs an owner while it runs. Pass a function, as `mount(() => Dashboard())`: `mount` hands it to `render`, which calls it inside the root's owner, and the cleanups run when the test unmounts it. Called directly, as `mount(Dashboard())`, the component runs before any owner exists and fails with `on_dispose_outside_scope`.
 
 `mount` takes two options:
 

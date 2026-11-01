@@ -53,6 +53,10 @@ export function trackDiagnostic(_record: Diagnostic): void
 {
 }
 
+export function printUnheard(_record: Diagnostic): void
+{
+}
+
 export function trackFlush(_effects: number): void
 {
 }

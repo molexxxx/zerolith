@@ -84,9 +84,12 @@ function unmount(container: Element | DocumentFragment, entry: Mounted): void
 
 /**
  * Renders what `factory` returns into `container` and remembers the factory,
- * so the root can be rendered again after an update. A second root mounted
- * into the same container replaces the first, which is what happens when the
- * entry module itself is re-executed.
+ * so the root can be rendered again after an update. The core calls the
+ * factory inside the root's owner, so components own their effects and
+ * cleanups as they do without the plugin, and calls once more a factory
+ * whose expression was itself a function, as in `render(() => App(), "#app")`.
+ * A second root mounted into the same container replaces the first, which is
+ * what happens when the entry module itself is re-executed.
  */
 export function render(factory: () => unknown, target: core.MountTarget): core.Root
 {
@@ -95,7 +98,7 @@ export function render(factory: () => unknown, target: core.MountTarget): core.R
     {
         mounted.get(previous)?.root.dispose();
     }
-    const root = core.render(factory(), target);
+    const root = core.render(factory, target);
     const { container } = root;
     const entry: Mounted = { factory, root, fresh: true };
     mounted.set(container, entry);
@@ -110,7 +113,7 @@ export function hydrate(factory: () => unknown, target: core.MountTarget): core.
     {
         mounted.get(previous)?.root.dispose();
     }
-    const result = core.hydrate(factory(), target);
+    const result = core.hydrate(factory, target);
     const { container } = result;
     const entry: Mounted = { factory, root: result, fresh: true };
     mounted.set(container, entry);
@@ -167,9 +170,8 @@ export function accept(): void
             entry.fresh = false;
             continue;
         }
-        const view = entry.factory();
         entry.root.dispose();
-        entry.root = core.render(view, container);
+        entry.root = core.render(entry.factory, container);
     }
     devtoolsSaveRestore({});
 }

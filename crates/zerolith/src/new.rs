@@ -409,7 +409,7 @@ import { Layout } from "./components/layout.__CEXT__";
 import { router } from "./router.__EXT__";
 
 await router.ready;
-render(Layout({ content: router.outlet() }), "#app");
+render(() => Layout({ content: router.outlet() }), "#app");
 "##;
 
 const MAIN_DEVTOOLS: &str = r##"// The entry: wait for the first route, render the layout around it, and
@@ -420,7 +420,7 @@ import { Layout } from "./components/layout.__CEXT__";
 import { router } from "./router.__EXT__";
 
 await router.ready;
-render(Layout({ content: router.outlet() }), "#app");
+render(() => Layout({ content: router.outlet() }), "#app");
 mountDevtools();
 "##;
 
@@ -964,9 +964,11 @@ pub const PROJECT_CONFIG: &str = r#"{
 
 const ENV_TYPES: &str = r#"// The values import.meta.env carries under zerolith dev and zerolith
 // build: the mode, the base path, and every PUBLIC_ variable from the .env
-// files and the environment. The reference types the stylesheets imported
-// with ?scoped.
+// files and the environment. The references type the stylesheets imported
+// with ?scoped and the images, fonts, and other files imported for their
+// URL or, with ?raw, their text.
 /// <reference types="zerolith/imports" />
+/// <reference types="@zerolith/cli/assets" />
 interface ImportMetaEnv
 {
     readonly MODE: string;

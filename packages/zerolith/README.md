@@ -21,7 +21,7 @@ function Counter({ start = 0 }: { start?: number })
 render(Counter({ start: 1 }), "#app");
 ```
 
-`render` mounts a view into an element, named by a CSS selector or passed as the element itself, and returns a root whose `dispose()` takes it down again.
+`render` mounts a view into an element, named by a CSS selector or passed as the element itself, and returns a root whose `dispose()` takes it down again. Given a function that returns the view, as `render(() => App(), "#app")`, it calls the function inside the root's owner, so the effects and `onDispose` cleanups a component registers end with the root; an application's entry mounts its layout that way.
 
 ## The one rule to learn first
 

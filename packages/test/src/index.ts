@@ -4,7 +4,7 @@
  * a view's server markup against hydration, and find the accessibility
  * defects a test can catch.
  */
-import { type HydrationMismatch, type Root, hydrate, render, scope } from "zerolith";
+import { type HydrationMismatch, type Root, hydrate, render } from "zerolith";
 import { renderToString } from "zerolith/ssr";
 
 /** What `mount` returns. */
@@ -30,10 +30,10 @@ const mounted: Mounted[] = [];
 
 /**
  * Renders a view into a container and remembers it for `cleanup`. Given a
- * function that returns the view, as `mount(() => Page())`, it calls the
- * function inside the mount's own owner, so a component that registers
- * cleanups with `onDispose` mounts as it is, and its cleanups run when the
- * view is unmounted.
+ * function that returns the view, as `mount(() => Page())`, it hands the
+ * function to `render`, which calls it inside the root's owner, so a
+ * component that registers cleanups with `onDispose` mounts as it is, and
+ * its cleanups run when the view is unmounted.
  */
 export function mount(view: unknown, options: MountOptions = {}): Mounted
 {
@@ -42,8 +42,7 @@ export function mount(view: unknown, options: MountOptions = {}): Mounted
     {
         document.body.append(container);
     }
-    const owned = scope(() => render(typeof view === "function" ? (view as () => unknown)() : view, container));
-    const root = owned.value;
+    const root = render(view, container);
     const entry: Mounted = {
         container,
         root,
@@ -55,7 +54,6 @@ export function mount(view: unknown, options: MountOptions = {}): Mounted
                 mounted.splice(index, 1);
             }
             root.dispose();
-            owned.dispose();
             if (options.container === undefined)
             {
                 container.remove();

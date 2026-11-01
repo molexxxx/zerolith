@@ -980,7 +980,35 @@ function resolveTarget(target: MountTarget): Element | DocumentFragment
     return element;
 }
 
-/** Renders a view at the end of `target`, an element or a selector for one, and returns a handle to dispose it. */
+/**
+ * The view `render`, `hydrate`, or `renderToString` was given, with a
+ * function that returns the view called under the caller's owner. A
+ * function that returns another such function, as a build tool's wrapper
+ * around `() => App()` does, is called once more. A function that takes
+ * parameters is a component passed instead of called, which fails with
+ * `mount_component_uncalled` rather than running without its props.
+ */
+export function produce(view: unknown): unknown
+{
+    let value = view;
+    for (let depth = 0; depth < 2 && typeof value === "function"; depth++)
+    {
+        if (value.length > 0)
+        {
+            throw fail("mount_component_uncalled", { name: value.name === "" ? "anonymous" : value.name });
+        }
+        value = (value as () => unknown)();
+    }
+    return value;
+}
+
+/**
+ * Renders a view at the end of `target`, an element or a selector for one,
+ * and returns a handle to dispose it. Given a function that returns the
+ * view, as in `render(() => App(), "#app")`, it calls the function inside
+ * the root's owner, so effects and `onDispose` cleanups the component
+ * registers belong to the root and end with `dispose()`.
+ */
 export function render(view: unknown, target: MountTarget): Root
 {
     const container = resolveTarget(target);
@@ -992,7 +1020,7 @@ export function render(view: unknown, target: MountTarget): Root
     {
         owner.run(() =>
         {
-            part.set(view);
+            part.set(produce(view));
         });
     });
     const root: Root = {
@@ -1013,7 +1041,8 @@ export function render(view: unknown, target: MountTarget): Root
  * or a selector for one, with `renderToString`, reusing the nodes and
  * binding signals, listeners, properties, and refs. Any disagreement is
  * repaired on the client and returned in `mismatches`. Without
- * server-rendered markup it falls back to `render`.
+ * server-rendered markup it falls back to `render`. As with `render`, a
+ * function that returns the view is called inside the root's owner.
  */
 export function hydrate(view: unknown, target: MountTarget): HydrateResult
 {
@@ -1045,7 +1074,7 @@ export function hydrate(view: unknown, target: MountTarget): HydrateResult
                 part = new ChildPart(anchor);
                 owner.run(() =>
                 {
-                    part.set(view);
+                    part.set(produce(view));
                 });
             }
             else
@@ -1054,7 +1083,7 @@ export function hydrate(view: unknown, target: MountTarget): HydrateResult
                 part = new ChildPart(end);
                 owner.run(() =>
                 {
-                    part.set(view, cursor);
+                    part.set(produce(view), cursor);
                 });
             }
         });
@@ -1670,8 +1699,18 @@ class Conditional extends Directive
     }
 }
 
-/** Renders `then()` while the condition is truthy and `otherwise()` while it is not. Branches are created lazily and disposed when hidden. */
+/**
+ * Renders `then()` while the condition is truthy and `otherwise()` while
+ * it is not. The condition is a signal, such as a computed value, or a
+ * plain value; a function fails with `when_condition_function`, since it
+ * would always count as true. Branches are created lazily and disposed
+ * when hidden.
+ */
 export function when(condition: unknown, then: () => unknown, otherwise?: () => unknown): View
 {
+    if (typeof condition === "function")
+    {
+        throw fail("when_condition_function");
+    }
     return new Conditional(condition, then, otherwise);
 }

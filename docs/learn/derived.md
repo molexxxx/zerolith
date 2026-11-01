@@ -35,7 +35,7 @@ Update `src/components/packing.ts`:
 `each` now renders `shown` instead of `items`, so the rows follow the filter. `when` renders its view while the condition is true and removes it when the condition turns false; an optional third argument renders while it is false. Here it shows a note when the filter leaves no rows, such as choosing Left to pack once everything is packed.
 
 > [!NOTE]
-> `when` is zerolith's if and else, the place of a `? :` in React or `@if` and `@else` in Angular. Its condition is a signal, so `empty` is a computed value; a function there would always count as true.
+> `when` is zerolith's if and else, the place of a `? :` in React or `@if` and `@else` in Angular. Its condition is a signal, so `empty` is a computed value; a function there fails with `when_condition_function`, since it would always count as true.
 
 ## What you learned
 

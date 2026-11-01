@@ -162,5 +162,6 @@ These fail with a coded error before anything reaches the page, each linked to i
 | Binds the `srcdoc` attribute or any attribute that starts with `on` | `unsafe_attribute_binding` |
 | Renders a function or a plain object as content, usually a component passed instead of called | `unrenderable_value` |
 | Gives `@event` something other than a function or a `handleEvent` object | `event_handler_not_function` |
+| Gives `when` a function as its condition, which would always count as true | `when_condition_function` |
 
 One more is reported without failing the render: a `javascript:` or `vbscript:` URL, or a `data:` URL that is not an image, in `href`, `src`, `action`, `formaction`, or `poster` is removed and reported as `unsafe_url_blocked`.

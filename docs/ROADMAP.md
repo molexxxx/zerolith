@@ -48,10 +48,10 @@ In order:
 - [x] Scoped styles from a stylesheet of their own, `import card from "./card.css?scoped"`, the same value a `css` literal gives, keyed to the file's path so the server and the browser agree on it and an edit replaces the rules in place, in the command line, the Vite plugin, and Vitest.
 - [x] Fine-grained rendering with no virtual DOM, under Trusted Types and a strict CSP.
 - [x] Server rendering to strings and hydration with mismatch repair and reporting.
-- [x] Coded diagnostics with a cause, a fix, and a page per code.
+- [x] Coded diagnostics with a cause, a fix, and a page per code, with warnings printed to the console in development while no listener takes them.
 - [x] Custom elements with attributes and properties as signals (`zerolith/element`).
 - [x] JSX as an alternative spelling of `html`.
-- [x] Mounting by element or CSS selector.
+- [x] Mounting by element or CSS selector, and with a function that returns the view, called inside the root's owner so components own their cleanups.
 - [x] Templates prepared ahead of time by a build tool, with the scanner left out of the bundle.
 - [x] Keyed lists that create, append, replace, remove, and clear rows without the general diff, exchange two rows by moving only those two, keep matching rows at both ends without diffing them, update rows that keep their places without a set of keys, render template rows without markers, and create a row's index signal only for a row function that takes one.
 - [x] Templates cloned from a copy prepared once in the page's document, with bindings located by path and text bindings filling a text node the copy already holds; a template with a custom element or an element that fetches is imported on each use instead.

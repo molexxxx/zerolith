@@ -52,7 +52,7 @@ zerolith preview
 | A package, as `import { html } from "zerolith"` | The module from `node_modules`, found with the resolver and conditions `build` uses, the development build of zerolith included, so the page needs no import map and a new file needs nothing but an import |
 | A stylesheet imported from a module, as `import "./card.css"` | The rules, applied through a `<style>` element |
 | A stylesheet imported with `?scoped`, as `import card from "./card.css?scoped"` | The styles a `css` literal gives, with local `@import`s inlined; an edit to the file or to one it imports replaces the rules in place |
-| An image, font, or other file imported from code | Its URL; `?url` gives any file's URL, `?raw` its text, and a JSON import its value, all as in `build` |
+| An image, font, or other file imported from code | Its URL; `?url` gives any file's URL, `?raw` its text, and a JSON import its value, all as in `build`. `@zerolith/cli/assets`, which the starter's `src/env.d.ts` references, types these imports |
 | A file in `public/` | The file, served at the root |
 | A client-side route, such as `/notes/abc` | The application's `index.html` |
 | A package outside the project folder, such as a workspace package in a monorepo | The module, served under `/@fs/` from the folders of the packages that imports resolved to, and from nowhere else |

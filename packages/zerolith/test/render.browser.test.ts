@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Diagnostic, type Root, ZerolithError, computed, each, effect, html, onDiagnostic, render, signal, when } from "zerolith";
+import { type Diagnostic, type Root, ZerolithError, computed, each, effect, html, onDiagnostic, onDispose, render, signal, when } from "zerolith";
 import { prepared, scan } from "zerolith/internal";
 
 let root: Root | undefined;
@@ -8,6 +8,12 @@ let host: HTMLElement | undefined;
 function notRenderable(): unknown
 {
     return undefined;
+}
+
+/** A component that takes props, for the check that one passed uncalled is refused. */
+function Greeting({ name }: { name: string }): unknown
+{
+    return html`<p>Hello, ${name}</p>`;
 }
 
 function mount(view: unknown): HTMLElement
@@ -153,6 +159,41 @@ describe("html and render", () =>
         const calls = runs.mock.calls.length;
         count.set(1);
         expect(runs).toHaveBeenCalledTimes(calls);
+    });
+});
+
+describe("render with a function", () =>
+{
+    it("calls the function inside the root's owner, so its cleanups end with the root", () =>
+    {
+        let cleaned = 0;
+        function Panel(): unknown
+        {
+            onDispose(() =>
+            {
+                cleaned += 1;
+            });
+            return html`<p>panel</p>`;
+        }
+        const el = mount(() => Panel());
+        expect(el.textContent).toBe("panel");
+        expect(cleaned).toBe(0);
+        root?.dispose();
+        root = undefined;
+        expect(cleaned).toBe(1);
+        expect(el.textContent).toBe("");
+    });
+
+    it("calls a function that returns such a function, as a build tool's wrapper does", () =>
+    {
+        const el = mount(() => () => html`<p>wrapped</p>`);
+        expect(el.textContent).toBe("wrapped");
+    });
+
+    it("refuses a component passed instead of called, naming it", () =>
+    {
+        expect(() => mount(Greeting)).toThrow(/mount_component_uncalled.*name=Greeting/);
+        expect(() => mount(() => Greeting)).toThrow(/mount_component_uncalled/);
     });
 });
 
@@ -423,6 +464,11 @@ describe("each", () =>
 
 describe("when", () =>
 {
+    it("refuses a function as its condition with a coded error", () =>
+    {
+        expect(() => when(() => true, () => html`<p>x</p>`)).toThrow(/when_condition_function/);
+    });
+
     it("shows a branch, disposes it when hidden, and ignores changes that keep the same truthiness", () =>
     {
         const user = signal<string | null>(null);

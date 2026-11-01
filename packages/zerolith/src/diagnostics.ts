@@ -5,7 +5,7 @@
  * returns it, and a terminal prints it.
  */
 import { diagnosticCatalog } from "./catalog.js";
-import { trackDiagnostic } from "./devtools.js";
+import { printUnheard, trackDiagnostic } from "./devtools.js";
 
 /**
  * How safely a suggestion can be applied without a human reading it,
@@ -87,6 +87,8 @@ export type DiagnosticCode =
     | "unsafe_url_blocked"
     | "unrenderable_value"
     | "event_handler_not_function"
+    | "when_condition_function"
+    | "mount_component_uncalled"
     | "each_key_undefined"
     | "each_key_duplicate"
     | "css_value_not_allowed"
@@ -165,10 +167,18 @@ export function onDiagnostic(listener: DiagnosticListener): () => void
     };
 }
 
-/** Reports a non-throwing diagnostic to every listener. */
+/**
+ * Reports a non-throwing diagnostic to every listener. With none
+ * registered, the development build prints it to the console instead, so
+ * a warning is never lost; registering any listener takes it over.
+ */
 export function report(record: Diagnostic): void
 {
     trackDiagnostic(record);
+    if (listeners.size === 0)
+    {
+        printUnheard(record);
+    }
     for (const listener of listeners)
     {
         listener(record);

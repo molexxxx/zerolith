@@ -106,6 +106,12 @@ Cause: A module meant to load as a chunk of its own, a view declared with lazy()
 
 Fix: Remove the static import, or import only its types with import type. Declare the view without lazy() if it should load with the page.
 
+## mount_component_uncalled
+
+Cause: render(), hydrate(), or renderToString() received a component that takes props, passed instead of called, so it would run without them.
+
+Fix: Pass a function that calls the component, for example render(() => Counter({ start: 1 }), "#app").
+
 ## mount_target_missing
 
 Cause: render or hydrate received a selector that matches no element in the document.
@@ -183,3 +189,9 @@ Fix: Bind child content with ${} instead; for trusted markup use the raw HTML AP
 Cause: A URL attribute received a value with a scheme that can run script, and the attribute was removed.
 
 Fix: Pass http, https, mailto, tel, or a relative URL; data URLs are allowed only for images.
+
+## when_condition_function
+
+Cause: when() received a function as its condition. A function is always truthy, so the first branch would always show.
+
+Fix: Pass a signal or a computed value, for example when(computed(() => items.get().length === 0), Empty).

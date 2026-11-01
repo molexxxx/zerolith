@@ -36,17 +36,17 @@ zerolith is a standalone frontend framework. A component is a function that runs
 | An element | `ref=${writableSignal}` or `ref=${callback}` |
 | A list that changes | `each(items, (item) => item.id, (item) => Row({ item }))`; the row receives the item as a signal |
 | A list that never changes | `entries.map((entry) => html\`...\`)` |
-| A condition | `when(condition, () => view, () => otherwise)` |
-| Component styles | `` const styles = css`:scope { ... }` ``, applied with `class=${styles}` |
+| A condition | `when(condition, () => view, () => otherwise)`; the condition is a signal or a computed value, never a function |
+| Component styles | `` const styles = css`:scope { ... }` ``, applied with `class=${styles}`; a stylesheet too long for the module goes in a file beside it, `import card from "./card.css?scoped"`, applied the same way |
 | Async data | `resource({ params, loader })`, read through `get()`, `status`, `error`, and `reload()` |
-| Mounting | `render(view, "#app")`; `hydrate(view, "#app")` adopts server-rendered markup |
+| Mounting | `render(() => App(), "#app")`, a function that returns the view, so the root owns what its components start; `hydrate(() => App(), "#app")` adopts server-rendered markup |
 | A page | a route in `src/routes.ts` and a component; links are anchors with `router.href("name", params)` |
 | A form that posts | `@zerolith/forms`: native forms with fetch, pending state, and field errors as RFC 9457 problems |
 | A typed backend call | `@zerolith/client`, generated from an OpenAPI document with `zerolith-client` |
 | Messages and formatting | `@zerolith/i18n` |
 | Focus trap, roving tabindex, announcements | `@zerolith/a11y` |
 | A view inside another framework | a custom element with `define` from `zerolith/element` |
-| Tests | `mount`, `cleanup`, `settle`, and `accessibilityIssues` from `@zerolith/test` |
+| Tests | `mount(() => View())`, `cleanup`, `settle`, and `accessibilityIssues` from `@zerolith/test` |
 
 ## JSX projects
 
@@ -54,11 +54,11 @@ In `.tsx` and `.jsx` files the same templates are spelled as JSX, lowered to the
 
 ## What the renderer refuses
 
-Each of these fails with a coded error before anything reaches the DOM: a `<script>` element in a template; a binding inside a comment, a tag name, an attribute name, or the text of `<style>`, `<textarea>`, or `<title>` (bind `.textContent` or `.value` instead); `.innerHTML`, `.outerHTML`, `srcdoc`, and `on*` attribute bindings; a function or plain object as content, which is usually a component passed instead of called. `javascript:` URLs in `href`, `src`, and similar attributes are removed.
+Each of these fails with a coded error before anything reaches the DOM: a `<script>` element in a template; a binding inside a comment, a tag name, an attribute name, or the text of `<style>`, `<textarea>`, or `<title>` (bind `.textContent` or `.value` instead); `.innerHTML`, `.outerHTML`, `srcdoc`, and `on*` attribute bindings; a function or plain object as content, which is usually a component passed instead of called; a component that takes props passed to `render`, `hydrate`, or `renderToString` uncalled; and a function as the condition of `when`. `javascript:` URLs in `href`, `src`, and similar attributes are removed.
 
 ## Diagnostics
 
-Every error and warning carries a stable code and a page at `https://molexxxx.github.io/zerolith/e/<code>/` with the cause and the fix. When a code appears, read its entry in [references/diagnostic-codes.md](references/diagnostic-codes.md) and apply the fix it names. Never suppress a diagnostic or work around it.
+Every error and warning carries a stable code and a page at `https://molexxxx.github.io/zerolith/e/<code>/` with the cause and the fix. When a code appears, read its entry in [references/diagnostic-codes.md](references/diagnostic-codes.md) and apply the fix it names. Never suppress a diagnostic or work around it. In development, a warning that no `onDiagnostic` listener hears is printed to the console as `[zerolith] <code>: <cause> <fix> <url>`.
 
 ## Commands
 
@@ -87,7 +87,7 @@ Read only the reference the task needs. Each is a guide from the docs, with test
 - [references/structure.md](references/structure.md): the project layout and what each file owns.
 - [references/signals.md](references/signals.md): signals, computed values, effects, batching, ownership, resources.
 - [references/templates.md](references/templates.md): bindings, lists, conditions, JSX, raw markup, refusals.
-- [references/styles.md](references/styles.md): scoped styles with `css`.
+- [references/styles.md](references/styles.md): scoped styles with `css`, and stylesheet files imported with `?scoped`.
 - [references/routing.md](references/routing.md): the route table, links, loaders, head, base paths.
 - [references/forms.md](references/forms.md): enhanced native forms and field errors.
 - [references/client.md](references/client.md): the typed client generated from OpenAPI.

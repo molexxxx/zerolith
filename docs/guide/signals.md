@@ -78,7 +78,7 @@ Every effect belongs to an owner, and disposing the owner stops all of its effec
 @include packages/zerolith/test/examples/signals.example.test.ts#scope
 
 > [!TIP]
-> A component that starts something, such as an interval or a listener on `window`, stops it with `onDispose`. It then cleans up wherever the component goes away: when its row leaves a list, its branch hides, its page changes, or its root is disposed.
+> A component that starts something, such as an interval or a listener on `window`, stops it with `onDispose`. It then cleans up wherever the component goes away: when its row leaves a list, its branch hides, its page changes, or its root is disposed. A component rendered at the top of the page needs the root's owner while it runs, so pass `render` a function that returns the view, as `render(() => App(), "#app")`: called directly, as `render(App(), "#app")`, it runs before the root exists and fails with `on_dispose_outside_scope`. `hydrate` and `renderToString` take a function the same way. A component passed by name, as `render(Counter, "#app")`, runs only when it takes no props; one that takes props fails with `mount_component_uncalled` rather than running without them.
 
 ## Async values
 

@@ -250,6 +250,25 @@ export function trackDiagnostic(record: Diagnostic): void
     emit({ type: "diagnostic", diagnostic: record });
 }
 
+/**
+ * Prints a warning, deprecation, or info diagnostic that no `onDiagnostic`
+ * listener heard, as an error message would read: the code, the cause, the
+ * fix, and the link to its page.
+ */
+export function printUnheard(record: Diagnostic): void
+{
+    const detail = (record.cause === "" ? "" : ": " + record.cause) + (record.fix === "" ? "" : " " + record.fix);
+    const text = `[zerolith] ${record.code}${detail} ${record.url}`;
+    if (record.severity === "info")
+    {
+        console.info(text);
+    }
+    else
+    {
+        console.warn(text);
+    }
+}
+
 /** Announces that a batch flushed `effects` effect runs. */
 export function trackFlush(effects: number): void
 {

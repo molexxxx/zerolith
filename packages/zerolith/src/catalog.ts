@@ -89,6 +89,16 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
         cause: "An @event binding received something other than a function or an object with handleEvent.",
         fix: "Pass a function, for example @click=${() => count.set(count.get() + 1)}."
     },
+    mount_component_uncalled:
+    {
+        cause: "render(), hydrate(), or renderToString() received a component that takes props, passed instead of called, so it would run without them.",
+        fix: "Pass a function that calls the component, for example render(() => Counter({ start: 1 }), \"#app\")."
+    },
+    when_condition_function:
+    {
+        cause: "when() received a function as its condition. A function is always truthy, so the first branch would always show.",
+        fix: "Pass a signal or a computed value, for example when(computed(() => items.get().length === 0), Empty)."
+    },
     each_key_undefined:
     {
         cause: "The key function passed to each() returned undefined for an item.",

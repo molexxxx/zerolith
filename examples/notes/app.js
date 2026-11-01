@@ -5,5 +5,5 @@ import { mountDevtools } from "@zerolith/devtools";
 import { Layout } from "./components.js";
 import { router } from "./router.js";
 
-render(Layout({ content: router.outlet() }), "#app");
+render(() => Layout({ content: router.outlet() }), "#app");
 mountDevtools();

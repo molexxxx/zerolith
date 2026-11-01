@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { type Diagnostic, computed, css, each, effect, html, onDiagnostic, signal, when } from "zerolith";
+import { describe, expect, it, vi } from "vitest";
+import { type Diagnostic, computed, css, each, effect, html, onDiagnostic, onDispose, signal, when } from "zerolith";
 import { renderStyles, renderToString } from "zerolith/ssr";
+
+/** A component that takes props, for the check that one passed uncalled is refused. */
+function Greeting({ name }: { name: string }): unknown
+{
+    return html`<p>Hello, ${name}</p>`;
+}
 
 /** The rendered markup without the hydration markers, for assertions about content. */
 function plain(view: unknown): string
@@ -47,6 +53,42 @@ describe("renderToString", () =>
         off();
         expect(out).toBe("<a>x</a><img src=\"data:image/png;base64,AA==\">");
         expect(seen.map((d) => d.code)).toEqual(["unsafe_url_blocked"]);
+    });
+
+    it("prints a warning no listener hears, and leaves it to a listener once one is registered", () =>
+    {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        try
+        {
+            plain(html`<a href=${"javascript:alert(1)"}>x</a>`);
+            expect(warn).toHaveBeenCalledTimes(1);
+            expect(String(warn.mock.calls[0]?.[0])).toMatch(/^\[zerolith\] unsafe_url_blocked: .+https:\/\/\S+\/e\/unsafe_url_blocked\?/);
+            warn.mockClear();
+            const off = onDiagnostic(() => undefined);
+            plain(html`<a href=${"javascript:alert(1)"}>x</a>`);
+            off();
+            expect(warn).not.toHaveBeenCalled();
+        }
+        finally
+        {
+            warn.mockRestore();
+        }
+    });
+
+    it("calls a function that returns the view inside the render's scope", () =>
+    {
+        let cleaned = 0;
+        function Panel(): unknown
+        {
+            onDispose(() =>
+            {
+                cleaned += 1;
+            });
+            return html`<p>panel</p>`;
+        }
+        expect(renderToString(() => Panel())).toContain("<p>panel</p>");
+        expect(cleaned).toBe(1);
+        expect(() => renderToString(Greeting)).toThrow(/mount_component_uncalled/);
     });
 
     it("renders each and when for the current state and checks keys", () =>

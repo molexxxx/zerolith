@@ -29,14 +29,14 @@ The `applicability` of a suggestion follows the grades rustc uses for its own: `
 | Severity | Delivered |
 | --- | --- |
 | `error` | Thrown as a `ZerolithError`, with the record on `.diagnostic` and a message that holds the code, the cause, the fix, and the URL |
-| `warning`, `deprecation`, and `info` | Passed to every `onDiagnostic` listener, and listed in the inspector's Diagnostics tab |
+| `warning`, `deprecation`, and `info` | Passed to every `onDiagnostic` listener, and listed in the inspector's Diagnostics tab; with no listener registered, the development build prints them to the console |
 
 @include packages/zerolith/test/examples/signals.example.test.ts#diagnostics
 
 `onDiagnostic` returns the function that removes the listener.
 
 > [!IMPORTANT]
-> Nothing prints a warning on its own. While developing, the inspector's Diagnostics tab lists every one; a listener, such as the one above, sends them to the console or to the telemetry an application already has.
+> While no listener is registered, the development build prints each warning to the console, worded as an error's message is, so none goes unseen; the production build prints nothing. Registering a listener, such as the one above, takes them over, to send them to the console in a format of your own or to the telemetry an application already has, and the inspector's Diagnostics tab lists every one either way.
 
 ## Production builds
 
@@ -49,9 +49,9 @@ Each code has a page at `https://molexxxx.github.io/zerolith/e/<code>/` with its
 | Area | Codes |
 | --- | --- |
 | Signals and effects | `signal_written_inside_computed`, `computed_cycle`, `effect_cycle`, `effect_loop`, `on_dispose_outside_scope` |
-| Templates and JSX | `binding_in_tag_position`, `binding_in_comment`, `binding_in_raw_text`, `binding_not_single`, `script_in_template`, `template_unclosed_tag`, `unrenderable_value`, `event_handler_not_function`, `each_key_undefined`, `each_key_duplicate`, `ref_not_assignable`, `template_frozen_read`, `template_not_prepared`, `jsx_not_lowered` |
+| Templates and JSX | `binding_in_tag_position`, `binding_in_comment`, `binding_in_raw_text`, `binding_not_single`, `script_in_template`, `template_unclosed_tag`, `unrenderable_value`, `event_handler_not_function`, `when_condition_function`, `each_key_undefined`, `each_key_duplicate`, `ref_not_assignable`, `template_frozen_read`, `template_not_prepared`, `jsx_not_lowered` |
 | Unsafe values | `unsafe_property_binding`, `unsafe_attribute_binding`, `unsafe_url_blocked`, `css_value_not_allowed` |
-| Mounting and hydration | `mount_target_missing`, `hydration_mismatch` |
+| Mounting and hydration | `mount_target_missing`, `mount_component_uncalled`, `hydration_mismatch` |
 | Accessibility | `image_without_alt`, `button_without_name`, `frame_without_title` |
 | Builds and versions | `lazy_module_not_split`, `package_version_mismatch` |
 

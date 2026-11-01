@@ -11,7 +11,7 @@
 import { URL_ATTRIBUTES, describe, isNothing, isText, join, safeUrl } from "./binding.js";
 import { styleSheets } from "./css.js";
 import { diagnostic, fail, report } from "./diagnostics.js";
-import { PART_END, PART_START, type TemplateView, directiveWrapsBranch, isDirective, isRawHtml, isTemplate, resolveDirective } from "./render.js";
+import { PART_END, PART_START, type TemplateView, directiveWrapsBranch, isDirective, isRawHtml, isTemplate, produce, resolveDirective } from "./render.js";
 import { isSignal, scope } from "./signals.js";
 import { ATTRIBUTE, BOOLEAN, CHILD, type PartSpec, scanned } from "./template.js";
 
@@ -139,11 +139,13 @@ function renderTemplate(view: TemplateView): string
  * created while rendering (inside `each` rows, `when` branches, and
  * computed values) are disposed before it returns. A component called
  * before `renderToString` runs outside that scope, exactly as in the
- * browser, and owns its own effects.
+ * browser, and owns its own effects; given a function that returns the
+ * view, as in `renderToString(() => App())`, the component runs inside
+ * the scope, so its effects and cleanups end with the render.
  */
 export function renderToString(view: unknown): string
 {
-    const handle = scope(() => part(renderValue(view)));
+    const handle = scope(() => part(renderValue(produce(view))));
     handle.dispose();
     return handle.value;
 }

@@ -28,12 +28,16 @@
         "zerolith": "dist/bin.js"
     },
     "exports": {
+        "./assets": {
+            "types": "./assets.d.ts"
+        },
         "./package.json": "./package.json",
         "./zerolith.schema.json": "./zerolith.schema.json"
     },
     "files": [
         "dist",
         "src",
+        "assets.d.ts",
         "zerolith.schema.json",
         "LICENSE",
         "README.md"
