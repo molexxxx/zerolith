@@ -52,6 +52,14 @@ describe("lintModule", () =>
         expect(position(code, findings[1]?.offset ?? 0)).toEqual({ line: 3, column: 6 });
     });
 
+    it("keeps offsets on lines that end in a carriage return", () =>
+    {
+        const code = "export const v = html`\r\n<p>\u00e9<img src=\"x\"></p>`;\r\n";
+        const findings = lintModule(code, "/src/app.js", parse);
+        expect(findings.map((finding) => finding.code)).toEqual(["image_without_alt"]);
+        expect(position(code, findings[0]?.offset ?? 0)).toEqual({ line: 2, column: 5 });
+    });
+
     it("yields nothing for modules without templates or that do not parse", () =>
     {
         expect(codes("const a = 1;")).toEqual([]);

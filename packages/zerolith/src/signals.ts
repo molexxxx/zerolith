@@ -674,13 +674,38 @@ class Effect implements Consumer, OwnerNode
         consumer = undefined;
         try
         {
+            let error: unknown;
+            let failed = false;
             if (children !== undefined)
             {
-                disposeAll(children);
+                try
+                {
+                    disposeAll(children);
+                }
+                catch (caught)
+                {
+                    error = caught;
+                    failed = true;
+                }
             }
             if (cleanup !== undefined)
             {
-                cleanup();
+                try
+                {
+                    cleanup();
+                }
+                catch (caught)
+                {
+                    if (!failed)
+                    {
+                        error = caught;
+                        failed = true;
+                    }
+                }
+            }
+            if (failed)
+            {
+                throw error;
             }
         }
         catch (error)
@@ -709,11 +734,29 @@ class Effect implements Consumer, OwnerNode
     }
 }
 
+/** Disposes every child, newest first, and rethrows the first error once all are disposed, so one failing cleanup cannot leave its siblings running. */
 function disposeAll(children: Disposable[]): void
 {
+    let error: unknown;
+    let failed = false;
     while (children.length > 0)
     {
-        children.pop()?.dispose();
+        try
+        {
+            children.pop()?.dispose();
+        }
+        catch (caught)
+        {
+            if (!failed)
+            {
+                error = caught;
+                failed = true;
+            }
+        }
+    }
+    if (failed)
+    {
+        throw error;
     }
 }
 

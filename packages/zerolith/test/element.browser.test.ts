@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { computed, html } from "zerolith";
+import { type Diagnostic, computed, effect, html, onDiagnostic, onDispose, signal } from "zerolith";
 import { define } from "zerolith/element";
 import { renderToString } from "zerolith/ssr";
 
@@ -62,6 +62,54 @@ describe("define", () =>
         const element = rendered.firstElementChild as HTMLElement;
         expect(element.querySelectorAll("b")).toHaveLength(1);
         expect(element.querySelector("b")?.textContent).toBe("server");
+    });
+
+    it("ends the effects and cleanups its view registers when it disconnects", () =>
+    {
+        const tick = signal(0);
+        let runs = 0;
+        let cleanups = 0;
+        define("zl-owned", {
+            props: [],
+            view: () =>
+            {
+                effect(() =>
+                {
+                    tick.get();
+                    runs++;
+                });
+                onDispose(() => { cleanups++; });
+                return html`<p>owned</p>`;
+            }
+        });
+        host = document.createElement("div");
+        document.body.append(host);
+        const element = document.createElement("zl-owned");
+        host.append(element);
+        expect(element.querySelector("p")?.textContent).toBe("owned");
+        expect(runs).toBe(1);
+
+        element.remove();
+        expect(cleanups).toBe(1);
+        tick.set(1);
+        expect(runs).toBe(1);
+    });
+
+    it("renders an element created or moved on the client without reporting a mismatch", () =>
+    {
+        const seen: Diagnostic[] = [];
+        const off = onDiagnostic((d) => seen.push(d));
+        host = document.createElement("div");
+        document.body.append(host);
+        const element = document.createElement("zl-greeting");
+        element.setAttribute("name", "Ada");
+        host.append(element);
+        const other = document.createElement("section");
+        host.append(other);
+        other.append(element);
+        off();
+        expect(element.querySelector("p")?.textContent).toBe("Hello Ada, 0");
+        expect(seen).toEqual([]);
     });
 
     it("ignores a second definition of the same name", () =>

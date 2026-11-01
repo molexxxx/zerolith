@@ -66,6 +66,11 @@ pub fn shown(root: &Path, path: &Path) -> String {
         .replace('\\', "/")
 }
 
+/// An error of reading `file`, with the file's path in the project in front of the reason.
+pub fn located(root: &Path, file: &Path, error: io::Error) -> io::Error {
+    io::Error::new(error.kind(), format!("{}: {error}", shown(root, file)))
+}
+
 /// The path from `folder` to `file`, with forward slashes and `..` to climb out; a file on another drive keeps only its name.
 pub fn relative(folder: &Path, file: &Path) -> String {
     let (folder, file) = (plain(folder), plain(file));
@@ -117,7 +122,9 @@ impl Assets {
         if let Some(name) = self.copied.get(file) {
             return Ok(name.clone());
         }
-        let bytes = fs::read(file)?;
+        let bytes = fs::read(file).map_err(|error| {
+            io::Error::new(error.kind(), format!("{}: {error}", file.display()))
+        })?;
         let stem = file
             .file_stem()
             .and_then(|stem| stem.to_str())
@@ -512,11 +519,11 @@ impl<'a> Combiner<'a> {
 
     /// One stylesheet with its local imports inlined, each file once.
     fn read(&mut self, file: &Path) -> io::Result<String> {
-        let file = canonical(file)?;
+        let file = canonical(file).map_err(|error| located(self.root, file, error))?;
         if !self.seen.insert(file.clone()) {
             return Ok(String::new());
         }
-        let source = fs::read_to_string(&file)?;
+        let source = fs::read_to_string(&file).map_err(|error| located(self.root, &file, error))?;
         let name = shown(self.root, &file);
         let warnings = Arc::new(RwLock::new(Vec::new()));
         let mut sheet = StyleSheet::parse(

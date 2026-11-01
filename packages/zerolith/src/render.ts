@@ -188,6 +188,25 @@ function isStart(node: Node | null): node is Comment
     return node !== null && node.nodeType === 8 && (node as Comment).data === PART_START;
 }
 
+/** The first part marker among the children of `container`, where server-rendered markup begins. */
+function firstStart(container: Node): Comment | undefined
+{
+    for (let node = container.firstChild; node !== null; node = node.nextSibling)
+    {
+        if (isStart(node))
+        {
+            return node;
+        }
+    }
+    return undefined;
+}
+
+/** True when `container` holds markup `renderToString` wrote, which `hydrate` attaches to. */
+export function hasServerMarkup(container: Node): boolean
+{
+    return firstStart(container) !== undefined;
+}
+
 function isEnd(node: Node | null): node is Comment
 {
     return node !== null && node.nodeType === 8 && (node as Comment).data === PART_END;
@@ -233,7 +252,7 @@ class Instance
     readonly content: Node | undefined;
     readonly nodes: readonly ChildNode[];
     private readonly parts: readonly BoundPart[];
-    private readonly cursors: ReadonlyMap<BoundPart, ChildNode> | undefined;
+    private cursors: ReadonlyMap<BoundPart, ChildNode> | undefined;
     /** The child parts among the template's top-level nodes, whose content `nodes` does not hold. */
     private readonly edges: readonly ChildPart[] | undefined;
 
@@ -393,10 +412,12 @@ class Instance
 
     update(values: readonly unknown[]): void
     {
+        const cursors = this.cursors;
+        this.cursors = undefined;
         let offset = 0;
         for (const part of this.parts)
         {
-            const cursor = this.cursors?.get(part);
+            const cursor = cursors?.get(part);
             if (cursor !== undefined && part instanceof ChildPart)
             {
                 part.set(values[offset], cursor);
@@ -659,6 +680,12 @@ class ChildPart implements BoundPart
                 if (end === undefined)
                 {
                     mismatch("missing", "item", node === anchor ? "" : node.nodeName);
+                    if (node !== anchor)
+                    {
+                        mismatch("extra", "", node.nodeName);
+                        removeUntil(node, anchor);
+                        node = anchor;
+                    }
                     const part = new ChildPart(anchorBefore(anchor));
                     items.push(part);
                     part.set(item);
@@ -1048,15 +1075,7 @@ export function hydrate(view: unknown, target: MountTarget): HydrateResult
 {
     const container = resolveTarget(target);
     const found: HydrationMismatch[] = [];
-    let start: Comment | undefined;
-    for (let node = container.firstChild; node !== null; node = node.nextSibling)
-    {
-        if (isStart(node))
-        {
-            start = node;
-            break;
-        }
-    }
+    const start = firstStart(container);
     const end = start === undefined ? undefined : matchingEnd(start);
     const owner = createOwner();
     let part: ChildPart;
@@ -1540,6 +1559,12 @@ class Keyed<T> extends Directive
                     if (rowStart === undefined || rowEnd === undefined)
                     {
                         mismatch("missing", "row", node === end ? "" : node.nodeName);
+                        if (node !== end)
+                        {
+                            mismatch("extra", "", node.nodeName);
+                            removeUntil(node, end);
+                            node = end;
+                        }
                         adopted.push(create(key, value, i, end.parentNode as Node, end));
                         continue;
                     }

@@ -121,13 +121,18 @@ fn closing_button(text: &str) -> Option<usize> {
     None
 }
 
-/// The static markup checks over a template's text, with every expression replaced by a marker so a bound attribute still counts.
-fn markup(template: &TaggedTemplateExpression<'_>, findings: &mut Vec<LintFinding>) {
+/// The static markup checks over a template's text, with every expression replaced by a marker so a bound attribute still counts. The text is read from the source, since the parser's raw value turns `\r\n` into `\n` and its indexes would drift from the offsets.
+fn markup(source: &str, template: &TaggedTemplateExpression<'_>, findings: &mut Vec<LintFinding>) {
     let parts: Vec<(u32, &str)> = template
         .quasi
         .quasis
         .iter()
-        .map(|quasi| (quasi.span.start, quasi.value.raw.as_str()))
+        .map(|quasi| {
+            (
+                quasi.span.start,
+                &source[quasi.span.start as usize..quasi.span.end as usize],
+            )
+        })
         .collect();
     let mut text = String::new();
     for (index, (_, raw)) in parts.iter().enumerate() {
@@ -205,11 +210,12 @@ fn markup(template: &TaggedTemplateExpression<'_>, findings: &mut Vec<LintFindin
 }
 
 /// Collects the findings of every `html` template in a module.
-struct Templates {
+struct Templates<'s> {
+    source: &'s str,
     findings: Vec<LintFinding>,
 }
 
-impl<'a> Visit<'a> for Templates {
+impl<'a> Visit<'a> for Templates<'_> {
     fn visit_tagged_template_expression(&mut self, it: &TaggedTemplateExpression<'a>) {
         if let Expression::Identifier(tag) = &it.tag
             && TAGS.contains(&tag.name.as_str())
@@ -225,7 +231,7 @@ impl<'a> Visit<'a> for Templates {
                     });
                 }
             }
-            markup(it, &mut self.findings);
+            markup(self.source, it, &mut self.findings);
         }
         walk::walk_tagged_template_expression(self, it);
     }
@@ -242,6 +248,7 @@ pub fn lint(source: &str, source_type: SourceType) -> Vec<LintFinding> {
         return Vec::new();
     }
     let mut templates = Templates {
+        source,
         findings: Vec::new(),
     };
     templates.visit_program(&parsed.program);
@@ -249,9 +256,13 @@ pub fn lint(source: &str, source_type: SourceType) -> Vec<LintFinding> {
     templates.findings
 }
 
-/// The line and column, 1-based, of a byte offset, the column counted in UTF-16 units as the Vite plugin counts it.
+/// The line and column, 1-based, of a byte offset, the column counted in UTF-16 units as the Vite plugin counts it. An offset inside a character counts from that character's start.
 pub fn position(source: &str, offset: u32) -> (usize, usize) {
-    let head = &source[..(offset as usize).min(source.len())];
+    let mut end = (offset as usize).min(source.len());
+    while !source.is_char_boundary(end) {
+        end -= 1;
+    }
+    let head = &source[..end];
     let line = head.matches('\n').count() + 1;
     let line_start = head.rfind('\n').map_or(0, |index| index + 1);
     (line, head[line_start..].encode_utf16().count() + 1)
@@ -280,6 +291,15 @@ mod tests {
         );
         assert!(lint("const v = 1;\n", SourceType::mjs()).is_empty());
         assert!(lint("const v = html`<p>${", SourceType::mjs()).is_empty());
+    }
+
+    #[test]
+    fn keeps_offsets_on_crlf_lines() {
+        let source = "export const v = html`\r\n<p>\u{e9}<img src=\"x\"></p>`;\r\n";
+        let finding = &lint(source, SourceType::mjs())[0];
+        assert_eq!(finding.code, "image_without_alt");
+        assert_eq!(position(source, finding.offset), (2, 5));
+        assert_eq!(position(source, 28), (2, 4));
     }
 
     #[test]

@@ -43,7 +43,7 @@ The view's second argument is the host element, for what a boundary needs, such 
 | --- | --- |
 | The element connects | The view renders into it, or hydrates the markup it already holds from the server |
 | An attribute or a property changes | Its signal updates, and only the bindings that read it change |
-| The element disconnects | The view is disposed with its effects |
+| The element disconnects | The view is disposed with the effects and `onDispose` cleanups it registered |
 | It connects again, as when it moves | The view renders again, with the props it had |
 | `define` runs on the server, with no `customElements` | Nothing is registered |
 | `define` runs again for the same name | Nothing happens, so hot replacement can run the module again |

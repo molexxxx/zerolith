@@ -18,8 +18,8 @@ use oxc_span::SourceType;
 use rolldown::plugin::{
     HookGenerateBundleArgs, HookLoadArgs, HookLoadOutput, HookLoadReturn, HookNoopReturn,
     HookResolveIdArgs, HookResolveIdOutput, HookResolveIdReturn, HookTransformArgs,
-    HookTransformOutput, HookTransformReturn, HookUsage, Plugin, PluginContext,
-    SharedLoadPluginContext, SharedTransformPluginContext,
+    HookTransformOutput, HookTransformOutputMap, HookTransformReturn, HookUsage, Plugin,
+    PluginContext, SharedLoadPluginContext, SharedTransformPluginContext,
 };
 use rolldown::{
     Bundler, BundlerOptions, BundlerTransformOptions, Either, InputItem, ModuleType, OutputFormat,
@@ -263,12 +263,16 @@ impl Zerolith {
         })
     }
 
-    /// Records a failure of the load hook, so the build reports its message rather than Rolldown's.
-    fn reported(&self, result: io::Result<String>) -> io::Result<String> {
+    /// Records a failure of the load hook, so the build reports its message rather than Rolldown's; a failure of the file system, whose message names no file, gets the module's path in front.
+    fn reported(&self, id: &str, result: io::Result<String>) -> io::Result<String> {
         if let Err(error) = &result
             && let Ok(mut recorded) = self.recorded.lock()
         {
-            recorded.failures.push(error.to_string());
+            recorded.failures.push(if error.get_ref().is_none() {
+                format!("{}: {error}", shown(&self.root, path_of(id)))
+            } else {
+                error.to_string()
+            });
         }
         result
     }
@@ -381,12 +385,12 @@ impl Plugin for Zerolith {
         }
         let queried = QUERIES.iter().any(|query| id.ends_with(query));
         let code = if id.ends_with("?scoped") {
-            self.reported(self.scoped_module(id))?
+            self.reported(id, self.scoped_module(id))?
         } else if queried
             || (!id.contains('?')
                 && extension_of(id).is_some_and(|extension| ASSET_EXTENSIONS.contains(&extension)))
         {
-            self.reported(self.asset_module(id))?
+            self.reported(id, self.asset_module(id))?
         } else if !id.contains('?') && extension_of(id) == Some("css") {
             self.recorded()?.css.insert(id.to_string());
             String::new()
@@ -439,6 +443,7 @@ impl Plugin for Zerolith {
             Cow::Borrowed(_) => None,
             Cow::Owned(code) => Some(HookTransformOutput {
                 code: Some(code),
+                map: HookTransformOutputMap::Null,
                 ..Default::default()
             }),
         })
@@ -811,12 +816,7 @@ pub async fn build(options: &Options) -> io::Result<Built> {
     let output = bundler.write().await.map_err(|errors| {
         let failures = recorded
             .lock()
-            .map(|state| {
-                state.failures.join(
-                    "
-",
-                )
-            })
+            .map(|state| state.failures.join("\n"))
             .unwrap_or_default();
         failure(if failures.is_empty() {
             errors.to_string()
@@ -1455,6 +1455,22 @@ mod tests {
             "{:?}",
             built.files
         );
+        let templates = project("syntax-templates", MAIN);
+        let mut mapped = options(&templates, "/", "production");
+        mapped.sourcemap = true;
+        let built = build(&mapped).await.unwrap();
+        assert!(
+            !built
+                .warnings
+                .iter()
+                .any(|warning| warning.to_lowercase().contains("sourcemap")),
+            "{:?}",
+            built.warnings
+        );
+        let maps = read_all(&templates.join("dist/assets"), "map");
+        assert!(maps.contains("src/app.tsx"), "{maps}");
+        assert!(maps.contains("export function App"), "{maps}");
+        let _ = fs::remove_dir_all(&templates);
         let code = read_all(&root.join("dist/assets"), "js");
         assert!(
             code.contains("count = 0;") && code.contains("static {"),

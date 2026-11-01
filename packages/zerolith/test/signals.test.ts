@@ -410,6 +410,45 @@ describe("scope", () =>
         expect(codeOf(() => onDispose(() => undefined))).toBe("on_dispose_outside_scope");
     });
 
+    it("disposes every child when a cleanup throws, then rethrows that error", () =>
+    {
+        const a = signal(1);
+        const runs = vi.fn(() => { a.get(); });
+        const handle = scope(() =>
+        {
+            effect(runs);
+            onDispose(() => { throw new Error("cleanup failed"); });
+        });
+        expect(() => handle.dispose()).toThrow("cleanup failed");
+        a.set(2);
+        expect(runs).toHaveBeenCalledTimes(1);
+    });
+
+    it("stops an effect's children and runs its cleanup when a child's cleanup throws on a rerun", () =>
+    {
+        const trigger = signal(0);
+        const inner = signal(0);
+        const innerRuns = vi.fn(() => { inner.get(); });
+        let cleanups = 0;
+        const handle = scope(() =>
+        {
+            effect(() =>
+            {
+                if (trigger.get() === 0)
+                {
+                    effect(innerRuns);
+                    onDispose(() => { throw new Error("child cleanup failed"); });
+                }
+                return () => { cleanups++; };
+            });
+        });
+        expect(() => trigger.set(1)).toThrow("child cleanup failed");
+        inner.set(1);
+        expect(innerRuns).toHaveBeenCalledTimes(1);
+        expect(cleanups).toBe(1);
+        handle.dispose();
+    });
+
     it("disposes what was created before a throwing scope function", () =>
     {
         const a = signal(1);

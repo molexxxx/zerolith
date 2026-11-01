@@ -5,7 +5,7 @@
  * another framework owns. The content lives in light DOM, like every other
  * zerolith view, so scoped styles and design tokens apply unchanged.
  */
-import { type HydrateResult, hydrate } from "./render.js";
+import { type Root, hasServerMarkup, hydrate, render } from "./render.js";
 import { type ReadableSignal, type Signal, signal } from "./signals.js";
 
 /** The signals an element's view receives, one per declared prop. */
@@ -42,7 +42,9 @@ function store(host: HTMLElement, props: readonly string[]): Record<string, Sign
  * attributes and exposed as properties, both feeding the same signals, and
  * values assigned before the element was upgraded are kept. The content is
  * rendered when the element connects, hydrated when it already holds
- * server-rendered markup, and disposed when it disconnects. Without a
+ * server-rendered markup, and disposed when it disconnects. The view runs
+ * inside the root's owner, so the effects and `onDispose` cleanups it
+ * registers end when the element disconnects. Without a
  * `customElements` registry, as on the server, nothing is registered.
  * Defining a name twice is a no-op, so modules can re-run under hot
  * replacement.
@@ -54,7 +56,7 @@ export function define<const Props extends readonly string[]>(name: string, opti
         return;
     }
     const props = options.props;
-    const roots: WeakMap<HTMLElement, HydrateResult> = new WeakMap();
+    const roots: WeakMap<HTMLElement, Root> = new WeakMap();
     class ZerolithElement extends HTMLElement
     {
         static observedAttributes: readonly string[] = props;
@@ -85,7 +87,8 @@ export function define<const Props extends readonly string[]>(name: string, opti
             {
                 return;
             }
-            roots.set(this, hydrate(options.view(store(this, props) as unknown as ElementProps<Props>, this), this));
+            const view = (): unknown => options.view(store(this, props) as unknown as ElementProps<Props>, this);
+            roots.set(this, hasServerMarkup(this) ? hydrate(view, this) : render(view, this));
         }
 
         disconnectedCallback(): void

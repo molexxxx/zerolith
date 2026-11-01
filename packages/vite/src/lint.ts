@@ -71,21 +71,26 @@ function hasAttribute(tag: string, name: string): boolean
     return new RegExp(`[\\s]${name}(?:[\\s=/>]|$)`, "i").test(attributes(tag));
 }
 
-/** Static markup checks over the template text, with expressions replaced by a marker so a bound attribute still counts. */
-function markup(template: TaggedTemplate, findings: Finding[]): void
+/**
+ * Static markup checks over the template text, with expressions replaced by
+ * a marker so a bound attribute still counts. The text is read from the
+ * source, since the parser's raw value turns `\r\n` into `\n` and its
+ * indexes would drift from the offsets.
+ */
+function markup(code: string, template: TaggedTemplate, findings: Finding[]): void
 {
-    const parts = template.quasi.quasis;
-    const text = parts.map((part) => part.value.raw).join(HOLE);
+    const parts = template.quasi.quasis.map((part) => ({ start: part.start, raw: code.slice(part.start, part.end) }));
+    const text = parts.map((part) => part.raw).join(HOLE);
     const offsetOf = (index: number): number =>
     {
         let remaining = index;
         for (const part of parts)
         {
-            if (remaining <= part.value.raw.length)
+            if (remaining <= part.raw.length)
             {
                 return part.start + remaining;
             }
-            remaining -= part.value.raw.length + HOLE.length;
+            remaining -= part.raw.length + HOLE.length;
         }
         return template.start;
     };
@@ -150,7 +155,7 @@ export function lintModule(code: string, id: string, parse: ModuleParser): Findi
                 findings.push({ code: "template_frozen_read", message: "A .get() read is bound in a template, so the value is read once when the template is created and never updates. Bind the signal itself, or computed(() => ...) for a derived value.", offset: read.start });
             }
         }
-        markup(template, findings);
+        markup(code, template, findings);
         return true;
     });
     return findings.toSorted((a, b) => a.offset - b.offset);

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Diagnostic, type HydrateResult, computed, each, html, hydrate, onDiagnostic, signal, when } from "zerolith";
+import { type Diagnostic, type HydrateResult, type Signal, computed, each, html, hydrate, onDiagnostic, signal, when } from "zerolith";
 import { renderToString } from "zerolith/ssr";
 
 let host: HTMLElement | undefined;
@@ -111,6 +111,23 @@ describe("hydrate", () =>
         expect(rows.querySelectorAll("hr")).toHaveLength(1);
     });
 
+    it("adopts a template once and updates it as a client template after", () =>
+    {
+        const x = signal("a");
+        const view = () => html`<div>${computed(() => html`<b>${x.get()}</b>`)}</div>`;
+        const el = serverThenClient(view());
+        const bold = el.querySelector("b");
+        const seen: Diagnostic[] = [];
+        const off = onDiagnostic((d) => seen.push(d));
+        x.set("b");
+        x.set("c");
+        off();
+        expect(el.querySelector("b")).toBe(bold);
+        expect(bold?.textContent).toBe("c");
+        expect(seen).toEqual([]);
+        expect(result?.mismatches).toEqual([]);
+    });
+
     it("repairs a differing text node and records the mismatch", () =>
     {
         const seen: Diagnostic[] = [];
@@ -120,6 +137,26 @@ describe("hydrate", () =>
         expect(el.querySelector("p")?.textContent).toBe("client");
         expect(result?.mismatches).toEqual([{ kind: "text", expected: "client", found: "server" }]);
         expect(seen.map((d) => d.code)).toEqual(["hydration_mismatch"]);
+    });
+
+    it("renders every row when the server markup holds none of them, and keeps updating them", () =>
+    {
+        type Item = { id: number; name: string };
+        const view = (items: Signal<Item[]>) => html`<ul>${when(computed(() => items.get().length === 0), () => "Loading", () => each(items, (item) => item.id, (item) => html`<li>${computed(() => item.get().name)}</li>`))}</ul>`;
+        const items = signal<Item[]>([{ id: 1, name: "a" }, { id: 2, name: "b" }]);
+        const el = serverThenClient(view(signal<Item[]>([])), view(items));
+        const names = (): (string | null)[] => Array.from(el.querySelectorAll("li"), (li) => li.textContent);
+        expect(names()).toEqual(["a", "b"]);
+        expect(el.querySelector("ul")?.textContent).toBe("ab");
+
+        items.set([...items.get(), { id: 3, name: "c" }]);
+        expect(names()).toEqual(["a", "b", "c"]);
+    });
+
+    it("renders every item of an array hydrated over server text", () =>
+    {
+        const el = serverThenClient(html`<p>${"server"}</p>`, html`<p>${["x", "y"]}</p>`);
+        expect(el.querySelector("p")?.textContent).toBe("xy");
     });
 
     it("repairs a structural difference by rendering that part on the client", () =>

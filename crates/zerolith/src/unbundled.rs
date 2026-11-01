@@ -188,7 +188,8 @@ fn write_import(
             )
         }
         Form::Json => {
-            let text = fs::read_to_string(file)?;
+            let text = fs::read_to_string(file)
+                .map_err(|error| io::Error::new(error.kind(), format!("{importer}: {error}")))?;
             let value: serde_json::Value = serde_json::from_str(&text).map_err(|error| {
                 io::Error::other(format!(
                     "{importer} names a file that is not valid JSON: {error}"
@@ -200,7 +201,11 @@ fn write_import(
             "export default new URL({}, import.meta.url).href;\n",
             quoted(&name)
         ),
-        Form::Raw => format!("export default {};\n", quoted(&fs::read_to_string(file)?)),
+        Form::Raw => {
+            let text = fs::read_to_string(file)
+                .map_err(|error| io::Error::new(error.kind(), format!("{importer}: {error}")))?;
+            format!("export default {};\n", quoted(&text))
+        }
     };
     let mut target = out.join(relative).into_os_string();
     target.push(form.suffix());
@@ -294,8 +299,10 @@ fn walk(
         }
         let replace =
             |code: String| modules::replace_defines(&code, &defines.env, &defines.node_env);
+        let read =
+            |path: &Path| fs::read_to_string(path).map_err(|error| css::located(root, path, error));
         if transform::transforms(extension) {
-            let source = fs::read_to_string(&path)?;
+            let source = read(&path)?;
             let code = transform::transform(&path, &source)
                 .and_then(|code| rewrite(&code, root, &path, imports))
                 .map(replace)
@@ -304,7 +311,7 @@ fn walk(
             fs::write(target.with_extension("js"), code)?;
             built.transformed += 1;
         } else if extension == "js" || extension == "mjs" {
-            let source = fs::read_to_string(&path)?;
+            let source = read(&path)?;
             let code = rewrite(&source, root, &path, imports)
                 .map(replace)
                 .and_then(|code| prepared(code, prepare_templates))
@@ -312,7 +319,7 @@ fn walk(
             fs::write(&target, code)?;
             built.copied += 1;
         } else if extension == "html" || extension == "htm" {
-            fs::write(&target, rewrite_html(&fs::read_to_string(&path)?))?;
+            fs::write(&target, rewrite_html(&read(&path)?))?;
             built.html += 1;
         } else {
             fs::copy(&path, &target)?;
