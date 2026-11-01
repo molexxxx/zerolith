@@ -1,19 +1,68 @@
+/*
+ * Formatting: money, dates, relative times, and lists that follow a
+ * locale signal, through the browser's own Intl data. The currency
+ * belongs to the amount, so it is chosen apart from the locale: a price
+ * in yen stays in yen, and the locale only decides how it is written.
+ *
+ * Try: switch the locale, then the currency. Note that yen has no cents
+ * and that ar-EG writes right to left.
+ */
 import { computed, html, render, signal } from "zerolith";
 import { createLocale, formatters } from "@zerolith/i18n";
 
-const languages = ["en", "de", "ja", "ar"];
-const locale = createLocale({ supported: languages, initial: "en" });
+const locales = ["en-US", "de-DE", "ja-JP", "ar-EG"];
+const currencies = ["EUR", "USD", "JPY"];
+const locale = createLocale({ supported: locales, initial: "en-US" });
 const format = formatters(locale.locale);
+const currency = signal("EUR");
 const amount = signal(1234.5);
-const departure = new Date(Date.UTC(2026, 9, 28, 9, 30));
+const departure = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
-const price = computed(() => format.number(amount.get(), { style: "currency", currency: "EUR" }));
-const day = computed(() => format.date(departure, { dateStyle: "long" }));
+const price = computed(() => format.number(amount.get(), {
+    style: "currency",
+    currency: currency.get()
+}));
+const date = computed(() => format.date(departure, { dateStyle: "full" }));
+const soon = computed(() => format.relative(3, "day", { numeric: "auto" }));
+const bags = computed(() => format.list(["Passport", "Charger", "Jacket"]));
+
+function Row({ label, value })
+{
+    return html`<tr><th scope="row">${label}</th><td>${value}</td></tr>`;
+}
+
+/** A row of buttons, one pressed: the value `current` holds. */
+function Choice({ label, options, current, choose })
+{
+    return html`
+        <div role="group" aria-label=${label}>
+            ${options.map((option) => html`
+                <button aria-pressed=${computed(() => current.get() === option)}
+                    @click=${() => choose(option)}>${option}</button>`)}
+        </div>`;
+}
+
+const type = (event) => amount.set(Number(event.target.value));
 
 render(html`
-    <p dir=${locale.direction}>${price}, ${day}</p>
-    <div role="group" aria-label="Language">
-        ${languages.map((code) => html`
-            <button aria-pressed=${computed(() => locale.locale.get() === code)} @click=${() => locale.set(code)}>${code}</button>`)}
-    </div>
-    <label>Amount <input type="number" .value=${computed(() => String(amount.get()))} @input=${(event) => amount.set(Number(event.target.value))}></label>`, "#app");
+    <table dir=${locale.direction}>
+        ${Row({ label: "Price", value: price })}
+        ${Row({ label: "Departure", value: date })}
+        ${Row({ label: "In", value: soon })}
+        ${Row({ label: "Packed", value: bags })}
+    </table>
+    ${Choice({
+        label: "Locale",
+        options: locales,
+        current: locale.locale,
+        choose: (tag) => locale.set(tag)
+    })}
+    ${Choice({
+        label: "Currency",
+        options: currencies,
+        current: currency,
+        choose: (code) => currency.set(code)
+    })}
+    <label>Amount
+        <input type="number" step="0.01" .value=${amount} @input=${type}>
+    </label>`, "#app");

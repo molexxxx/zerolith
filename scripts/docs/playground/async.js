@@ -1,6 +1,14 @@
+/*
+ * Async data: a resource loads from a signal and loads again when the
+ * signal changes, aborting the request it replaces. Its status, its
+ * error, and its last value are signals too, and the last value stays
+ * on screen while the next one loads.
+ *
+ * Try: pick another city, then Atlantis, which fails, and Try again.
+ */
 import { computed, html, render, resource, signal, when } from "zerolith";
 
-// A stand-in for fetch: the preview has no backend, so this answers after a pause.
+/** A stand-in for fetch: the preview has no backend, so this waits. */
 function fetchWeather(city, abort)
 {
     return new Promise((resolve, reject) =>
@@ -9,7 +17,7 @@ function fetchWeather(city, abort)
         {
             if (city === "Atlantis")
             {
-                reject(new Error("No station in Atlantis"));
+                reject(new Error("No station in Atlantis."));
             }
             else
             {
@@ -26,18 +34,37 @@ const weather = resource({
     loader: ({ params, abort }) => fetchWeather(params, abort)
 });
 
-const pending = computed(() => weather.status.get() === "pending");
+const loading = computed(() => weather.status.get() === "pending");
 const failed = computed(() => weather.status.get() === "error");
-const summary = computed(() => `${weather.get()?.city ?? ""}: ${weather.get()?.celsius ?? ""} °C`);
-const reason = computed(() => String(weather.error.get()?.message ?? ""));
+const reason = computed(() => weather.error.get()?.message ?? "");
+const report = computed(() =>
+{
+    const value = weather.get();
+    return value === undefined ? "" : `${value.city}: ${value.celsius} °C`;
+});
+
+function Report()
+{
+    return html`<p>${report}</p>`;
+}
+
+function Failure()
+{
+    return html`
+        <p role="alert">${reason}
+            <button @click=${() => weather.reload()}>Try again</button>
+        </p>`;
+}
+
+const choose = (event) => city.set(event.target.value);
 
 render(html`
     <label>City
-        <select @change=${(event) => city.set(event.target.value)}>
+        <select @change=${choose}>
             <option>Lisbon</option>
             <option>Reykjavik</option>
             <option>Atlantis</option>
         </select>
     </label>
-    ${when(pending, () => html`<p>Loading…</p>`)}
-    ${when(failed, () => html`<p role="alert">${reason} <button @click=${() => weather.reload()}>Try again</button></p>`, () => html`<p>${summary}</p>`)}`, "#app");
+    ${when(loading, () => html`<p>Loading…</p>`)}
+    ${when(failed, Failure, Report)}`, "#app");

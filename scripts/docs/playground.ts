@@ -21,13 +21,15 @@ export interface Example
 
 /** The examples, in the order the picker lists them; each is `playground/<id>.js`. */
 export const examples: Example[] = [
-    { id: "counter", title: "Counter", summary: "A signal, a derived value, and an event handler." },
-    { id: "list", title: "Packing list", summary: "A keyed list with `each`, a form, and counts derived from the list." },
-    { id: "conditions", title: "Conditions", summary: "Showing and hiding parts of a view with `when`." },
-    { id: "async", title: "Async data", summary: "A `resource` with loading, error, and reload." },
-    { id: "styles", title: "Scoped styles", summary: "Component styles with the `css` tag." },
-    { id: "dialog", title: "Accessible dialog", summary: "A native dialog with a focus trap and an announcement from `@zerolith/a11y`." },
-    { id: "formats", title: "Formatting", summary: "Numbers, dates, and lists that follow a locale signal with `@zerolith/i18n`." }
+    { id: "launch", title: "Launch control", summary: "A small simulator: signals, an effect that runs a clock while it is needed, `batch`, a keyed log, scoped styles, unit formatting, and announcements." },
+    { id: "counter", title: "Counter", summary: "A signal, a derived value, an effect, and an event handler." },
+    { id: "list", title: "Packing list", summary: "A keyed list with `each`, a form that adds to it, and counts derived from the list." },
+    { id: "conditions", title: "Conditions", summary: "Showing one view or another with `when`, and a branch that cleans up after itself with `onDispose`." },
+    { id: "async", title: "Async data", summary: "A `resource` with loading, error, and reload, keeping its last value while the next one loads." },
+    { id: "forms", title: "Forms", summary: "A native form with `@zerolith/forms`: validation in the browser first, then field errors from the server." },
+    { id: "styles", title: "Scoped styles", summary: "Component styles with the `css` tag, where they stop, and a value set through a custom property." },
+    { id: "dialog", title: "Accessible dialog", summary: "A dialog with a focus trap, Escape to close, and an announcement from `@zerolith/a11y`." },
+    { id: "formats", title: "Formatting", summary: "Money, dates, relative times, and lists that follow a locale signal, with the currency chosen apart from the locale." }
 ];
 
 /** The packages the preview frame can import, by specifier, with the folder and module each resolves to. */
