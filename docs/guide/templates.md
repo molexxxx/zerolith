@@ -91,6 +91,23 @@ A branch is built only when it first shows, and taken down when it hides, which 
 > [!WARNING]
 > A function is not a condition. `when(() => count.get() > 0, ...)` receives a function, which is always truthy, so it always shows the first branch. Derive the condition as a signal instead: `when(computed(() => count.get() > 0), ...)`.
 
+## Coming from React or Angular
+
+Loops and conditions are functions called in a template rather than syntax, and the rest maps closely:
+
+| To write | React | Angular | zerolith |
+| --- | --- | --- | --- |
+| A list | `items.map((item) => <li key={item.id}>...</li>)` | `@for (item of items; track item.id) { ... }` | `` each(items, (item) => item.id, (item) => html`<li>...</li>`) `` |
+| A condition | `ok ? <A /> : <B />` | `@if (ok) { ... } @else { ... }` | `when(ok, () => A(), () => B())` |
+| State | `useState(0)` | `signal(0)` | `signal(0)` |
+| A derived value | `useMemo(() => ..., [deps])` | `computed(() => ...)` | `computed(() => ...)`, with no dependency list |
+| A side effect | `useEffect(() => ..., [deps])` | `effect(() => ...)` | `effect(() => ...)`, with no dependency list |
+| An event | `onClick={add}` | `(click)="add()"` | `@click=${add}` |
+| A property | `value={name}` | `[value]="name"` | `.value=${name}` |
+| A boolean attribute | `disabled={busy}` | `[disabled]="busy"` | `?disabled=${busy}` |
+
+The difference that matters most is that a component runs once. React calls a component again on every change and Angular checks its template; zerolith does neither, so a plain `.map()` or `? :` in a template is evaluated once, which suits what never changes, such as a fixed row of buttons. Whatever should follow state goes through `each` and `when`, which update their part of the page as the signals they read change.
+
 ## The same component in JSX
 
 With a build step, the same template can be spelled as JSX in a `.jsx` or `.tsx` file. It is another spelling, not another runtime: the Vite plugin and the command line rewrite each JSX expression into the `html` call it stands for before any other step, components stay the functions they are, and everything above holds unchanged, binding the signal included.

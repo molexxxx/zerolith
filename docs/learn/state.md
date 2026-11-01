@@ -32,6 +32,9 @@ Three things are new here.
 
 The row function receives the item as a signal, not as a plain object, so that `computed(() => item.get().name)` can follow the item if its name changes later while the row stays in place.
 
+> [!NOTE]
+> If you know React's `items.map()` with a `key`, or Angular's `@for` with `track`, `each` is the same idea, kept current as the list changes. The [templates guide](../guide/templates.md#coming-from-react-or-angular) lines up the rest.
+
 ## The one rule
 
 Look at how the template uses `count`: it puts the signal itself in the slot, `${count}`, not `${count.get()}`. This is the rule to learn first, and it is the only one:
