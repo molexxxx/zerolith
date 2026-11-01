@@ -68,6 +68,11 @@ const ASSETS: [&str; 34] = [
     "txt",
 ];
 
+/// True for an extension an import turns into a URL.
+pub fn is_asset(extension: &str) -> bool {
+    ASSETS.contains(&extension)
+}
+
 /// True for a file served as a JavaScript module.
 pub fn is_script(path: &Path) -> bool {
     path.extension()
@@ -75,7 +80,7 @@ pub fn is_script(path: &Path) -> bool {
         .is_some_and(|extension| SCRIPTS.contains(&extension))
 }
 
-/// True when a request's query asks for one of the module forms: `import`, `url`, or `raw`.
+/// True when a request's query asks for one of the module forms: `import`, `url`, `raw`, or `scoped`.
 pub fn wants(query: &str, form: &str) -> bool {
     query.split('&').any(|part| part == form)
 }
@@ -395,6 +400,34 @@ impl Pipeline {
         ))
     }
 
+    /// A stylesheet imported with `?scoped`, as a module that hands its rules to zerolith's `styleFile`, which scopes them as it scopes a `css` literal's. Imports are inlined and references pointed at the files' URLs, since a constructable stylesheet resolves them against the page. The module records the files it read under the stylesheet's URL in `__ZEROLITH_SCOPED__`, so the live-reload client imports it again when one of them changes, and `styleFile` replaces the rules in place.
+    pub fn scoped(&self, file: &Path) -> io::Result<String> {
+        let folder = file.parent().unwrap_or(&self.root);
+        let internal = self.resolve(folder, "zerolith/internal").map_err(|error| {
+            io::Error::other(format!(
+                "a stylesheet imported with ?scoped needs zerolith installed: {error}"
+            ))
+        })?;
+        let scoped = css::served_scoped(file, &self.root, &|found| {
+            self.allow(found);
+            self.url_of(found)
+        })?;
+        let own = serde_json::Value::from(self.url_of(file)).to_string();
+        let read = serde_json::Value::from(
+            scoped
+                .files
+                .iter()
+                .map(|path| self.url_of(path))
+                .collect::<Vec<_>>(),
+        );
+        let path = serde_json::Value::from(css::project_path(&self.root, file));
+        let rules = serde_json::Value::from(scoped.code);
+        let internal = serde_json::Value::from(internal);
+        Ok(format!(
+            "import {{ styleFile }} from {internal};\nconst files = globalThis.__ZEROLITH_SCOPED__ ??= new Map();\nfor (const file of {read})\n{{\n    files.set(file, (files.get(file) ?? new Set()).add({own}));\n}}\nexport default styleFile({path}, {rules});\n"
+        ))
+    }
+
     /// A file imported for its URL, its text with `?raw`, or its value when it is JSON.
     pub fn asset(&self, file: &Path, query: &str) -> io::Result<String> {
         if wants(query, "raw") {
@@ -614,6 +647,49 @@ mod tests {
                 .asset(&app.join("src/data.json"), "import")
                 .unwrap(),
             "export default {\"ok\":true};\n"
+        );
+        let _ = fs::remove_dir_all(&top);
+    }
+
+    #[test]
+    fn serves_a_scoped_stylesheet_as_a_module_that_records_its_files() {
+        let (top, app) = workspace("scoped");
+        for (path, text) in [
+            (
+                "node_modules/zerolith/package.json",
+                "{\"name\":\"zerolith\",\"type\":\"module\",\"exports\":{\"./internal\":{\"development\":\"./dist/internal.js\",\"default\":\"./dist/production/internal.js\"}}}",
+            ),
+            (
+                "node_modules/zerolith/dist/internal.js",
+                "export function styleFile() {}\n",
+            ),
+            (
+                "app/src/card.css",
+                "@import \"./base.css\";\n.card { background: url(./grain.png); }\n",
+            ),
+        ] {
+            let file = top.join(path);
+            fs::create_dir_all(file.parent().unwrap()).unwrap();
+            fs::write(file, text).unwrap();
+        }
+        let pipeline = Pipeline::new(app.clone(), "development", "/");
+        let code = pipeline.scoped(&app.join("src/card.css")).unwrap();
+        assert!(
+            code.starts_with("import { styleFile } from \"")
+                && code.contains("/node_modules/zerolith/dist/internal.js\";"),
+            "{code}"
+        );
+        assert!(
+            code.contains("for (const file of [\"/src/base.css\",\"/src/card.css\"])")
+                && code.contains(".add(\"/src/card.css\")"),
+            "{code}"
+        );
+        assert!(
+            code.contains("export default styleFile(\"src/card.css\", \"")
+                && code.contains("/src/grain.png")
+                && code.contains("margin: 0")
+                && !code.contains("@import"),
+            "{code}"
         );
         let _ = fs::remove_dir_all(&top);
     }

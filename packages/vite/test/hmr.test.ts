@@ -11,9 +11,9 @@ import { zerolith } from "@zerolith/vite";
 /**
  * Runs a real Vite dev server over a copy of the fixture application and
  * drives it in headless Chromium: edits to a component module, to the
- * module that composes it, and to the entry module itself all apply
- * without a page reload, and the named signal keeps its value through
- * each one.
+ * module that composes it, to the entry module itself, and to a stylesheet
+ * imported with `?scoped` all apply without a page reload, and the named
+ * signal keeps its value through each one.
  */
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
@@ -85,7 +85,7 @@ afterAll(async () =>
 
 describe("hot module replacement", () =>
 {
-    it("swaps components in place and keeps named signal state without reloading the page", { timeout: 90000 }, async () =>
+    it("swaps components and scoped stylesheets in place and keeps named signal state without reloading the page", { timeout: 90000 }, async () =>
     {
         const page = await browser.newPage();
         const errors: string[] = [];
@@ -121,6 +121,16 @@ describe("hot module replacement", () =>
         await edit("main.ts", (text) => `${text}\ndocument.title = "edited";\n`);
         await page.waitForFunction(() => document.title === "edited", undefined, { timeout: 30000 });
         expect(await page.locator("[data-testid=\"count\"]").count()).toBe(1);
+        expect(await page.textContent("[data-testid=\"count\"]")).toBe("Clicks: 2");
+
+        const heading = (): Promise<string> => page.evaluate(() => getComputedStyle(document.querySelector("h1") as HTMLElement).color);
+        const scope = await page.getAttribute("main", "class");
+        expect(scope).toMatch(/^zl-s zl-app-[0-9a-z]+$/);
+        expect(await heading()).toBe("rgb(0, 0, 255)");
+        await edit("app.css", (text) => text.replace("rgb(0, 0, 255)", "rgb(0, 128, 0)"));
+        await page.waitForFunction(() => getComputedStyle(document.querySelector("h1") as HTMLElement).color === "rgb(0, 128, 0)", undefined, { timeout: 30000 });
+        expect(await page.getAttribute("main", "class")).toBe(scope);
+        expect(await page.evaluate(() => getComputedStyle(document.querySelector("main") as HTMLElement).paddingTop)).toBe("6px");
         expect(await page.textContent("[data-testid=\"count\"]")).toBe("Clicks: 2");
 
         await page.click("[data-testid=\"increment\"]");

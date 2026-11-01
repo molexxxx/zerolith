@@ -4,7 +4,8 @@
  * and chartreuse for the mark, the primary action, the current page, and
  * the one number that needs attention. Form controls are at least 44 px tall
  * and show focus, invalid, and disabled states. Component styles live next
- * to their markup in the css literals under src/components.
+ * to their markup under src/components: in css literals, and for the
+ * project board, in project.css, imported with ?scoped.
  */
 :root
 {

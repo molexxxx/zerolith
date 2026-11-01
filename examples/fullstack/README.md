@@ -40,7 +40,8 @@ src/                  the app
     store.ts          the typed client, the session, and shared data
     locale.ts         dates and numbers in the reader's format
     styles.css        the tokens and global styles
-    components/       one file per page, and ui.ts for shared pieces
+    components/       one file per page, project.css for the board, and ui.ts
+                      for shared pieces
 test/                 the backend's tests, the pages', and the setups below in a browser
 zerolith.json         the base, /app/, and the proxy from /api to the backend
 index.html            the page: the stylesheet and the entry module
@@ -82,15 +83,15 @@ This runs `zerolith build examples/fullstack`, which takes the base from `zeroli
  zerolith  build  production, minified, base /app/
 
   examples/fullstack/dist/assets/index-07c77de5.css    3.12 kB  gzip  1.17 kB
-  examples/fullstack/dist/assets/index-Dng9zNZs.js     6.31 kB  gzip  1.98 kB
-  examples/fullstack/dist/assets/project-C08C3xMQ.js   9.73 kB  gzip  3.00 kB
-  examples/fullstack/dist/assets/router-DFqDI1iA.js   52.82 kB  gzip 17.68 kB
+  examples/fullstack/dist/assets/index-Bn27o6Ds.js     6.32 kB  gzip  1.99 kB
+  examples/fullstack/dist/assets/project-C8Q5WYwn.js   9.42 kB  gzip  3.00 kB
+  examples/fullstack/dist/assets/router-B-pipaHX.js   53.28 kB  gzip 17.84 kB
   examples/fullstack/dist/index.html                   0.54 kB  gzip  0.34 kB
 
-  built fullstack into examples/fullstack/dist in 37 ms
+  built fullstack into examples/fullstack/dist in 35 ms
 ```
 
-The project board is a chunk of its own, loaded the first time a member opens a project, and every URL in `dist/index.html` starts with `/app/`.
+The project board is a chunk of its own, loaded the first time a member opens a project, with the rules of `project.css` inside it rather than in the page's stylesheet, and every URL in `dist/index.html` starts with `/app/`.
 
 ## Serve
 

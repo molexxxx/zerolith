@@ -1,14 +1,16 @@
 // A project's board: its tasks in three columns, a form that adds one, and a
 // dialog that confirms a delete. The router loads the project before the page
 // opens and imports this module only then, so its code is a chunk of its own.
+// Its styles are in project.css, imported with ?scoped.
 import { focusTrap } from "@zerolith/a11y";
 import { createForm } from "@zerolith/forms";
-import { type ReadableSignal, type View, computed, css, each, html, signal, when } from "zerolith";
+import { type ReadableSignal, type View, computed, each, html, signal, when } from "zerolith";
 import { type ProjectDetail, type Task, type TaskStatus, statuses } from "../../shared/model.ts";
 import { newTaskSchema } from "../../shared/schema.ts";
 import { due, format } from "../locale.ts";
 import { router } from "../router.ts";
 import { api, refresh } from "../store.ts";
+import page from "./project.css?scoped";
 import { Empty, Field } from "./ui.ts";
 
 const TITLES: Record<TaskStatus, string> = { todo: "To do", doing: "Doing", done: "Done" };
@@ -18,32 +20,6 @@ const MOVES: Record<TaskStatus, { to: TaskStatus; label: string }[]> = {
     doing: [{ to: "todo", label: "Back" }, { to: "done", label: "Finish" }],
     done: [{ to: "doing", label: "Reopen" }]
 };
-
-const page = css`
-    :scope { display: grid; gap: clamp(2rem, 4vw, 3rem); }
-    .top { display: grid; gap: 1rem; max-width: 48rem; }
-    .top h1 { font-size: var(--display); }
-    .top p { color: var(--muted); font-size: 1.125rem; }
-    .counts { font-family: var(--font-mono); font-size: 0.8125rem; }
-    .layout { display: grid; gap: 2rem; align-items: start; }
-    @media (min-width: 64rem) { .layout { grid-template-columns: minmax(0, 1fr) 20rem; } }
-    .board { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: 1rem; }
-    .column { display: grid; align-content: start; gap: 0.75rem; }
-    .column h2 { display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 0.5rem; border-bottom: 2px solid var(--text); font-size: 1.125rem; }
-    .column h2 .count { font-size: 2rem; }
-    .column ul { display: grid; gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
-    .task { display: grid; gap: 0.75rem; padding: 1rem; border: 2px solid var(--line); background: var(--surface); }
-    .task h3 { font-family: var(--font-text); font-size: 1rem; font-weight: 700; letter-spacing: 0; line-height: 1.4; }
-    .due { color: var(--muted); font-family: var(--font-mono); font-size: 0.75rem; }
-    .due[data-late="true"] { color: var(--danger); }
-    .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .actions button { min-height: 2.25rem; padding: 0 0.75rem; font-size: 0.875rem; }
-    form { display: grid; gap: 1rem; padding: 1.5rem; border: 2px solid var(--text); }
-    form h2 { font-size: 1.5rem; }
-    .backdrop { position: fixed; inset: 0; display: grid; place-items: center; padding: 1rem; background: color-mix(in srgb, var(--bg) 75%, transparent); }
-    .dialog { display: grid; gap: 1rem; width: min(100%, 28rem); padding: 2rem; border: 2px solid var(--danger); background: var(--surface); }
-    .dialog h2 { font-size: 1.5rem; }
-`;
 
 /** What the router hands the page: the project the loader found, if any. */
 interface Props

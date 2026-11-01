@@ -1,7 +1,8 @@
 /**
- * The Vite plugin: the JSX lowering ahead of every other transform, hot
- * module replacement for zerolith applications in development, and the
- * template prepare pass and the checks on build output.
+ * The Vite plugin: the JSX lowering ahead of every other transform,
+ * stylesheets imported with `?scoped`, hot module replacement for zerolith
+ * applications in development, and the template prepare pass and the
+ * checks on build output.
  */
 import { relative } from "node:path";
 import { type Plugin, parseSync, perEnvironmentState } from "vite";
@@ -35,6 +36,8 @@ export interface ZerolithPluginOptions
     exclude?: RegExp;
     /** Lowers JSX in `.jsx` and `.tsx` files to `html` calls. Defaults to true. */
     jsx?: boolean;
+    /** Rewrites modules in development so an edited component is replaced in place. Defaults to true; a test runner turns it off. */
+    hot?: boolean;
     /** Warns in the terminal about a `.get()` read bound in a template and about static accessibility defects. Defaults to true. */
     lint?: boolean;
     /** In `vite build`, scans every `html` literal ahead of time and drops the scanner from the bundle. Defaults to true. */
@@ -47,8 +50,13 @@ const JSX_FILES = /\.[jt]sx$/;
 /** The core module that imports the scanner; the prepare pass points it at the stand-in that reports an unprepared template. */
 const SCANNER_IMPORTER = /[\\/]zerolith[\\/]dist[\\/](?:production[\\/])?template\.js$/;
 
+/** The suffix that imports a stylesheet's rules scoped to a component, as in `import card from "./card.css?scoped"`. */
+const SCOPED = "?scoped";
+/** The module a stylesheet imported with `?scoped` becomes is this prefix, the file, and `.js`, an ending that keeps Vite's CSS plugins away from it. */
+const SCOPED_MODULE = "\0zerolith-scoped:";
+
 /** Packages served as they are so the application and the plugin's runtime share one copy of each. */
-const UNOPTIMIZED: readonly string[] = ["zerolith", "zerolith/ssr", "zerolith/element", "zerolith/jsx-runtime", "@zerolith/router", "@zerolith/forms", "@zerolith/client", "@zerolith/a11y", "@zerolith/i18n", "@zerolith/devtools", "@zerolith/vite/runtime"];
+const UNOPTIMIZED: readonly string[] = ["zerolith", "zerolith/ssr", "zerolith/element", "zerolith/jsx-runtime", "zerolith/internal", "@zerolith/router", "@zerolith/forms", "@zerolith/client", "@zerolith/a11y", "@zerolith/i18n", "@zerolith/devtools", "@zerolith/vite/runtime"];
 
 /** A module of the development build of the core: anything under `zerolith/dist/` that is not under `production/`. */
 const DEVELOPMENT_MODULE = /[\\/]zerolith[\\/]dist[\\/](?!production[\\/])/;
@@ -91,7 +99,11 @@ function lower(code: string, id: string): JsxOutput | null
 
 /**
  * Creates the plugins. Ahead of every other transform, JSX in `.jsx` and
- * `.tsx` files is lowered to the `html` calls it stands for. In
+ * `.tsx` files is lowered to the `html` calls it stands for. A stylesheet
+ * imported with `?scoped` becomes a module that hands its rules, as Vite's
+ * `?inline` import processes them, to zerolith's `styleFile`, which scopes
+ * them as it scopes a `css` literal's; the module accepts its own update,
+ * so an edited stylesheet replaces its rules in place. In
  * development each module is rewritten so exported functions with
  * capitalized names become stable proxies, `render` and `hydrate` calls
  * are recorded with the expression they rendered, and a changed module
@@ -134,6 +146,50 @@ export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
             }
         });
     }
+    let projectRoot = process.cwd();
+    plugins.push({
+        name: "zerolith:scoped",
+        enforce: "pre",
+        configResolved(config)
+        {
+            projectRoot = config.root;
+        },
+        async resolveId(source, importer)
+        {
+            if (!source.endsWith(SCOPED))
+            {
+                return null;
+            }
+            const resolved = await this.resolve(source.slice(0, -SCOPED.length), importer, { skipSelf: true });
+            if (resolved === null || resolved.external === true)
+            {
+                return null;
+            }
+            if (!resolved.id.endsWith(".css"))
+            {
+                this.error(`zerolith: ${source} names ${shown(projectRoot, resolved.id)}, and ?scoped applies to a stylesheet, a .css file.`);
+            }
+            return SCOPED_MODULE + resolved.id + ".js";
+        },
+        load(id)
+        {
+            if (!id.startsWith(SCOPED_MODULE))
+            {
+                return null;
+            }
+            const file = id.slice(SCOPED_MODULE.length, -".js".length);
+            return [
+                `import { styleFile } from "zerolith/internal";`,
+                `import rules from ${JSON.stringify(file + "?inline")};`,
+                `export default styleFile(${JSON.stringify(shown(projectRoot, file))}, rules);`,
+                `if (import.meta.hot)`,
+                `{`,
+                `    import.meta.hot.accept();`,
+                `}`,
+                ``
+            ].join("\n");
+        }
+    });
     if (options.prepare !== false)
     {
         plugins.push({
@@ -228,7 +284,7 @@ export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
                         this.warn({ message: `${finding.code}: ${finding.message} ${DIAGNOSTIC_URL}${finding.code}`, pos: finding.offset, loc: { file: id, line, column } });
                     }
                 }
-                return transformModule(code, id, parse);
+                return options.hot === false ? null : transformModule(code, id, parse);
             }
         }
     });

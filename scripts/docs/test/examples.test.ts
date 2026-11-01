@@ -62,6 +62,11 @@ describe("executed examples", () =>
             "import type { Note } from \"./notes/schema.ts\";",
             "import { routes as apiRoutes } from \"./api.ts\";"
         ]);
+        const styled = "import { html } from \"zerolith\";\nimport card from \"./fixtures/card.css?scoped\";\n";
+        expect(importsFor("html`<p class=${card}></p>`", styled, false)).toEqual([
+            "import { html } from \"zerolith\";",
+            "import card from \"./card.css?scoped\";"
+        ]);
         expect(applicationPath("../../../client/test/fixtures/notes.api.ts")).toBe("./notes.api.ts");
         expect(applicationPath("./note-schema.ts")).toBe("./note-schema.ts");
         expect(applicationPath("zerolith/ssr")).toBe("zerolith/ssr");

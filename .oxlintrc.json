@@ -8,7 +8,7 @@
     },
     "rules": {
         "no-console": "error",
-        "no-underscore-dangle": ["error", { "allow": ["__ZEROLITH_DEVTOOLS__"] }],
+        "no-underscore-dangle": ["error", { "allow": ["__ZEROLITH_DEVTOOLS__", "__ZEROLITH_SCOPED__"] }],
         "eqeqeq": "error",
         "no-var": "error",
         "prefer-const": "error",

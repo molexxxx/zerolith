@@ -13,6 +13,7 @@ zerolith runs under Vite without a plugin. The packages are plain ES modules, an
 | --- | --- |
 | Hot replacement that swaps components in place and keeps named signals | The dev server |
 | JSX lowered to `html` calls | Both |
+| Stylesheets imported with `?scoped`, through Vite's own CSS pipeline, with edits applied in place | Both |
 | Warnings for frozen reads and accessibility defects in templates | The dev server |
 | The template prepare pass, which drops the scanner from the bundle | `vite build` |
 | Checks that the production build of the core was used and that lazy modules stayed apart | `vite build` |
@@ -32,6 +33,7 @@ export default defineConfig({
 | `include` | JavaScript and TypeScript modules | The module ids to rewrite, tested with path separators normalized to `/` |
 | `exclude` | Anything under `node_modules` | The ids to leave alone even when `include` matches |
 | `jsx` | `true` | Lowers JSX in `.jsx` and `.tsx` files; `false` leaves it to Vite's own transform |
+| `hot` | `true` | Rewrites modules for hot replacement in the dev server; a test runner such as Vitest sets it to `false` |
 | `lint` | `true` | Warns about frozen reads and accessibility defects in templates |
 | `prepare` | `true` | Runs the template prepare pass in `vite build` |
 
@@ -81,6 +83,7 @@ The function declaration keeps its hoisting because the registration runs first 
 | The scroll position, open dev tools, and everything else a reload would discard | Kept |
 | An unnamed signal in a component | Created again when the root renders again |
 | An unnamed module-level signal in the edited module | Starts over |
+| A stylesheet imported with `?scoped` | Its rules change in place; no module runs again, and every element keeps its class |
 
 > [!TIP]
 > Give state a name when it should outlive an edit; the name also labels it in the inspector.

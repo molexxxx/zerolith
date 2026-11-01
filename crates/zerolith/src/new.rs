@@ -103,7 +103,7 @@ const TOOL_VERSIONS: &str = include_str!("../versions.json");
 const FAVICON: &str = include_str!("../templates/favicon.svg");
 
 /// The files of `examples/fullstack`, its tests among them, copied into the crate so the published crate carries them. The example's README and its end-to-end test, which runs this repository's build of the command line, stay behind; the scaffold writes its own README. A test keeps the copy in step with the example, apart from the schema path in `zerolith.json`, which points into `node_modules` in a project of its own.
-const FULLSTACK_FILES: [(&str, &str); 28] = [
+const FULLSTACK_FILES: [(&str, &str); 29] = [
     (
         "index.html",
         include_str!("../templates/examples/fullstack/index.html"),
@@ -155,6 +155,10 @@ const FULLSTACK_FILES: [(&str, &str); 28] = [
     (
         "src/components/not-found.ts",
         include_str!("../templates/examples/fullstack/src/components/not-found.ts"),
+    ),
+    (
+        "src/components/project.css",
+        include_str!("../templates/examples/fullstack/src/components/project.css"),
     ),
     (
         "src/components/project.ts",
@@ -332,9 +336,7 @@ fn package_json(name: &str, choice: Choice) -> String {
         dependencies.push(dependency("@zerolith/devtools", framework));
     }
     let mut dev = tools();
-    if choice.jsx || choice.tool == Tool::Vite {
-        dev.push(dependency("@zerolith/vite", framework));
-    }
+    dev.push(dependency("@zerolith/vite", framework));
     let (develop, build, preview) = match choice.tool {
         Tool::CommandLine => ("zerolith dev", "zerolith build", "zerolith preview"),
         Tool::Unbundled => (
@@ -360,6 +362,7 @@ fn fullstack_package_json(name: &str) -> String {
     let framework = framework_version();
     let mut dev = tools();
     dev.push(dependency("@types/node", &version_of("@types/node")));
+    dev.push(dependency("@zerolith/vite", framework));
     manifest(
         name,
         &[
@@ -947,8 +950,9 @@ export function NotFound({ path })
 "#;
 
 const VITE_ENV_TYPES: &str = r#"// The values import.meta.env carries under Vite, such as the base path the
-// router follows.
+// router follows, and the stylesheets imported with ?scoped.
 /// <reference types="vite/client" />
+/// <reference types="zerolith/imports" />
 "#;
 
 /// The settings zerolith dev, build, and preview share; an editor completes them from the schema.
@@ -960,7 +964,9 @@ pub const PROJECT_CONFIG: &str = r#"{
 
 const ENV_TYPES: &str = r#"// The values import.meta.env carries under zerolith dev and zerolith
 // build: the mode, the base path, and every PUBLIC_ variable from the .env
-// files and the environment.
+// files and the environment. The reference types the stylesheets imported
+// with ?scoped.
+/// <reference types="zerolith/imports" />
 interface ImportMetaEnv
 {
     readonly MODE: string;
@@ -1012,27 +1018,12 @@ it("counts clicks and resets", async () =>
 
 const VITEST_CONFIG: &str = r#"import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
-
-export default defineConfig({
-    test: {
-        browser: {
-            enabled: true,
-            headless: true,
-            provider: playwright(),
-            instances: [{ browser: "chromium" }]
-        }
-    }
-});
-"#;
-
-const VITEST_CONFIG_JSX: &str = r#"import { playwright } from "@vitest/browser-playwright";
-import { defineConfig } from "vitest/config";
 import { zerolith } from "@zerolith/vite";
 
-// Vitest reads the components itself, so it needs the JSX lowering
-// that zerolith dev and zerolith build apply.
+// Vitest reads the components itself, so it takes the zerolith plugin for
+// JSX and stylesheets imported with ?scoped, without hot replacement.
 export default defineConfig({
-    plugins: zerolith().filter((plugin) => plugin.name === "zerolith:jsx"),
+    plugins: zerolith({ hot: false }),
     test: {
         browser: {
             enabled: true,
@@ -1120,12 +1111,12 @@ fn agents_md(name: &str, choice: Choice) -> String {
     };
     let skill = skill_pointer(choice);
     let syntax = if choice.jsx {
-        "Components are capitalized functions written in JSX, one per file under `src/components/`, with their `css` literal next to the markup. JSX is a spelling of `html` templates: `class`, not `className`; `on:click` for events, `prop:value` for properties, `bool:disabled` for boolean attributes; lists and conditions are `each` and `when`."
+        "Components are capitalized functions written in JSX, one per file under `src/components/`, with their styles next to the markup, in a `css` literal or in a stylesheet beside the component imported with `?scoped`. JSX is a spelling of `html` templates: `class`, not `className`; `on:click` for events, `prop:value` for properties, `bool:disabled` for boolean attributes; lists and conditions are `each` and `when`."
     } else {
-        "Components are capitalized functions returning `html` templates, one per file under `src/components/`, with their `css` literal next to the markup."
+        "Components are capitalized functions returning `html` templates, one per file under `src/components/`, with their styles next to the markup, in a `css` literal or in a stylesheet beside the component imported with `?scoped`."
     };
     format!(
-        "# {name}: guide for coding agents\n\nA zerolith application. {tool} This file holds what is specific to this project. {skill}\n\n## Commands\n\n- `npm run dev` serves the app with live reload; `npm run build` writes `dist/`; `npm run preview` serves `dist/`.\n- `npm run check` is the gate: typecheck, lint, browser tests, and the build.\n- With `@zerolith/client` installed, `npx zerolith-client openapi.json --out src/api.{ext}` regenerates the typed client from the API contract; with `@zerolith/i18n` installed, `npx zerolith-i18n messages --out src/messages` regenerates the message modules.\n\n## Rules\n\n- Bind the signal, not its value: a live binding takes `count`, never `count.get()`, which freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.\n- {syntax}\n- State that must survive an edit is a named signal: `signal(0, {{ name: \"count\" }})`.\n- `src/api.{ext}` and `src/messages/` are generated when they exist; change their inputs and regenerate, never edit them.\n- A new page is a route in `src/routes.{ext}` and a component; shared state goes in `src/store.{ext}`, created with the first piece of it.\n- Read `router` inside functions only: `src/router.{ext}` imports the route table, which imports the components, so a component module that uses `router` at its top level runs before the router exists.\n- Files served as they are, such as data, icons, and `robots.txt`, go in `public/`.\n- Only `.env` variables named `PUBLIC_*` reach the browser, as `import.meta.env.PUBLIC_*`.\n\n## Where things go\n\n| Change | Location |\n| --- | --- |\n| A page | `src/routes.{ext}` and `src/components/<page>.{component}` |\n| Shared state or a request | `src/store.{ext}` |\n| A message, once the project uses `@zerolith/i18n` | `messages/<locale>.json`, then regenerate |\n| A style token | `src/styles.css`; component styles stay in the component |\n| A static file | `public/` |\n"
+        "# {name}: guide for coding agents\n\nA zerolith application. {tool} This file holds what is specific to this project. {skill}\n\n## Commands\n\n- `npm run dev` serves the app with live reload; `npm run build` writes `dist/`; `npm run preview` serves `dist/`.\n- `npm run check` is the gate: typecheck, lint, browser tests, and the build.\n- With `@zerolith/client` installed, `npx zerolith-client openapi.json --out src/api.{ext}` regenerates the typed client from the API contract; with `@zerolith/i18n` installed, `npx zerolith-i18n messages --out src/messages` regenerates the message modules.\n\n## Rules\n\n- Bind the signal, not its value: a live binding takes `count`, never `count.get()`, which freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.\n- {syntax}\n- State that must survive an edit is a named signal: `signal(0, {{ name: \"count\" }})`.\n- `src/api.{ext}` and `src/messages/` are generated when they exist; change their inputs and regenerate, never edit them.\n- A new page is a route in `src/routes.{ext}` and a component; shared state goes in `src/store.{ext}`, created with the first piece of it.\n- Read `router` inside functions only: `src/router.{ext}` imports the route table, which imports the components, so a component module that uses `router` at its top level runs before the router exists.\n- Files served as they are, such as data, icons, and `robots.txt`, go in `public/`.\n- Only `.env` variables named `PUBLIC_*` reach the browser, as `import.meta.env.PUBLIC_*`.\n\n## Where things go\n\n| Change | Location |\n| --- | --- |\n| A page | `src/routes.{ext}` and `src/components/<page>.{component}` |\n| Shared state or a request | `src/store.{ext}` |\n| A message, once the project uses `@zerolith/i18n` | `messages/<locale>.json`, then regenerate |\n| A style token | `src/styles.css`; component styles stay with the component |\n| A static file | `public/` |\n"
     )
 }
 
@@ -1345,7 +1336,7 @@ A zerolith application with its own backend, written from the fullstack example:
 ## Rules
 
 - Bind the signal, not its value: a live binding takes `count`, never `count.get()`, which freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.
-- Components are capitalized functions returning `html` templates, one file per page under `src/components/`, with their `css` literal next to the markup; pieces several pages share go in `src/components/ui.ts`.
+- Components are capitalized functions returning `html` templates, one file per page under `src/components/`, with their styles next to the markup: a `css` literal, or for a stylesheet as large as the board's, `project.css` beside the component, imported with `?scoped`. Pieces several pages share go in `src/components/ui.ts`.
 - What both sides need goes in `shared/`: the types in `model.ts`, the API contract in `api.ts`, and the validation in `schema.ts`. Change a route in `shared/api.ts` and `server/api.ts` together.
 - The app calls the API through the typed client in `src/store.ts`, or through a form whose `action` is the API's path, never by host and port: the proxy forwards the request while developing, and the backend answers it in production.
 - Every API route but signing in needs the session cookie. A failure answers with a problem document, and a form shows its `fields` next to the inputs.
@@ -1364,7 +1355,7 @@ A zerolith application with its own backend, written from the fullstack example:
 | Validation | `shared/schema.ts`, run by the form and by the API |
 | A page | A route in `src/routes.ts` and a component in `src/components/` |
 | State more than one page reads | `src/store.ts` |
-| A style token or a global style | `src/styles.css`; component styles stay in the component |
+| A style token or a global style | `src/styles.css`; component styles stay with the component |
 | The base path or the backend's port | `zerolith.json` and `server/`, together |
 | A test | `test/*.test.ts` runs in Node, `test/*.browser.test.ts` in Chromium |
 | A static file | `public/`, which the build copies into `dist/` |
@@ -1372,8 +1363,11 @@ A zerolith application with its own backend, written from the fullstack example:
 
 const FULLSTACK_VITEST_CONFIG: &str = r#"import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
+import { zerolith } from "@zerolith/vite";
 
-// The backend's tests run in Node, and the pages' in headless Chromium.
+// The backend's tests run in Node, and the pages' in headless Chromium,
+// with the zerolith plugin for the stylesheets the pages import with
+// ?scoped.
 export default defineConfig({
     test: {
         projects: [
@@ -1381,6 +1375,7 @@ export default defineConfig({
                 test: { name: "server", include: ["test/**/*.test.ts"], exclude: ["test/**/*.browser.test.ts"] }
             },
             {
+                plugins: zerolith({ hot: false }),
                 test: {
                     name: "browser",
                     include: ["test/**/*.browser.test.ts"],
@@ -1578,15 +1573,7 @@ fn starter_files(name: &str, shown: &str, choice: Choice) -> Vec<(String, String
         ("AGENTS.md".to_string(), agents_md(shown, choice)),
         ("tsconfig.json".to_string(), tsconfig(choice)),
         (".oxlintrc.json".to_string(), OXLINTRC.to_string()),
-        (
-            "vitest.config.ts".to_string(),
-            if choice.jsx {
-                VITEST_CONFIG_JSX
-            } else {
-                VITEST_CONFIG
-            }
-            .to_string(),
-        ),
+        ("vitest.config.ts".to_string(), VITEST_CONFIG.to_string()),
         (".gitignore".to_string(), GITIGNORE.to_string()),
         ("public/favicon.svg".to_string(), FAVICON.to_string()),
         (
@@ -2005,7 +1992,7 @@ fn on_path(program: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        Answers, Choice, FAVICON, FULLSTACK_FILES, Start, TOOL_VERSIONS, Tool, VITEST_CONFIG_JSX,
+        Answers, Choice, FAVICON, FULLSTACK_FILES, Start, TOOL_VERSIONS, Tool, VITEST_CONFIG,
         agents_md, ask, confirm, display_name, package_json, package_name, pick, scaffold, settle,
         settle_from, starter_files,
     };
@@ -2028,9 +2015,9 @@ mod tests {
     fn writes_the_vitest_config_the_testing_guide_shows() {
         let guide = include_str!("../../../docs/guide/testing.md");
         assert!(
-            guide.contains(&format!("```ts\n{VITEST_CONFIG_JSX}```")),
+            guide.contains(&format!("```ts\n{VITEST_CONFIG}```")),
             "docs/guide/testing.md should show the vitest.config.ts the default starter gets:
-{VITEST_CONFIG_JSX}"
+{VITEST_CONFIG}"
         );
     }
 
@@ -2198,10 +2185,7 @@ mod tests {
                 parsed["devDependencies"]["vite"].is_string(),
                 choice.tool == Tool::Vite
             );
-            assert_eq!(
-                parsed["devDependencies"]["@zerolith/vite"].is_string(),
-                choice.tool == Tool::Vite || choice.jsx
-            );
+            assert!(parsed["devDependencies"]["@zerolith/vite"].is_string());
             assert_eq!(
                 parsed["dependencies"]["@zerolith/devtools"].is_string(),
                 choice.devtools
@@ -2289,6 +2273,7 @@ mod tests {
                 "shared/schema.ts",
                 "src/components/dashboard.ts",
                 "src/components/not-found.ts",
+                "src/components/project.css",
                 "src/components/project.ts",
                 "src/components/projects.ts",
                 "src/components/shell.ts",
@@ -2379,6 +2364,7 @@ mod tests {
                 "@vitest/browser-playwright",
                 "@zerolith/cli",
                 "@zerolith/test",
+                "@zerolith/vite",
                 "oxlint",
                 "playwright",
                 "typescript",

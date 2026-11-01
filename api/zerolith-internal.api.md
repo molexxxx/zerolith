@@ -7,6 +7,7 @@ function devtoolsInternal<T>(fn: () => T): T
 function devtoolsSaveRestore(state: Record<string, unknown>): void
 function prepared(strings: readonly string[], markup: string, parts: readonly PreparedPart[]): TemplateStringsArray
 function scan(strings: readonly string[]): Scanned
+function styleFile(path: string, rules: string): Styles
 
 interface DevtoolsHook
 {

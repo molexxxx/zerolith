@@ -2,7 +2,7 @@
 
 # Styles
 
-A component keeps its styles next to its markup in a `css` literal. The rules apply to that component's elements and stop at the components it contains, without a shadow DOM, so global styles, design tokens, and resets keep working everywhere.
+A component keeps its styles next to its markup, in a `css` literal or in a stylesheet beside it. The rules apply to that component's elements and stop at the components it contains, without a shadow DOM, so global styles, design tokens, and resets keep working everywhere.
 
 ```ts
 import { css, html, render } from "zerolith";
@@ -129,13 +129,82 @@ level.set(60);                          // the bar fills 60 percent
 
 The binding updates one attribute when `level` changes, and the browser does the rest; the stylesheet itself never changes.
 
+## Styles in their own file
+
+A component's styles can also live in a stylesheet of their own, a `.css` file beside the component imported with `?scoped`. This one styles an order summary:
+
+```css
+:scope
+{
+    display: grid;
+    gap: 8px;
+    padding: 16px;
+    border: 2px solid currentColor;
+}
+
+h2
+{
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.total
+{
+    font-weight: 700;
+
+    & small
+    {
+        font-weight: 400;
+    }
+}
+```
+
+The import gives the same value a `css` literal returns, bound to a root element the same way, and the rules are scoped the same way:
+
+```ts
+import { html, render } from "zerolith";
+import summary from "./summary.css?scoped";
+
+function Summary({ total }: { total: string })
+{
+    return html`
+        <section class=${summary}>
+            <h2>Order</h2>
+            <p class="total">${total} <small>with tax</small></p>
+        </section>
+    `;
+}
+
+render(Summary({ total: "$42.00" }), "#app");
+```
+
+The file is plain CSS, so an editor checks and completes it, and nesting and media queries read as they do in any stylesheet. `zerolith dev`, `zerolith build`, its `--unbundled` output, Vite with `@zerolith/vite`, and Vitest with the same plugin all handle the import, and the production build processes the file as it processes the project's other CSS: imports inlined, references rewritten, lowered for older browsers, and minified. The two spellings differ in a few ways:
+
+| | A `css` literal | A file imported with `?scoped` |
+| --- | --- | --- |
+| Where the rules live | In the module, beside the markup | In a stylesheet beside the module |
+| Values in the rules | Numbers and other `css` results | None; a value that changes goes in a custom property |
+| `@import` | Not available | A local stylesheet is inlined and scoped with the rest; a remote one is refused |
+| `url()` | Resolves against the page | Resolves against the stylesheet, as in any CSS file |
+| The scope class | `zl-` and a hash of the rules | `zl-`, the file's name, and a hash of its path, so it stays put while the file changes |
+| An edit in development | Runs the module again | Replaces the rules in place, with no reload |
+
+> [!NOTE]
+> A remote `@import`, such as a web font's stylesheet, is refused because the document adopts the rules as a constructable stylesheet, which cannot load one. Link it from `index.html` or import it from the global stylesheet.
+
+A file's styles compose like a literal's, so `` css`${summary} .note { margin: 0; }` `` adds its rules to a new literal. TypeScript learns the import's type from `zerolith/imports`, which also declares a plain stylesheet import such as `import "./print.css"`, since TypeScript 7 rejects an import that names no module it knows. The `src/env.d.ts` of a project from `zerolith new` references it; an older project adds the line itself:
+
+```ts
+/// <reference types="zerolith/imports" />
+```
+
 ## Global styles
 
-Design tokens, resets, fonts, and element defaults belong in a global stylesheet, which a project from `zerolith new` keeps in `src/styles.css`, linked from `index.html`. Component styles build on it: a rule in a `css` literal can read any custom property the global stylesheet defines.
+Design tokens, resets, fonts, and element defaults belong in a global stylesheet, which a project from `zerolith new` keeps in `src/styles.css`, linked from `index.html`. Component styles build on it: a rule in a `css` literal or a scoped file can read any custom property the global stylesheet defines. A module can import a global stylesheet too, as `import "./print.css"` without `?scoped`, and its rules then apply to the whole page.
 
 ## Server rendering
 
-On the server, `renderStyles()` from `zerolith/ssr` returns the markup of one `<style>` element for each stylesheet created so far, in creation order, for the document head, so a server-rendered page is styled before any script runs. Since `css` runs when its module loads, importing the components is enough for their styles to be included. The [server rendering guide](server-rendering.md) shows it in a full page.
+On the server, `renderStyles()` from `zerolith/ssr` returns the markup of one `<style>` element for each stylesheet created so far, literals and scoped files alike, in creation order, for the document head, so a server-rendered page is styled before any script runs. Since the styles are created when their modules load, importing the components is enough for their styles to be included, and a scoped file's class comes from its path, so the server and the browser agree on it even when their builds process the file differently. The [server rendering guide](server-rendering.md) shows it in a full page.
 
 ## Browser support
 

@@ -107,8 +107,8 @@ const ASSET_EXTENSIONS: [&str; 34] = [
 /// The syntax the output keeps; newer syntax, such as `using` declarations, is lowered. Targeting the oldest supported browsers instead would turn every class field into a `defineProperty` call, since their engines ship class fields with bugs the compatibility data excludes until Chrome 98 and Safari 16.
 const SCRIPT_TARGET: &str = "es2022";
 
-/// The suffixes an import may carry to ask for a file's URL or its text.
-const QUERIES: [&str; 2] = ["?url", "?raw"];
+/// The suffixes an import may carry to ask for a file's URL, its text, or a stylesheet's rules scoped to a component.
+const QUERIES: [&str; 3] = ["?url", "?raw", "?scoped"];
 
 /// What the plugin records while Rolldown runs.
 #[derive(Debug)]
@@ -121,6 +121,10 @@ struct Recorded {
     css_order: Vec<String>,
     /// The files imported for their URL, shared with the stylesheet.
     assets: Assets,
+    /// What reading the stylesheets imported with `?scoped` reported.
+    warnings: Vec<String>,
+    /// The load hook's failures, whose messages Rolldown replaces with its own.
+    failures: Vec<String>,
 }
 
 /// The plugin that applies zerolith's transforms and checks inside Rolldown.
@@ -128,6 +132,7 @@ struct Recorded {
 struct Zerolith {
     prepare: bool,
     production: bool,
+    minify: bool,
     root: PathBuf,
     base: String,
     /// The input names, in the order the page loads the entries.
@@ -258,6 +263,43 @@ impl Zerolith {
         })
     }
 
+    /// Records a failure of the load hook, so the build reports its message rather than Rolldown's.
+    fn reported(&self, result: io::Result<String>) -> io::Result<String> {
+        if let Err(error) = &result
+            && let Ok(mut recorded) = self.recorded.lock()
+        {
+            recorded.failures.push(error.to_string());
+        }
+        result
+    }
+
+    /// The module a stylesheet imported with `?scoped` becomes: its rules, processed as the combined stylesheet is, handed to zerolith's `styleFile` with the file's path in the project.
+    fn scoped_module(&self, id: &str) -> io::Result<String> {
+        let file = Path::new(path_of(id));
+        if extension_of(id) != Some("css") {
+            return Err(failure(format!(
+                "{}: ?scoped applies to a stylesheet, a .css file",
+                shown(&self.root, path_of(id))
+            )));
+        }
+        let mut recorded = self.recorded()?;
+        let scoped = css::bundle_scoped(
+            file,
+            &css::Options {
+                root: &self.root,
+                base: &self.base,
+                minify: self.minify,
+            },
+            &mut recorded.assets,
+        )?;
+        let rules = scoped.expression();
+        recorded.warnings.extend(scoped.warnings);
+        Ok(format!(
+            "import {{ styleFile }} from \"zerolith/internal\";\nexport default styleFile({}, {rules});\n",
+            quoted(&css::project_path(&self.root, file))
+        ))
+    }
+
     /// Visits the modules reachable from one through static imports, recording CSS modules in the order they run and queueing dynamic imports for later.
     fn visit_css(
         &self,
@@ -338,11 +380,13 @@ impl Plugin for Zerolith {
             return Ok(None);
         }
         let queried = QUERIES.iter().any(|query| id.ends_with(query));
-        let code = if queried
+        let code = if id.ends_with("?scoped") {
+            self.reported(self.scoped_module(id))?
+        } else if queried
             || (!id.contains('?')
                 && extension_of(id).is_some_and(|extension| ASSET_EXTENSIONS.contains(&extension)))
         {
-            self.asset_module(id)?
+            self.reported(self.asset_module(id))?
         } else if !id.contains('?') && extension_of(id) == Some("css") {
             self.recorded()?.css.insert(id.to_string());
             String::new()
@@ -687,10 +731,13 @@ pub async fn build(options: &Options) -> io::Result<Built> {
         css: HashSet::new(),
         css_order: Vec::new(),
         assets: Assets::new(out_dir.join("assets")),
+        warnings: Vec::new(),
+        failures: Vec::new(),
     }));
     let plugin = Zerolith {
         prepare: options.prepare,
         production,
+        minify: options.minify,
         root: root.clone(),
         base: options.base.clone(),
         entries: names.clone(),
@@ -729,10 +776,22 @@ pub async fn build(options: &Options) -> io::Result<Built> {
         vec![Plugin::new_shared(plugin)],
     )
     .map_err(|errors| failure(errors.to_string()))?;
-    let output = bundler
-        .write()
-        .await
-        .map_err(|errors| failure(errors.to_string()));
+    let output = bundler.write().await.map_err(|errors| {
+        let failures = recorded
+            .lock()
+            .map(|state| {
+                state.failures.join(
+                    "
+",
+                )
+            })
+            .unwrap_or_default();
+        failure(if failures.is_empty() {
+            errors.to_string()
+        } else {
+            failures
+        })
+    });
     let _ = bundler.close().await;
     let output = output?;
     warnings.extend(output.warnings.iter().map(ToString::to_string));
@@ -780,6 +839,7 @@ pub async fn build(options: &Options) -> io::Result<Built> {
             .lock()
             .map_err(|_| failure("the build state was lost to an earlier failure".to_string()))?;
         let assets = std::mem::replace(&mut state.assets, Assets::new(out_dir.join("assets")));
+        warnings.append(&mut state.warnings);
         (std::mem::take(&mut state.css_order), assets)
     };
     let mut stylesheets = page
@@ -1027,7 +1087,7 @@ mod tests {
             ),
             (
                 "node_modules/zerolith/dist/production/internal.js",
-                "export { prepared } from \"./template.js\";\n",
+                "export { prepared, styleFile } from \"./template.js\";\n",
             ),
             (
                 "node_modules/zerolith/dist/index.js",
@@ -1039,7 +1099,7 @@ mod tests {
             ),
             (
                 "node_modules/zerolith/dist/production/template.js",
-                "import { scan } from \"./scan.js\";\nconst scans = new WeakMap();\nexport function prepared(strings, markup, parts) { scans.set(strings, { markup, parts }); return strings; }\nexport function html(strings, ...values) { return { markup: (scans.get(strings) ?? scan(strings)).markup, values }; }\nexport function render(view, target) { document.querySelector(target).textContent = view.markup; }\n",
+                "import { scan } from \"./scan.js\";\nconst scans = new WeakMap();\nexport function prepared(strings, markup, parts) { scans.set(strings, { markup, parts }); return strings; }\nexport function html(strings, ...values) { return { markup: (scans.get(strings) ?? scan(strings)).markup, values }; }\nexport function render(view, target) { document.querySelector(target).textContent = view.markup; }\nexport function styleFile(path, rules) { return { path, rules }; }\n",
             ),
             (
                 "node_modules/zerolith/dist/production/scan.js",
@@ -1217,6 +1277,46 @@ mod tests {
         assert_eq!(normalize_base(""), "./");
         assert_eq!(normalize_base("/"), "/");
         assert_eq!(normalize_base("/app"), "/app/");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn hands_a_scoped_stylesheet_to_style_file_in_its_own_module() {
+        let root = project(
+            "scoped",
+            "import { html, render } from \"zerolith\";\nimport card from \"./card.css?scoped\";\nrender(html`<p class=${card}>card</p>`, \"#app\");\n",
+        );
+        fs::write(
+            root.join("src/card.css"),
+            "@import \"./base.css\";\n.card { background: url(./grain.png); & b { color: red; } }\n",
+        )
+        .unwrap();
+        build(&options(&root, "/", "production")).await.unwrap();
+        let code = read_all(&root.join("dist/assets"), "js");
+        assert!(code.contains("src/card.css"), "{code}");
+        assert!(
+            code.contains(".card b{color:red}") && code.contains("html{margin:0}"),
+            "{code}"
+        );
+        assert!(code.contains("url(/assets/grain-"), "{code}");
+        let styles = read_all(&root.join("dist/assets"), "css");
+        assert!(!styles.contains(".card"), "{styles}");
+        build(&options(&root, "./", "production")).await.unwrap();
+        let code = read_all(&root.join("dist/assets"), "js");
+        assert!(
+            code.contains("../assets/grain-") && code.contains("import.meta.url"),
+            "{code}"
+        );
+        fs::write(
+            root.join("src/main.ts"),
+            "import notes from \"./notes.md?scoped\";\nconsole.log(notes);\n",
+        )
+        .unwrap();
+        let error = build(&options(&root, "/", "production"))
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("?scoped applies to a stylesheet"), "{error}");
         let _ = fs::remove_dir_all(&root);
     }
 

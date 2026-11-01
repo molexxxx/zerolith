@@ -289,6 +289,20 @@ fn module_response(
         Ok(code) => fresh(code, content_type("js")),
         Err(message) => failed(&message),
     };
+    if modules::wants(query, "scoped") {
+        return Some(if extension == "css" {
+            script(
+                pipeline
+                    .scoped(&path)
+                    .map_err(|error| format!("{}: {error}", display(&path))),
+            )
+        } else {
+            failed(&format!(
+                "{}: ?scoped applies to a stylesheet, a .css file",
+                display(&path)
+            ))
+        });
+    }
     if modules::wants(query, "import") && extension == "css" {
         return Some(script(
             pipeline

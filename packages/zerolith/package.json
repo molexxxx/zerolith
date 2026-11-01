@@ -58,11 +58,15 @@
             "development": "./dist/internal.js",
             "default": "./dist/production/internal.js"
         },
+        "./imports": {
+            "types": "./imports.d.ts"
+        },
         "./package.json": "./package.json"
     },
     "files": [
         "dist",
         "src",
+        "imports.d.ts",
         "LICENSE",
         "README.md"
     ],

@@ -1,10 +1,11 @@
 /**
- * Component styles. A `css` literal becomes one constructable stylesheet,
- * adopted by the document when the module loads, whose rules are wrapped
- * in an @scope block keyed by a class derived from the text. The scope's
- * lower bound is the interior of any nested scoped component: a parent can
- * style a child's root element but nothing inside it. There is no shadow
- * DOM, so design tokens, resets, and global stylesheets apply as usual.
+ * Component styles. A `css` literal, or a stylesheet file imported with
+ * `?scoped`, becomes one constructable stylesheet, adopted by the document
+ * when the module loads, whose rules are wrapped in an @scope block keyed
+ * by a generated class. The scope's lower bound is the interior of any
+ * nested scoped component: a parent can style a child's root element but
+ * nothing inside it. There is no shadow DOM, so design tokens, resets, and
+ * global stylesheets apply as usual.
  */
 import { fail } from "./diagnostics.js";
 
@@ -25,9 +26,11 @@ export interface Styles
 class ScopedStyles implements Styles
 {
     readonly scope: string;
-    readonly text: string;
+    text: string;
     /** The rules as written, before wrapping, so a sheet can be composed into another. */
-    readonly rules: string;
+    rules: string;
+    /** The stylesheet the document adopted, whose rules a changed file replaces. */
+    sheet: CSSStyleSheet | undefined;
 
     constructor(scope: string, rules: string, text: string)
     {
@@ -55,22 +58,40 @@ function hash(text: string): string
 }
 
 const sheets: Map<string, ScopedStyles> = new Map();
+const files: Map<string, ScopedStyles> = new Map();
+const created: ScopedStyles[] = [];
 
 /** Every stylesheet created so far, in creation order, for server rendering. */
 export function styleSheets(): readonly Styles[]
 {
-    return [...sheets.values()];
+    return [...created];
 }
 
-function adopt(text: string): void
+/** The rules inside the @scope block that keys them to `scope`. */
+function wrap(scope: string, rules: string): string
+{
+    return `@scope (.${scope}) to (:scope .${SCOPE_MARKER} > *) {\n${rules}\n}`;
+}
+
+function adopt(text: string): CSSStyleSheet | undefined
 {
     if (typeof document === "undefined" || typeof CSSStyleSheet === "undefined")
     {
-        return;
+        return undefined;
     }
     const sheet = new CSSStyleSheet();
     sheet.replaceSync(text);
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    return sheet;
+}
+
+function create(scope: string, rules: string): ScopedStyles
+{
+    const text = wrap(scope, rules);
+    const styles = new ScopedStyles(scope, rules, text);
+    styles.sheet = adopt(text);
+    created.push(styles);
+    return styles;
 }
 
 /**
@@ -102,10 +123,43 @@ export function css(strings: TemplateStringsArray, ...values: ReadonlyArray<numb
     {
         return cached;
     }
-    const scope = "zl-" + hash(rules);
-    const text = `@scope (.${scope}) to (:scope .${SCOPE_MARKER} > *) {\n${rules}\n}`;
-    const styles = new ScopedStyles(scope, rules, text);
+    const styles = create("zl-" + hash(rules), rules);
     sheets.set(rules, styles);
-    adopt(text);
+    return styles;
+}
+
+/**
+ * The styles of a stylesheet file imported with `?scoped`, as in
+ * `import card from "./card.css?scoped"`. The dev server, the build, and
+ * the Vite plugin turn that import into a call to this function with the
+ * file's path in the project and its rules, which are scoped as a `css`
+ * literal's are. The scope class holds the file's name and a hash of its
+ * path rather than of its text, so the server and the browser agree on it
+ * however each processed the file, and a second call for the same path,
+ * made when the file changed in development, replaces the rules of the
+ * stylesheet the document adopted while every element keeps its class.
+ * A constructable stylesheet resolves references against the page, so the
+ * tools hand over rules whose references are already URLs the page can use.
+ */
+export function styleFile(path: string, rules: string): Styles
+{
+    const known = files.get(path);
+    if (known !== undefined)
+    {
+        if (known.rules !== rules)
+        {
+            known.rules = rules;
+            known.text = wrap(known.scope, rules);
+            known.sheet?.replaceSync(known.text);
+        }
+        return known;
+    }
+    const name = (path.split("/").at(-1) ?? "")
+        .replace(/\.[^.]*$/, "")
+        .toLowerCase()
+        .replaceAll(/[^a-z0-9]+/g, "-")
+        .replaceAll(/^-|-$/g, "");
+    const styles = create("zl-" + (name === "" ? "" : name + "-") + hash(path), rules);
+    files.set(path, styles);
     return styles;
 }

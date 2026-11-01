@@ -1,7 +1,8 @@
 // The live-reload client the dev server injects into HTML pages. A changed
-// stylesheet, linked or imported from a module, is swapped in place; any
-// other change reloads the page after saving the values of named signals,
-// which the development build of zerolith restores on the next load.
+// stylesheet, linked, imported from a module, or imported with ?scoped, is
+// swapped in place; any other change reloads the page after saving the
+// values of named signals, which the development build of zerolith
+// restores on the next load.
 const STORAGE_KEY = "zerolith:restore";
 const source = new EventSource("/__zerolith/client.js".replace("client.js", "events"));
 let timer = 0;
@@ -37,6 +38,11 @@ function swapStylesheet(path)
             import(`${path}?import&t=${Date.now()}`);
             swapped = true;
         }
+    }
+    for (const owner of globalThis.__ZEROLITH_SCOPED__?.get(path) ?? [])
+    {
+        import(`${owner}?scoped&t=${Date.now()}`);
+        swapped = true;
     }
     return swapped;
 }

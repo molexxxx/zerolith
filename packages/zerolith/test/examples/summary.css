@@ -1,0 +1,23 @@
+:scope
+{
+    display: grid;
+    gap: 8px;
+    padding: 16px;
+    border: 2px solid currentColor;
+}
+
+h2
+{
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.total
+{
+    font-weight: 700;
+
+    & small
+    {
+        font-weight: 400;
+    }
+}

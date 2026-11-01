@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { type Root, css, html, render } from "zerolith";
+import { styleFile } from "zerolith/internal";
 
 let root: Root | undefined;
 let host: HTMLElement | undefined;
@@ -59,5 +60,28 @@ describe("scoped css in the document", () =>
         expect(getComputedStyle(child).marginTop).toBe("5px");
         expect(getComputedStyle(child).paddingTop).toBe("2px");
         expect(getComputedStyle(theirs).color).not.toBe("rgb(255, 0, 0)");
+    });
+});
+
+describe("stylesheet files in the document", () =>
+{
+    it("adopts a file's stylesheet and replaces its rules in place when the file changes", () =>
+    {
+        const before = document.adoptedStyleSheets.length;
+        const card = styleFile("src/live-card.css", ":scope { padding: 4px; } p { margin-left: 3px; }");
+        expect(document.adoptedStyleSheets.length).toBe(before + 1);
+
+        const el = mount(html`<section class=${card}><p>inner</p></section><p>outside</p>`);
+        const section = el.querySelector("section") as HTMLElement;
+        const inner = el.querySelector("section p") as HTMLElement;
+        expect(getComputedStyle(section).paddingTop).toBe("4px");
+        expect(getComputedStyle(inner).marginLeft).toBe("3px");
+        expect(getComputedStyle(el.querySelector("section + p") as HTMLElement).marginLeft).toBe("0px");
+
+        expect(styleFile("src/live-card.css", ":scope { padding: 9px; }")).toBe(card);
+        expect(document.adoptedStyleSheets.length).toBe(before + 1);
+        expect(section.className).toBe(String(card));
+        expect(getComputedStyle(section).paddingTop).toBe("9px");
+        expect(getComputedStyle(inner).marginLeft).toBe("0px");
     });
 });

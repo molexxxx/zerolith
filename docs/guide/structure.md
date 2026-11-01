@@ -63,7 +63,7 @@ Some files appear only when an application needs them, and they have places of t
 - `routes.ts` is the single list of pages. Each route names its view and can add a loader and head metadata; the router infers the parameters from each path, so a wrong `router.href` call fails `tsc`. The [routing guide](routing.md) builds a small application from these files.
 - `router.ts` creates the router in a module of its own, so components can import it for typed links and `navigate`.
 - `store.ts` is where state lives once more than one component reads it. State that only one component needs stays inside that component.
-- `components/` holds functions that return views, one screen or widget per file, each with its `css` literal next to the markup it styles.
+- `components/` holds functions that return views, one screen or widget per file, each with its styles next to the markup they style: a `css` literal in the file, or a stylesheet beside it imported with `?scoped`, as in `import card from "./card.css?scoped"`.
 - `api.ts` and `src/messages/` are generated. They are checked in so the project builds without running the generators, and regenerated with `zerolith-client` and `zerolith-i18n` after their inputs change. `AGENTS.md` says so, so nobody edits them by hand.
 - `schema.ts` holds the Standard Schemas a form validates with, so the server can import the same module and run the same checks.
 
@@ -98,7 +98,7 @@ A zerolith application. The project develops and builds on the zerolith command 
 ## Rules
 
 - Bind the signal, not its value: a live binding takes `count`, never `count.get()`, which freezes. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.
-- Components are capitalized functions written in JSX, one per file under `src/components/`, with their `css` literal next to the markup. JSX is a spelling of `html` templates: `class`, not `className`; `on:click` for events, `prop:value` for properties, `bool:disabled` for boolean attributes; lists and conditions are `each` and `when`.
+- Components are capitalized functions written in JSX, one per file under `src/components/`, with their styles next to the markup, in a `css` literal or in a stylesheet beside the component imported with `?scoped`. JSX is a spelling of `html` templates: `class`, not `className`; `on:click` for events, `prop:value` for properties, `bool:disabled` for boolean attributes; lists and conditions are `each` and `when`.
 - State that must survive an edit is a named signal: `signal(0, { name: "count" })`.
 - `src/api.ts` and `src/messages/` are generated when they exist; change their inputs and regenerate, never edit them.
 - A new page is a route in `src/routes.ts` and a component; shared state goes in `src/store.ts`, created with the first piece of it.
@@ -113,7 +113,7 @@ A zerolith application. The project develops and builds on the zerolith command 
 | A page | `src/routes.ts` and `src/components/<page>.tsx` |
 | Shared state or a request | `src/store.ts` |
 | A message, once the project uses `@zerolith/i18n` | `messages/<locale>.json`, then regenerate |
-| A style token | `src/styles.css`; component styles stay in the component |
+| A style token | `src/styles.css`; component styles stay with the component |
 | A static file | `public/` |
 ```
 

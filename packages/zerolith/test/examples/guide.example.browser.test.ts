@@ -1,8 +1,10 @@
 // Executed examples for the introduction and the templates and styles guides.
 // Each region is application code the documentation shows with its imports;
 // the checks around it run in a real browser, so the docs cannot drift.
+/// <reference types="zerolith/imports" />
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type ReadableSignal, computed, css, each, html, render, signal, when } from "zerolith";
+import summary from "./summary.css?scoped";
 
 let host: HTMLElement;
 
@@ -207,6 +209,28 @@ describe("templates guide", () =>
         render(Card({ title: "Scoped" }), "#app");
         // #endregion styles
         expect(getComputedStyle(host.querySelector("article") as Element).paddingTop).toBe("12px");
+    });
+
+    it("file", () =>
+    {
+        // #region file
+        function Summary({ total }: { total: string })
+        {
+            return html`
+                <section class=${summary}>
+                    <h2>Order</h2>
+                    <p class="total">${total} <small>with tax</small></p>
+                </section>
+            `;
+        }
+
+        render(Summary({ total: "$42.00" }), "#app");
+        // #endregion file
+        const section = host.querySelector("section") as Element;
+        expect(String(summary)).toMatch(/^zl-s zl-summary-[0-9a-z]+$/);
+        expect(getComputedStyle(section).paddingTop).toBe("16px");
+        expect(getComputedStyle(section.querySelector(".total") as Element).fontWeight).toBe("700");
+        expect(getComputedStyle(section.querySelector("small") as Element).fontWeight).toBe("400");
     });
 
     it("boundary", () =>

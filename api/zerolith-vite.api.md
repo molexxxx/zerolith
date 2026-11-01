@@ -95,6 +95,7 @@ interface ZerolithPluginOptions
     include?: RegExp
     exclude?: RegExp
     jsx?: boolean
+    hot?: boolean
     lint?: boolean
     prepare?: boolean
 }

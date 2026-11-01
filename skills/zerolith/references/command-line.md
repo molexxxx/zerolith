@@ -46,6 +46,7 @@ zerolith preview
 | A `.ts`, `.tsx`, or `.jsx` file | JavaScript, with types stripped through oxc and JSX lowered to the same `html` calls the build produces |
 | A package, as `import { html } from "zerolith"` | The module from `node_modules`, found with the resolver and conditions `build` uses, the development build of zerolith included, so the page needs no import map and a new file needs nothing but an import |
 | A stylesheet imported from a module, as `import "./card.css"` | The rules, applied through a `<style>` element |
+| A stylesheet imported with `?scoped`, as `import card from "./card.css?scoped"` | The styles a `css` literal gives, with local `@import`s inlined; an edit to the file or to one it imports replaces the rules in place |
 | An image, font, or other file imported from code | Its URL; `?url` gives any file's URL, `?raw` its text, and a JSON import its value, all as in `build` |
 | A file in `public/` | The file, served at the root |
 | A client-side route, such as `/notes/abc` | The application's `index.html` |
@@ -188,7 +189,7 @@ A view loaded with the router's `lazy()` and each locale of a message index comp
 
 ### Stylesheets
 
-Stylesheets become one file. The ones the page links and the ones modules import, as in `import "./card.css"`, are combined in the order the page and the modules load them, through [lightningcss](https://lightningcss.dev): local `@import`s are inlined in place under their `layer()`, `supports()`, and media conditions, a remote `@import` moves to the top where CSS requires it, and the result is lowered for the oldest [supported browsers](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md), with nesting flattened, fallbacks for newer color functions, and the vendor prefixes those browsers need, then minified. The page's first local stylesheet link loads the result, and the others are removed. A stylesheet link to a file that is not in the project, such as one the host serves next to the app, is kept as it is, with a warning.
+Stylesheets become one file. The ones the page links and the ones modules import, as in `import "./card.css"`, are combined in the order the page and the modules load them, through [lightningcss](https://lightningcss.dev): local `@import`s are inlined in place under their `layer()`, `supports()`, and media conditions, a remote `@import` moves to the top where CSS requires it, and the result is lowered for the oldest [supported browsers](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md), with nesting flattened, fallbacks for newer color functions, and the vendor prefixes those browsers need, then minified. The page's first local stylesheet link loads the result, and the others are removed. A stylesheet imported with `?scoped` goes through the same steps on its own and lands in the chunk of the module that imports it, as the rules of the styles that module binds, since it applies only where a component binds it. A stylesheet link to a file that is not in the project, such as one the host serves next to the app, is kept as it is, with a warning.
 
 ### Files and URLs
 
@@ -220,6 +221,7 @@ The output folder is emptied first when it is inside the project. One outside th
 
 - Every file under the project is copied into the output folder, except `node_modules`, `vendor`, `dist`, `target`, `test`, hidden folders and files, and the development files: `package.json`, `tsconfig.json`, `AGENTS.md`, `README.md`, and `*.config.*`.
 - `.ts`, `.tsx`, `.jsx`, and `.mts` sources are transformed to JavaScript the same way `dev` serves them and renamed to `.js`, and the relative imports that named them, static and dynamic, are rewritten to `.js`, as are the module scripts in HTML pages.
+- An import of a file that is not a module works as it does under `dev`: the build points it at a small module written next to the file, such as `card.css.js`, which links the stylesheet and waits for it before the importer runs. A stylesheet imported with `?scoped` gets `card.css.scoped.js`, which holds its rules with local imports inlined; a JSON file gives its value; an image, a font, or a file with `?url` gives its URL; and `?raw` gives a file's text.
 - Every module goes through the same template prepare pass.
 - The installed packages are vendored into `vendor/` inside the output, through the prepare pass as well, with an import map carrying integrity hashes written into every page at the output's root.
 

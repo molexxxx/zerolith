@@ -8,19 +8,20 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { identifiers } from "./highlight.ts";
 
-/** One named import of a module: how the import list spells it, the name the code uses, and whether it is a type. */
+/** One import of a module: how the import list spells it, the name the code uses, whether it is a type, and whether it is the default export. */
 interface Binding
 {
     spec: string;
     local: string;
     type: boolean;
     from: string;
+    fallback: boolean;
 }
 
-/** The named imports of a module, in source order. */
+/** The named and default imports of a module, in source order. */
 function bindingsOf(source: string): Binding[]
 {
-    const found: Binding[] = [];
+    const found: { at: number; binding: Binding }[] = [];
     for (const match of source.matchAll(/^import\s+(type\s+)?\{([^}]*)\}\s*from\s*"([^"]+)";?$/gm))
     {
         for (const part of (match[2] ?? "").split(","))
@@ -29,11 +30,16 @@ function bindingsOf(source: string): Binding[]
             if (spec !== "")
             {
                 const name = spec.replace(/^type /, "");
-                found.push({ spec: name, local: name.split(" as ").at(-1) ?? name, type: match[1] !== undefined || spec.startsWith("type "), from: match[3] ?? "" });
+                found.push({ at: match.index, binding: { spec: name, local: name.split(" as ").at(-1) ?? name, type: match[1] !== undefined || spec.startsWith("type "), from: match[3] ?? "", fallback: false } });
             }
         }
     }
-    return found;
+    for (const match of source.matchAll(/^import\s+([A-Za-z_$][\w$]*)\s+from\s*"([^"]+)";?$/gm))
+    {
+        const name = match[1] ?? "";
+        found.push({ at: match.index, binding: { spec: name, local: name, type: false, from: match[2] ?? "", fallback: true } });
+    }
+    return found.toSorted((a, b) => a.at - b.at).map((item) => item.binding);
 }
 
 /** A relative module as the application would import it: the path below a test's `fixtures` folder, or the file as a sibling. */
@@ -65,12 +71,19 @@ export function importsFor(code: string, source: string, test: boolean): string[
             modules.set(from, [...(modules.get(from) ?? []), binding]);
         }
     }
-    return [...modules].map(([from, bindings]) =>
+    return [...modules].map(([from, all]) =>
     {
+        const fallback = all.find((binding) => binding.fallback)?.local;
+        const bindings = all.filter((binding) => !binding.fallback);
+        if (bindings.length === 0)
+        {
+            return `import ${fallback} from "${from}";`;
+        }
         const types = bindings.every((binding) => binding.type);
         const names = bindings.map((binding) => (binding.type && !types ? `type ${binding.spec}` : binding.spec));
-        const line = `import ${types ? "type " : ""}{ ${names.join(", ")} } from "${from}";`;
-        return line.length <= 80 ? line : `import ${types ? "type " : ""}{\n${fill(names)}\n} from "${from}";`;
+        const lead = `import ${types ? "type " : ""}${fallback === undefined ? "" : `${fallback}, `}`;
+        const line = `${lead}{ ${names.join(", ")} } from "${from}";`;
+        return line.length <= 80 ? line : `${lead}{\n${fill(names)}\n} from "${from}";`;
     });
 }
 

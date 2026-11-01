@@ -3,16 +3,19 @@
 //! `.jsx`, and `.mts` files transformed to JavaScript and renamed, the
 //! relative specifiers that named them rewritten to `.js`, HTML module
 //! scripts pointed at the renamed files, and the installed packages vendored
-//! into the output with an import map carrying integrity hashes. The result
-//! serves from any static host.
+//! into the output with an import map carrying integrity hashes. An import
+//! of a file that is not a module, such as a stylesheet, is pointed at a
+//! small module written next to the file that gives what `zerolith dev`
+//! gives. The result serves from any static host.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::importmap::{html_tags, update_html, vendor_from};
 use crate::transform;
-use crate::{env, modules, prepare, term};
+use crate::{css, env, modules, prepare, term};
 
 /// Folders never copied into the output.
 const SKIPPED: [&str; 7] = [
@@ -83,10 +86,153 @@ fn prepared(code: String, prepare_templates: bool) -> Result<String, transform::
     }
 }
 
+/// What an import of a file that is not a module asks for, which a module written next to the file gives.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Form {
+    /// A stylesheet, linked from the page, as `import "./card.css"` asks.
+    Stylesheet,
+    /// A stylesheet's rules scoped to a component, with `?scoped`.
+    Scoped,
+    /// A JSON file's value.
+    Json,
+    /// A file's URL: an image, font, or other asset, or any file with `?url`.
+    Url,
+    /// A file's text, with `?raw`.
+    Raw,
+}
+
+impl Form {
+    /// What a local specifier of a file that is not a module asks for, with the path it names and the specifier of the module that serves it.
+    fn of(specifier: &str) -> Option<(Form, &str, String)> {
+        let local = specifier.starts_with("./")
+            || specifier.starts_with("../")
+            || (specifier.starts_with('/') && !specifier.starts_with("//"));
+        if !local {
+            return None;
+        }
+        let (path, query) = specifier.split_once('?').unwrap_or((specifier, ""));
+        let extension = Path::new(path).extension()?.to_str()?;
+        let form = match (query, extension) {
+            ("scoped", _) => Form::Scoped,
+            ("raw", _) => Form::Raw,
+            ("url", _) => Form::Url,
+            ("", "css") => Form::Stylesheet,
+            ("", "json") => Form::Json,
+            ("", extension) if modules::is_asset(extension) => Form::Url,
+            _ => return None,
+        };
+        Some((form, path, format!("{path}{}", form.suffix())))
+    }
+
+    /// The ending of the module's name after the file's own: `card.css` imported with `?scoped` is served by `card.css.scoped.js`.
+    fn suffix(self) -> &'static str {
+        match self {
+            Form::Stylesheet | Form::Json => ".js",
+            Form::Scoped => ".scoped.js",
+            Form::Url => ".url.js",
+            Form::Raw => ".raw.js",
+        }
+    }
+}
+
+/// The files that modules import but that are not modules, by their path and form, each with the import that first asked for it, for messages.
+type Imports = BTreeMap<(PathBuf, Form), String>;
+
+/// The module that links a stylesheet a module imports, once, and waits for it so the page renders styled.
+const STYLESHEET_MODULE: &str = "const href = new URL(__FILE__, import.meta.url).href;\nif (!Array.from(document.querySelectorAll(\"link[rel=stylesheet]\"), (link) => link.href).includes(href))\n{\n    const link = document.createElement(\"link\");\n    link.rel = \"stylesheet\";\n    link.href = href;\n    await new Promise((resolve) =>\n    {\n        link.onload = resolve;\n        link.onerror = resolve;\n        document.head.append(link);\n    });\n}\n";
+
+fn quoted(text: &str) -> String {
+    serde_json::Value::from(text).to_string()
+}
+
+/// Writes the module that serves an imported file in its form, next to the file's copy.
+fn write_import(
+    root: &Path,
+    out: &Path,
+    file: &Path,
+    form: Form,
+    importer: &str,
+) -> io::Result<()> {
+    if !file.is_file() {
+        return Err(io::Error::other(format!("{importer} names no file")));
+    }
+    let relative = file
+        .strip_prefix(root)
+        .map_err(|_| io::Error::other(format!("{importer} names a file outside the project")))?;
+    let relative = relative.strip_prefix("public").unwrap_or(relative);
+    let name = format!(
+        "./{}",
+        file.file_name().unwrap_or_default().to_string_lossy()
+    );
+    let code = match form {
+        Form::Stylesheet => STYLESHEET_MODULE.replace("__FILE__", &quoted(&name)),
+        Form::Scoped => {
+            if file.extension().is_none_or(|extension| extension != "css") {
+                return Err(io::Error::other(format!(
+                    "{importer}: ?scoped applies to a stylesheet, a .css file"
+                )));
+            }
+            let scoped = css::mirrored_scoped(file, root)
+                .map_err(|error| io::Error::other(format!("{importer}: {error}")))?;
+            format!(
+                "import {{ styleFile }} from \"zerolith/internal\";\nexport default styleFile({}, {});\n",
+                quoted(&css::project_path(root, file)),
+                scoped.expression()
+            )
+        }
+        Form::Json => {
+            let text = fs::read_to_string(file)?;
+            let value: serde_json::Value = serde_json::from_str(&text).map_err(|error| {
+                io::Error::other(format!(
+                    "{importer} names a file that is not valid JSON: {error}"
+                ))
+            })?;
+            format!("export default {value};\n")
+        }
+        Form::Url => format!(
+            "export default new URL({}, import.meta.url).href;\n",
+            quoted(&name)
+        ),
+        Form::Raw => format!("export default {};\n", quoted(&fs::read_to_string(file)?)),
+    };
+    let mut target = out.join(relative).into_os_string();
+    target.push(form.suffix());
+    let target = PathBuf::from(target);
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(target, code)
+}
+
 /// What every module's `import.meta.env` and `process.env.NODE_ENV` become in the output.
 struct Defines {
     env: String,
     node_env: String,
+}
+
+/// Rewrites a module's specifiers for the output: a transformed source to its `.js` name, and a file that is not a module to the module that serves it, recorded in `imports`.
+fn rewrite(
+    code: &str,
+    root: &Path,
+    file: &Path,
+    imports: &mut Imports,
+) -> Result<String, transform::TransformError> {
+    let folder = file.parent().unwrap_or(root);
+    let shown = css::shown(root, file);
+    transform::rewrite_specifiers(code, &mut |specifier| {
+        if let Some(name) = transform::renamed_module(specifier) {
+            return Some(name);
+        }
+        let (form, path, name) = Form::of(specifier)?;
+        let target = match path.strip_prefix('/') {
+            Some(absolute) => root.join(absolute),
+            None => folder.join(path),
+        };
+        imports
+            .entry((css::plain(&target), form))
+            .or_insert_with(|| format!("{shown}: the import of {specifier}"));
+        Some(name)
+    })
 }
 
 fn walk(
@@ -96,6 +242,7 @@ fn walk(
     built: &mut Built,
     prepare_templates: bool,
     defines: &Defines,
+    imports: &mut Imports,
 ) -> io::Result<()> {
     for entry in fs::read_dir(folder)? {
         let entry = entry?;
@@ -105,7 +252,7 @@ fn walk(
             if SKIPPED.contains(&name.as_str()) || name.starts_with('.') || path == out {
                 continue;
             }
-            walk(root, &path, out, built, prepare_templates, defines)?;
+            walk(root, &path, out, built, prepare_templates, defines, imports)?;
             continue;
         }
         if is_development_file(&name) {
@@ -134,7 +281,7 @@ fn walk(
         if transform::transforms(extension) {
             let source = fs::read_to_string(&path)?;
             let code = transform::transform(&path, &source)
-                .and_then(|code| transform::rewrite_specifiers(&code))
+                .and_then(|code| rewrite(&code, root, &path, imports))
                 .map(replace)
                 .and_then(|code| prepared(code, prepare_templates))
                 .map_err(|error| io::Error::other(format!("{}: {error}", relative.display())))?;
@@ -142,7 +289,7 @@ fn walk(
             built.transformed += 1;
         } else if extension == "js" || extension == "mjs" {
             let source = fs::read_to_string(&path)?;
-            let code = transform::rewrite_specifiers(&source)
+            let code = rewrite(&source, root, &path, imports)
                 .map(replace)
                 .and_then(|code| prepared(code, prepare_templates))
                 .map_err(|error| io::Error::other(format!("{}: {error}", relative.display())))?;
@@ -161,7 +308,7 @@ fn walk(
 
 /// Builds `root` into `root/out`.
 pub fn build(root: &Path, out: &Path, prepare_templates: bool) -> io::Result<(PathBuf, Built)> {
-    let root = root.canonicalize()?;
+    let root = css::canonical(root)?;
     if prepare_templates {
         crate::build::check_core_version(&root)?;
     }
@@ -183,6 +330,7 @@ pub fn build(root: &Path, out: &Path, prepare_templates: bool) -> io::Result<(Pa
         ),
         node_env: "\"production\"".to_string(),
     };
+    let mut imports = Imports::new();
     walk(
         &root,
         &root,
@@ -190,7 +338,12 @@ pub fn build(root: &Path, out: &Path, prepare_templates: bool) -> io::Result<(Pa
         &mut built,
         prepare_templates,
         &defines,
+        &mut imports,
     )?;
+    for ((file, form), importer) in &imports {
+        write_import(&root, &out_dir, file, *form, importer)?;
+        built.transformed += 1;
+    }
     let packages = root
         .ancestors()
         .map(|folder| folder.join("node_modules"))
@@ -262,6 +415,7 @@ pub fn run(root: &Path, out: &Path, prepare_templates: bool) -> io::Result<()> {
 mod tests {
     use super::{build, rewrite_html};
     use std::fs;
+    use std::path::Path;
 
     #[test]
     fn rewrites_module_script_sources_only() {
@@ -366,6 +520,90 @@ mod tests {
         assert_eq!(
             fs::read_to_string(plain.join("vendor/zerolith/dist/scan.js")).unwrap(),
             "export const scanner = 1;"
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn serves_imports_of_other_files_through_modules_next_to_them() {
+        let root =
+            std::env::temp_dir().join(format!("zerolith-unbundled-imports-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        for (path, text) in [
+            (
+                "index.html",
+                "<!doctype html><script type=\"module\" src=\"/src/main.ts\"></script>",
+            ),
+            (
+                "src/main.ts",
+                "import \"./plain.css\";\nimport card from \"./ui/card.css?scoped\";\nimport data from \"./data.json\";\nimport logo from \"./logo.svg\";\nimport notes from \"./notes.md?raw\";\nimport license from \"/LICENSE.txt?url\";\nconsole.log(card, data, logo, notes, license);\n",
+            ),
+            ("src/plain.css", "body { margin: 0; }\n"),
+            (
+                "src/ui/card.css",
+                "@import \"../tokens.css\";\n:scope { background: url(./dot.svg); }\n",
+            ),
+            ("src/tokens.css", ":scope { --ink: red; }\n"),
+            ("src/ui/dot.svg", "<svg/>"),
+            ("src/data.json", "{ \"ok\": true }"),
+            ("src/logo.svg", "<svg/>"),
+            ("src/notes.md", "# Notes"),
+            ("LICENSE.txt", "MIT"),
+        ] {
+            let file = root.join(path);
+            fs::create_dir_all(file.parent().unwrap()).unwrap();
+            fs::write(file, text).unwrap();
+        }
+        let (out, _) = build(&root, Path::new("dist"), false).unwrap();
+        let main = fs::read_to_string(out.join("src/main.js")).unwrap();
+        for specifier in [
+            "import \"./plain.css.js\"",
+            "from \"./ui/card.css.scoped.js\"",
+            "from \"./data.json.js\"",
+            "from \"./logo.svg.url.js\"",
+            "from \"./notes.md.raw.js\"",
+            "from \"/LICENSE.txt.url.js\"",
+        ] {
+            assert!(main.contains(specifier), "{specifier} in {main}");
+        }
+        let plain = fs::read_to_string(out.join("src/plain.css.js")).unwrap();
+        assert!(
+            plain.contains("new URL(\"./plain.css\", import.meta.url)") && plain.contains("await"),
+            "{plain}"
+        );
+        let card = fs::read_to_string(out.join("src/ui/card.css.scoped.js")).unwrap();
+        assert!(
+            card.contains("styleFile(\"src/ui/card.css\", ")
+                && card.contains("--ink")
+                && card.contains("new URL(\"dot.svg\", import.meta.url).href")
+                && !card.contains("@import"),
+            "{card}"
+        );
+        assert_eq!(
+            fs::read_to_string(out.join("src/data.json.js")).unwrap(),
+            "export default {\"ok\":true};\n"
+        );
+        assert_eq!(
+            fs::read_to_string(out.join("src/logo.svg.url.js")).unwrap(),
+            "export default new URL(\"./logo.svg\", import.meta.url).href;\n"
+        );
+        assert_eq!(
+            fs::read_to_string(out.join("src/notes.md.raw.js")).unwrap(),
+            "export default \"# Notes\";\n"
+        );
+        assert!(out.join("LICENSE.txt.url.js").is_file());
+        assert!(out.join("src/ui/card.css").is_file() && out.join("src/ui/dot.svg").is_file());
+        fs::write(
+            root.join("src/main.ts"),
+            "import missing from \"./missing.css?scoped\";\nconsole.log(missing);\n",
+        )
+        .unwrap();
+        let error = build(&root, Path::new("dist"), false)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("src/main.ts: the import of ./missing.css?scoped names no file"),
+            "{error}"
         );
         let _ = fs::remove_dir_all(&root);
     }

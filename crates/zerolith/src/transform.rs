@@ -1,8 +1,8 @@
 //! Serving TypeScript and JSX without a build step. The dev server hands
-//! `.ts`, `.tsx`, and `.jsx` sources through here: the JSX lowering of RFC
-//! 0001 as text edits over the parser's tree, mirroring the Vite plugin so
-//! both produce the same `html` calls, then type stripping through oxc's
-//! transformer and code generation.
+//! `.ts`, `.tsx`, and `.jsx` sources through here: the JSX lowering as text
+//! edits over the parser's tree, mirroring the Vite plugin so both produce
+//! the same `html` calls, then type stripping through oxc's transformer and
+//! code generation.
 
 use std::fmt;
 use std::path::Path;
@@ -605,8 +605,16 @@ fn renamed(specifier: &str) -> String {
     }
 }
 
-/// Rewrites relative import and export specifiers that name `.ts`, `.tsx`, `.jsx`, or `.mts` files to `.js`, in static and dynamic imports.
-pub fn rewrite_specifiers(source: &str) -> Result<String, TransformError> {
+/// The `.js` name a relative specifier of a `.ts`, `.tsx`, `.jsx`, or `.mts` file gets once the file is transformed.
+pub fn renamed_module(specifier: &str) -> Option<String> {
+    renamed_source(specifier).then(|| renamed(specifier))
+}
+
+/// Rewrites the specifiers of static and dynamic imports and exports that `rename` gives a new name, and leaves the others as written.
+pub fn rewrite_specifiers(
+    source: &str,
+    rename: &mut dyn FnMut(&str) -> Option<String>,
+) -> Result<String, TransformError> {
     let allocator = Allocator::default();
     let parsed = Parser::new(&allocator, source, SourceType::mjs()).parse();
     if let Some(error) = parse_errors(parsed.diagnostics, source) {
@@ -627,14 +635,16 @@ pub fn rewrite_specifiers(source: &str) -> Result<String, TransformError> {
         let Some(quote) = text.chars().next().filter(|c| *c == '"' || *c == '\'') else {
             continue;
         };
-        let inner = &text[1..text.len().saturating_sub(1)];
-        if text.len() < 2 || !text.ends_with(quote) || !renamed_source(inner) {
+        if text.len() < 2 || !text.ends_with(quote) {
             continue;
         }
+        let Some(name) = rename(&text[1..text.len() - 1]) else {
+            continue;
+        };
         edits.push(Edit {
             start: span.start,
             end: span.end,
-            text: format!("{quote}{}{quote}", renamed(inner)),
+            text: format!("{quote}{name}{quote}"),
         });
     }
     Ok(apply_edits(source, edits))
@@ -642,12 +652,12 @@ pub fn rewrite_specifiers(source: &str) -> Result<String, TransformError> {
 
 #[cfg(test)]
 mod specifier_tests {
-    use super::rewrite_specifiers;
+    use super::{renamed_module, rewrite_specifiers};
 
     #[test]
     fn renames_relative_source_specifiers_only() {
         let source = "import { a } from \"./a.ts\";\nimport b from './b.tsx';\nexport * from \"../c.mts\";\nimport \"./side.jsx\";\nimport { keep } from \"./keep.js\";\nimport { bare } from \"zerolith\";\nconst lazy = () => import(\"./lazy.ts\");\nconst dynamic = import(name);\n";
-        let out = rewrite_specifiers(source).unwrap();
+        let out = rewrite_specifiers(source, &mut renamed_module).unwrap();
         assert!(out.contains("from \"./a.js\""));
         assert!(out.contains("from './b.js'"));
         assert!(out.contains("from \"../c.js\""));

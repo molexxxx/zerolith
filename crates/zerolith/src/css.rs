@@ -3,7 +3,9 @@
 //! in place under the layer, supports, and media conditions they carry, and
 //! their `url(...)` references pointed at the public folder or at hashed
 //! copies next to the output. The combined stylesheet is then lowered for
-//! the oldest supported browsers and, unless asked not to, minified.
+//! the oldest supported browsers and, unless asked not to, minified. A
+//! stylesheet imported with `?scoped` goes through the same steps on its
+//! own, for the module that hands its rules to zerolith.
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -62,6 +64,32 @@ pub fn shown(root: &Path, path: &Path) -> String {
         .unwrap_or(path)
         .to_string_lossy()
         .replace('\\', "/")
+}
+
+/// The path from `folder` to `file`, with forward slashes and `..` to climb out; a file on another drive keeps only its name.
+pub fn relative(folder: &Path, file: &Path) -> String {
+    let (folder, file) = (plain(folder), plain(file));
+    let folder: Vec<_> = folder.components().collect();
+    let file: Vec<_> = file.components().collect();
+    let shared = folder.iter().zip(&file).take_while(|(a, b)| a == b).count();
+    if shared == 0 {
+        return file
+            .last()
+            .map(|part| part.as_os_str().to_string_lossy().into_owned())
+            .unwrap_or_default();
+    }
+    let mut parts: Vec<String> = vec!["..".to_string(); folder.len() - shared];
+    parts.extend(
+        file[shared..]
+            .iter()
+            .map(|part| part.as_os_str().to_string_lossy().into_owned()),
+    );
+    parts.join("/")
+}
+
+/// A file's path from the project folder, as `styleFile` keys a stylesheet: `src/card.css`, or `../ui/card.css` for one in a package of the workspace.
+pub fn project_path(root: &Path, file: &Path) -> String {
+    relative(root, file)
 }
 
 /// True for a URL that names no file of the project: remote, protocol-relative, a data URL, or a fragment.
@@ -205,7 +233,7 @@ fn located_error<T: std::fmt::Display>(error: &Error<T>, fallback: &str) -> Stri
     }
 }
 
-/// What `bundle` needs.
+/// What `bundle` and `bundle_scoped` need.
 pub struct Options<'a> {
     /// The project folder: root-absolute URLs resolve against its public folder, then against it.
     pub root: &'a Path,
@@ -221,11 +249,79 @@ pub struct Bundled {
     pub warnings: Vec<String>,
 }
 
+/// The rules of a stylesheet imported with `?scoped`, and what its module needs besides.
+#[derive(Debug, Default)]
+pub struct Scoped {
+    pub code: String,
+    /// The URLs, relative to the module, that the placeholders in `code` stand for, in order.
+    pub spliced: Vec<String>,
+    /// Every file read: the stylesheet and the ones it imports, sorted.
+    pub files: Vec<PathBuf>,
+    pub warnings: Vec<String>,
+}
+
+/// The start of a placeholder for a URL the module resolves when it runs.
+const PLACEHOLDER: &str = "__zerolith_url_";
+
+impl Scoped {
+    /// The rules as a JavaScript expression: a string, with each placeholder replaced by its URL resolved against the module's own, quoted so any URL can stand there.
+    pub fn expression(&self) -> String {
+        let quoted = |text: &str| serde_json::Value::from(text).to_string();
+        let mut parts = Vec::new();
+        let mut text = String::new();
+        let mut rest = self.code.as_str();
+        while let Some(at) = rest.find(PLACEHOLDER) {
+            let after = &rest[at + PLACEHOLDER.len()..];
+            let digits = after.len() - after.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+            let url = after[..digits]
+                .parse::<usize>()
+                .ok()
+                .and_then(|index| self.spliced.get(index));
+            match (url, after[digits..].strip_prefix("__")) {
+                (Some(url), Some(tail)) => {
+                    let before = &rest[..at];
+                    let (before, tail) = match (before.strip_suffix('"'), tail.strip_prefix('"')) {
+                        (Some(before), Some(tail)) => (before, tail),
+                        _ => (before, tail),
+                    };
+                    text.push_str(before);
+                    text.push('"');
+                    parts.push(quoted(&text));
+                    parts.push(format!("new URL({}, import.meta.url).href", quoted(url)));
+                    text = String::from("\"");
+                    rest = tail;
+                }
+                _ => {
+                    text.push_str(&rest[..at + PLACEHOLDER.len()]);
+                    rest = after;
+                }
+            }
+        }
+        text.push_str(rest);
+        parts.push(quoted(&text));
+        parts.join(" + ")
+    }
+}
+
+/// Where the local references of a combined stylesheet point.
+enum Refs<'a> {
+    /// The build's stylesheet, which sits in `assets/` beside the copies of the project files it references.
+    Stylesheet(&'a mut Assets),
+    /// The rules of a scoped stylesheet's module, which a constructable stylesheet resolves against the page: absolute URLs under an absolute base, and placeholders under `./`.
+    Module(&'a mut Assets),
+    /// The dev server, which serves each file at its own URL.
+    Served(&'a dyn Fn(&Path) -> String),
+    /// The unbundled output, which keeps the project's layout: a placeholder for each file, by its path from the folder of the module that holds the rules.
+    Mirrored(PathBuf),
+}
+
 struct Combiner<'a> {
-    options: &'a Options<'a>,
-    assets: &'a mut Assets,
+    root: &'a Path,
+    base: &'a str,
+    refs: Refs<'a>,
     seen: HashSet<PathBuf>,
     hoisted: Vec<String>,
+    spliced: Vec<String>,
     warnings: Vec<String>,
 }
 
@@ -320,26 +416,98 @@ pub fn absolute_urls(
     Ok(code)
 }
 
-impl Combiner<'_> {
-    /// The URL a `url(...)` gets in the output stylesheet, which sits in the `assets` folder.
+impl<'a> Combiner<'a> {
+    fn new(root: &'a Path, base: &'a str, refs: Refs<'a>) -> Self {
+        Self {
+            root,
+            base,
+            refs,
+            seen: HashSet::new(),
+            hoisted: Vec::new(),
+            spliced: Vec::new(),
+            warnings: Vec::new(),
+        }
+    }
+
+    /// The URL a `url(...)` gets in the output.
     fn rewrite_url(&mut self, file: &Path, url: &str) -> io::Result<String> {
         if url.is_empty() || is_remote(url) {
             return Ok(url.to_string());
         }
         let folder = file.parent().unwrap_or(Path::new("."));
-        Ok(match locate(self.options.root, folder, url) {
-            Located::Public(path) => {
-                format!("{}{}", public_url(self.options.base, &path, 1), suffix(url))
+        if let Refs::Served(url_of) = &self.refs {
+            let path = percent_decode(url.split(['?', '#']).next().unwrap_or(url));
+            let found = folder.join(path);
+            return Ok(if url.starts_with('/') || !found.is_file() {
+                url.to_string()
+            } else {
+                format!("{}{}", url_of(&canonical(&found)?), suffix(url))
+            });
+        }
+        if let Refs::Mirrored(module) = &self.refs {
+            let path = percent_decode(url.split(['?', '#']).next().unwrap_or(url));
+            let found = folder.join(path);
+            if url.starts_with('/') || !found.is_file() {
+                return Ok(url.to_string());
             }
-            Located::File(found) => format!("{}{}", self.assets.copy(&found)?, suffix(url)),
+            let from_module = relative(module, &canonical(&found)?);
+            self.spliced.push(format!("{from_module}{}", suffix(url)));
+            return Ok(format!("{PLACEHOLDER}{}__", self.spliced.len() - 1));
+        }
+        let (assets, module) = match &mut self.refs {
+            Refs::Stylesheet(assets) => (assets, false),
+            Refs::Module(assets) => (assets, true),
+            Refs::Served(_) | Refs::Mirrored(_) => return Ok(url.to_string()),
+        };
+        let from_root = match locate(self.root, folder, url) {
+            Located::Public(path) if !module => {
+                return Ok(format!(
+                    "{}{}",
+                    public_url(self.base, &path, 1),
+                    suffix(url)
+                ));
+            }
+            Located::File(found) if !module => {
+                return Ok(format!("{}{}", assets.copy(&found)?, suffix(url)));
+            }
+            Located::Public(path) => path,
+            Located::File(found) => format!("assets/{}", assets.copy(&found)?),
             Located::Missing => {
                 self.warnings.push(format!(
                     "{} refers to {url}, which is in neither the public folder nor the project; it is left as written",
-                    shown(self.options.root, file)
+                    shown(self.root, file)
                 ));
-                url.to_string()
+                return Ok(url.to_string());
             }
-        })
+        };
+        if self.base != "./" {
+            return Ok(format!("{}{from_root}{}", self.base, suffix(url)));
+        }
+        self.spliced.push(format!("../{from_root}{}", suffix(url)));
+        Ok(format!("{PLACEHOLDER}{}__", self.spliced.len() - 1))
+    }
+
+    /// Fails when a scoped stylesheet imports a remote one, which a constructable stylesheet cannot load.
+    fn refuse_remote(&self, file: &Path) -> io::Result<()> {
+        match self.hoisted.first() {
+            Some(rule) => Err(io::Error::other(format!(
+                "{}: {rule} imports a remote stylesheet, which a scoped stylesheet cannot load; link it from index.html or import it from a global stylesheet",
+                shown(self.root, file)
+            ))),
+            None => Ok(()),
+        }
+    }
+
+    /// The scoped stylesheet's rules with what its module needs besides.
+    fn scoped(self, code: String) -> Scoped {
+        let mut files: Vec<PathBuf> = self.seen.into_iter().collect();
+        files.sort();
+        Scoped {
+            code,
+            spliced: self.spliced,
+            files,
+            warnings: self.warnings,
+        }
     }
 
     /// One stylesheet with its local imports inlined, each file once.
@@ -349,7 +517,7 @@ impl Combiner<'_> {
             return Ok(String::new());
         }
         let source = fs::read_to_string(&file)?;
-        let name = shown(self.options.root, &file);
+        let name = shown(self.root, &file);
         let warnings = Arc::new(RwLock::new(Vec::new()));
         let mut sheet = StyleSheet::parse(
             &source,
@@ -427,7 +595,7 @@ impl Combiner<'_> {
                         self.hoisted.push(import.rule);
                         continue;
                     }
-                    let Some(target) = find_import(self.options.root, &folder, &import.url) else {
+                    let Some(target) = find_import(self.root, &folder, &import.url) else {
                         return Err(io::Error::new(
                             io::ErrorKind::NotFound,
                             format!(
@@ -459,15 +627,36 @@ impl Combiner<'_> {
     }
 }
 
+/// A stylesheet lowered for the supported browsers and, when `minify` is true, minified.
+fn lowered(text: &str, name: &str, minify: bool) -> io::Result<String> {
+    let mut sheet = StyleSheet::parse(
+        text,
+        ParserOptions {
+            filename: name.to_string(),
+            error_recovery: true,
+            ..ParserOptions::default()
+        },
+    )
+    .map_err(|error| io::Error::other(located_error(&error, name)))?;
+    sheet
+        .minify(MinifyOptions {
+            targets: targets(),
+            ..MinifyOptions::default()
+        })
+        .map_err(|error| io::Error::other(located_error(&error, name)))?;
+    Ok(sheet
+        .to_css(PrinterOptions {
+            minify,
+            targets: targets(),
+            ..PrinterOptions::default()
+        })
+        .map_err(|error| io::Error::other(located_error(&error, name)))?
+        .code)
+}
+
 /// Combines stylesheets, in order, into one: imports inlined, references rewritten, lowered for the supported browsers, and minified unless `options.minify` is false. Remote imports move to the top, where CSS requires them.
 pub fn bundle(files: &[PathBuf], options: &Options, assets: &mut Assets) -> io::Result<Bundled> {
-    let mut combiner = Combiner {
-        options,
-        assets,
-        seen: HashSet::new(),
-        hoisted: Vec::new(),
-        warnings: Vec::new(),
-    };
+    let mut combiner = Combiner::new(options.root, options.base, Refs::Stylesheet(assets));
     let mut body = String::new();
     for file in files {
         body.push_str(&combiner.read(file)?);
@@ -475,38 +664,48 @@ pub fn bundle(files: &[PathBuf], options: &Options, assets: &mut Assets) -> io::
     let mut combined = combiner.hoisted.join("\n");
     combined.push('\n');
     combined.push_str(&body);
-    let mut sheet = StyleSheet::parse(
-        &combined,
-        ParserOptions {
-            filename: "the combined stylesheet".to_string(),
-            error_recovery: true,
-            ..ParserOptions::default()
-        },
-    )
-    .map_err(|error| io::Error::other(located_error(&error, "the combined stylesheet")))?;
-    sheet
-        .minify(MinifyOptions {
-            targets: targets(),
-            ..MinifyOptions::default()
-        })
-        .map_err(|error| io::Error::other(located_error(&error, "the combined stylesheet")))?;
-    let code = sheet
-        .to_css(PrinterOptions {
-            minify: options.minify,
-            targets: targets(),
-            ..PrinterOptions::default()
-        })
-        .map_err(|error| io::Error::other(located_error(&error, "the combined stylesheet")))?
-        .code;
     Ok(Bundled {
-        code,
+        code: lowered(&combined, "the combined stylesheet", options.minify)?,
         warnings: combiner.warnings,
     })
 }
 
+/// The rules of a stylesheet imported with `?scoped`, for the module the build writes in its place: imports inlined, references rewritten, lowered, and minified as `bundle` does. A constructable stylesheet resolves references against the page, so each one is an absolute URL under an absolute base and, under `./`, a placeholder the module resolves against its own URL. A remote `@import` fails, since a constructable stylesheet loads no imports.
+pub fn bundle_scoped(file: &Path, options: &Options, assets: &mut Assets) -> io::Result<Scoped> {
+    let mut combiner = Combiner::new(options.root, options.base, Refs::Module(assets));
+    let body = combiner.read(file)?;
+    combiner.refuse_remote(file)?;
+    let code = lowered(&body, &shown(options.root, file), options.minify)?;
+    Ok(combiner.scoped(code))
+}
+
+/// A stylesheet imported with `?scoped`, for the module the unbundled output writes next to it: imports inlined as the build inlines them and each relative reference a placeholder the module resolves against its own URL, which sits beside the stylesheet in the copied project. The rules are otherwise as written, as the copied stylesheets are. A remote `@import` fails, as it does in the build.
+pub fn mirrored_scoped(file: &Path, root: &Path) -> io::Result<Scoped> {
+    let folder = canonical(file.parent().unwrap_or(root))?;
+    let mut combiner = Combiner::new(root, "/", Refs::Mirrored(folder));
+    let code = combiner.read(file)?;
+    combiner.refuse_remote(file)?;
+    Ok(combiner.scoped(code))
+}
+
+/// A stylesheet imported with `?scoped`, as the dev server serves it: imports inlined as the build inlines them and each relative reference pointed at the URL `url_of` gives its file, since a constructable stylesheet resolves references against the page; the rules are otherwise as written. A remote `@import` fails, as it does in the build.
+pub fn served_scoped(
+    file: &Path,
+    root: &Path,
+    url_of: &dyn Fn(&Path) -> String,
+) -> io::Result<Scoped> {
+    let mut combiner = Combiner::new(root, "/", Refs::Served(url_of));
+    let code = combiner.read(file)?;
+    combiner.refuse_remote(file)?;
+    Ok(combiner.scoped(code))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Assets, Options, bundle, public_url};
+    use super::{
+        Assets, Options, bundle, bundle_scoped, canonical, mirrored_scoped, public_url, relative,
+        served_scoped, shown,
+    };
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -656,5 +855,163 @@ mod tests {
             "{error}"
         );
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn bundles_a_scoped_stylesheet_for_its_module() {
+        let root = project(
+            "scoped",
+            &[
+                (
+                    "src/card.css",
+                    "@import \"./tokens.css\";\n:scope { padding: 4px; background: url(./dot.svg); }\n.title { color: var(--ink); & em { font-style: normal; } }\n.mark { background: url(/mark.svg); }\n",
+                ),
+                ("src/tokens.css", ":scope { --ink: red; }\n"),
+                ("src/dot.svg", "<svg/>"),
+                ("public/mark.svg", "<svg/>"),
+            ],
+        );
+        let mut assets = Assets::new(root.join("dist/assets"));
+        let card = root.join("src/card.css");
+        let absolute = Options {
+            root: &root,
+            base: "/app/",
+            minify: true,
+        };
+        let scoped = bundle_scoped(&card, &absolute, &mut assets).unwrap();
+        let code = &scoped.code;
+        assert!(code.contains("--ink:red"), "{code}");
+        assert!(code.contains("url(/app/assets/dot-"), "{code}");
+        assert!(code.contains("url(/app/mark.svg)"), "{code}");
+        assert!(code.contains(".title em{font-style:normal}"), "{code}");
+        assert!(!code.contains("@import"), "{code}");
+        assert!(scoped.spliced.is_empty());
+        assert_eq!(
+            scoped.expression(),
+            serde_json::Value::from(code.as_str()).to_string()
+        );
+        assert_eq!(scoped.files.len(), 2);
+
+        let relative_base = Options {
+            root: &root,
+            base: "./",
+            minify: true,
+        };
+        let scoped = bundle_scoped(&card, &relative_base, &mut assets).unwrap();
+        assert_eq!(scoped.spliced.len(), 2, "{:?}", scoped.spliced);
+        let expression = scoped.expression();
+        assert!(
+            expression.contains("new URL(\"../mark.svg\", import.meta.url).href"),
+            "{expression}"
+        );
+        assert!(
+            expression.contains("url(\\\"\" + new URL(\"../assets/dot-"),
+            "{expression}"
+        );
+        assert!(!expression.contains("__zerolith_url_"), "{expression}");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn refuses_a_remote_import_in_a_scoped_stylesheet() {
+        let root = project(
+            "scoped-remote",
+            &[(
+                "card.css",
+                "@import \"https://fonts.example/a.css\";\n.a { color: red; }\n",
+            )],
+        );
+        let mut assets = Assets::new(root.join("dist/assets"));
+        let options = Options {
+            root: &root,
+            base: "/",
+            minify: true,
+        };
+        let error = bundle_scoped(&root.join("card.css"), &options, &mut assets)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.starts_with("card.css: @import")
+                && error.contains("a scoped stylesheet cannot load"),
+            "{error}"
+        );
+        let url_of = |path: &Path| format!("/{}", shown(&root, path));
+        assert!(served_scoped(&root.join("card.css"), &root, &url_of).is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn serves_a_scoped_stylesheet_with_imports_inlined_and_references_absolute() {
+        let root = project(
+            "scoped-dev",
+            &[
+                (
+                    "src/card.css",
+                    "@import \"./tokens.css\";\n.a { background: url(./dot.svg); }\n.b { background: url(/mark.svg); }\n",
+                ),
+                ("src/tokens.css", ":scope { --ink: red; }\n"),
+                ("src/dot.svg", "<svg/>"),
+            ],
+        );
+        let root = canonical(&root).unwrap();
+        let url_of = |path: &Path| format!("/{}", shown(&root, path));
+        let scoped = served_scoped(&root.join("src/card.css"), &root, &url_of).unwrap();
+        let code = &scoped.code;
+        assert!(code.contains("--ink: red"), "{code}");
+        assert!(code.contains("/src/dot.svg"), "{code}");
+        assert!(code.contains("/mark.svg"), "{code}");
+        assert!(!code.contains("@import"), "{code}");
+        assert_eq!(
+            scoped.files,
+            [root.join("src/card.css"), root.join("src/tokens.css")]
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn points_references_at_the_copied_files_for_the_unbundled_output() {
+        let root = project(
+            "scoped-mirror",
+            &[
+                (
+                    "src/ui/card.css",
+                    "@import \"../tokens.css\";\n.a { background: url(./dot.svg); }\n",
+                ),
+                ("src/tokens.css", ".t { background: url(./grain.png); }\n"),
+                ("src/ui/dot.svg", "<svg/>"),
+                ("src/grain.png", "PNG"),
+            ],
+        );
+        let root = canonical(&root).unwrap();
+        let scoped = mirrored_scoped(&root.join("src/ui/card.css"), &root).unwrap();
+        let mut spliced = scoped.spliced.clone();
+        spliced.sort();
+        assert_eq!(spliced, ["../grain.png", "dot.svg"]);
+        let expression = scoped.expression();
+        assert!(
+            expression.contains("new URL(\"dot.svg\", import.meta.url).href")
+                && expression.contains("new URL(\"../grain.png\", import.meta.url).href"),
+            "{expression}"
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn writes_paths_relative_to_a_folder() {
+        assert_eq!(
+            relative(Path::new("/p/app"), Path::new("/p/app/src/card.css")),
+            "src/card.css"
+        );
+        assert_eq!(
+            relative(Path::new("/p/app"), Path::new("/p/ui/card.css")),
+            "../ui/card.css"
+        );
+        assert_eq!(
+            relative(
+                Path::new("/p/app/src/ui"),
+                Path::new("/p/app/src/grain.png")
+            ),
+            "../grain.png"
+        );
     }
 }

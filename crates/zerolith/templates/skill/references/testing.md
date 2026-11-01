@@ -13,10 +13,10 @@ import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
 import { zerolith } from "@zerolith/vite";
 
-// Vitest reads the components itself, so it needs the JSX lowering
-// that zerolith dev and zerolith build apply.
+// Vitest reads the components itself, so it takes the zerolith plugin for
+// JSX and stylesheets imported with ?scoped, without hot replacement.
 export default defineConfig({
-    plugins: zerolith().filter((plugin) => plugin.name === "zerolith:jsx"),
+    plugins: zerolith({ hot: false }),
     test: {
         browser: {
             enabled: true,
@@ -28,7 +28,10 @@ export default defineConfig({
 });
 ```
 
-A project with `html` templates instead of JSX leaves the plugin out. `npm test` runs the tests in `test/`, after `npx playwright install chromium` has run once, and `npm run check` runs the type check, the linter, the tests, and the build.
+Vitest reads each module through Vite, not through `zerolith dev`, so the plugin from `@zerolith/vite` gives it what the command line gives the browser: JSX lowered to `html` calls, and a stylesheet imported with `?scoped` turned into the styles a component binds. `hot: false` leaves out hot module replacement, which belongs to a page in development, not to a test. `npm test` runs the tests in `test/`, after `npx playwright install chromium` has run once, and `npm run check` runs the type check, the linter, the tests, and the build.
+
+> [!NOTE]
+> In the browser, Vitest runs a component's stylesheets as the page would. A test that runs in Node instead, such as a test of server rendering, gets an empty stylesheet for every CSS import unless the config sets `test.css` to `true`, so its `?scoped` rules are empty while the scope classes stay the same.
 
 | Helper | What it does |
 | --- | --- |

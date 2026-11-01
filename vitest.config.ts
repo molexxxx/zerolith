@@ -7,7 +7,7 @@ const coreEntry = fileURLToPath(new URL("./packages/zerolith/src/index.ts", impo
 const routerEntry = fileURLToPath(new URL("./packages/router/src/index.ts", import.meta.url));
 
 export default defineConfig({
-    plugins: zerolith().filter((plugin) => plugin.name === "zerolith:jsx"),
+    plugins: zerolith({ hot: false, lint: false }),
     resolve: {
         alias: {
             "@zerolith/vite/runtime": fileURLToPath(new URL("./packages/vite/src/runtime.ts", import.meta.url)),

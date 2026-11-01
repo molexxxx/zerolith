@@ -1,0 +1,3 @@
+@import "./scoped-tokens.css";
+:scope { padding: 5px; }
+p { color: var(--ink); }
