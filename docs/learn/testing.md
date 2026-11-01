@@ -16,7 +16,7 @@ Create `test/packing.browser.test.ts`:
 
 `beforeEach` resets the items, because the list is module state shared by every test in the file and kept in storage between runs. Setting it explicitly at the start of each test makes the tests independent of each other and of what you clicked in the browser.
 
-`accessibilityIssues` finds the defects a test can see without an accessibility tree: images without alternative text, form controls without a label, and buttons or links without a name. The remove buttons pass because of their `aria-label`; delete it and the third test fails, naming the button. The [testing guide](../guide/testing.md) covers the rest of `@zerolith/test`.
+`accessibilityIssues` finds the defects a test can see without an accessibility tree: images without alternative text, form controls without a label, and buttons or links without a name. The remove buttons pass because they have text; their `aria-label` goes further and says which item each one removes, which no test can judge. Delete the `<label>` around a checkbox and the third test fails, naming the control. The [testing guide](../guide/testing.md) covers the rest of `@zerolith/test`.
 
 Run the tests:
 

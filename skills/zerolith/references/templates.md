@@ -29,7 +29,7 @@ function Counter({ start = 0 }: { start?: number })
 render(Counter({ start: 1 }), "#app");
 ```
 
-Clicking the button sets `count`, which rewrites two text nodes: the count and the doubled value. `Counter()` ran once, when `render` called it, and never runs again.
+Clicking the button sets `count`, which rewrites two text nodes: the count and the doubled value. `Counter()` ran once, before `render` received its view, and never runs again. Passing a function that returns the view, as in `render(() => Counter({ start: 1 }), "#app")`, runs the component inside the root instead, so the effects and `onDispose` cleanups it registers end with `dispose()`; the starter mounts its application this way.
 
 > [!IMPORTANT]
 > Bind the signal, not its value. `${count}` hands the signal itself to the part, which subscribes to it and stays in step. `${count.get()}` reads the number once, at render time, and the page never sees a later value. The Vite plugin and the command line warn about it as `template_frozen_read`.
@@ -191,7 +191,7 @@ A branch is built only when it first shows, and taken down when it hides, which 
 `when` reads its condition when it is a signal and takes any other value as it is.
 
 > [!WARNING]
-> A function is not a condition. `when(() => count.get() > 0, ...)` receives a function, which is always truthy, so it always shows the first branch. Derive the condition as a signal instead: `when(computed(() => count.get() > 0), ...)`.
+> A function is not a condition. `when(() => count.get() > 0, ...)` fails with `when_condition_function`, since a function would always count as true. Derive the condition as a signal instead: `when(computed(() => count.get() > 0), ...)`.
 
 ## Coming from React or Angular
 
@@ -273,7 +273,7 @@ Lists and conditions are `each` and `when`, called as functions, exactly as in a
 | Function | Takes | Returns |
 | --- | --- | --- |
 | `` html`...` `` | A template literal with `${}` bindings | A view |
-| `render(view, target)` | A view, and an element, a fragment, or a selector for one | A root, with `container` and `dispose()` |
+| `render(view, target)` | A view, or a function that returns one, called inside the root; and an element, a fragment, or a selector for one | A root, with `container` and `dispose()` |
 | `hydrate(view, target)` | The same, over markup the server rendered | A root that also lists its `mismatches` |
 | `each(items, key, row)` | An array or a signal of one; `key(item, index)`; and `row(item, index)`, which receives both as signals | A view of the rows, matched by key |
 | `when(condition, then, otherwise)` | A signal or a value, and one or two functions that return views | A view of the branch the condition picks |
@@ -294,5 +294,6 @@ These fail with a coded error before anything reaches the page, each linked to i
 | Renders a function or a plain object as content, usually a component passed instead of called | `unrenderable_value` |
 | Gives `@event` something other than a function or a `handleEvent` object | `event_handler_not_function` |
 | Gives `when` a function as its condition, which would always count as true | `when_condition_function` |
+| Gives `render` or `hydrate` a component that takes props, uncalled | `mount_component_uncalled` |
 
-One more is reported without failing the render: a `javascript:` or `vbscript:` URL, or a `data:` URL that is not an image, in `href`, `src`, `action`, `formaction`, or `poster`, bound as an attribute or as a property such as `.href`, is removed and reported as `unsafe_url_blocked`.
+One more is reported without failing the render: a `javascript:` or `vbscript:` URL, or a `data:` URL other than a PNG, GIF, JPEG, WebP, AVIF, BMP, or icon image (an SVG can carry script), in `href`, `src`, `xlink:href`, `action`, `formaction`, or `poster`, bound as an attribute or as a property such as `.href`, is removed and reported as `unsafe_url_blocked`.

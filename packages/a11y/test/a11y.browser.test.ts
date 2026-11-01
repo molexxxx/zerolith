@@ -159,7 +159,10 @@ describe("createAnnouncer", () =>
     it("writes messages into hidden live regions and repeats them", async () =>
     {
         const announcer = createAnnouncer();
+        expect(document.querySelectorAll("[aria-live]")).toHaveLength(2);
         announcer.announce("Saved");
+        announcer.announce("Failed", "assertive");
+        await vi.waitFor(() => expect(document.querySelector("[aria-live=\"assertive\"]")?.textContent).toBe("Failed"));
         await vi.waitFor(() => expect(document.querySelector("[aria-live=\"polite\"]")?.textContent).toBe("Saved"));
         const polite = document.querySelector("[aria-live=\"polite\"]") as HTMLElement;
         expect(polite.classList.contains(visuallyHidden.scope)).toBe(true);

@@ -127,7 +127,7 @@ export function start(host)
     const editor = /** @type {HTMLTextAreaElement} */ (host.querySelector("textarea[name=\"code\"]"));
     const shadow = /** @type {HTMLElement} */ (host.querySelector(".editor code"));
     const shadowFrame = /** @type {HTMLElement} */ (host.querySelector(".editor pre"));
-    const frame = /** @type {HTMLIFrameElement} */ (host.querySelector("iframe"));
+    let frame = /** @type {HTMLIFrameElement} */ (host.querySelector("iframe"));
     const output = /** @type {HTMLElement} */ (host.querySelector(".console"));
     const runButton = host.querySelector("[data-action=\"run\"]");
     const hint = host.querySelector(".hint");
@@ -166,13 +166,21 @@ export function start(host)
         });
     });
 
+    /**
+     * Runs the code in a fresh frame. A new frame's first document replaces
+     * its blank one, where a new document in the same frame would add a
+     * history entry, so Back would step through runs instead of leaving.
+     */
     function run()
     {
         output.replaceChildren();
         ran.set(code.get());
         const theme = siteTheme();
-        frame.style.colorScheme = theme;
-        frame.srcdoc = frameDocument(code.get(), imports, theme);
+        const next = /** @type {HTMLIFrameElement} */ (frame.cloneNode(false));
+        next.style.colorScheme = theme;
+        next.srcdoc = frameDocument(code.get(), imports, theme);
+        frame.replaceWith(next);
+        frame = next;
     }
     /** @param {string} text */
     function load(text)

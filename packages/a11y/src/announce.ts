@@ -23,7 +23,8 @@ export interface Announcer
 
 /**
  * Creates a pair of live regions, one polite and one assertive, appended to
- * the document body and hidden visually. Each announcement clears the
+ * the document body at once, so assistive technology knows them before the
+ * first message, and hidden visually. Each announcement clears the
  * region and writes the message on the next task, so repeating a message
  * is read again.
  */
@@ -45,21 +46,27 @@ export function createAnnouncer(doc: Document = document): Announcer
         }
         return element;
     };
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    region("polite");
+    region("assertive");
+    const timers = new Map<Politeness, ReturnType<typeof setTimeout>>();
     return {
         announce(message: string, politeness: Politeness = "polite"): void
         {
             const element = region(politeness);
             element.textContent = "";
-            clearTimeout(timer);
-            timer = setTimeout(() =>
+            clearTimeout(timers.get(politeness));
+            timers.set(politeness, setTimeout(() =>
             {
                 element.textContent = message;
-            }, 0);
+            }, 0));
         },
         dispose(): void
         {
-            clearTimeout(timer);
+            for (const timer of timers.values())
+            {
+                clearTimeout(timer);
+            }
+            timers.clear();
             for (const element of regions.values())
             {
                 element.remove();

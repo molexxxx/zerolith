@@ -27,7 +27,7 @@ my-app/
         routes.ts           the route table, one entry per page
         router.ts           createRouter over the table, for typed links in components
         styles.css          design tokens, resets, and global rules
-        env.d.ts            the types of import.meta.env
+        env.d.ts            the types of import.meta.env and ?scoped stylesheets
         components/
             layout.tsx      the frame around every page: header, navigation, the page, footer
             home.tsx        the first page: what the project is and its commands

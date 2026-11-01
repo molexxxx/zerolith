@@ -153,6 +153,7 @@ describe("documentation site", () =>
     it("runs every playground example without an error", { timeout: 120000 }, async () =>
     {
         const { page, errors } = await open("/playground/");
+        const entries = await page.evaluate(() => history.length);
         const ids = await page.$$eval("select[name=\"example\"] option", (options) => options.map((option) => (option as HTMLOptionElement).value));
         expect(ids.length).toBeGreaterThan(5);
         const failures: string[] = [];
@@ -167,6 +168,7 @@ describe("documentation site", () =>
         }
         expect(failures).toEqual([]);
         expect(errors).toEqual([]);
+        expect(await page.evaluate(() => history.length)).toBe(entries);
         await page.close();
     });
 

@@ -65,7 +65,7 @@ In order:
 
 - [x] A typed route table with lazy views, loaders, head metadata, and scroll restoration.
 - [x] A server entry with head rendering and embedded route data that the browser reuses.
-- [x] An `observe` hook for navigation start, commit, and error.
+- [x] An `observe` hook for navigation start, commit, error, and cancel.
 - [ ] Generated route declarations for large route tables, where inference slows type checking.
 - [ ] View-stack routing for desktop applications: history, kept-alive views, and full-screen views.
 
@@ -122,12 +122,12 @@ See the [command line guide](guide/command-line.md).
 
 ## Dev tools and testing
 
-- [x] The in-page inspector: component tree, signal graph, route state, and diagnostics, from any host including `file://`.
+- [x] The in-page inspector: every signal, computed value, and effect with its observers and value, the mounted roots, and the diagnostics feed, from any host including `file://`.
 - [x] Render and signal tracks in Chrome's Performance panel.
 - [x] Chrome DevTools workspace support from `zerolith dev`.
 - [x] `@zerolith/test`: mount with cleanup, a view or a function that returns one, settle, hydration mismatches, and accessibility issues.
 - [x] Starters whose Vitest config takes the zerolith plugin without hot replacement, so tests read JSX and `?scoped` stylesheets as the app does.
-- [ ] A bolder, more useful inspector: search and filters, editing a writable signal's value, each signal's sources and dependents, a log of what each update changed and re-ran, an element picker that finds the part of the view behind an element, the router's state, and diagnostics linked to their pages.
+- [ ] A bolder, more useful inspector: a component tree, search and filters, editing a writable signal's value, each signal's sources and dependents, a log of what each update changed and re-ran, an element picker that finds the part of the view behind an element, the router's state, and diagnostics linked to their pages.
 - [ ] The same hook served to agents through an MCP server in `zerolith dev`, with the configuration for common agents written by `zerolith new`.
 - [ ] A thin browser extension panel over the same hook.
 - [ ] The inspector verified in a packaged Electron build.

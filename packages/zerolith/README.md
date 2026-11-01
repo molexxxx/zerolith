@@ -33,7 +33,7 @@ html`<p>${computed(() => item.get().name)}</p>`    // live: derived value
 html`<p>${count.get()}</p>`                        // frozen: read once at creation, never updates
 ```
 
-Both forms type-check, and the runtime cannot tell a frozen read from a deliberate one-time value, so no warning is possible. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.
+Both forms type-check, and the runtime cannot tell a frozen read from a deliberate one-time value, so it does not warn; the Vite plugin and `zerolith doctor` read the source and report `template_frozen_read`. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.
 
 ## Styles
 

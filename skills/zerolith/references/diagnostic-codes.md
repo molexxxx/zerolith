@@ -188,7 +188,7 @@ Fix: Bind child content with ${} instead; for trusted markup use the raw HTML AP
 
 Cause: A URL attribute or property received a value with a scheme that can run script, and the attribute was removed.
 
-Fix: Pass http, https, mailto, tel, or a relative URL; data URLs are allowed only for images.
+Fix: Pass http, https, mailto, tel, or a relative URL; a data URL is allowed only for a PNG, GIF, JPEG, WebP, AVIF, BMP, or icon image, since an SVG can carry script.
 
 ## when_condition_function
 

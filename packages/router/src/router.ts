@@ -160,7 +160,7 @@ export interface Router<T extends RouteTable>
     navigate(to: string, options?: { replace?: boolean }): Promise<void>;
     /** A signal that is true while the URL is at `path` or below it; `exact` requires equality. */
     matches(path: string, options?: { exact?: boolean }): ReadableSignal<boolean>;
-    /** Renders the current route, used as `${outlet(router)}`. */
+    /** Renders the current route, used as `${router.outlet()}`. */
     outlet(): View;
     /** Detaches the router from the window. */
     dispose(): void;

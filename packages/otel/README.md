@@ -12,7 +12,7 @@ const api = createClient<Api>(apiRoutes, { transport: tracedTransport(undefined,
 tracedHydrate(App(router), "#app", tracer);
 ```
 
-- `navigationObserver` opens a span when a navigation starts and ends it on commit or failure, with the route name, the path, and the mode as attributes.
+- `navigationObserver` opens a span when a navigation starts and ends it on commit, failure, or cancel, with the route name, the path, and the mode as attributes, and `zerolith.navigation.canceled` on a canceled one.
 - `tracedHydrate` wraps `hydrate` in a span and records the number of mismatches.
 - `tracedTransport` wraps a client transport in a client span per request, with the method, URL, and status, and injects a `traceparent` header from the active span so the server's trace continues the browser's.
 

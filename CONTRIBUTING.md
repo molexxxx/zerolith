@@ -101,7 +101,7 @@ Each example's README walks through what it shows and what the build writes.
 
 ## Rust
 
-The command line lives in `crates/zerolith`. `rust-toolchain.toml` pins the compiler for rustup users and CI; the crate also builds on the minimum version in `Cargo.toml`, 1.97, which the oxc crates require. Rust code follows default `rustfmt` formatting, `unsafe_code` is forbidden, and CI runs `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test` on Linux and Windows, and a release build, then builds the examples with that binary and drives them in a browser through `npm run test:cli`.
+The command line lives in `crates/zerolith`. `rust-toolchain.toml` pins the compiler for rustup users and CI; the crate also builds on the minimum version in `Cargo.toml`, 1.97, which the oxc crates require. Rust code follows default `rustfmt` formatting, `unsafe_code` is forbidden, and CI runs `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test` on Linux and Windows, the RustSec advisory check through cargo-deny, and a release build, then builds the examples with that binary and drives them in a browser through `npm run test:cli`.
 
 ## Commits
 

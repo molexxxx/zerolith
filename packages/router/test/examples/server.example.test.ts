@@ -35,7 +35,7 @@ async function handle(request: Request): Promise<Response>
     await router.navigate(url.pathname + url.search);
 
     const head = renderHead(router.head.get()) + renderStyles();
-    const body = renderToString(App(router));
+    const body = renderToString(() => App(router));
     const document = `<!doctype html>
 <html lang="en">
 <head>

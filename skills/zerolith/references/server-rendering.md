@@ -31,7 +31,7 @@ Each part of a template renders the way the browser would show it at that moment
 | `each` and `when` | Their current rows or branch |
 | `unsafeHtml(markup)` | The markup as it is |
 
-Effects created while rendering, inside `each` rows, `when` branches, and computed values, are disposed before the string is returned. A component called before `renderToString` runs outside that scope, exactly as in the browser, and owns its own effects.
+Effects created while rendering, inside `each` rows, `when` branches, and computed values, are disposed before the string is returned. Given a function that returns the view, as `renderToString(() => App(router))`, the component runs inside that scope too, so its effects and cleanups end with the render. A component called before `renderToString` runs outside it, exactly as in the browser, and nothing disposes an effect it starts.
 
 ## Styles
 
@@ -101,7 +101,7 @@ async function handle(request: Request): Promise<Response>
     await router.navigate(url.pathname + url.search);
 
     const head = renderHead(router.head.get()) + renderStyles();
-    const body = renderToString(App(router));
+    const body = renderToString(() => App(router));
     const document = `<!doctype html>
 <html lang="en">
 <head>
@@ -132,7 +132,7 @@ import { createRouter } from "@zerolith/router";
 
 const router = createRouter(routes);
 await router.ready;                     // with the data the server sent
-const app = hydrate(App(router), "#app");
+const app = hydrate(() => App(router), "#app");
 ```
 
 The two sides do the same steps with their own tools:
@@ -141,7 +141,7 @@ The two sides do the same steps with their own tools:
 | --- | --- | --- |
 | Create the router | `createRouter(routes)`, with no window | `createRouter(routes)` |
 | Reach the URL | `await router.navigate(path)` | `await router.ready` |
-| Render | `renderToString(App(router))` | `hydrate(App(router), "#app")` |
+| Render | `renderToString(() => App(router))` | `hydrate(() => App(router), "#app")` |
 | The head | `renderHead(router.head.get())` | The router sets `document.title` and the description on each navigation |
 | The data | `renderRouteState(router)` | Read once, for the initial navigation |
 
