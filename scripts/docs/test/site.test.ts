@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { type Browser, type Page, chromium } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createStaticServer, listen, repositoryRoot } from "../../static.ts";
+import { createStaticServer, listen, repositoryRoot, resolvePath } from "../../static.ts";
 import { type Entry, group, rank } from "../search.js";
 
 /**
@@ -271,6 +271,25 @@ describe("documentation site", () =>
         expect(loads).toEqual([]);
         expect(errors).toEqual([]);
         await page.close();
+    });
+
+    it("answers only loopback requests, refuses dot-folders and malformed escapes, and keeps serving", async () =>
+    {
+        expect((await fetch(`${origin}/%E0%A4%A`)).status).toBe(400);
+        expect((await fetch(`${origin}/`)).status).toBe(200);
+        expect(resolvePath("/.git/config", site)).toBeUndefined();
+        expect(resolvePath("/guide/../.env", site)).toBeUndefined();
+        const { request } = await import("node:http");
+        const status = await new Promise<number | undefined>((resolve, reject) =>
+        {
+            const port = Number(new URL(origin).port);
+            request({ host: "127.0.0.1", port, path: "/", headers: { host: "rebound.example" } }, (answer) =>
+            {
+                answer.resume();
+                resolve(answer.statusCode);
+            }).on("error", reject).end();
+        });
+        expect(status).toBe(403);
     });
 
     it("pins every module the pages load with an integrity hash", async () =>

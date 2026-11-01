@@ -57,6 +57,38 @@ describe("roots", () =>
         expect(Array.from(host.querySelectorAll("p"), (p) => p.textContent)).toEqual(["toasts", "app again"]);
     });
 
+    it("keeps the old view of a root whose new version throws, and still renders the others", () =>
+    {
+        const reported = vi.fn();
+        vi.stubGlobal("reportError", reported);
+        try
+        {
+            let broken = false;
+            const first = render(() =>
+            {
+                if (broken)
+                {
+                    throw new Error("edit failed");
+                }
+                return html`<p>first</p>`;
+            }, host, "/src/a.ts#0");
+            let second = "second";
+            const other = render(() => html`<p>${second}</p>`, host, "/src/b.ts#0");
+            save();
+            broken = true;
+            second = "second again";
+            accept();
+            expect(Array.from(host.querySelectorAll("p"), (p) => p.textContent)).toEqual(["first", "second again"]);
+            expect((reported.mock.calls[0]?.[0] as Error | undefined)?.message).toBe("edit failed");
+            first.dispose();
+            other.dispose();
+        }
+        finally
+        {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it("renders every root again on accept and hands saved values to named signals", async () =>
     {
         let renders = 0;

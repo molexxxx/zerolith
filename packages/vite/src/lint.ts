@@ -49,6 +49,10 @@ function frozenRead(expression: AstNode): AstNode | undefined
         {
             return false;
         }
+        if (node.type === "TaggedTemplateExpression" && TAGS.has((node as AstNode & { tag: AstNode & { name?: string } }).tag.name ?? ""))
+        {
+            return false;
+        }
         if (node.type === "CallExpression")
         {
             const call = node as CallExpression;

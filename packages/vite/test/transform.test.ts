@@ -75,6 +75,15 @@ describe("transformModule", () =>
         expect(rewrite("import { render } from \"lit\";\nrender(App(), document.body);\n")).toBeNull();
     });
 
+    it("leaves a render whose view awaits, and keeps destructured exports", () =>
+    {
+        const awaited = rewrite("import { render } from \"zerolith\";\nrender(await page(), document.body);\nrender(App(), document.body);\n");
+        expect(awaited).toContain("\nrender(await page(), document.body);\n");
+        expect(awaited).toContain("__zl$.render(() => (App()), document.body, \"/src/app.js#0\");");
+        const destructured = rewrite("export const { limit, page: [first] } = config, App = () => 1;\n");
+        expect(destructured).toContain("export { limit, first, App };");
+    });
+
     it("keeps the line count when an export keyword stands on a line of its own", () =>
     {
         const source = "import { render } from \"zerolith\";\nexport\nfunction App()\n{\n    return 1;\n}\nexport default\nfunction Page()\n{\n    return 2;\n}\nrender(App(), document.body);\n";

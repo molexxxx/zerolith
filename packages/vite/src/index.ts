@@ -9,7 +9,7 @@ import { dirname, relative, resolve } from "node:path";
 import { type Plugin, parseSync, perEnvironmentState } from "vite";
 import { DIAGNOSTIC_URL } from "zerolith";
 import { scan } from "zerolith/internal";
-import { type JsxOutput, lowerJsx } from "./jsx.js";
+import { JsxError, type JsxOutput, lowerJsx } from "./jsx.js";
 import { lintModule, position } from "./lint.js";
 import { PrepareError, prepareModule } from "./prepare.js";
 import { type SplitImport, splitImports } from "./split.js";
@@ -37,7 +37,7 @@ export interface ZerolithPluginOptions
     exclude?: RegExp;
     /** Lowers JSX in `.jsx` and `.tsx` files to `html` calls. Defaults to true. */
     jsx?: boolean;
-    /** Rewrites modules in development so an edited component is replaced in place. Defaults to true; a test runner turns it off. */
+    /** Rewrites modules in development so an edited component is replaced in place. Defaults to true, and to false under Vitest, where nothing is edited in place. */
     hot?: boolean;
     /** Warns in the terminal about a `.get()` read bound in a template and about static accessibility defects. Defaults to true. */
     lint?: boolean;
@@ -172,7 +172,19 @@ export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
                     {
                         return null;
                     }
-                    return lower(code, id);
+                    try
+                    {
+                        return lower(code, id);
+                    }
+                    catch (error)
+                    {
+                        if (error instanceof JsxError)
+                        {
+                            const { line, column } = position(code, error.offset);
+                            this.error({ message: error.message, pos: error.offset, loc: { file: id, line, column } });
+                        }
+                        throw error;
+                    }
                 }
             }
         });
@@ -320,7 +332,7 @@ export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
                         this.warn({ message: `${finding.code}: ${finding.message} ${DIAGNOSTIC_URL}${finding.code}`, pos: finding.offset, loc: { file: id, line, column } });
                     }
                 }
-                return options.hot === false ? null : transformModule(code, id, parse);
+                return (options.hot ?? process.env["VITEST"] === undefined) ? transformModule(code, id, parse) : null;
             }
         }
     });

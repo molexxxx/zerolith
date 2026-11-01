@@ -27,6 +27,16 @@ function offsetOf(code: string, id = "/src/app.js"): number
     return -1;
 }
 
+describe("TypeScript declarations that hold templates", () =>
+{
+    it("prepares a template in a namespace, an enum initializer, and a parameter property's default", () =>
+    {
+        const code = prepare("import { html } from \"zerolith\";\nnamespace Views { export const v = html`<p>${1}</p>`; }\nenum Labels { A = String(html`<b>${2}</b>`).length }\nclass Panel { constructor(public view = html`<i>${3}</i>`) {} }\nexport { Views, Labels, Panel };\n", "/src/app.ts") ?? "";
+        expect(code.match(/__zl_t\d/g)?.length).toBeGreaterThanOrEqual(3);
+        expect(code).not.toContain("html`");
+    });
+});
+
 describe("prepareModule", () =>
 {
     it("leaves a module alone that imports no html from zerolith", () =>

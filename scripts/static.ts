@@ -1,16 +1,17 @@
 /**
- * A static file server over the repository root for examples and tests:
- * `/packages/*\/dist` serves the built packages the import maps point at,
- * and an extensionless path under `/examples/<name>/` falls back to that
- * example's index.html so client-side routes load directly. Every file is
- * served to any origin, as GitHub Pages serves the docs, so the playground's
- * sandboxed frame can load its modules here too.
+ * A static file server for one folder of the repository, the built docs
+ * site, for `npm run docs:serve` and the site tests. Every file is served
+ * to any origin, as GitHub Pages serves the docs, so the playground's
+ * sandboxed frame can load its modules; so it answers only a request
+ * addressed to the loopback interface, which a page using DNS rebinding
+ * cannot send, never serves a dot-folder such as `.git`, and serves no
+ * folder but the one it is given.
  */
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { type Server, createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { extname, join, normalize, sep } from "node:path";
+import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const types: Readonly<Record<string, string>> = {
@@ -30,27 +31,61 @@ const types: Readonly<Record<string, string>> = {
 
 export const repositoryRoot: string = fileURLToPath(new URL("../", import.meta.url));
 
-/** The file a request path maps to under `root`, after the example fallback. */
-export function resolvePath(pathname: string, root: string = repositoryRoot): string
+/** The file a request path maps to under `root`, or undefined for a path into a dot-folder or to a dot-file. Throws a `URIError` for a malformed percent escape. */
+export function resolvePath(pathname: string, root: string): string | undefined
 {
-    let path = normalize(decodeURIComponent(pathname)).replace(/^([.][.][\\/])+/, "");
-    const example = /^[\\/]examples[\\/]([^\\/]+)(?:[\\/]|$)/.exec(path);
-    if (example !== null && (path.endsWith(sep) || path.endsWith("/") || extname(path) === ""))
+    const path = normalize(decodeURIComponent(pathname)).replace(/^([.][.][\\/])+/, "");
+    if (path.split(/[\\/]/).some((segment) => segment.startsWith(".") && segment !== "." && segment !== ".."))
     {
-        path = join("examples", example[1] ?? "", "index.html");
+        return undefined;
     }
     return join(root, path);
 }
 
-/** Creates the server without listening. `root` defaults to the repository; pass `site/` to serve the built docs at `/`. */
-export function createStaticServer(root: string = repositoryRoot): Server
+/** True when the request names the loopback interface as its host, as a browser on the same machine does. */
+function loopback(host: string | undefined): boolean
+{
+    try
+    {
+        return ["127.0.0.1", "localhost", "[::1]"].includes(new URL(`http://${host ?? ""}`).hostname);
+    }
+    catch
+    {
+        return false;
+    }
+}
+
+/** Creates the server for `root`, such as the repository's `site/` folder, without listening. */
+export function createStaticServer(root: string): Server
 {
     return createServer(async (request, response) =>
     {
-        const url = new URL(request.url ?? "/", "http://localhost");
-        let file = resolvePath(url.pathname, root);
+        const answer = (status: number, text: string): void =>
+        {
+            response.writeHead(status, { "content-type": "text/plain; charset=utf-8" });
+            response.end(text);
+        };
+        if (!loopback(request.headers.host))
+        {
+            answer(403, "This server answers only requests to 127.0.0.1 or localhost");
+            return;
+        }
+        let file: string | undefined;
         try
         {
+            file = resolvePath(new URL(request.url ?? "/", "http://localhost").pathname, root);
+        }
+        catch
+        {
+            answer(400, "Bad request");
+            return;
+        }
+        try
+        {
+            if (file === undefined)
+            {
+                throw new Error("a dot-folder");
+            }
             let info = await stat(file);
             if (info.isDirectory())
             {
@@ -66,8 +101,7 @@ export function createStaticServer(root: string = repositoryRoot): Server
         }
         catch
         {
-            response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
-            response.end("Not found");
+            answer(404, "Not found");
         }
     });
 }

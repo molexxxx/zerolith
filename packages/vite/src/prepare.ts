@@ -41,8 +41,8 @@ export const VIEW_BINDING: string = "__zl_v";
 const SPECIFIER = "zerolith";
 const HEAD = `import { prepared as ${PREPARED_BINDING} } from "zerolith/internal";`;
 
-/** TypeScript nodes that wrap an expression and so are walked; every other TS node is a type and is skipped. */
-const TS_EXPRESSIONS: ReadonlySet<string> = new Set(["TSAsExpression", "TSSatisfiesExpression", "TSNonNullExpression", "TSInstantiationExpression", "TSTypeAssertion"]);
+/** TypeScript nodes that hold only types, which the walk skips; every other node is walked, since an enum initializer, a namespace, or a parameter property's default can hold a template. */
+const TS_TYPES: ReadonlySet<string> = new Set(["TSTypeAnnotation", "TSTypeAliasDeclaration", "TSInterfaceDeclaration", "TSTypeParameterDeclaration", "TSTypeParameterInstantiation", "TSDeclareFunction"]);
 
 interface Identifier extends AstNode
 {
@@ -202,7 +202,7 @@ export function prepareModule(code: string, id: string, parse: ModuleParser, sca
     };
     walk(parsed.program, (node) =>
     {
-        if (node.type.startsWith("TS") && !TS_EXPRESSIONS.has(node.type))
+        if (TS_TYPES.has(node.type) || (node.type === "TSModuleDeclaration" && (node as AstNode & { declare?: boolean }).declare === true))
         {
             return false;
         }

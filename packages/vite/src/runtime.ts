@@ -166,19 +166,49 @@ export function save(): void
  * `import.meta.hot.accept`, which runs after the module's new version has
  * been evaluated and its components re-registered. A root mounted since the
  * last `save()` was rendered by that evaluation itself, when the entry
- * module is the one that changed, and is left as it is.
+ * module is the one that changed, and is left as it is. Each root's new
+ * view is rendered before its old one is disposed, so an edit that throws
+ * leaves the old view on the page and reports the error.
  */
 export function accept(): void
 {
-    for (const entry of mounted)
+    try
     {
-        if (entry.fresh)
+        for (const entry of mounted)
         {
-            entry.fresh = false;
-            continue;
+            if (entry.fresh)
+            {
+                entry.fresh = false;
+                continue;
+            }
+            try
+            {
+                const next = core.render(entry.factory, entry.container);
+                entry.root.dispose();
+                entry.root = next;
+            }
+            catch (error)
+            {
+                uncaught(error);
+            }
         }
-        entry.root.dispose();
-        entry.root = core.render(entry.factory, entry.container);
     }
-    devtoolsSaveRestore({});
+    finally
+    {
+        devtoolsSaveRestore({});
+    }
+}
+
+/** Reports an error as an uncaught one is, without stopping the caller: a root whose new version throws keeps its last good view, and the other roots still render. */
+function uncaught(error: unknown): void
+{
+    if (typeof reportError === "function")
+    {
+        reportError(error);
+        return;
+    }
+    queueMicrotask(() =>
+    {
+        throw error;
+    });
 }

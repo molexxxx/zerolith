@@ -38,7 +38,7 @@ export default defineConfig({
 | `include` | JavaScript and TypeScript modules | The module ids to rewrite, tested with path separators normalized to `/` |
 | `exclude` | Anything under `node_modules` | The ids to leave alone even when `include` matches |
 | `jsx` | `true` | Lowers JSX in `.jsx` and `.tsx` files; `false` leaves it to Vite's own transform |
-| `hot` | `true` | Rewrites modules for hot replacement in the dev server; a test runner such as Vitest sets it to `false` |
+| `hot` | `true`, and `false` under Vitest | Rewrites modules for hot replacement in the dev server; an edit whose new view throws leaves the old view on the page and reports the error |
 | `lint` | `true` | Warns about frozen reads and accessibility defects in templates |
 | `prepare` | `true` | Runs the template prepare pass in `vite build` |
 
@@ -80,7 +80,7 @@ The function declaration keeps its hoisting because the registration runs first 
 ## What the plugin leaves alone
 
 - Production builds. The development rewrite applies only to the dev server; `vite build` gets the prepare pass and the output checks described below.
-- Server-side transforms, classes, lowercase functions, anonymous default exports, and `render` reached through anything other than the binding imported from `zerolith`. An aliased import such as `import { render as mount }` is followed; a `render` stored in a variable first is not.
+- Server-side transforms, classes, lowercase functions, anonymous default exports, and `render` reached through anything other than the binding imported from `zerolith`. An aliased import such as `import { render as mount }` is followed; a `render` stored in a variable first is not, and neither is a `render` whose view expression awaits, such as `render(await page(), "#app")`.
 - Modules under `node_modules`, unless `include` and `exclude` say otherwise.
 
 The plugin also keeps `zerolith` and the packages built on its signals, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, `@zerolith/a11y`, `@zerolith/i18n`, and `@zerolith/devtools`, with its own runtime, out of Vite's dependency pre-bundling, so the application and the plugin's runtime share one copy of the framework and the inspector sees every signal.

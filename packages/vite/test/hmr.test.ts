@@ -57,7 +57,7 @@ beforeAll(async () =>
         envFile: false,
         logLevel: "silent",
         clearScreen: false,
-        plugins: [zerolith()],
+        plugins: [zerolith({ hot: true })],
         resolve: {
             alias: {
                 "@zerolith/vite/runtime": join(repoRoot, "packages/vite/src/runtime.ts"),

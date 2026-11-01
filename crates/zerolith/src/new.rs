@@ -1204,7 +1204,7 @@ fn readme(name: &str, choice: Choice) -> String {
             "This project develops on Vite, for in-place component replacement and Vite plugins. The zerolith command line runs the same app without it: `npx zerolith dev`, `npx zerolith build`, and `npx zerolith preview`."
         }
         _ => {
-            "The app needs no Vite: the zerolith command line serves, bundles, and previews it on its own. `@zerolith/vite` is installed for the tests alone, since Vitest is built on Vite. To develop on Vite instead, for one of its plugins or an edited component applied in place instead of a reload, run `npm install --save-dev vite`, write a `vite.config.ts` that adds `zerolith()` from `@zerolith/vite` to its plugins, and point the scripts at `vite`, `vite build`, and `vite preview`. `zerolith new --vite` starts a project that way."
+            "The app needs no Vite: the zerolith command line serves, bundles, and previews it on its own. `vite` and `@zerolith/vite` are installed for the tests alone, since Vitest is built on Vite. To develop on Vite instead, for one of its plugins or an edited component applied in place instead of a reload, write a `vite.config.ts` that adds `zerolith()` from `@zerolith/vite` to its plugins, and point the scripts at `vite`, `vite build`, and `vite preview`. `zerolith new --vite` starts a project that way."
         }
     };
     format!(

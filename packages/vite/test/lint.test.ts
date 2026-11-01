@@ -35,6 +35,11 @@ describe("lintModule", () =>
         expect(codes("const v = __zl_html`<p>${count.get()}</p>`;")).toEqual(["template_frozen_read"]);
     });
 
+    it("reports a .get() in a nested template once, on its own template", () =>
+    {
+        expect(codes("const v = html`<ul>${html`<li>${count.get()}</li>`}</ul>`;")).toEqual(["template_frozen_read"]);
+    });
+
     it("flags the static accessibility defects it can see", () =>
     {
         expect(codes("const v = html`<img src=\"a.png\">`;")).toEqual(["image_without_alt"]);

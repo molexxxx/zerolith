@@ -118,6 +118,52 @@ function registration(name: string): string
     return `var ${name} = ${BINDING}.component(import.meta.hot, "${name}", ${name}$);`;
 }
 
+/** True when an expression awaits or yields outside any function inside it, which the arrow the rewrite wraps it in could not do. */
+function suspends(expression: AstNode): boolean
+{
+    let found = false;
+    walk(expression, (node) =>
+    {
+        if (found || (node !== expression && (node.type === "ArrowFunctionExpression" || node.type === "FunctionExpression" || node.type === "FunctionDeclaration")))
+        {
+            return false;
+        }
+        if (node.type === "AwaitExpression" || node.type === "YieldExpression")
+        {
+            found = true;
+            return false;
+        }
+        return true;
+    });
+    return found;
+}
+
+/** The names a destructuring pattern binds, as `{ a, b: [c] }` binds `a` and `c`. */
+function boundNames(pattern: AstNode): string[]
+{
+    const node = pattern as AstNode & { name?: string; properties?: AstNode[]; elements?: (AstNode | null)[]; left?: AstNode; argument?: AstNode; value?: AstNode };
+    switch (node.type)
+    {
+        case "Identifier":
+            return node.name === undefined ? [] : [node.name];
+        case "ObjectPattern":
+            return (node.properties ?? []).flatMap((property) =>
+            {
+                const entry = property as AstNode & { argument?: AstNode; value?: AstNode };
+                const target = entry.type === "RestElement" ? entry.argument : entry.value;
+                return target === undefined ? [] : boundNames(target);
+            });
+        case "ArrayPattern":
+            return (node.elements ?? []).flatMap((element) => (element === null ? [] : boundNames(element)));
+        case "AssignmentPattern":
+            return node.left === undefined ? [] : boundNames(node.left);
+        case "RestElement":
+            return node.argument === undefined ? [] : boundNames(node.argument);
+        default:
+            return [];
+    }
+}
+
 /**
  * Rewrites one module for hot replacement. Exported functions whose names
  * start with a capital letter become proxies registered under the module's
@@ -211,6 +257,7 @@ export function transformModule(code: string, id: string, parse: ModuleParser): 
         {
             if (declarator.id.type !== "Identifier" || typeof declarator.id.name !== "string")
             {
+                names.push(...boundNames(declarator.id));
                 continue;
             }
             const name = declarator.id.name;
@@ -298,7 +345,7 @@ export function transformModule(code: string, id: string, parse: ModuleParser): 
             const target = call.callee.type === "Identifier" ? call.callee.name : undefined;
             const replacement = target !== undefined && target === renderLocal ? "render" : target !== undefined && target === hydrateLocal ? "hydrate" : undefined;
             const [first, second] = call.arguments;
-            if (replacement === undefined || first === undefined || second === undefined || first.type === "SpreadElement" || second.type === "SpreadElement" || call.arguments.length !== 2)
+            if (replacement === undefined || first === undefined || second === undefined || first.type === "SpreadElement" || second.type === "SpreadElement" || call.arguments.length !== 2 || suspends(first))
             {
                 return;
             }
