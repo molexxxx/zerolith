@@ -32,7 +32,12 @@ describe("forms guide: server", () =>
         const failed = await createNote(post({ title: "x" }));
         expect(failed.status).toBe(400);
         expect(failed.headers.get("content-type")).toBe("application/problem+json; charset=utf-8");
-        await expect(failed.json()).resolves.toMatchObject({ fields: { title: ["Give the note a title of at least two characters."] } });
+        await expect(failed.json()).resolves.toEqual({
+            type: "about:blank",
+            title: "The submission has invalid fields",
+            status: 400,
+            fields: { title: ["Give the note a title of at least two characters."] }
+        });
 
         const created = await createNote(post({ title: "  Routing  " }));
         expect(created.status).toBe(201);
