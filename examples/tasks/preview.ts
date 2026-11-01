@@ -31,7 +31,13 @@ export function createPreviewServer(out: string): Server
                 }
                 const path = normalize(decodeURIComponent(new URL(request.url ?? "/", "http://localhost").pathname));
                 const file = join(out, path);
-                const target = file.startsWith(out) && extname(path) !== "" && existsSync(file) ? file : join(out, "index.html");
+                if (extname(path) !== "" && !(file.startsWith(out) && existsSync(file)))
+                {
+                    response.statusCode = 404;
+                    response.end("Not found");
+                    return;
+                }
+                const target = extname(path) === "" ? join(out, "index.html") : file;
                 response.setHeader("content-type", types[extname(target)] ?? "application/octet-stream");
                 response.end(readFileSync(target));
             })

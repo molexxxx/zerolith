@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, expect, it } from "vitest";
+import { afterAll, expect, it, vi } from "vitest";
 import type { Project, Task } from "../shared/model.ts";
 import { createApp } from "../server/app.ts";
 import { serve } from "../server/node.ts";
@@ -81,6 +81,27 @@ it("asks for a session, and signs in with the right password only", async () =>
     const cookie = await signIn(app);
     const session = await app(request("/api/session", { headers: { cookie } }));
     expect(await session.json()).toEqual({ user: { id: 1, name: "Ada Lovelace", email: "ada@harbor.test" } });
+});
+
+it("keeps the password as typed, and ends a session after its lifetime", async () =>
+{
+    const app = createApp();
+    const padded = await app(form("/api/session", "", { email: "ada@harbor.test", password: " analytical " }));
+    expect(padded.status).toBe(400);
+    const signedIn = await app(form("/api/session", "", { email: "ada@harbor.test", password: "analytical" }));
+    expect(signedIn.headers.getSetCookie()[0]).toContain("Max-Age=604800");
+    const cookie = signedIn.headers.getSetCookie()[0]?.split(";")[0] ?? "";
+    expect((await app(request("/api/session", { headers: { cookie } }))).status).toBe(200);
+    vi.useFakeTimers({ now: Date.now() + 7 * 24 * 60 * 60 * 1000 + 1 });
+    try
+    {
+        expect((await app(request("/api/session", { headers: { cookie } }))).status).toBe(401);
+    }
+    finally
+    {
+        vi.useRealTimers();
+    }
+    expect((await createApp({ dist })(request("/app/%E0%A4%A"))).status).toBe(400);
 });
 
 it("refuses a change sent from another site, and a body larger than the API reads", async () =>

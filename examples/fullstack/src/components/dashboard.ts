@@ -56,7 +56,7 @@ export function Dashboard(): View
     events.addEventListener("message", (event: MessageEvent<string>) =>
     {
         const activity = JSON.parse(event.data) as Activity;
-        live.set([activity, ...live.get()]);
+        live.set([activity, ...live.get()].slice(0, 20));
         announcer.announce(`${activity.who} ${activity.text}`);
         refresh();
     });

@@ -132,7 +132,7 @@ enum Command {
     New {
         /// The folder to create; its name becomes the application's name.
         root: Option<PathBuf>,
-        /// Start from an example instead of the starter: fullstack, an app under /app/ with its own Node backend. It is TypeScript on the command line, so it takes no --template, --vite, or --buildless.
+        /// Start from an example instead of the starter: fullstack, an app under /app/ with its own Node backend. It is TypeScript on the command line with the inspector, so it takes no --template, --vite, --buildless, or --no-devtools.
         #[arg(long, value_parser = ["fullstack"])]
         example: Option<String>,
         /// The language and syntax: tsx, ts with html templates, jsx, or js with html templates.

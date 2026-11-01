@@ -5,7 +5,7 @@ import { createForm } from "@zerolith/forms";
 import { router } from "./router.ts";
 import { format, locale, t } from "./locale.ts";
 import { taskSchema } from "./schema.ts";
-import { type Task, api, done, open, query, remove, tasks, toggle } from "./store.ts";
+import { type Task, api, done, failure, open, query, remove, tasks, toggle } from "./store.ts";
 
 const layout = css`
     :scope { max-width: 44rem; margin: 0 auto; padding: 24px 16px; display: grid; gap: 24px; }
@@ -61,8 +61,9 @@ export function TaskList(): View
     return html`
         <section class=${list}>
             <label>${t((m) => m.search())} <input type="search" .value=${query} @input=${(event: Event) => query.set((event.currentTarget as HTMLInputElement).value)} data-testid="search"></label>
+            <p role="alert" data-testid="failure">${failure}</p>
             ${when(tasks.pending, () => html`<p class="empty">...</p>`)}
-            <h2 data-testid="open-count">${computed(() => t((m, count: number) => m.openCount({ count }), open.get().length).get())}</h2>
+            <h2 data-testid="open-count">${t((m) => m.openCount({ count: open.get().length }))}</h2>
             <ul data-testid="open">${each(open, (task) => task.id, (task) => TaskRow(() => task.get()))}</ul>
             ${when(computed(() => done.get().length > 0), () => html`
                 <h2>${t((m) => m.done())}</h2>
@@ -85,15 +86,22 @@ export function TaskView({ id }: { id: string }): View
     const confirming = signal(false);
     const erase = async (): Promise<void> =>
     {
-        await remove(id);
+        const removed = await remove(id);
         confirming.set(false);
-        await router.navigate(router.href("home"));
+        if (removed)
+        {
+            await router.navigate(router.href("home"));
+        }
     };
     return html`
         <section class=${detail} data-testid="task">
             ${when(task.error, () => html`<p>${t((m) => m.notFound())}</p>`, () => html`
                 <h2>${computed(() => task.get()?.title ?? "")}</h2>
-                <p>${computed(() => (task.get() === undefined ? "" : t((m, at: Date) => m.createdAt({ when: at }), new Date(task.get()?.createdAt ?? 0)).get()))}</p>
+                <p>${t((m) =>
+                {
+                    const current = task.get();
+                    return current === undefined ? "" : m.createdAt({ when: new Date(current.createdAt) });
+                })}</p>
                 <p>${computed(() =>
                 {
                     const created = task.get()?.createdAt;
@@ -105,7 +113,7 @@ export function TaskView({ id }: { id: string }): View
                 </div>
                 ${when(confirming, () => html`
                     <div role="dialog" aria-modal="true" aria-labelledby="confirm" data-testid="dialog" ref=${focusTrap()} @keydown=${(event: KeyboardEvent) => event.key === "Escape" && confirming.set(false)}>
-                        <p id="confirm">${computed(() => t((m, title: string) => m.confirm({ title }), task.get()?.title ?? "").get())}</p>
+                        <p id="confirm">${t((m) => m.confirm({ title: task.get()?.title ?? "" }))}</p>
                         <div class="actions">
                             <button @click=${() => confirming.set(false)}>${t((m) => m.cancel())}</button>
                             <button data-kind="danger" data-testid="confirm" @click=${() => void erase()}>${t((m) => m.remove())}</button>

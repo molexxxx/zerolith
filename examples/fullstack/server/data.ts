@@ -16,7 +16,8 @@ export interface Data
     projects: { id: number; name: string; summary: string }[];
     tasks: StoredTask[];
     activity: Activity[];
-    sessions: Map<string, number>;
+    /** Each session's member and the time, in milliseconds since the epoch, after which it is no longer accepted. */
+    sessions: Map<string, { userId: number; expires: number }>;
     ids: { project: number; task: number; activity: number };
 }
 

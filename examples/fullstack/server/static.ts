@@ -36,7 +36,15 @@ export async function serveApp(
     {
         return new Response(null, { status: 302, headers: { location: base } });
     }
-    const relative = normalize(decodeURIComponent(pathname.slice(base.length)));
+    let relative: string;
+    try
+    {
+        relative = normalize(decodeURIComponent(pathname.slice(base.length)));
+    }
+    catch
+    {
+        return new Response(null, { status: 400 });
+    }
     const folder = resolve(dist);
     const file = resolve(folder, relative);
     const inside = file === folder || file.startsWith(folder + sep);

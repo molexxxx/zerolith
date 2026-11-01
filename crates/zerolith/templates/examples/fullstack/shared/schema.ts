@@ -40,7 +40,8 @@ export interface SignIn
 export const signInSchema = schema<SignIn>((fields) =>
 {
     const email = text(fields, "email");
-    const password = text(fields, "password");
+    const sent = fields["password"];
+    const password = typeof sent === "string" ? sent : "";
     const issues: StandardIssue[] = [];
     if (!email.includes("@"))
     {

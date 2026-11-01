@@ -24,7 +24,7 @@ function seed(): Task[]
     ];
 }
 
-async function fields(request: Request): Promise<Record<string, unknown>>
+async function fields(request: Request): Promise<Record<string, unknown> | Response>
 {
     const text = await request.text();
     if (text === "")
@@ -34,7 +34,16 @@ async function fields(request: Request): Promise<Record<string, unknown>>
     const type = request.headers.get("content-type") ?? "";
     if (type.includes("json"))
     {
-        return JSON.parse(text) as Record<string, unknown>;
+        let parsed: unknown;
+        try
+        {
+            parsed = JSON.parse(text);
+        }
+        catch
+        {
+            parsed = undefined;
+        }
+        return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? parsed as Record<string, unknown> : problemResponse({ title: "The body is not a JSON object", status: 400 });
     }
     return Object.fromEntries(new URLSearchParams(text));
 }
@@ -58,7 +67,12 @@ export function createTaskApi(): (request: Request) => Promise<Response | undefi
         }
         if (id === undefined && method === "POST")
         {
-            const validation = await validateForm(taskSchema, await fields(request));
+            const body = await fields(request);
+            if (body instanceof Response)
+            {
+                return body;
+            }
+            const validation = await validateForm(taskSchema, body);
             if (validation.problem !== undefined)
             {
                 return problemResponse(validation.problem);
@@ -84,7 +98,14 @@ export function createTaskApi(): (request: Request) => Promise<Response | undefi
         if (method === "PATCH")
         {
             const changes = await fields(request);
-            task.done = changes["done"] === true || changes["done"] === "true";
+            if (changes instanceof Response)
+            {
+                return changes;
+            }
+            if ("done" in changes)
+            {
+                task.done = changes["done"] === true || changes["done"] === "true";
+            }
             return Response.json(task);
         }
         if (method === "DELETE")

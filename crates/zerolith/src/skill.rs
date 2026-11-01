@@ -116,11 +116,15 @@ fn skill_md(source: &str) -> String {
     }
 }
 
-/// The version of zerolith a written `SKILL.md` describes, or none for a copy that records none, as one installed from the repository.
+/// The version of zerolith a written `SKILL.md` describes, or none for a copy that records none, as one installed from the repository. The front matter is read line by line, so a checkout with Windows line endings reads the same.
 pub fn version_of(skill: &str) -> Option<&str> {
-    let front = skill.strip_prefix("---\n")?;
-    let front = &front[..front.find("\n---\n")?];
-    let line = front.lines().find(|line| line.starts_with(VERSION_KEY))?;
+    let mut lines = skill.lines();
+    if lines.next()? != "---" {
+        return None;
+    }
+    let line = lines
+        .take_while(|line| *line != "---")
+        .find(|line| line.starts_with(VERSION_KEY))?;
     Some(line[VERSION_KEY.len()..].trim().trim_matches('"'))
 }
 
@@ -210,6 +214,10 @@ mod tests {
         assert!(written.starts_with("---\nname: zerolith\n"), "{written}");
         assert_eq!(version_of(&written), Some(env!("CARGO_PKG_VERSION")));
         assert_eq!(version_of(FILES[0].1), None);
+        assert_eq!(
+            version_of(&written.replace('\n', "\r\n")),
+            Some(env!("CARGO_PKG_VERSION"))
+        );
         assert_eq!(skill_md("no front matter"), "no front matter");
     }
 

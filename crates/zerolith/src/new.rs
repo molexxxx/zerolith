@@ -425,8 +425,8 @@ mountDevtools();
 const ROUTER_TS: &str = r#"// The router. Components import it for typed links while the route table
 // it reads imports the components, so read `router` inside a component's
 // function, never at a module's top level, where it does not exist yet. It
-// follows the base path the app is served under, which zerolith.json or
-// --base sets.
+// follows the base path the app is served under, import.meta.env.BASE_URL,
+// which the build's base setting gives.
 import { createRouter } from "@zerolith/router";
 import { NotFound } from "./components/not-found.__CEXT__";
 import { routes } from "./routes.__EXT__";
@@ -440,8 +440,8 @@ export const router = createRouter(routes, {
 const ROUTER_JS: &str = r#"// The router. Components import it for typed links while the route table
 // it reads imports the components, so read `router` inside a component's
 // function, never at a module's top level, where it does not exist yet. It
-// follows the base path the app is served under, which zerolith.json or
-// --base sets.
+// follows the base path the app is served under, import.meta.env.BASE_URL,
+// which the build's base setting gives.
 import { createRouter } from "@zerolith/router";
 import { NotFound } from "./components/not-found.__CEXT__";
 import { routes } from "./routes.__EXT__";
@@ -1185,7 +1185,7 @@ fn readme(name: &str, choice: Choice) -> String {
         }
     };
     let config = if choice.tool == Tool::Vite {
-        ""
+        "vite.config.ts           Vite, with the zerolith plugin\n"
     } else {
         "zerolith.json            the settings dev, build, and preview share\n"
     };
@@ -1194,10 +1194,17 @@ fn readme(name: &str, choice: Choice) -> String {
     } else {
         ""
     };
-    let syntax = if choice.jsx {
-        "\n\nComponents are written in JSX, which `zerolith dev` and `zerolith build` lower to `html` templates before the browser sees them: write `class` rather than `className`, `on:click` for events, `prop:value` for properties, and `bool:disabled` for boolean attributes. Lists and conditions are `each` and `when`. The [templates guide](https://molexxxx.github.io/zerolith/guide/templates/) has the whole mapping."
+    let lowering = if choice.tool == Tool::Vite {
+        "`@zerolith/vite` lowers"
     } else {
-        ""
+        "`zerolith dev` and `zerolith build` lower"
+    };
+    let syntax = if choice.jsx {
+        format!(
+            "\n\nComponents are written in JSX, which {lowering} to `html` templates before the browser sees them: write `class` rather than `className`, `on:click` for events, `prop:value` for properties, and `bool:disabled` for boolean attributes. Lists and conditions are `each` and `when`. The [templates guide](https://molexxxx.github.io/zerolith/guide/templates/) has the whole mapping."
+        )
+    } else {
+        String::new()
     };
     let vite = match choice.tool {
         Tool::Vite => {
@@ -1703,6 +1710,9 @@ fn starter_flags(answers: &Answers) -> Vec<String> {
         Some(Tool::Unbundled) => flags.push("--buildless".to_string()),
         Some(Tool::CommandLine) | None => {}
     }
+    if answers.devtools == Some(false) {
+        flags.push("--no-devtools".to_string());
+    }
     flags
 }
 
@@ -1724,7 +1734,7 @@ fn settle_from(
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!(
-                    "--example fullstack takes no {}, since the example is TypeScript on the zerolith command line; leave {} out, or drop --example to write the starter",
+                    "--example fullstack takes no {}, since the example comes as it is, TypeScript on the zerolith command line with the inspector; leave {} out, or drop --example to write the starter",
                     starter_only.join(" or "),
                     if starter_only.len() == 1 {
                         "the flag"
@@ -2018,9 +2028,23 @@ mod tests {
     use std::io::{self, Cursor};
     use std::path::{Path, PathBuf};
 
+    /// A guide of the repository, which the starter is held to, or none outside the repository, as in the published crate, which ships no guides.
+    fn guide(name: &str) -> Option<String> {
+        let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        if !repository.join("package.json").is_file() {
+            return None;
+        }
+        Some(
+            fs::read_to_string(repository.join("docs/guide").join(name))
+                .expect("a guide the starter is held to"),
+        )
+    }
+
     #[test]
     fn writes_the_agents_md_the_structure_guide_shows() {
-        let guide = include_str!("../../../docs/guide/structure.md");
+        let Some(guide) = guide("structure.md") else {
+            return;
+        };
         let written = agents_md("my-app", Choice::DEFAULT);
         assert!(
             guide.contains(&format!("```markdown AGENTS.md\n{written}```")),
@@ -2031,7 +2055,9 @@ mod tests {
 
     #[test]
     fn writes_the_vitest_config_the_testing_guide_shows() {
-        let guide = include_str!("../../../docs/guide/testing.md");
+        let Some(guide) = guide("testing.md") else {
+            return;
+        };
         assert!(
             guide.contains(&format!("```ts\n{VITEST_CONFIG}```")),
             "docs/guide/testing.md should show the vitest.config.ts the default starter gets:
@@ -2041,7 +2067,9 @@ mod tests {
 
     #[test]
     fn writes_the_layout_the_structure_guide_shows() {
-        let guide = include_str!("../../../docs/guide/structure.md");
+        let Some(guide) = guide("structure.md") else {
+            return;
+        };
         let tree = guide
             .split_once("```tree\n")
             .and_then(|(_, rest)| rest.split_once("```"))
@@ -2618,13 +2646,26 @@ mod tests {
         let (_, choice, install) = settle(
             Answers {
                 start: Some(Start::Fullstack),
-                devtools: Some(false),
                 ..Answers::default()
             },
             false,
         )
         .unwrap();
         assert_eq!(choice, Choice::FULLSTACK);
+        let refused = settle(
+            Answers {
+                start: Some(Start::Fullstack),
+                devtools: Some(false),
+                ..Answers::default()
+            },
+            false,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            refused.contains("takes no --no-devtools, since"),
+            "{refused}"
+        );
         assert!(install);
         assert_eq!(Start::example("fullstack"), Some(Start::Fullstack));
         assert_eq!(Start::example("starter"), None);
@@ -2695,6 +2736,11 @@ mod tests {
                 "{name} drifted"
             );
         }
+        assert_eq!(
+            fs::read_to_string(repository.join("LICENSE")).unwrap(),
+            fs::read_to_string(repository.join("crates/zerolith/LICENSE")).unwrap(),
+            "crates/zerolith/LICENSE drifted from the repository's LICENSE"
+        );
         let favicon = fs::read_to_string(repository.join("brand/app-icon/favicon.svg")).unwrap();
         assert_eq!(
             FAVICON, favicon,

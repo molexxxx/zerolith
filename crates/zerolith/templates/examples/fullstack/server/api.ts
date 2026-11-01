@@ -10,6 +10,9 @@ import type { Events } from "./events.ts";
 
 const COOKIE = "harbor_session";
 
+/** How long a session lasts after signing in, in milliseconds; the cookie's `Max-Age` matches it. */
+const SESSION_LIFETIME = 7 * 24 * 60 * 60 * 1000;
+
 /** The largest request body the API reads, well above what any of its forms sends. */
 const BODY_LIMIT = 64 * 1024;
 
@@ -247,8 +250,8 @@ export function createApi(data: Data, events: Events): (request: Request) => Pro
             return problemResponse({ status: 400, title: "The email or the password is wrong", fields: { password: ["That email and password do not match an account."] } });
         }
         const session = crypto.randomUUID();
-        data.sessions.set(session, user.id);
-        return Response.json({ user: profile(user) }, { headers: { "set-cookie": cookie(request, session) } });
+        data.sessions.set(session, { userId: user.id, expires: Date.now() + SESSION_LIFETIME });
+        return Response.json({ user: profile(user) }, { headers: { "set-cookie": cookie(request, session, SESSION_LIFETIME / 1000) } });
     };
 
     return async (request) =>
@@ -263,7 +266,12 @@ export function createApi(data: Data, events: Events): (request: Request) => Pro
             return signIn(request);
         }
         const session = sessionOf(request);
-        const userId = session === undefined ? undefined : data.sessions.get(session);
+        const stored = session === undefined ? undefined : data.sessions.get(session);
+        if (session !== undefined && stored !== undefined && stored.expires <= Date.now())
+        {
+            data.sessions.delete(session);
+        }
+        const userId = stored !== undefined && stored.expires > Date.now() ? stored.userId : undefined;
         const user = data.users.find((candidate) => candidate.id === userId);
         if (session === undefined || user === undefined)
         {

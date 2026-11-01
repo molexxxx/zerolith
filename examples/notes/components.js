@@ -99,13 +99,13 @@ const form = css`
 `;
 
 /**
- * Creates or edits a note with a native form. Validation is the browser's; the title input receives focus on mount.
+ * Creates or edits a note with a native form. Validation is the browser's; the title input receives focus on mount. The note to edit is read from the store as it changes, so a link opened before the notes load shows the edit form once they arrive, and the missing-note message for an id the store does not hold.
  * @param {{ id?: string }} props
  * @returns {View}
  */
 export function NoteForm({ id })
 {
-    const existing = id === undefined ? undefined : find(id);
+    const note = computed(() => (id === undefined ? undefined : find(id)));
     /** @type {import("zerolith").Signal<HTMLInputElement | undefined>} */
     const title = signal(undefined);
     effect(() =>
@@ -124,6 +124,7 @@ export function NoteForm({ id })
         }
         const data = new FormData(element);
         const draft = { title: String(data.get("title") ?? ""), body: String(data.get("body") ?? "") };
+        const existing = note.get();
         let target;
         if (existing === undefined)
         {
@@ -137,15 +138,20 @@ export function NoteForm({ id })
         void router.navigate(router.href("note", { id: target }));
     };
 
-    return html`
+    const view = () => html`
         <form class=${form} @submit=${submit} data-testid="form">
-            <label>Title <input ref=${title} name="title" required minlength="2" .value=${existing?.title ?? ""}></label>
-            <label>Body <textarea name="body" .value=${existing?.body ?? ""}></textarea></label>
+            <label>Title <input ref=${title} name="title" required minlength="2" .value=${computed(() => note.get()?.title ?? "")}></label>
+            <label>Body <textarea name="body" .value=${computed(() => note.get()?.body ?? "")}></textarea></label>
             <div class="actions">
-                <button data-kind="primary">${existing === undefined ? "Create" : "Save"}</button>
-                <a href=${existing === undefined ? router.href("home") : router.href("note", { id: existing.id })}>Cancel</a>
+                <button data-kind="primary">${id === undefined ? "Create" : "Save"}</button>
+                <a href=${id === undefined ? router.href("home") : router.href("note", { id })}>Cancel</a>
             </div>
         </form>`;
+    if (id === undefined)
+    {
+        return view();
+    }
+    return when(note, view, () => html`<p data-testid="missing">There is no note with id ${id}. <a href=${router.href("home")}>Back to the list</a></p>`);
 }
 
 /**
@@ -154,5 +160,5 @@ export function NoteForm({ id })
  */
 export function NotFound()
 {
-    return html`<p data-testid="not-found">That page does not exist. There are ${computed(() => notes.get().length)} notes on the <a href="/">list</a>.</p>`;
+    return html`<p data-testid="not-found">That page does not exist. There are ${computed(() => notes.get().length)} notes on the <a href=${router.href("home")}>list</a>.</p>`;
 }
