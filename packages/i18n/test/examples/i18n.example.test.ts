@@ -34,7 +34,8 @@ describe("internationalization guide", () =>
         // #region locale
         const locale = createLocale({
             supported: ["en", "de", "ar"],
-            // An Accept-Language header on the server, navigator.languages in the browser:
+            // An Accept-Language header on the server,
+            // navigator.languages in the browser:
             initial: request.headers.get("accept-language")
         });
         const format = formatters(locale.locale);
@@ -76,7 +77,10 @@ describe("internationalization guide", () =>
     {
         vi.stubGlobal("navigator", { languages: ["de-AT", "de", "en"] });
         // #region load
-        const locale = createLocale({ supported: locales, initial: navigator.languages });
+        const locale = createLocale({
+            supported: locales,
+            initial: navigator.languages
+        });
         const messages = resource({
             params: () => locale.locale.get(),
             loader: async ({ params }) => loaders[params]?.()
@@ -87,7 +91,8 @@ describe("internationalization guide", () =>
         await vi.waitFor(() => expect(heading.get()).toBe("3 Notizen"));
         // #region load
 
-        locale.set("en");                       // loads en.ts, then heading.get() is "3 notes"
+        // This loads en.ts, after which heading.get() is "3 notes".
+        locale.set("en");
         // #endregion load
         expect(heading.get()).toBe("3 Notizen");
         await vi.waitFor(() => expect(heading.get()).toBe("3 notes"));

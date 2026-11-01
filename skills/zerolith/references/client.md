@@ -140,7 +140,8 @@ const { port1, port2 } = new MessageChannel();
 servePort(port2, (request) =>
 {
     const id = new URL(request.url).pathname.split("/").at(-1);
-    return Response.json({ id, title: "From main", tags: [], visibility: "private" });
+    const note = { id, title: "From main", tags: [], visibility: "private" };
+    return Response.json(note);
 });
 
 // Where the page runs, with port1 handed over through the preload script:

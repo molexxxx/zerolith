@@ -30,7 +30,8 @@ function App(router: Router<RouteTable>): unknown
 async function handle(request: Request): Promise<Response>
 {
     const url = new URL(request.url);
-    const router = createRouter(routes, { fallback: () => html`<h1>Not found</h1>` });
+    const fallback = () => html`<h1>Not found</h1>`;
+    const router = createRouter(routes, { fallback });
     await router.navigate(url.pathname + url.search);
 
     const head = renderHead(router.head.get()) + renderStyles();

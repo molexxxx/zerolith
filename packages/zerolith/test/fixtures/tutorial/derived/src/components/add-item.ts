@@ -17,7 +17,9 @@ export function AddItem(): View
     };
     return html`
         <form @submit=${submitted}>
-            <label>New item <input name="name" autocomplete="off" required></label>
+            <label>New item
+                <input name="name" autocomplete="off" required>
+            </label>
             <button>Add</button>
         </form>`;
 }

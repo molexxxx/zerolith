@@ -52,12 +52,15 @@
 
     --zl-code-bg: var(--zl-surface);
     --zl-code-text: var(--zl-basalt-100);
-    --zl-code-keyword: var(--zl-lichen-300);
+    --zl-code-keyword: #FF7B72;
+    --zl-code-function: #D2A8FF;
+    --zl-code-type: #FFA657;
+    --zl-code-signal: var(--zl-lichen-300);
     --zl-code-binding: var(--zl-lichen-200);
-    --zl-code-tag: #8DC3F2;
-    --zl-code-attribute: #BDB4F4;
-    --zl-code-literal: #EFA3BD;
-    --zl-code-string: var(--zl-basalt-300);
+    --zl-code-tag: #7EE787;
+    --zl-code-attribute: #79C0FF;
+    --zl-code-literal: #79C0FF;
+    --zl-code-string: #A5D6FF;
     --zl-code-comment: var(--zl-basalt-400);
     --zl-code-selection: var(--zl-basalt-800);
 
@@ -94,12 +97,15 @@
         --zl-warning: #7A5B00;
         --zl-hint: #1F5BB8;
         --zl-code-text: var(--zl-basalt-950);
-        --zl-code-keyword: var(--zl-lichen-700);
+        --zl-code-keyword: #CF222E;
+        --zl-code-function: #8250DF;
+        --zl-code-type: #953800;
+        --zl-code-signal: var(--zl-lichen-700);
         --zl-code-binding: #3A4A00;
-        --zl-code-tag: #215F94;
-        --zl-code-attribute: #5747B8;
-        --zl-code-literal: #A3305A;
-        --zl-code-string: var(--zl-basalt-800);
+        --zl-code-tag: #116329;
+        --zl-code-attribute: #0550AE;
+        --zl-code-literal: #0550AE;
+        --zl-code-string: #0A3069;
         --zl-code-comment: var(--zl-basalt-600);
         --zl-code-selection: var(--zl-basalt-200);
     }
@@ -119,12 +125,15 @@
     --zl-warning: #7A5B00;
     --zl-hint: #1F5BB8;
     --zl-code-text: var(--zl-basalt-950);
-    --zl-code-keyword: var(--zl-lichen-700);
+    --zl-code-keyword: #CF222E;
+    --zl-code-function: #8250DF;
+    --zl-code-type: #953800;
+    --zl-code-signal: var(--zl-lichen-700);
     --zl-code-binding: #3A4A00;
-    --zl-code-tag: #215F94;
-    --zl-code-attribute: #5747B8;
-    --zl-code-literal: #A3305A;
-    --zl-code-string: var(--zl-basalt-800);
+    --zl-code-tag: #116329;
+    --zl-code-attribute: #0550AE;
+    --zl-code-literal: #0550AE;
+    --zl-code-string: #0A3069;
     --zl-code-comment: var(--zl-basalt-600);
     --zl-code-selection: var(--zl-basalt-200);
 }

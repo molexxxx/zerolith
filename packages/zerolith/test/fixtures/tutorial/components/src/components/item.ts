@@ -9,9 +9,11 @@ export function ItemRow({ item }: { item: ReadableSignal<Item> }): View
     return html`
         <li>
             <label>
-                <input type="checkbox" .checked=${packed} @change=${() => toggle(item.get().id)}>
+                <input type="checkbox" .checked=${packed}
+                    @change=${() => toggle(item.get().id)}>
                 ${name}
             </label>
-            <button type="button" aria-label="Remove ${name}" @click=${() => remove(item.get().id)}>Remove</button>
+            <button type="button" aria-label="Remove ${name}"
+                @click=${() => remove(item.get().id)}>Remove</button>
         </li>`;
 }

@@ -69,8 +69,31 @@ export function importsFor(code: string, source: string, test: boolean): string[
     {
         const types = bindings.every((binding) => binding.type);
         const names = bindings.map((binding) => (binding.type && !types ? `type ${binding.spec}` : binding.spec));
-        return `import ${types ? "type " : ""}{ ${names.join(", ")} } from "${from}";`;
+        const line = `import ${types ? "type " : ""}{ ${names.join(", ")} } from "${from}";`;
+        return line.length <= 80 ? line : `import ${types ? "type " : ""}{\n${fill(names)}\n} from "${from}";`;
     });
+}
+
+/** Names spread over indented lines of at most 80 characters, for an import too long for one. */
+function fill(names: string[]): string
+{
+    const lines: string[] = [];
+    let line = "";
+    for (const [index, name] of names.entries())
+    {
+        const piece = name + (index < names.length - 1 ? "," : "");
+        if (line !== "" && 4 + line.length + 1 + piece.length > 80)
+        {
+            lines.push(line);
+            line = piece;
+        }
+        else
+        {
+            line = line === "" ? piece : `${line} ${piece}`;
+        }
+    }
+    lines.push(line);
+    return lines.map((text) => `    ${text}`).join("\n");
 }
 
 /** Every part of a region, in order: a region may be opened and closed several times so checks can run between its parts. */
@@ -105,12 +128,14 @@ const languages = new Set(["ts", "tsx", "js", "jsx", "html", "css", "json", "sh"
  * language. The code is application code: a region that shows a test check
  * is refused, the imports the code uses are added, and the code is dedented.
  * Options after the region change that: `test` shows a test as a test,
- * `excerpt` shows the text verbatim with no imports added, and a language
- * name sets the language. Without a region, the whole file is shown verbatim.
+ * `excerpt` shows the text verbatim with no imports added, `wide` lets lines
+ * run past 80 characters, for generated output and data that cannot wrap,
+ * and a language name sets the language. Without a region, the whole file
+ * is shown verbatim.
  */
 export function exampleCode(source: string, path: string, region: string | undefined, options: string[], file: string): { language: string; code: string }
 {
-    const unknown = options.filter((option) => option !== "test" && option !== "excerpt" && !languages.has(option));
+    const unknown = options.filter((option) => !["test", "excerpt", "wide"].includes(option) && !languages.has(option));
     if (unknown.length > 0)
     {
         throw new Error(`${file}: unknown include option ${unknown.join(", ")} for ${path}`);
@@ -142,7 +167,7 @@ export function exampleCode(source: string, path: string, region: string | undef
 export function renderExample(source: string, path: string, region: string | undefined, options: string[], file: string): string
 {
     const { language, code } = exampleCode(source, path, region, options, file);
-    return "```" + language + "\n" + code + "\n```";
+    return "```" + language + (options.includes("wide") ? " wide" : "") + "\n" + code + "\n```";
 }
 
 /** Replaces every `@include path#region options` line of a guide with the example it names, reading files under `root`. */

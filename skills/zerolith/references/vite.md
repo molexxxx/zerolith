@@ -59,7 +59,7 @@ export function App()
 
 and comes out like this in development:
 
-```js
+```js wide
 import * as __zl$ from "@zerolith/vite/runtime"; var App = __zl$.component(import.meta.hot, "App", App$); import { Counter } from "./counter.js";
 
 function App$()

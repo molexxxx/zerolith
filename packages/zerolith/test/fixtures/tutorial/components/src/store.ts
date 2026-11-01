@@ -16,7 +16,8 @@ export const items = signal<Item[]>([
 
 export function toggle(id: number): void
 {
-    items.set(items.get().map((item) => (item.id === id ? { ...item, packed: !item.packed } : item)));
+    items.set(items.get().map((item) =>
+        (item.id === id ? { ...item, packed: !item.packed } : item)));
 }
 
 export function add(name: string): void

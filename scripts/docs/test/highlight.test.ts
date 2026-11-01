@@ -43,17 +43,42 @@ describe("code coloring", () =>
 
     it("reads a css template as styles and leaves other templates as strings", () =>
     {
-        expect(highlight("css`h2 { margin: 0; }`", "ts")).toBe("css<span class=\"s\">`</span><span class=\"t\">h2</span> { <span class=\"a\">margin</span>: <span class=\"n\">0</span>; }<span class=\"s\">`</span>");
+        expect(highlight("css`h2 { margin: 0; }`", "ts")).toBe("<span class=\"f\">css</span><span class=\"s\">`</span><span class=\"t\">h2</span> { <span class=\"a\">margin</span>: <span class=\"n\">0</span>; }<span class=\"s\">`</span>");
         expect(highlight("`/api/${id}`", "ts")).toBe("<span class=\"s\">`/api/${</span>id<span class=\"s\">}`</span>");
     });
 
     it("reads JSX as markup, with braces and binding namespaces as the live parts", () =>
     {
         expect(highlight("const v = <Card on:click={go}>Hi {name}</Card>;", "tsx")).toBe(
-            "<span class=\"k\">const</span> v = &lt;<span class=\"t\">Card</span> <span class=\"b\">on:</span><span class=\"a\">click</span>=<span class=\"b\">{</span>go<span class=\"b\">}</span>&gt;Hi <span class=\"b\">{</span>name<span class=\"b\">}</span>&lt;/<span class=\"t\">Card</span>&gt;;");
+            "<span class=\"k\">const</span> v = &lt;<span class=\"f\">Card</span> <span class=\"b\">on:</span><span class=\"a\">click</span>=<span class=\"b\">{</span>go<span class=\"b\">}</span>&gt;Hi <span class=\"b\">{</span>name<span class=\"b\">}</span>&lt;/<span class=\"f\">Card</span>&gt;;");
         expect(tokenize("const half = total / 2 / 1;", "ts").filter((token) => token.kind === "string")).toEqual([]);
         expect(tokenize("const re = /a\\/b/g;", "ts").filter((token) => token.kind === "string").map((token) => token.text)).toEqual(["/a\\/b/g"]);
         expect(tokenize("const ok = a < b && c > d;", "tsx").filter((token) => token.kind === "tag")).toEqual([]);
+    });
+
+    it("gives a name one color in the whole block, from its import to each use", () =>
+    {
+        const code = [
+            "import { type View, computed } from \"zerolith\";",
+            "import { ItemRow, items } from \"./store.ts\";",
+            "const LIMIT = 3;",
+            "const count = computed(() => items.get().length);",
+            "function List(): View",
+            "{",
+            "    return ItemRow({ item: { name: \"x\", count } });",
+            "}"
+        ].join("\n");
+        const colored = highlight(code, "ts");
+        const times = (span: string): number => colored.split(span).length - 1;
+        expect(times("<span class=\"f\">ItemRow</span>")).toBe(2);
+        expect(times("<span class=\"f\">computed</span>")).toBe(2);
+        expect(times("<span class=\"g\">items</span>")).toBe(2);
+        expect(times("<span class=\"g\">count</span>")).toBe(2);
+        expect(times("<span class=\"y\">View</span>")).toBe(2);
+        expect(times("<span class=\"f\">List</span>")).toBe(1);
+        expect(colored).toContain(".<span class=\"f\">get</span>()");
+        expect(colored).toContain("<span class=\"n\">LIMIT</span>");
+        expect(colored).toContain("{ item: { name: ");
     });
 
     it("colors numbers and literals", () =>

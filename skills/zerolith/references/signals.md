@@ -24,7 +24,7 @@ count.set(count.get() + 1);
 console.log(count.get());               // 1
 
 const point = signal({ x: 1 }, { equals: (a, b) => a.x === b.x });
-point.set({ x: 1 });                    // ignored: equal by the custom comparison
+point.set({ x: 1 });                    // ignored: `equals` says it is equal
 ```
 
 `set` ignores a value equal to the current one, by `Object.is` unless the signal was given its own `equals`. An ignored write notifies nothing, so a write that changes nothing costs nothing downstream.
@@ -76,7 +76,7 @@ const dispose = effect(() =>
     return () => console.log(`goodbye ${current}`);
 });                                     // prints "hello Ada" right away
 
-name.set("Grace");                      // prints "goodbye Ada", then "hello Grace"
+name.set("Grace");                      // prints "goodbye Ada", "hello Grace"
 dispose();                              // prints "goodbye Grace"
 ```
 
@@ -103,7 +103,7 @@ effect(() =>
     console.log(`search ${query.get()} from page ${from}`);
 });                                     // prints "search zerolith from page 1"
 
-page.set(2);                            // prints nothing: the page was read untracked
+page.set(2);                            // prints nothing: page is untracked
 query.set("signals");                   // prints "search signals from page 2"
 ```
 
@@ -116,7 +116,8 @@ import { batch, effect, signal } from "zerolith";
 
 const first = signal("Ada");
 const last = signal("Lovelace");
-effect(() => console.log(`${first.get()} ${last.get()}`)); // prints "Ada Lovelace"
+// Prints "Ada Lovelace" now, and again after each change:
+effect(() => console.log(`${first.get()} ${last.get()}`));
 
 batch(() =>
 {

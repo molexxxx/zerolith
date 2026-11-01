@@ -9,7 +9,7 @@
  */
 
 /** `text` is the text content of markup: drawn like `plain`, but never read as identifiers. */
-export type TokenKind = "plain" | "text" | "keyword" | "string" | "comment" | "binding" | "tag" | "attribute" | "literal";
+export type TokenKind = "plain" | "text" | "keyword" | "string" | "comment" | "binding" | "tag" | "attribute" | "literal" | "function" | "type" | "signal";
 
 export interface Token
 {
@@ -620,18 +620,219 @@ export function tokenize(code: string, language: string): Token[]
 const entities: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" };
 
 /** Escapes code for HTML, quotes included, so markup inside an example is never read as the page's own attributes. */
-/** Text made safe to place in HTML content or a quoted attribute. */
 export function escapeHtml(text: string): string
 {
     return text.replace(/[&<>"']/g, (character) => entities[character] ?? character);
 }
 
-const classes: Record<TokenKind, string> = { plain: "", text: "", keyword: "k", string: "s", comment: "c", binding: "b", tag: "t", attribute: "a", literal: "n" };
+const classes: Record<TokenKind, string> = {
+    plain: "", text: "", keyword: "k", string: "s", comment: "c", binding: "b", tag: "t", attribute: "a", literal: "n", function: "f", type: "y", signal: "g"
+};
+
+/** What a name is in a block of code. */
+type Role = "type" | "function" | "signal";
+
+const primitives = new Set(["string", "number", "boolean", "bigint", "symbol", "object", "unknown", "never", "any"]);
+
+/** After a name: a call, a tagged template, or a call with type arguments. */
+const called = /^(?:\s*\(|`|\s*<[\w\s,.[\]|&"']*(?:<[\w\s,.[\]|&"']*>)?[\w\s,.[\]|&"']*>\s*\()/;
+
+/** After a name: an arrow function or a function expression assigned to it. */
+const assignedFunction = /^\s*=\s*(?:async\s*)?(?:\([^()]*\)|[A-Za-z_$][\w$]*)\s*=>|^\s*=\s*(?:async\s+)?function\b/;
+
+/** After a name: a signal, a computed value, or a resource assigned to it. */
+const assignedSignal = /^\s*=\s*(?:signal|computed|resource)\s*[<(]/;
+
+/** After a name: a read or a write of it as a signal, or of a resource's own signals. */
+const signalUse = /^\.(?:get|set)\s*\(|^\.(?:status|pending|error)\.get\s*\(|^\.reload\s*\(/;
+
+/** After a name: an array type, or type arguments that do not start a call. */
+const typeAfter = /^\[\]|^<[\w\s,.[\]|&"'{}:;?]*>(?!\s*\()/;
+
+/** A name in capitals, such as `ORBIT`, which reads as a constant. */
+const constant = /^[A-Z][A-Z\d_]+$/;
+
+/** Keywords that make the name after them a type. */
+const typeKeywords = new Set(["interface", "type", "class", "enum", "extends", "implements", "as", "new", "keyof"]);
+
+/** The keyword a name directly follows, with nothing but whitespace between. */
+function keywordBefore(tokens: Token[], index: number, lead: string): string
+{
+    return /^\s*$/.test(lead) && tokens[index - 1]?.kind === "keyword" ? (tokens[index - 1]?.text ?? "") : "";
+}
+
+/**
+ * Whether the colon at `colon` annotates a type rather than following an
+ * object's key: it comes after a closing parenthesis, as a return type does,
+ * or sits in a parameter list, a block, or an interface's body, which in
+ * this code open on their own line or after `)` or `=>`.
+ */
+function annotates(code: string, colon: number): boolean
+{
+    if (code.slice(0, colon).trimEnd().endsWith(")"))
+    {
+        return true;
+    }
+    let depth = 0;
+    for (let index = colon - 1; index >= 0; index--)
+    {
+        const character = code[index] ?? "";
+        if (")]}".includes(character))
+        {
+            depth += 1;
+        }
+        else if ("([{".includes(character))
+        {
+            if (depth > 0)
+            {
+                depth -= 1;
+                continue;
+            }
+            if (character !== "{")
+            {
+                return character === "(";
+            }
+            const lead = /[^\S\n]*$/.exec(code.slice(0, index))?.index ?? index;
+            const before = code.slice(0, lead);
+            return before === "" || /(?:\n|\)|=>|\b(?:else|try|finally|do))$/.test(before);
+        }
+    }
+    return true;
+}
+
+/**
+ * Colors the names in script code by what each one is in the block, so a
+ * name looks the same at its import, its declaration, and every use. A name
+ * created with `signal`, `computed`, or `resource`, or read with `get` and
+ * `set`, is a signal; one called, declared as a function, or used as a JSX
+ * tag is a function; one with a type's evidence, such as a `type` import, an
+ * annotation, or type arguments, is a type; and any other capitalized name,
+ * such as a component or a class passed by reference, is a function too. A
+ * method call such as `.get()` is a function, and a name in capitals is a
+ * constant.
+ */
+function refine(tokens: Token[]): Token[]
+{
+    const code = tokens.map((token) => token.text).join("");
+    const evidence = new Map<string, Set<Role>>();
+    const note = (word: string, role: Role): void =>
+    {
+        const found = evidence.get(word) ?? new Set<Role>();
+        found.add(role);
+        evidence.set(word, found);
+    };
+    for (const match of code.matchAll(/\bimport\s+type\s*\{([^}]*)\}/g))
+    {
+        for (const name of (match[1] ?? "").split(","))
+        {
+            note(name.trim().split(/\s+as\s+/).at(-1) ?? "", "type");
+        }
+    }
+    let offset = 0;
+    for (const [index, token] of tokens.entries())
+    {
+        if (token.kind === "tag" && /^[A-Z]/.test(token.text))
+        {
+            note(token.text, "function");
+        }
+        else if (token.kind === "plain")
+        {
+            for (const match of token.text.matchAll(/[A-Za-z_$][\w$]*/g))
+            {
+                const start = offset + (match.index ?? 0);
+                const word = match[0];
+                const after = code.slice(start + word.length);
+                const keyword = keywordBefore(tokens, index, token.text.slice(0, match.index));
+                const before = code.slice(0, start).trimEnd();
+                if ((code[start - 1] === "." && code[start - 2] !== ".") || /^\s*:(?!:)/.test(after))
+                {
+                    continue;
+                }
+                if (assignedSignal.test(after) || signalUse.test(after))
+                {
+                    note(word, "signal");
+                }
+                else if (typeKeywords.has(keyword) || typeAfter.test(after) || /[<|&]$/.test(before)
+                    || (before.endsWith(":") && annotates(code, before.length - 1)))
+                {
+                    note(word, "type");
+                }
+                else if (called.test(after) || assignedFunction.test(after) || keyword === "function")
+                {
+                    note(word, "function");
+                }
+            }
+        }
+        offset += token.text.length;
+    }
+    const roleOf = (word: string): Role | undefined =>
+    {
+        const found = evidence.get(word);
+        if (found?.has("signal") === true)
+        {
+            return "signal";
+        }
+        if (found?.has("function") === true)
+        {
+            return "function";
+        }
+        if (found?.has("type") === true)
+        {
+            return "type";
+        }
+        return /^[A-Z]/.test(word) && !constant.test(word) ? "function" : undefined;
+    };
+    const refined: Token[] = [];
+    offset = 0;
+    for (const token of tokens)
+    {
+        if (token.kind === "tag" && /^[A-Z]/.test(token.text))
+        {
+            push(refined, "function", token.text);
+        }
+        else if (token.kind !== "plain")
+        {
+            refined.push({ ...token });
+        }
+        else
+        {
+            let last = 0;
+            for (const match of token.text.matchAll(/[A-Za-z_$][\w$]*/g))
+            {
+                const at = match.index ?? 0;
+                const start = offset + at;
+                const word = match[0];
+                const after = code.slice(start + word.length);
+                const member = code[start - 1] === "." && code[start - 2] !== ".";
+                const key = /^\s*:(?!:)/.test(after);
+                const before = code.slice(0, start).trimEnd().at(-1) ?? "";
+                let kind: TokenKind = "plain";
+                if (member)
+                {
+                    kind = called.test(after) ? "function" : "plain";
+                }
+                else if (!key)
+                {
+                    kind = roleOf(word) ?? (constant.test(word) ? "literal" : primitives.has(word) && /[:<|&,]/.test(before) ? "type" : "plain");
+                }
+                push(refined, "plain", token.text.slice(last, at));
+                push(refined, kind, word);
+                last = at + word.length;
+            }
+            push(refined, "plain", token.text.slice(last));
+        }
+        offset += token.text.length;
+    }
+    return refined;
+}
+
+const scripts = new Set(["ts", "tsx", "js", "jsx", "mjs", "typescript", "javascript"]);
 
 /** A code block's HTML, with every colored token wrapped in a span whose class names its role. */
 export function highlight(code: string, language: string): string
 {
-    return tokenize(code, language)
+    const tokens = tokenize(code, language);
+    return (scripts.has(language) ? refine(tokens) : tokens)
         .map((token) => (classes[token.kind] === "" ? escapeHtml(token.text) : `<span class="${classes[token.kind]}">${escapeHtml(token.text)}</span>`))
         .join("");
 }

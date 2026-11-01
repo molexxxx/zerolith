@@ -8,6 +8,10 @@ import { Packing } from "./components/packing.ts";
 
 export const routes = defineRoutes({
     // #region route
-    packing: route({ path: "/packing", view: () => Packing(), head: { title: "Packing list" } })
+    packing: route({
+        path: "/packing",
+        view: () => Packing(),
+        head: { title: "Packing list" }
+    })
     // #endregion route
 });

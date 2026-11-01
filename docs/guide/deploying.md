@@ -83,11 +83,13 @@ The same rules in Express 5, where a wildcard needs a name:
 import { extname, sep } from "node:path";
 import express from "express";
 
+const forever = "public, max-age=31536000, immutable";
 const app = express();
 app.use("/app", express.static("dist", {
     setHeaders(response, path)
     {
-        response.setHeader("cache-control", path.includes(`${sep}assets${sep}`) ? "public, max-age=31536000, immutable" : "no-cache");
+        const hashed = path.includes(`${sep}assets${sep}`);
+        response.setHeader("cache-control", hashed ? forever : "no-cache");
     }
 }));
 app.get("/app/{*route}", (request, response, next) =>
@@ -97,19 +99,23 @@ app.get("/app/{*route}", (request, response, next) =>
         next();
         return;
     }
-    response.set("cache-control", "no-cache").sendFile("index.html", { root: "dist" });
+    response.set("cache-control", "no-cache");
+    response.sendFile("index.html", { root: "dist" });
 });
 ```
 
 And in ASP.NET Core, with the build in `wwwroot/app/`. `MapFallbackToFile` matches only paths that name no file, so a missing asset still answers 404:
 
 ```csharp
+const string Forever = "public, max-age=31536000, immutable";
+
 var files = new StaticFileOptions
 {
     OnPrepareResponse = context =>
     {
-        var immutable = context.Context.Request.Path.StartsWithSegments("/app/assets");
-        context.Context.Response.Headers.CacheControl = immutable ? "public, max-age=31536000, immutable" : "no-cache";
+        var http = context.Context;
+        var hashed = http.Request.Path.StartsWithSegments("/app/assets");
+        http.Response.Headers.CacheControl = hashed ? Forever : "no-cache";
     }
 };
 app.UseStaticFiles(files);
@@ -156,7 +162,8 @@ IIS, with the URL Rewrite module installed and this `web.config` in `public/`, s
           <match url=".*" />
           <conditions logicalGrouping="MatchAll">
             <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
-            <add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true" />
+            <add input="{REQUEST_FILENAME}" matchType="IsDirectory"
+              negate="true" />
             <add input="{URL}" pattern="^/assets/" negate="true" />
           </conditions>
           <action type="Rewrite" url="/index.html" />
@@ -167,7 +174,8 @@ IIS, with the URL Rewrite module installed and this `web.config` in `public/`, s
   <location path="assets">
     <system.webServer>
       <staticContent>
-        <clientCache cacheControlMode="UseMaxAge" cacheControlMaxAge="365.00:00:00" cacheControlCustom="immutable" />
+        <clientCache cacheControlMode="UseMaxAge"
+          cacheControlMaxAge="365.00:00:00" cacheControlCustom="immutable" />
       </staticContent>
     </system.webServer>
   </location>

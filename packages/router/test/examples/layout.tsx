@@ -5,7 +5,8 @@ import { router } from "./router.ts";
 function NavLink({ href, label }: { href: string; label: string }): View
 {
     const here = router.matches(href, { exact: true });
-    return <a href={href} aria-current={computed(() => (here.get() ? "page" : undefined))}>{label}</a>;
+    const current = computed(() => (here.get() ? "page" : undefined));
+    return <a href={href} aria-current={current}>{label}</a>;
 }
 
 /** The frame around every page: the navigation and the current page. */

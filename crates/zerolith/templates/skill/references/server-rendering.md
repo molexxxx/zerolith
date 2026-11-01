@@ -13,7 +13,8 @@ import { each, html, signal } from "zerolith";
 import { renderToString } from "zerolith/ssr";
 
 const items = signal(["a", "b"]);
-const view = html`<ul>${each(items, (item) => item, (item) => html`<li>${item}</li>`)}</ul>`;
+const view = html`<ul>${each(items, (item) => item, (item) =>
+    html`<li>${item}</li>`)}</ul>`;
 
 const markup = renderToString(view);
 // <ul><li>a</li><li>b</li></ul>, plus markers hydrate() uses to adopt the nodes
@@ -42,7 +43,7 @@ import { renderStyles, renderToString } from "zerolith/ssr";
 
 const badge = css`:scope { font-weight: 700; }`;
 const markup = renderToString(html`<span class=${badge}>new</span>`);
-const head = renderStyles();            // a <style> with the badge's @scope rules
+const head = renderStyles();            // a <style> with its @scope rules
 ```
 
 A `css` literal creates its stylesheet when its module loads, so importing the components is enough for their styles to be included.
@@ -56,14 +57,15 @@ import { html, hydrate, signal } from "zerolith";
 import { renderToString } from "zerolith/ssr";
 
 const count = signal(1);
+const add = () => count.set(count.get() + 1);
 const view = () => html`
-    <button @click=${() => count.set(count.get() + 1)}>Clicked ${count} times</button>`;
+    <button @click=${add}>Clicked ${count} times</button>`;
 
 // On the server, the markup goes into the page inside <div id="app">:
 const markup = renderToString(view());
 
 // In the browser, the same view adopts that markup:
-const app = hydrate(view(), "#app");    // app.mismatches is empty: nothing differed
+const app = hydrate(view(), "#app");    // app.mismatches is empty
 ```
 
 Where the markup and the view disagree, the differing part is rendered on the client, a `hydration_mismatch` warning is reported, and the result's `mismatches` list says what differed:
@@ -94,7 +96,8 @@ import { renderHead, renderRouteState } from "@zerolith/router/server";
 async function handle(request: Request): Promise<Response>
 {
     const url = new URL(request.url);
-    const router = createRouter(routes, { fallback: () => html`<h1>Not found</h1>` });
+    const fallback = () => html`<h1>Not found</h1>`;
+    const router = createRouter(routes, { fallback });
     await router.navigate(url.pathname + url.search);
 
     const head = renderHead(router.head.get()) + renderStyles();
@@ -128,7 +131,7 @@ import { hydrate } from "zerolith";
 import { createRouter } from "@zerolith/router";
 
 const router = createRouter(routes);
-await router.ready;                     // the initial navigation, with the server's data
+await router.ready;                     // with the data the server sent
 const app = hydrate(App(router), "#app");
 ```
 

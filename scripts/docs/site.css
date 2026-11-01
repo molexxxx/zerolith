@@ -535,6 +535,24 @@ article blockquote > :last-child
     color: var(--zl-code-literal);
 }
 
+.code .f,
+.editor .f
+{
+    color: var(--zl-code-function);
+}
+
+.code .y,
+.editor .y
+{
+    color: var(--zl-code-type);
+}
+
+.code .g,
+.editor .g
+{
+    color: var(--zl-code-signal);
+}
+
 .code .copy
 {
     position: absolute;

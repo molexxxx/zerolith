@@ -69,7 +69,8 @@ export interface Note
     title: string;
 }
 
-// Any Standard Schema library works; this one is hand-written to show the interface.
+// Any Standard Schema library works; this one is written by hand to show
+// the interface.
 export const noteSchema: StandardSchema<unknown, Note> = {
     "~standard": {
         version: 1,

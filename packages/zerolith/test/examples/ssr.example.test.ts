@@ -10,7 +10,8 @@ describe("server rendering guide", () =>
     {
         // #region render
         const items = signal(["a", "b"]);
-        const view = html`<ul>${each(items, (item) => item, (item) => html`<li>${item}</li>`)}</ul>`;
+        const view = html`<ul>${each(items, (item) => item, (item) =>
+            html`<li>${item}</li>`)}</ul>`;
 
         const markup = renderToString(view);
         // <ul><li>a</li><li>b</li></ul>, plus markers hydrate() uses to adopt the nodes
@@ -23,7 +24,7 @@ describe("server rendering guide", () =>
         // #region styles
         const badge = css`:scope { font-weight: 700; }`;
         const markup = renderToString(html`<span class=${badge}>new</span>`);
-        const head = renderStyles();            // a <style> with the badge's @scope rules
+        const head = renderStyles();            // a <style> with its @scope rules
         // #endregion styles
         expect(markup).toContain(`<span class="zl-s ${badge.scope}">new</span>`);
         expect(head).toContain(`@scope (.${badge.scope})`);

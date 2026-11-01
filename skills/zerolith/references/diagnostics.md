@@ -41,7 +41,7 @@ catch (error)
 {
     const { diagnostic } = error as ZerolithError;
     console.log(diagnostic.code);       // "on_dispose_outside_scope"
-    console.log(diagnostic.url);        // ".../zerolith/e/on_dispose_outside_scope"
+    console.log(diagnostic.url);        // ".../e/on_dispose_outside_scope"
 }
 stop();
 ```

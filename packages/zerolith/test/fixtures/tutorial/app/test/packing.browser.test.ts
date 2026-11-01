@@ -17,7 +17,8 @@ it("checks an item off and counts it as packed", () =>
 {
     const { container } = mount(Packing());
     expect(container.querySelector("p")?.textContent).toBe("1 of 3 packed");
-    container.querySelectorAll<HTMLInputElement>("input[type=checkbox]")[1]?.click();
+    const boxes = container.querySelectorAll<HTMLInputElement>("li input");
+    boxes[1]?.click();
     expect(container.querySelector("p")?.textContent).toBe("2 of 3 packed");
 });
 

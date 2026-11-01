@@ -2,10 +2,12 @@ import { type View, computed, signal, when } from "zerolith";
 import type { Head, LoadContext, RouteContext } from "@zerolith/router";
 import { type Release, findRelease } from "../releases.ts";
 
-type Props = RouteContext<{ tag: string }, Release | undefined>;
+type Params = { tag: string };
+type Loaded = Release | undefined;
+type Props = RouteContext<Params, Loaded>;
 
 /** Loads the release the path names; the page shows once it resolves. */
-export function loadRelease({ params }: LoadContext<{ tag: string }>): Promise<Release | undefined>
+export function loadRelease({ params }: LoadContext<Params>): Promise<Loaded>
 {
     return findRelease(params.tag);
 }

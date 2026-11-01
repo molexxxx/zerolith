@@ -74,6 +74,8 @@ A backend that already runs in production can serve the build from its static fi
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize, resolve, sep } from "node:path";
 
+const forever = "public, max-age=31536000, immutable";
+
 const types: Record<string, string> = {
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
@@ -93,7 +95,11 @@ const types: Record<string, string> = {
  * and any other path under the base gets index.html, uncached, so routes
  * load directly and a new build is picked up at once.
  */
-export async function serveApp(request: Request, dist: string, base: string): Promise<Response>
+export async function serveApp(
+    request: Request,
+    dist: string,
+    base: string
+): Promise<Response>
 {
     const { pathname } = new URL(request.url);
     if (pathname === "/" || pathname === base.slice(0, -1))
@@ -101,25 +107,33 @@ export async function serveApp(request: Request, dist: string, base: string): Pr
         return new Response(null, { status: 302, headers: { location: base } });
     }
     const relative = normalize(decodeURIComponent(pathname.slice(base.length)));
-    const file = resolve(dist, relative);
-    if (!pathname.startsWith(base) || (!file.startsWith(resolve(dist) + sep) && file !== resolve(dist)))
+    const folder = resolve(dist);
+    const file = resolve(folder, relative);
+    const inside = file === folder || file.startsWith(folder + sep);
+    if (!pathname.startsWith(base) || !inside)
     {
         return new Response(null, { status: 404 });
     }
     if (extname(file) === "")
     {
         const page = await readFile(join(dist, "index.html"));
-        return new Response(page, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" } });
+        return new Response(page, {
+            headers: {
+                "content-type": "text/html; charset=utf-8",
+                "cache-control": "no-cache"
+            }
+        });
     }
     const content = await readFile(file).catch(() => undefined);
     if (content === undefined)
     {
         return new Response(null, { status: 404 });
     }
+    const hashed = relative.startsWith(`assets${sep}`);
     return new Response(content, {
         headers: {
             "content-type": types[extname(file)] ?? "application/octet-stream",
-            "cache-control": relative.startsWith(`assets${sep}`) ? "public, max-age=31536000, immutable" : "no-cache"
+            "cache-control": hashed ? forever : "no-cache"
         }
     });
 }
@@ -131,11 +145,13 @@ The same rules in Express 5, where a wildcard needs a name:
 import { extname, sep } from "node:path";
 import express from "express";
 
+const forever = "public, max-age=31536000, immutable";
 const app = express();
 app.use("/app", express.static("dist", {
     setHeaders(response, path)
     {
-        response.setHeader("cache-control", path.includes(`${sep}assets${sep}`) ? "public, max-age=31536000, immutable" : "no-cache");
+        const hashed = path.includes(`${sep}assets${sep}`);
+        response.setHeader("cache-control", hashed ? forever : "no-cache");
     }
 }));
 app.get("/app/{*route}", (request, response, next) =>
@@ -145,19 +161,23 @@ app.get("/app/{*route}", (request, response, next) =>
         next();
         return;
     }
-    response.set("cache-control", "no-cache").sendFile("index.html", { root: "dist" });
+    response.set("cache-control", "no-cache");
+    response.sendFile("index.html", { root: "dist" });
 });
 ```
 
 And in ASP.NET Core, with the build in `wwwroot/app/`. `MapFallbackToFile` matches only paths that name no file, so a missing asset still answers 404:
 
 ```csharp
+const string Forever = "public, max-age=31536000, immutable";
+
 var files = new StaticFileOptions
 {
     OnPrepareResponse = context =>
     {
-        var immutable = context.Context.Request.Path.StartsWithSegments("/app/assets");
-        context.Context.Response.Headers.CacheControl = immutable ? "public, max-age=31536000, immutable" : "no-cache";
+        var http = context.Context;
+        var hashed = http.Request.Path.StartsWithSegments("/app/assets");
+        http.Response.Headers.CacheControl = hashed ? Forever : "no-cache";
     }
 };
 app.UseStaticFiles(files);
@@ -204,7 +224,8 @@ IIS, with the URL Rewrite module installed and this `web.config` in `public/`, s
           <match url=".*" />
           <conditions logicalGrouping="MatchAll">
             <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
-            <add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true" />
+            <add input="{REQUEST_FILENAME}" matchType="IsDirectory"
+              negate="true" />
             <add input="{URL}" pattern="^/assets/" negate="true" />
           </conditions>
           <action type="Rewrite" url="/index.html" />
@@ -215,7 +236,8 @@ IIS, with the URL Rewrite module installed and this `web.config` in `public/`, s
   <location path="assets">
     <system.webServer>
       <staticContent>
-        <clientCache cacheControlMode="UseMaxAge" cacheControlMaxAge="365.00:00:00" cacheControlCustom="immutable" />
+        <clientCache cacheControlMode="UseMaxAge"
+          cacheControlMaxAge="365.00:00:00" cacheControlCustom="immutable" />
       </staticContent>
     </system.webServer>
   </location>

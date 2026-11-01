@@ -42,20 +42,25 @@ effect(() =>
     }
     catch
     {
-        // Storage can be full or turned off; the list still works for this visit.
+        // Storage can be full or turned off; the list still works
+        // for this visit.
     }
 });
 
-export const packedCount = computed(() => items.get().filter((item) => item.packed).length);
+export const packedCount = computed(() =>
+    items.get().filter((item) => item.packed).length);
 export const shown = computed(() =>
 {
     const which = filter.get();
-    return which === "all" ? items.get() : items.get().filter((item) => item.packed === (which === "packed"));
+    return which === "all"
+        ? items.get()
+        : items.get().filter((item) => item.packed === (which === "packed"));
 });
 
 export function toggle(id: number): void
 {
-    items.set(items.get().map((item) => (item.id === id ? { ...item, packed: !item.packed } : item)));
+    items.set(items.get().map((item) =>
+        (item.id === id ? { ...item, packed: !item.packed } : item)));
 }
 
 export function add(name: string): void

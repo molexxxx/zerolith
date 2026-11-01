@@ -56,7 +56,7 @@ describe("server rendering guide: hydration", () =>
 
         // #region hydrate
         const router = createRouter(routes);
-        await router.ready;                     // the initial navigation, with the server's data
+        await router.ready;                     // with the data the server sent
         const app = hydrate(App(router), "#app");
         // #endregion hydrate
         client = router;

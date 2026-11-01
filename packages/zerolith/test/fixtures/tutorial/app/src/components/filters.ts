@@ -13,6 +13,8 @@ export function Filters(): View
     return html`
         <div role="group" aria-label="Show">
             ${choices.map(({ value, label }) => html`
-                <button type="button" aria-pressed=${computed(() => filter.get() === value)} @click=${() => filter.set(value)}>${label}</button>`)}
+                <button type="button"
+                    aria-pressed=${computed(() => filter.get() === value)}
+                    @click=${() => filter.set(value)}>${label}</button>`)}
         </div>`;
 }

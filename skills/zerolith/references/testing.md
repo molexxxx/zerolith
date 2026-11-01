@@ -79,7 +79,9 @@ The container is a normal element: query it, dispatch events on it, or hand it t
 
 ```ts
 import { expect, it } from "vitest";
-import { accessibilityIssues, hydrationMismatches, mount } from "@zerolith/test";
+import {
+    accessibilityIssues, hydrationMismatches, mount
+} from "@zerolith/test";
 import { Counter } from "./counter.ts";
 
 it("hydrates in place and has no accessibility defects", () =>

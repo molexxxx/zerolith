@@ -31,7 +31,7 @@ describe("signals guide", () =>
         console.log(count.get());               // 1
 
         const point = signal({ x: 1 }, { equals: (a, b) => a.x === b.x });
-        point.set({ x: 1 });                    // ignored: equal by the custom comparison
+        point.set({ x: 1 });                    // ignored: `equals` says it is equal
         // #endregion basics
         expect(printed).toEqual([[1]]);
         const kept = point.get();
@@ -65,7 +65,7 @@ describe("signals guide", () =>
             return () => console.log(`goodbye ${current}`);
         });                                     // prints "hello Ada" right away
 
-        name.set("Grace");                      // prints "goodbye Ada", then "hello Grace"
+        name.set("Grace");                      // prints "goodbye Ada", "hello Grace"
         dispose();                              // prints "goodbye Grace"
         // #endregion effects
         expect(printed).toEqual([["hello Ada"], ["goodbye Ada"], ["hello Grace"], ["goodbye Grace"]]);
@@ -83,7 +83,7 @@ describe("signals guide", () =>
             console.log(`search ${query.get()} from page ${from}`);
         });                                     // prints "search zerolith from page 1"
 
-        page.set(2);                            // prints nothing: the page was read untracked
+        page.set(2);                            // prints nothing: page is untracked
         query.set("signals");                   // prints "search signals from page 2"
         // #endregion untracked
         expect(printed).toEqual([["search zerolith from page 1"], ["search signals from page 2"]]);
@@ -94,7 +94,8 @@ describe("signals guide", () =>
         // #region batch
         const first = signal("Ada");
         const last = signal("Lovelace");
-        effect(() => console.log(`${first.get()} ${last.get()}`)); // prints "Ada Lovelace"
+        // Prints "Ada Lovelace" now, and again after each change:
+        effect(() => console.log(`${first.get()} ${last.get()}`));
 
         batch(() =>
         {
@@ -168,7 +169,7 @@ describe("signals guide", () =>
         {
             const { diagnostic } = error as ZerolithError;
             console.log(diagnostic.code);       // "on_dispose_outside_scope"
-            console.log(diagnostic.url);        // ".../zerolith/e/on_dispose_outside_scope"
+            console.log(diagnostic.url);        // ".../e/on_dispose_outside_scope"
         }
         stop();
         // #endregion diagnostics

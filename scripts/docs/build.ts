@@ -22,7 +22,7 @@ import { exampleCode, includeExamples } from "./examples.ts";
 import { escapeHtml, highlight } from "./highlight.ts";
 import { type Characteristic, Home, NotFound, homeMarkdown } from "./home.ts";
 import { type Link, type NavGroup, type PageData, diagnosticIcon, fontFaces, icon, markdownTwin, renderPage, siteStyles } from "./layout.ts";
-import { Playground, playgroundMarkdown, playgroundModules } from "./playground.ts";
+import { Playground, examples as playgroundExamples, playgroundMarkdown, playgroundModules } from "./playground.ts";
 import { type Entry, type ManifestSymbol, apiReport, extract, referencePage, symbolsOf } from "./reference.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -633,10 +633,10 @@ async function figureCode(): Promise<string>
     const path = "scripts/docs/demo.js";
     const { code } = exampleCode(await readFile(join(root, path), "utf8"), path, "figure", ["js"], "home page");
     let found = 0;
-    const html = highlight(code, "js").replace(/<span class="b">\$\{<\/span>(count|doubled)<span class="b">\}/g, (_, name: string) =>
+    const html = highlight(code, "js").replace(/<span class="b">\$\{<\/span>(?:<span class="g">)?(count|doubled)(?:<\/span>)?<span class="b">\}/g, (_, name: string) =>
     {
         found++;
-        return `<span class="b">\${</span><span data-signal="${name}">${name}</span><span class="b">}`;
+        return `<span class="b">\${</span><span class="g" data-signal="${name}">${name}</span><span class="b">}`;
     });
     if (found !== 2)
     {
@@ -774,6 +774,52 @@ async function publish(data: PageData, markdown: string): Promise<void>
         write(data.path === "/" ? "index.html" : `${data.path}index.html`, rebaseHtml(html, base)),
         write(markdownTwin(data.path), rebaseMarkdown(markdown, base) + "\n")
     ]);
+}
+
+/**
+ * Every line of code a guide or the tutorial shows that is longer than 80
+ * characters, which a code block cannot show without scrolling sideways.
+ * Markdown files and trees are prose, so they wrap and are left out, as is a
+ * block included as `wide`: generated output and data that cannot wrap.
+ */
+function longLines(): string[]
+{
+    const found: string[] = [];
+    for (const page of pages.filter((candidate) => /^\/(?:guide|learn)\//.test(candidate.path)))
+    {
+        marked.walkTokens(marked.lexer(page.markdown), (token) =>
+        {
+            if (token.type !== "code" || /^(?:markdown|md|tree)\b|\bwide\b/.test(token.lang ?? ""))
+            {
+                return;
+            }
+            for (const line of (token.text as string).split("\n"))
+            {
+                if (line.length > 80)
+                {
+                    found.push(`${page.path}: ${line.length} characters: ${line.trim().slice(0, 60)}`);
+                }
+            }
+        });
+    }
+    return found;
+}
+
+const tooLong = longLines();
+for (const example of playgroundExamples)
+{
+    const path = `scripts/docs/playground/${example.id}.js`;
+    for (const [index, line] of (await readFile(join(root, path), "utf8")).split("\n").entries())
+    {
+        if (line.length > 80)
+        {
+            tooLong.push(`${path}:${index + 1}: ${line.length} characters: ${line.trim().slice(0, 60)}`);
+        }
+    }
+}
+if (tooLong.length > 0)
+{
+    throw new Error(`code lines longer than 80 characters, which scroll sideways:\n${tooLong.join("\n")}`);
 }
 
 await Promise.all(pages.map(async (page) =>

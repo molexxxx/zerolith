@@ -21,8 +21,9 @@ describe("hydration guide", () =>
         document.body.append(host);
         // #region hydrate
         const count = signal(1);
+        const add = () => count.set(count.get() + 1);
         const view = () => html`
-            <button @click=${() => count.set(count.get() + 1)}>Clicked ${count} times</button>`;
+            <button @click=${add}>Clicked ${count} times</button>`;
 
         // On the server, the markup goes into the page inside <div id="app">:
         const markup = renderToString(view());
@@ -32,7 +33,7 @@ describe("hydration guide", () =>
         // #region hydrate
 
         // In the browser, the same view adopts that markup:
-        const app = hydrate(view(), "#app");    // app.mismatches is empty: nothing differed
+        const app = hydrate(view(), "#app");    // app.mismatches is empty
         // #endregion hydrate
         result = app;
         expect(app.mismatches).toEqual([]);

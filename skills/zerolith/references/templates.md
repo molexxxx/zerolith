@@ -109,7 +109,8 @@ const name = signal("");
 const tone = signal("quiet");
 const saving = signal(false);
 const field = signal<HTMLInputElement | undefined>(undefined);
-const typed = (event: Event) => name.set((event.target as HTMLInputElement).value);
+const typed = (event: Event) =>
+    name.set((event.target as HTMLInputElement).value);
 
 render(html`
     <label>Name
@@ -137,7 +138,10 @@ interface Task
     id: number;
     text: string;
 }
-const tasks = signal<Task[]>([{ id: 1, text: "write" }, { id: 2, text: "test" }]);
+const tasks = signal<Task[]>([
+    { id: 1, text: "write" },
+    { id: 2, text: "test" }
+]);
 
 render(html`
     <ul>

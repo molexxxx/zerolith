@@ -13,14 +13,22 @@ The examples on this page are one small application, in the files a project from
 ```ts
 import { defineRoutes, lazy, route } from "@zerolith/router";
 import { Home } from "./components/home.tsx";
-import { ReleasePage, loadRelease, releaseHead } from "./components/release.tsx";
+import {
+    ReleasePage, loadRelease, releaseHead
+} from "./components/release.tsx";
 
 export const routes = defineRoutes({
     home: route({ path: "/", view: Home, head: { title: "Releases" } }),
-    release: route({ path: "/releases/:tag", load: loadRelease, view: ReleasePage, head: releaseHead }),
+    release: route({
+        path: "/releases/:tag",
+        load: loadRelease,
+        view: ReleasePage,
+        head: releaseHead
+    }),
     settings: route({
         path: "/settings",
-        view: lazy(() => import("./components/settings.tsx").then((module) => module.Settings)),
+        view: lazy(() => import("./components/settings.tsx")
+            .then((module) => module.Settings)),
         head: { title: "Settings" }
     })
 });
@@ -60,10 +68,12 @@ import { type View, computed, signal, when } from "zerolith";
 import type { Head, LoadContext, RouteContext } from "@zerolith/router";
 import { type Release, findRelease } from "../releases.ts";
 
-type Props = RouteContext<{ tag: string }, Release | undefined>;
+type Params = { tag: string };
+type Loaded = Release | undefined;
+type Props = RouteContext<Params, Loaded>;
 
 /** Loads the release the path names; the page shows once it resolves. */
-export function loadRelease({ params }: LoadContext<{ tag: string }>): Promise<Release | undefined>
+export function loadRelease({ params }: LoadContext<Params>): Promise<Loaded>
 {
     return findRelease(params.tag);
 }
@@ -117,17 +127,19 @@ Every page renders inside an owner of its own, so its signals, effects, and `onD
 import { type View, onDispose, signal } from "zerolith";
 import { router } from "../router.ts";
 
-/** Loaded the first time a reader opens it. Its clock stops when the reader leaves. */
+/** Loaded on its first visit. Its clock stops when the reader leaves. */
 export function Settings(): View
 {
-    const time = signal(new Date().toLocaleTimeString());
-    const clock = setInterval(() => time.set(new Date().toLocaleTimeString()), 1000);
+    const now = (): string => new Date().toLocaleTimeString();
+    const time = signal(now());
+    const clock = setInterval(() => time.set(now()), 1000);
     onDispose(() => clearInterval(clock));
+    const done = (): Promise<void> => router.navigate(router.href("home"));
     return (
         <section>
             <h1>Settings</h1>
-            <p>Opened at {time}.</p>
-            <button on:click={() => router.navigate(router.href("home"))}>Done</button>
+            <p>The time is {time}.</p>
+            <button on:click={done}>Done</button>
         </section>
     );
 }
@@ -169,7 +181,8 @@ import { router } from "./router.ts";
 function NavLink({ href, label }: { href: string; label: string }): View
 {
     const here = router.matches(href, { exact: true });
-    return <a href={href} aria-current={computed(() => (here.get() ? "page" : undefined))}>{label}</a>;
+    const current = computed(() => (here.get() ? "page" : undefined));
+    return <a href={href} aria-current={current}>{label}</a>;
 }
 
 /** The frame around every page: the navigation and the current page. */

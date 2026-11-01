@@ -23,13 +23,17 @@ export function Packing(): View
             ${each(items, (item) => item.id, (item) => html`
                 <li>
                     <label>
-                        <input type="checkbox" .checked=${computed(() => item.get().packed)} @change=${() => toggle(item.get().id)}>
+                        <input type="checkbox"
+                            .checked=${computed(() => item.get().packed)}
+                            @change=${() => toggle(item.get().id)}>
                         ${computed(() => item.get().name)}
                     </label>
                 </li>`)}
         </ul>
         <form @submit=${submitted}>
-            <label>New item <input name="name" autocomplete="off" required></label>
+            <label>New item
+                <input name="name" autocomplete="off" required>
+            </label>
             <button>Add</button>
         </form>`;
 }

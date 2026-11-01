@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 import { extname, join, normalize, resolve, sep } from "node:path";
 
 // #region static
+const forever = "public, max-age=31536000, immutable";
+
 const types: Record<string, string> = {
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
@@ -23,7 +25,11 @@ const types: Record<string, string> = {
  * and any other path under the base gets index.html, uncached, so routes
  * load directly and a new build is picked up at once.
  */
-export async function serveApp(request: Request, dist: string, base: string): Promise<Response>
+export async function serveApp(
+    request: Request,
+    dist: string,
+    base: string
+): Promise<Response>
 {
     const { pathname } = new URL(request.url);
     if (pathname === "/" || pathname === base.slice(0, -1))
@@ -31,25 +37,33 @@ export async function serveApp(request: Request, dist: string, base: string): Pr
         return new Response(null, { status: 302, headers: { location: base } });
     }
     const relative = normalize(decodeURIComponent(pathname.slice(base.length)));
-    const file = resolve(dist, relative);
-    if (!pathname.startsWith(base) || (!file.startsWith(resolve(dist) + sep) && file !== resolve(dist)))
+    const folder = resolve(dist);
+    const file = resolve(folder, relative);
+    const inside = file === folder || file.startsWith(folder + sep);
+    if (!pathname.startsWith(base) || !inside)
     {
         return new Response(null, { status: 404 });
     }
     if (extname(file) === "")
     {
         const page = await readFile(join(dist, "index.html"));
-        return new Response(page, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" } });
+        return new Response(page, {
+            headers: {
+                "content-type": "text/html; charset=utf-8",
+                "cache-control": "no-cache"
+            }
+        });
     }
     const content = await readFile(file).catch(() => undefined);
     if (content === undefined)
     {
         return new Response(null, { status: 404 });
     }
+    const hashed = relative.startsWith(`assets${sep}`);
     return new Response(content, {
         headers: {
             "content-type": types[extname(file)] ?? "application/octet-stream",
-            "cache-control": relative.startsWith(`assets${sep}`) ? "public, max-age=31536000, immutable" : "no-cache"
+            "cache-control": hashed ? forever : "no-cache"
         }
     });
 }

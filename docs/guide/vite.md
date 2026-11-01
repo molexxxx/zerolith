@@ -57,7 +57,7 @@ A component module goes in like this:
 
 and comes out like this in development:
 
-@include packages/vite/test/examples/vite.example.test.ts#after excerpt js
+@include packages/vite/test/examples/vite.example.test.ts#after excerpt js wide
 
 The function declaration keeps its hoisting because the registration runs first and the renamed function is already defined, and no line moves, so stack traces still point at the file you wrote.
 
