@@ -1,6 +1,6 @@
 ---
 title: Derived state and conditions
-description: Count what is packed, filter the rows, and show a note with when the filter leaves nothing.
+description: Count what is packed, filter the rows, and show a note when the filter leaves nothing.
 order: 5
 ---
 

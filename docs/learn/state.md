@@ -36,11 +36,15 @@ The row function receives the item as a signal, not as a plain object, so that `
 
 Look at how the template uses `count`: it puts the signal itself in the slot, `${count}`, not `${count.get()}`. This is the rule to learn first, and it is the only one:
 
-**Bind the signal, not its value.**
+> [!IMPORTANT]
+> **Bind the signal, not its value.** `${count}` hands the template the signal, and the template keeps the text up to date for as long as the page is open. `${count.get()}` reads the number once, while the template is being made, and the page never changes again.
 
-`${count}` hands the template the signal, and the template keeps the text up to date for as long as the page is open. `${count.get()}` reads the number once, while the template is being made, and the page never changes again. Both are valid code, so the runtime cannot warn you; `zerolith doctor` and the Vite plugin report a frozen read like that before the code runs, under the code [`template_frozen_read`](https://molexxxx.github.io/zerolith/e/template_frozen_read/).
+Both are valid code, so the runtime cannot warn you; `zerolith doctor` and the Vite plugin report a frozen read like that before the code runs, under the code `template_frozen_read`.
 
-There is no re-rendering in zerolith. `Packing()` runs once, when the page opens. After that, a change to `items` updates exactly the text nodes and rows that depend on it. If you come from React, this is the biggest difference: the function is not called again, so it is a fine place to create signals and computed values.
+There is no re-rendering in zerolith. `Packing()` runs once, when the page opens. After that, a change to `items` updates exactly the text nodes and rows that depend on it.
+
+> [!NOTE]
+> If you come from React, this is the biggest difference: the function is not called again, so it is a fine place to create signals and computed values.
 
 ## What you learned
 

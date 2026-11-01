@@ -34,8 +34,8 @@ The starter is a small routed application, and its files are the layout every ze
 
 | File | What it owns |
 | --- | --- |
-| `index.html` | The page: one element to mount into and one module script |
-| `src/main.ts` | The entry: waits for the first route, then renders the layout |
+| `index.html` | The page: the page-wide stylesheet, one module script, and one element to mount into |
+| `src/main.ts` | The entry: waits for the first route, renders the layout, and mounts the inspector |
 | `src/routes.ts` | The route table, one entry per page |
 | `src/router.ts` | The router, in its own module so components can import it for links |
 | `src/components/` | One file per component: the layout, the pages, and the counter |
@@ -59,4 +59,5 @@ Open `src/components/counter.ts`. It is the whole idea of zerolith in a dozen li
 8. [Testing](testing.md): a test that clicks through the page.
 9. [Build and ship](ship.md): the production build and where to put it.
 
-If you get stuck, every error zerolith reports carries a code and a link to a page that explains the cause and the fix, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs small pieces of code without a project.
+> [!TIP]
+> If you get stuck, every error zerolith reports carries a code and a link to a page that explains the cause and the fix, and the [playground](https://molexxxx.github.io/zerolith/playground/) runs small pieces of code without a project.

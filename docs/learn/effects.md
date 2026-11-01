@@ -22,7 +22,10 @@ The `effect` runs once right away and then again each time a signal it read chan
 
 ## Where effects belong
 
-An effect at the top of a module, like this one, lasts as long as the page. An effect created inside a component belongs to that component and stops when the component is removed, so a page that closes takes its effects with it. Keep effects for work outside the page, such as storage, timers, or logging; anything the page shows should be a computed value bound into a template, not an effect that writes to the DOM.
+An effect at the top of a module, like this one, lasts as long as the page. An effect created inside a component belongs to that component and stops when the component is removed, so a page that closes takes its effects with it.
+
+> [!TIP]
+> Keep effects for work outside the page, such as storage, timers, or logging. Anything the page shows should be a computed value bound into a template, not an effect that writes to the DOM.
 
 Open the page, check a few items off, and reload: the list is still there.
 

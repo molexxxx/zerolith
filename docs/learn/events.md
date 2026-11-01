@@ -18,6 +18,9 @@ Both functions build a new array and set it, rather than changing the old array 
 
 `toggle` copies only the item that changes; every other item keeps its object, so its row sees no change. `add` picks the next free id, one more than the largest so far.
 
+> [!WARNING]
+> Changing the array in place does nothing on the page. `items.get().push(item)` never calls `set`, and setting the same array again is ignored as no change, so always set a new array.
+
 ## Listening to events
 
 Update `src/components/packing.ts`:
