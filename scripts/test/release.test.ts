@@ -146,6 +146,7 @@ describe("the repository", () =>
         expect(npm.indexOf("name: Canary version")).toBeLessThan(npm.indexOf("name: Built versions"));
         expect(npm.indexOf("name: Built versions")).toBeLessThan(npm.indexOf("name: Publish"));
         expect(npm).toContain("is on the registry already");
+        expect(npm).toContain("a real run skips it");
         expect(npm).toContain("name: Tag version");
     });
 

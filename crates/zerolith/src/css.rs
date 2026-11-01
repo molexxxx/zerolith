@@ -242,7 +242,7 @@ fn located_error<T: std::fmt::Display>(error: &Error<T>, fallback: &str) -> Stri
 
 /// What `bundle` and `bundle_scoped` need.
 pub struct Options<'a> {
-    /// The project folder: root-absolute URLs resolve against its public folder, then against it.
+    /// The project folder, canonical as `canonical` gives it, since the stylesheets' paths are canonicalized and messages show them relative to it: root-absolute URLs resolve against its public folder, then against it.
     pub root: &'a Path,
     /// The base path the app is served under, normalized.
     pub base: &'a str,
@@ -716,15 +716,17 @@ mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
 
+    /// A project folder with `files`, canonical as the build's own root is, so a temporary folder under an 8.3 short name, as on GitHub's Windows runners, compares equal to the canonical paths of its stylesheets.
     fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
         let root = std::env::temp_dir().join(format!("zerolith-css-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
         for (path, text) in files {
             let file = root.join(path);
             fs::create_dir_all(file.parent().unwrap()).unwrap();
             fs::write(file, text).unwrap();
         }
-        root
+        super::canonical(&root).unwrap()
     }
 
     fn run(root: &Path, files: &[&str], base: &str, minify: bool) -> (String, Vec<String>) {

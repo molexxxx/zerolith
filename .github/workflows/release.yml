@@ -295,7 +295,12 @@ jobs:
             esac
           }
           for package in $packages; do
-            if [ "$DRY_RUN" != "true" ] && [ "$(npm view "$package@$version" version 2>/dev/null || true)" = "$version" ]; then
+            # A dry run asks the registry too, so it shows what a real run would skip.
+            if [ "$(npm view "$package@$version" version 2>/dev/null || true)" = "$version" ]; then
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "$package@$version is on the registry already; a real run skips it"
+                continue
+              fi
               echo "$package@$version is on the registry already"
               if [ "$tag" != "latest" ] && [ "$CANARY" != "true" ] && [ "$selection" = "all" ]; then
                 move_latest "$package"
