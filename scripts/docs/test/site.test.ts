@@ -114,6 +114,10 @@ describe("documentation site", () =>
         expect(await file.locator(".file-source pre").textContent()).toContain("# my-app: guide for coding agents\n");
         expect(await page.locator(".toc a").allTextContents()).not.toContain("Commands");
         expect(await page.locator("#commands").count()).toBe(0);
+        const tree = page.locator(".tree");
+        expect(await tree.locator("li").count()).toBe(20);
+        expect(await tree.locator("li").first().textContent()).toBe("my-app/");
+        expect(await tree.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
         expect(errors).toEqual([]);
         await page.close();
     });

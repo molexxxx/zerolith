@@ -119,6 +119,31 @@ let pageIds = new Set<string>();
 let fileViews = 0;
 const fileIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M5 3H14L19 8V21H5Z"/><path d="M14 3V8H19"/></svg>';
 
+const folderIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5H10L12 8H21V19H3Z"/></svg>';
+
+/**
+ * A file tree written as indented lines, four spaces a level, each a name
+ * and an optional note after two or more spaces. It shows as a list whose
+ * names carry an icon and the indent guides of their level, with the notes
+ * in a column of their own that wraps, sized to the longest name.
+ */
+function treeView(source: string): string
+{
+    const rows = source.split("\n").filter((line) => line.trim() !== "").map((line) =>
+    {
+        const indent = /^ */.exec(line)?.[0].length ?? 0;
+        const [name = "", ...note] = line.trim().split(/\s{2,}/);
+        return { depth: Math.floor(indent / 4), name, note: note.join(" ") };
+    });
+    const names = Math.max(...rows.map((row) => row.depth * 3 + row.name.length)) + 3;
+    const items = rows.map(({ depth, name, note }) =>
+    {
+        const folder = name.endsWith("/");
+        return `<li style="--depth: ${depth}"><span class="tree-name${folder ? " folder" : ""}">${folder ? folderIcon : fileIcon}${escapeHtml(name)}</span>${note === "" ? "" : `<span class="tree-note">${escapeHtml(note)}</span>`}</li>`;
+    });
+    return `<ul class="tree" style="--tree-names: ${names}ch">\n${items.join("\n")}\n</ul>\n`;
+}
+
 const preview = new Marked({
     gfm: true,
     renderer: {
@@ -171,6 +196,10 @@ marked.use({
             if ((language === "markdown" || language === "md") && file !== "")
             {
                 return fileView(file, text);
+            }
+            if (language === "tree")
+            {
+                return treeView(text);
             }
             const label = language === "" ? "" : ` data-language="${language}"`;
             const copy = `<button class="copy" type="button" aria-label="Copy code"><span class="idle">${copyIcon}</span><span class="done">${doneIcon}</span></button>`;

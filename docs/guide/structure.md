@@ -9,7 +9,7 @@ group: Basics
 
 One layout serves every path: an application that runs from an import map, one that Vite bundles, and one that a server renders all keep the same files in the same places, so a reader, a tool, or an agent that knows one zerolith project knows them all. `zerolith new` writes this layout; the sections below say what each part is for.
 
-```
+```tree
 my-app/
     index.html              the page: an import map, or a module script that Vite serves
     AGENTS.md               the map and the rules, for coding agents and new contributors
