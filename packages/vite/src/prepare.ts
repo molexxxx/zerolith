@@ -11,15 +11,20 @@ import type { ModuleParser } from "./transform.js";
 /** The result of preparing one module. */
 export interface PrepareOutput
 {
+    /** The module text, line for line: each `html` literal becomes a call of its tag on a template registered before the first statement that is not an import, and one without values becomes a view made once there. */
     code: string;
+    /** The identity source map from each prepared line to the same line of the original module. */
     map: IdentityMap;
 }
 
 /** One scanned part, as the core's `scan` reports it. */
 export interface ScannedPart
 {
+    /** How the part binds, numbered as the core's part constants are: `0` child, `1` attribute, `2` boolean, `3` property, `4` event, `5` ref. */
     readonly kind: number;
+    /** The bound attribute, property, or event name without its `.`, `?`, or `@` prefix; empty for a child part. */
     readonly name: string;
+    /** The static text around an attribute value's expressions, one entry longer than their count; empty for a child part. */
     readonly strings: readonly string[];
 }
 
@@ -77,8 +82,10 @@ interface TaggedTemplate extends AstNode
 /** Thrown for a module the pass refuses, with the offset in the module. */
 export class PrepareError extends Error
 {
+    /** Offset in the module of the statement, expression, or template the pass refused; the plugin turns it into the error's line and column. */
     readonly offset: number;
 
+    /** Creates the error with `message` after a `zerolith: ` prefix and the offset of the refused code. */
     constructor(message: string, offset: number)
     {
         super(`zerolith: ${message}`);

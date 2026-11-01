@@ -309,13 +309,16 @@ mod tests {
         assert_eq!(position(source, finding.offset), (1, 32));
     }
 
+    /// Compares with the fixture the Vite plugin's test reads. It is skipped only outside the repository, as in the published crate, which ships no fixture; in the repository a missing fixture fails.
     #[test]
     fn matches_the_vite_plugin_on_the_shared_fixture() {
-        let fixture =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/vite/test/fixture-lint");
-        let Ok(input) = fs::read_to_string(fixture.join("input.js")) else {
+        let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        if !repository.join("package.json").is_file() {
             return;
-        };
+        }
+        let fixture = repository.join("packages/vite/test/fixture-lint");
+        let input = fs::read_to_string(fixture.join("input.js"))
+            .expect("the shared fixture packages/vite/test/fixture-lint/input.js");
         let expected: Vec<serde_json::Value> =
             serde_json::from_str(&fs::read_to_string(fixture.join("expected.json")).unwrap())
                 .unwrap();

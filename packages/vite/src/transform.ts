@@ -19,7 +19,9 @@ const FOOTER = `if (import.meta.hot) { import.meta.hot.dispose(${BINDING}.save);
 /** A parsed module: the program body and any syntax errors the parser reported. */
 export interface ParsedModule
 {
+    /** The module's ESTree `Program` node; the passes read its top-level statements from `body` and walk the nodes beneath them. */
     program: { body: readonly AstNode[] };
+    /** The syntax errors the parser reported; each pass leaves a module with errors untouched, so the parser's own errors come first. */
     errors: readonly unknown[];
 }
 
@@ -29,7 +31,9 @@ export type ModuleParser = (filename: string, code: string) => ParsedModule;
 /** The rewritten module and its line-preserving source map. */
 export interface TransformOutput
 {
+    /** The rewritten module: its own lines, rewritten in place, followed by any re-exports of renamed components and the footer that accepts hot updates. */
     code: string;
+    /** The identity source map; each line appended after the module's own lines maps to its last line. */
     map: IdentityMap;
 }
 
@@ -140,6 +144,11 @@ export function transformModule(code: string, id: string, parse: ModuleParser): 
     let renderLocal: string | undefined;
     let hydrateLocal: string | undefined;
 
+    /** Removes the `export` keyword before a declaration, keeping the line breaks between them, so the module keeps its line count. */
+    const unexport = (start: number, end: number): void =>
+    {
+        edits.push({ start, end, text: code.slice(start, end).replace(/[^\r\n]/g, "") });
+    };
     for (const statement of program.body)
     {
         if (statement.type === "ExportNamedDeclaration")
@@ -230,7 +239,7 @@ export function transformModule(code: string, id: string, parse: ModuleParser): 
                 const name = renameFunction(declaration as FunctionDeclaration);
                 if (name !== undefined)
                 {
-                    edits.push({ start: node.start, end: declaration.start, text: "" });
+                    unexport(node.start, declaration.start);
                     tail.push(`export { ${name} };`);
                 }
             }
@@ -240,7 +249,7 @@ export function transformModule(code: string, id: string, parse: ModuleParser): 
                 const names = renameDeclarators(declaration as VariableDeclaration);
                 if (edits.length > before)
                 {
-                    edits.push({ start: node.start, end: declaration.start, text: "" });
+                    unexport(node.start, declaration.start);
                     tail.push(`export { ${names.join(", ")} };`);
                 }
             }
@@ -253,7 +262,7 @@ export function transformModule(code: string, id: string, parse: ModuleParser): 
                 const name = renameFunction(node.declaration as FunctionDeclaration);
                 if (name !== undefined)
                 {
-                    edits.push({ start: node.start, end: node.declaration.start, text: "" });
+                    unexport(node.start, node.declaration.start);
                     tail.push(`export default ${name};`);
                 }
             }

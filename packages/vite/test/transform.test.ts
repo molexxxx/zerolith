@@ -75,6 +75,15 @@ describe("transformModule", () =>
         expect(rewrite("import { render } from \"lit\";\nrender(App(), document.body);\n")).toBeNull();
     });
 
+    it("keeps the line count when an export keyword stands on a line of its own", () =>
+    {
+        const source = "import { render } from \"zerolith\";\nexport\nfunction App()\n{\n    return 1;\n}\nexport default\nfunction Page()\n{\n    return 2;\n}\nrender(App(), document.body);\n";
+        const lines = transformModule(source, "/src/main.js", parse)?.code.split("\n") ?? [];
+        expect(lines[2]).toBe("function App$()");
+        expect(lines[7]).toBe("function Page$()");
+        expect(lines[11]).toBe("__zl$.render(() => (App()), document.body, \"/src/main.js#0\");");
+    });
+
     it("keeps every original line in place and emits an identity map", () =>
     {
         const source = "import { render } from \"zerolith\";\n\nexport function App()\n{\n    return 1;\n}\n\nrender(App(), document.body);\n";

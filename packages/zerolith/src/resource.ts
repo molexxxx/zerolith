@@ -31,6 +31,7 @@ export interface Resource<T> extends ReadableSignal<T | undefined>
 {
     /** The last resolved value; kept while a newer request is pending. */
     get(): T | undefined;
+    /** The latest request's state: `idle` while `params` returns `undefined`, `pending` while the loader runs, then `resolved` or `error`. */
     readonly status: ReadableSignal<ResourceStatus>;
     /** True while a request is in flight. */
     readonly pending: ReadableSignal<boolean>;

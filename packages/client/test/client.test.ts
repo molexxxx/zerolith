@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { signal } from "zerolith";
-import { type Client, type Transport, ProblemError, createClient } from "@zerolith/client";
+import { type Client, type RouteTable, type Transport, ProblemError, createClient } from "@zerolith/client";
 import { type Api, type NotePage, routes } from "./fixtures/notes.api.ts";
 
 function recorder(respond: (request: Request) => Response | Promise<Response>): { transport: Transport; requests: Request[] }
@@ -127,5 +127,30 @@ describe("createClient", () =>
             void page;
         };
         expect(typeof checks).toBe("function");
+    });
+});
+
+/** A contract with an operation beyond the nine methods OpenAPI names, as an OpenAPI 3.2 `additionalOperations` entry gives. */
+interface Copying
+{
+    copyNote: { method: "copy"; path: "/notes/{id}"; params: { id: number }; output: string };
+}
+
+describe("an operation with another method", () =>
+{
+    it("type-checks and sends the method as it is named, uppercased", async () =>
+    {
+        const copying = { copyNote: { method: "copy", path: "/notes/{id}" } } as const satisfies RouteTable<Copying>;
+        const methods: string[] = [];
+        const api = createClient<Copying>(copying, {
+            baseUrl: "https://api.test",
+            transport: (request) =>
+            {
+                methods.push(`${request.method} ${new URL(request.url).pathname}`);
+                return Promise.resolve(Response.json("copied"));
+            }
+        });
+        expect(await api.call("copyNote", { params: { id: 7 } })).toBe("copied");
+        expect(methods).toEqual(["COPY /notes/7"]);
     });
 });

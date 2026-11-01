@@ -13,7 +13,9 @@ export type LintCode = "template_frozen_read" | "image_without_alt" | "button_wi
 /** One finding. */
 export interface Finding
 {
+    /** The check that produced the finding, also the diagnostic code whose documentation page the plugin's warning links. */
     readonly code: LintCode;
+    /** What is wrong and how to fix it; the plugin's warning prints it between the code and the code's documentation URL. */
     readonly message: string;
     /** Offset of the finding in the module. */
     readonly offset: number;

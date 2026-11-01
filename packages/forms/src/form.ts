@@ -33,7 +33,9 @@ export interface SubmissionOutcome
 {
     /** The parsed body: JSON when the response says so, text otherwise, undefined for an empty body. */
     readonly result: unknown;
+    /** The successful response, as `fetch` or a custom `send` returned it; its body has already been read into `result` unless it was redirected. */
     readonly response: Response;
+    /** The form that was submitted, already reset when the `reset` option is set. */
     readonly element: HTMLFormElement;
 }
 
@@ -74,6 +76,7 @@ export interface Field
 /** The enhanced form. */
 export interface Form
 {
+    /** The current submission's stage: `pending` while in flight, then `success`, `failure` with a problem, or `error` when it did not complete; `idle` before the first submission and after `reset()`. */
     readonly status: ReadableSignal<FormStatus>;
     /** True while a submission is in flight. */
     readonly pending: ReadableSignal<boolean>;

@@ -195,7 +195,7 @@ impl ServerFlags {
                 .base
                 .or_else(|| config.base.clone())
                 .unwrap_or_else(|| "/".to_string()),
-        );
+        )?;
         let base = if base.starts_with('/') {
             base
         } else {
@@ -279,17 +279,22 @@ async fn main() -> ExitCode {
                     unbundled::run(&root, &out, !no_prepare, empty_out_dir)
                 } else {
                     let base = base.or(config.base).unwrap_or_else(|| "/".to_string());
-                    build::run(&build::Options {
-                        root,
-                        out,
-                        empty_out_dir,
-                        base: build::normalize_base(&base),
-                        mode,
-                        minify: !no_minify,
-                        sourcemap,
-                        prepare: !no_prepare,
-                    })
-                    .await
+                    match build::normalize_base(&base) {
+                        Err(error) => Err(error),
+                        Ok(base) => {
+                            build::run(&build::Options {
+                                root,
+                                out,
+                                empty_out_dir,
+                                base,
+                                mode,
+                                minify: !no_minify,
+                                sourcemap,
+                                prepare: !no_prepare,
+                            })
+                            .await
+                        }
+                    }
                 }
             }
         },

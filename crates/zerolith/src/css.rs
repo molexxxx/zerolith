@@ -97,6 +97,32 @@ pub fn project_path(root: &Path, file: &Path) -> String {
     relative(root, file)
 }
 
+/// A file path written as a URL path: every byte outside the characters a path segment may hold as they are, such as `#`, `?`, `%`, a space, or a letter outside ASCII, is percent-encoded, so `c#.svg` becomes `c%23.svg` and is not read as `c` with a fragment.
+pub fn encoded(path: &str) -> String {
+    let mut out = String::with_capacity(path.len());
+    for byte in path.bytes() {
+        if byte.is_ascii_alphanumeric() || b"-._~!$&'()*+,;=:@/".contains(&byte) {
+            out.push(byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
+}
+
+/// A name for a copied asset that needs no encoding in a URL: every character other than an ASCII letter, a digit, `-`, `_`, or `.` becomes `_`.
+fn url_safe(name: &str) -> String {
+    name.chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
 /// True for a URL that names no file of the project: remote, protocol-relative, a data URL, or a fragment.
 pub fn is_remote(url: &str) -> bool {
     url.contains("://") || url.starts_with("//") || url.starts_with("data:") || url.starts_with('#')
@@ -125,12 +151,17 @@ impl Assets {
         let bytes = fs::read(file).map_err(|error| {
             io::Error::new(error.kind(), format!("{}: {error}", file.display()))
         })?;
-        let stem = file
-            .file_stem()
-            .and_then(|stem| stem.to_str())
-            .unwrap_or("asset");
-        let name = match file.extension().and_then(|extension| extension.to_str()) {
-            Some(extension) => format!("{stem}-{}.{extension}", short_hash(&bytes)),
+        let stem = url_safe(
+            &file
+                .file_stem()
+                .map_or_else(|| "asset".into(), |stem| stem.to_string_lossy()),
+        );
+        let name = match file.extension() {
+            Some(extension) => format!(
+                "{stem}-{}.{}",
+                short_hash(&bytes),
+                url_safe(&extension.to_string_lossy())
+            ),
             None => format!("{stem}-{}", short_hash(&bytes)),
         };
         fs::create_dir_all(&self.folder)?;
@@ -143,7 +174,7 @@ impl Assets {
 /// Where a local URL points.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Located {
-    /// A file of the public folder, by its path inside it; it is copied as it is and keeps its URL.
+    /// A file of the public folder, by its path inside it, percent-encoded for a URL; it is copied as it is and keeps its URL.
     Public(String),
     /// A file of the project, copied under a hashed name.
     File(PathBuf),
@@ -156,7 +187,7 @@ pub fn locate(root: &Path, folder: &Path, url: &str) -> Located {
     let path = percent_decode(url.split(['?', '#']).next().unwrap_or(url));
     if let Some(absolute) = path.strip_prefix('/') {
         if root.join("public").join(absolute).is_file() {
-            return Located::Public(absolute.to_string());
+            return Located::Public(encoded(absolute));
         }
         if root.join(absolute).is_file() {
             return Located::File(root.join(absolute));
@@ -196,7 +227,10 @@ fn escape(text: &str) -> String {
         match character {
             '"' => out.push_str("\\\""),
             '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\a "),
+            '\0' => out.push('\u{fffd}'),
+            '\u{1}'..='\u{1f}' | '\u{7f}' => {
+                out.push_str(&format!("\\{:x} ", u32::from(character)));
+            }
             _ => out.push(character),
         }
     }
@@ -710,8 +744,8 @@ pub fn served_scoped(
 #[cfg(test)]
 mod tests {
     use super::{
-        Assets, Options, bundle, bundle_scoped, canonical, mirrored_scoped, public_url, relative,
-        served_scoped, shown,
+        Assets, Options, bundle, bundle_scoped, canonical, encoded, mirrored_scoped, public_url,
+        relative, served_scoped, shown,
     };
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -844,6 +878,47 @@ mod tests {
         );
         let (code, _) = run(&root, &["a.css"], "/", true);
         assert!(code.contains(".card .title{font-weight:600}"), "{code}");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn escapes_every_control_character_in_a_string() {
+        assert_eq!(super::escape("a\rb\u{c}c\nd"), "a\\d b\\c c\\a d");
+        assert_eq!(super::escape("q\"s\\"), "q\\\"s\\\\");
+        assert_eq!(super::escape("n\0"), "n\u{fffd}");
+    }
+
+    #[test]
+    fn encodes_file_names_that_a_url_would_misread() {
+        assert_eq!(encoded("icons/c#.svg"), "icons/c%23.svg");
+        assert_eq!(encoded("a b/100%.png"), "a%20b/100%25.png");
+        assert_eq!(encoded("\u{e9}t\u{e9}.png"), "%C3%A9t%C3%A9.png");
+        assert_eq!(encoded("ok-_.~:@/x.png"), "ok-_.~:@/x.png");
+        let root = project(
+            "encoded",
+            &[
+                ("public/c#.svg", "<svg/>"),
+                ("src/a#b c.png", "png"),
+                (
+                    "src/app.css",
+                    ".a { background: url(/c%23.svg); }\n.b { background: url(\"./a%23b%20c.png\"); }\n",
+                ),
+            ],
+        );
+        let (code, warnings) = run(&root, &["src/app.css"], "/", false);
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert!(code.contains("url(\"/c%23.svg\")"), "{code}");
+        assert!(code.contains("url(\"a_b_c-"), "{code}");
+        let copied: Vec<String> = fs::read_dir(root.join("dist/assets"))
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert!(
+            copied
+                .iter()
+                .any(|name| name.starts_with("a_b_c-") && name.ends_with(".png")),
+            "{copied:?}"
+        );
         let _ = fs::remove_dir_all(&root);
     }
 

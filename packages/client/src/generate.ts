@@ -8,95 +8,150 @@
 /** A JSON Schema object as OpenAPI 3.1 and later carry it (draft 2020-12 plus the OAS vocabulary). */
 export interface SchemaObject
 {
+    /** A reference to `#/components/schemas/<name>`, rendered as that component's generated type, intersected with the keywords beside it that shape a type, such as `properties`, as OpenAPI 3.1 allows; any other target fails generation. */
     $ref?: string;
+    /** The JSON type, or since OpenAPI 3.1 an array of types rendered as a union; `integer` renders as `number`, and when it is absent the object or array keywords imply one, else the type is `unknown`. */
     type?: string | string[];
+    /** The OpenAPI 3.0 flag that also allows `null`; when `true`, `null` joins the type. */
     nullable?: boolean;
+    /** The allowed values, rendered as a union of their literal types; it takes precedence over `type`, and intersects with a composition keyword or `$ref` beside it. */
     enum?: unknown[];
+    /** The single allowed value (OpenAPI 3.1 and later), rendered as its literal type; it takes precedence over `enum` and `type`, and intersects with a composition keyword or `$ref` beside it. */
     const?: unknown;
+    /** The object's properties, each generated as a member that is optional unless `required` lists it, with the property's `description` as its doc comment. */
     properties?: Record<string, SchemaObject>;
+    /** The names in `properties` that must be present; every other property is generated as optional. */
     required?: string[];
+    /** The schema of keys beyond `properties`, rendered as a `Record<string, ...>` joined to them with `&`; `true` allows `unknown` values, and `false` makes an object without properties `Record<string, never>`. */
     additionalProperties?: boolean | SchemaObject;
+    /** The schema of each array element, rendered as `T[]`, or `unknown[]` without it; beside `prefixItems` it types the elements after the tuple. */
     items?: SchemaObject;
+    /** The schemas of the leading array elements by position (OpenAPI 3.1 and later), rendered as a tuple; without `items` the tuple has no rest element. */
     prefixItems?: SchemaObject[];
+    /** Alternatives of which exactly one matches, rendered as a union; it takes precedence over `anyOf` and `allOf`, and the keywords beside it that shape a type, such as `properties`, intersect with it. */
     oneOf?: SchemaObject[];
+    /** Alternatives of which at least one matches, rendered as a union unless `oneOf` is present; the keywords beside it that shape a type, such as `properties`, intersect with it. */
     anyOf?: SchemaObject[];
+    /** Schemas that all match, rendered as an intersection unless `oneOf` or `anyOf` is present; the keywords beside it that shape a type, such as `properties`, join the intersection. */
     allOf?: SchemaObject[];
+    /** Becomes the doc comment on a component schema's generated type, ahead of `title`, and on an object property's member. */
     description?: string;
+    /** The doc comment on a component schema's generated type when `description` is absent; the type's name comes from the component's key, not from `title`. */
     title?: string;
 }
 
 /** A Parameter Object or a reference to one. */
 export interface ParameterObject
 {
+    /** A reference to `#/components/parameters/<name>`, which replaces this object; any other target, or a missing one, fails generation. */
     $ref?: string;
+    /** The member's key in the generated `params` or `query`, matching the `{name}` placeholder for a path parameter; a parameter without `name` or `in` fails generation. */
     name?: string;
+    /** Where the parameter travels: `path` fills `params`, `query` adds a member to `query`, `querystring` (OpenAPI 3.2) lets `query` take any key, and `header` and `cookie` are left out. */
     in?: "query" | "querystring" | "header" | "path" | "cookie";
+    /** Makes a query parameter's member, and the whole `query` input, required; path parameters are generated as required either way, since OpenAPI demands `true` for them. */
     required?: boolean;
+    /** The doc comment on the parameter's generated member. */
     description?: string;
+    /** The schema of the value, rendered as the member's type; without it or `content`, the type is `unknown`. */
     schema?: SchemaObject;
+    /** The single media type entry OpenAPI allows in place of `schema`; when `schema` is absent, the entry's `schema` gives the member's type. */
     content?: Record<string, MediaTypeObject>;
 }
 
 /** A Media Type Object. */
 export interface MediaTypeObject
 {
+    /** The content's schema, read for a JSON media type in a body and for any media type in a parameter's `content`; when absent, the type is `unknown`. */
     schema?: SchemaObject;
 }
 
 /** A Request Body Object or a reference to one. */
 export interface RequestBodyObject
 {
+    /** A reference to `#/components/requestBodies/<name>`, which replaces this object; any other target, or a missing one, fails generation. */
     $ref?: string;
+    /** A brief description of the body; the generator does not carry it into the output. */
     description?: string;
+    /** Makes the generated `body` input required; OpenAPI's default is `false`, which generates it as optional. */
     required?: boolean;
+    /** The body by media type, where a JSON type takes precedence and gives its schema's type; otherwise `multipart/form-data` gives `FormData`, `application/x-www-form-urlencoded` gives `URLSearchParams`, `text/*` gives `string`, and any other type gives `BodyInit`. */
     content?: Record<string, MediaTypeObject>;
 }
 
 /** A Response Object or a reference to one. */
 export interface ResponseObject
 {
+    /** A reference to `#/components/responses/<name>`, which replaces this object; any other target, or a missing one, fails generation. */
     $ref?: string;
+    /** A description of the response; the generator does not carry it into the output. */
     description?: string;
+    /** The response body by media type: a JSON type, when present, gives its schema's type, `text/*` gives `string`, any other type gives `unknown`, and no content gives `undefined`. */
     content?: Record<string, MediaTypeObject>;
 }
 
 /** An Operation Object. */
 export interface OperationObject
 {
+    /** Names the operation's entry in `Api` and `routes`, in camelCase; without it the name comes from the method and path, such as `putNotesById` for `PUT /notes/{id}`, and two entries with one name fail generation. */
     operationId?: string;
+    /** The first paragraph of the doc comment on the operation's entry in `Api`. */
     summary?: string;
+    /** Follows `summary` in the doc comment on the operation's entry in `Api`. */
     description?: string;
+    /** When `true`, the doc comment on the operation's entry ends with `@deprecated`. */
     deprecated?: boolean;
+    /** The operation's parameters, merged with the path item's; one with the same `name` and `in` as a path item parameter replaces it. */
     parameters?: ParameterObject[];
+    /** The request body, generated as the entry's `body` input; without it the entry has no `body`. */
     requestBody?: RequestBodyObject;
+    /** The responses by status code; `output` is the union of every 2xx response, including `2XX`, or of `default` when there is none, and `unknown` without either. */
     responses?: Record<string, ResponseObject>;
 }
 
 /** A Path Item Object. */
 export interface PathItemObject
 {
+    /** A reference to `#/components/pathItems/<name>`, which replaces this item; any other target, or a missing one, fails generation. */
     $ref?: string;
+    /** A summary meant for every operation on the path; the generator does not carry it into the output. */
     summary?: string;
+    /** A description meant for every operation on the path; the generator does not carry it into the output. */
     description?: string;
+    /** Parameters shared by every operation on the path; an operation's own parameter with the same `name` and `in` replaces one. */
     parameters?: ParameterObject[];
+    /** The `GET` operation on this path. */
     get?: OperationObject;
+    /** The `PUT` operation on this path. */
     put?: OperationObject;
+    /** The `POST` operation on this path. */
     post?: OperationObject;
+    /** The `DELETE` operation on this path. */
     delete?: OperationObject;
+    /** The `OPTIONS` operation on this path. */
     options?: OperationObject;
+    /** The `HEAD` operation on this path. */
     head?: OperationObject;
+    /** The `PATCH` operation on this path. */
     patch?: OperationObject;
+    /** The `TRACE` operation on this path. */
     trace?: OperationObject;
+    /** The `QUERY` operation on this path (OpenAPI 3.2): a safe, idempotent request that carries a body. */
     query?: OperationObject;
+    /** Operations for other HTTP methods (OpenAPI 3.2), keyed by method name such as `COPY`; each key is lowercased, and one that is not a valid method token fails generation. */
     additionalOperations?: Record<string, OperationObject>;
 }
 
 /** The parts of an OpenAPI document the generator reads. */
 export interface OpenApiDocument
 {
+    /** The OpenAPI version, such as `3.1.0`; a value that does not start with `3.` fails generation. */
     openapi: string;
+    /** The API's title and version, which the generated file's header comment names as its source. */
     info?: { title?: string; version?: string };
+    /** Path templates mapped to their items; every operation under them becomes an entry of `Api` and `routes`, sorted by path. */
     paths?: Record<string, PathItemObject>;
+    /** Reusable objects: each entry of `schemas` becomes an exported type named after its key, and `$ref` values resolve into the other sections. */
     components?: {
         schemas?: Record<string, SchemaObject>;
         parameters?: Record<string, ParameterObject>;
@@ -218,11 +273,23 @@ function literal(value: unknown): string
 }
 
 /** Renders a schema as a TypeScript type. `indent` is the current indentation for nested object types. */
+/** The keywords that combine other schemas; the type they give is intersected with the schema's own keywords. */
+const COMPOSITION_KEYWORDS: ReadonlySet<string> = new Set(["$ref", "allOf", "oneOf", "anyOf"]);
+
+/** The keywords that shape a type on their own, beside a composition keyword. */
+const OWN_KEYWORDS: ReadonlySet<string> = new Set(["const", "enum", "type", "properties", "additionalProperties", "items", "prefixItems"]);
+
 function typeOf(schema: SchemaObject | undefined, indent: string): string
 {
     if (schema === undefined)
     {
         return "unknown";
+    }
+    const keywords = Object.keys(schema);
+    if (keywords.some((keyword) => COMPOSITION_KEYWORDS.has(keyword)) && keywords.some((keyword) => OWN_KEYWORDS.has(keyword)))
+    {
+        const part = (keep: (keyword: string) => boolean): SchemaObject => Object.fromEntries(Object.entries(schema).filter(([keyword]) => keep(keyword))) as SchemaObject;
+        return `${wrap(typeOf(part((keyword) => !OWN_KEYWORDS.has(keyword)), indent))} & ${wrap(typeOf(part((keyword) => !COMPOSITION_KEYWORDS.has(keyword)), indent))}`;
     }
     if (schema.$ref !== undefined)
     {

@@ -308,6 +308,11 @@ export function referencePage(entry: Entry, symbols: ManifestSymbol[]): string
     {
         throw new Error(`${entry.specifier}: undocumented exports: ${missing.map((symbol) => symbol.name).join(", ")}`);
     }
+    const bare = symbols.flatMap((symbol) => (symbol.members ?? []).filter((member) => member.doc === "" && !member.name.startsWith("[")).map((member) => `${symbol.name}.${member.name}`));
+    if (bare.length > 0)
+    {
+        throw new Error(`${entry.specifier}: undocumented members: ${bare.join(", ")}`);
+    }
     for (const kind of ORDER)
     {
         const group = symbols.filter((symbol) => symbol.kind === kind);

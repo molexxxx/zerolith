@@ -214,10 +214,16 @@ impl Pipeline {
     /// The URL a file is served at: its path under the root, or under `/@fs/` when it lies outside.
     pub fn url_of(&self, file: &Path) -> String {
         match file.strip_prefix(&self.root) {
-            Ok(relative) => format!("/{}", relative.to_string_lossy().replace('\\', "/")),
+            Ok(relative) => format!(
+                "/{}",
+                crate::css::encoded(&relative.to_string_lossy().replace('\\', "/"))
+            ),
             Err(_) => {
                 let absolute = file.to_string_lossy().replace('\\', "/");
-                format!("{FS_PREFIX}{}", absolute.trim_start_matches('/'))
+                format!(
+                    "{FS_PREFIX}{}",
+                    crate::css::encoded(absolute.trim_start_matches('/'))
+                )
             }
         }
     }
@@ -443,13 +449,16 @@ impl Pipeline {
                 .is_some_and(|extension| extension == "json")
         {
             let text = fs::read_to_string(file)?;
-            let value: serde_json::Value = serde_json::from_str(&text).map_err(|error| {
+            serde_json::from_str::<serde_json::Value>(&text).map_err(|error| {
                 io::Error::new(
                     io::ErrorKind::InvalidData,
                     format!("{} is not valid JSON: {error}", file.display()),
                 )
             })?;
-            return Ok(format!("export default {value};\n"));
+            return Ok(format!(
+                "export default JSON.parse({});\n",
+                serde_json::Value::from(text)
+            ));
         }
         Ok(format!(
             "export default {};\n",
@@ -646,7 +655,7 @@ mod tests {
             pipeline
                 .asset(&app.join("src/data.json"), "import")
                 .unwrap(),
-            "export default {\"ok\":true};\n"
+            "export default JSON.parse(\"{ \\\"ok\\\": true }\");\n"
         );
         let _ = fs::remove_dir_all(&top);
     }

@@ -267,11 +267,13 @@ pub fn vendor_from(
     Ok(vendored)
 }
 
-/// Extracts the inline import map from an HTML document.
+/// The text of the first import map in an HTML document, found as the build finds it: past comments, and whatever the element's other attributes, such as a `nonce`.
 pub fn import_map_of(html: &str) -> Option<&str> {
-    let start = html.find("<script type=\"importmap\">")? + "<script type=\"importmap\">".len();
-    let end = html[start..].find("</script>")? + start;
-    Some(html[start..end].trim())
+    let (start, end) = *crate::html::scan(html).import_maps.first()?;
+    let element = &html[start..end];
+    let open = element.find('>')? + 1;
+    let close = element.to_ascii_lowercase().rfind("</script")?;
+    Some(element[open..close].trim())
 }
 
 /// The page's own import map, parsed, or None when it has none or it is not valid JSON.
@@ -328,25 +330,27 @@ pub fn update_html(html: &str, tags: &str) -> String {
         })
         .map(|line| format!("{line}\n"))
         .collect();
+    let maps = crate::html::scan(&stripped).import_maps;
     let mut result = String::new();
-    let mut rest = stripped.as_str();
-    let mut replaced = false;
-    while let Some(start) = rest.find("<script type=\"importmap\">") {
-        let Some(end_offset) = rest[start..].find("</script>") else {
-            break;
-        };
-        let end = start + end_offset + "</script>".len();
-        result.push_str(&rest[..start]);
-        if !replaced {
-            result.push_str(tags.trim_end());
-            replaced = true;
+    let mut from = 0;
+    for (index, &(start, end)) in maps.iter().enumerate() {
+        result.push_str(&stripped[from..start]);
+        if index == 0 {
+            let element = &stripped[start..end];
+            let opening = &element[..element.find('>').map_or(element.len(), |at| at + 1)];
+            result.push_str(
+                &tags
+                    .trim_end()
+                    .replacen("<script type=\"importmap\">", opening, 1),
+            );
         }
-        rest = &rest[end..];
-        if replaced && rest.starts_with('\n') && result.ends_with('\n') {
-            rest = &rest[1..];
+        from = end;
+        if stripped[from..].starts_with('\n') && result.ends_with('\n') {
+            from += 1;
         }
     }
-    result.push_str(rest);
+    result.push_str(&stripped[from..]);
+    let replaced = !maps.is_empty();
     if !replaced {
         match result.find("</head>") {
             Some(index) => result.insert_str(index, tags),
@@ -548,6 +552,30 @@ mod tests {
         assert!(updated.contains("\"scopes\":{\"/legacy/\":{\"lit\":\"/legacy/lit.js\"}}"));
         assert!(!updated.contains("/old.js"));
         assert_eq!(page_tags(&vendored, "<head></head>"), html_tags(&vendored));
+    }
+
+    #[test]
+    fn rewrites_a_map_with_other_attributes_and_keeps_them() {
+        let mut vendored = Vendored::default();
+        vendored
+            .map
+            .imports
+            .insert("zerolith".into(), "/vendor/zerolith/index.js".into());
+        let page = "<head>\n<!-- <script type=\"importmap\">{\"imports\":{}}</script> -->\n<script type=\"importmap\" nonce=\"n0\">{\"imports\":{\"lit\":\"/lit.js\"}}</script>\n<script type=\"importmap\">{}</script>\n</head>";
+        let updated = update_html(page, &page_tags(&vendored, page));
+        assert!(
+            updated.contains("<script type=\"importmap\" nonce=\"n0\">{\"imports\":{\"lit\":\"/lit.js\",\"zerolith\":\"/vendor/zerolith/index.js\"}}</script>"),
+            "{updated}"
+        );
+        assert!(
+            updated.contains("<!-- <script type=\"importmap\">{\"imports\":{}}</script> -->"),
+            "{updated}"
+        );
+        assert_eq!(
+            updated.matches("<script type=\"importmap\"").count(),
+            2,
+            "{updated}"
+        );
     }
 
     #[test]

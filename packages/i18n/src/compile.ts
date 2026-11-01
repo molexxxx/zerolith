@@ -25,6 +25,7 @@ export interface CompileOptions
 /** The result of compiling one catalog. */
 export interface CompiledCatalog
 {
+    /** The generated module's source, TypeScript or JavaScript as the `language` option chose; the `zerolith-i18n` CLI writes it to `<locale>.ts` or `<locale>.js`. */
     code: string;
     /** The message keys as function names, in source order. */
     names: string[];

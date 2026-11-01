@@ -44,7 +44,7 @@ interface Operation
 
 type Contract<A> = { readonly [K in keyof A]: Operation }
 type Input<Op extends Operation> = Omit<Op, "method" | "path" | "output">
-type Method = "get" | "put" | "post" | "delete" | "options" | "head" | "patch" | "trace" | "query"
+type Method = "get" | "put" | "post" | "delete" | "options" | "head" | "patch" | "trace" | "query" | (string & {})
 type Output<Op extends Operation> = Op["output"]
 type RouteTable<A extends Contract<A>> = { readonly [K in keyof A]: { readonly method: A[K]["method"]; readonly path: A[K]["path"] } }
 type Transport = (request: Request) => Promise<Response>

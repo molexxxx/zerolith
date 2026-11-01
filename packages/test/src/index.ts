@@ -12,6 +12,7 @@ export interface Mounted
 {
     /** The element the view was rendered into. */
     readonly container: HTMLElement;
+    /** The root `render` returned for the view; `unmount` disposes it. */
     readonly root: Root;
     /** Disposes the view and removes the container; `cleanup` does the same for every mount. */
     unmount(): void;
@@ -111,7 +112,9 @@ export type AccessibilityCode = "image_without_alt" | "control_without_label" | 
 /** One defect found by `accessibilityIssues`. */
 export interface AccessibilityIssue
 {
+    /** Which check the element failed, such as `image_without_alt`. */
     readonly code: AccessibilityCode;
+    /** The element that failed the check, found inside the container passed to `accessibilityIssues`. */
     readonly element: Element;
 }
 

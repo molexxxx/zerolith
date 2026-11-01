@@ -20,6 +20,7 @@ export const VIEW: unique symbol = Symbol("zerolith.view");
 /** A description of UI produced by `html`, `each`, or `when`, or by a component function. */
 export interface View
 {
+    /** The brand, always `true`. The package does not export its symbol key, so a `View` comes only from `html`, `each`, `when`, or `unsafeHtml`, never from an object literal. */
     readonly [VIEW]: true;
 }
 

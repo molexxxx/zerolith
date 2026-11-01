@@ -9,14 +9,18 @@ import { type ParamsOf, type Pattern, build, compile, match } from "./match.js";
 /** Document metadata a route contributes. */
 export interface Head
 {
+    /** The document title, set as `document.title` in the browser and rendered as `<title>` by `renderHead`; `undefined` leaves the title as it is. */
     title?: string;
+    /** The page description, the content of `<meta name="description">`; `undefined` leaves it as it is. In the browser the router adds that element when the document lacks one. */
     description?: string;
 }
 
 /** What a route's `load` receives. */
 export interface LoadContext<Params>
 {
+    /** The path parameters by name, decoded from the URL. */
     params: Params;
+    /** The URL being navigated to, query and hash included; the router's `url` changes to it only when the navigation commits. */
     url: URL;
     /** Aborted when a newer navigation starts. */
     abort: AbortSignal;
@@ -25,8 +29,11 @@ export interface LoadContext<Params>
 /** What a route's `view` and `head` receive. */
 export interface RouteContext<Params, Data>
 {
+    /** The path parameters by name, decoded from the URL. */
     params: Params;
+    /** What the route's `load` resolved to, or on the initial navigation the copy the server embedded; `undefined` when the route has no loader. */
     data: Data;
+    /** The URL the route matched, query and hash included. */
     url: URL;
 }
 
@@ -36,15 +43,20 @@ export type RouteView<Params, Data> = (context: RouteContext<Params, Data>) => u
 /** A view resolved on first navigation, created with `lazy()`. */
 export interface LazyView<Params, Data>
 {
+    /** Imports the view; the router calls it on the first navigation to the route and keeps the view it resolves. */
     readonly lazy: () => Promise<RouteView<Params, Data>>;
 }
 
 /** One entry of the route table. Write `load` before `view` so the data type flows into the view. */
 export interface RouteDefinition<Path extends string = string, Data = undefined>
 {
+    /** The path pattern, relative to the router's `base`: static segments, `:name` parameters, and an optional trailing `*rest` that captures the remainder. */
     path: Path;
+    /** Renders the route: a view function, or a `lazy()` view imported on first navigation. */
     view: RouteView<ParamsOf<Path>, Data> | LazyView<ParamsOf<Path>, Data>;
+    /** Resolves the data `view` and `head` receive, before the URL changes; the initial navigation skips it when the server embedded data for the same route, path, and query. */
     load?: (context: LoadContext<ParamsOf<Path>>) => Promise<Data>;
+    /** The route's document metadata: an object, or a function that receives the route context once `load` resolves. */
     head?: Head | ((context: RouteContext<ParamsOf<Path>, Data>) => Head);
 }
 
@@ -57,9 +69,13 @@ export function route<const Path extends string, Data = undefined>(definition: R
 /** The loose shape every route satisfies, used to constrain tables without losing each entry's own types. */
 export interface AnyRoute
 {
+    /** The route's path pattern; `href()` takes the types of its parameters from it. */
     readonly path: string;
+    /** The route's view function or `lazy()` view. */
     readonly view: unknown;
+    /** The route's loader, when it has one. */
     readonly load?: unknown;
+    /** The route's document metadata or the function that computes it, when it has one. */
     readonly head?: unknown;
 }
 
@@ -81,9 +97,13 @@ export function lazy<Params, Data>(loader: () => Promise<RouteView<Params, Data>
 /** The route the URL resolved to. */
 export interface Match
 {
+    /** The matched route's name in the route table. */
     readonly name: string;
+    /** The path parameters by name, decoded from the URL; empty when the path has none. */
     readonly params: Readonly<Record<string, string>>;
+    /** The URL the route matched, query and hash included. */
     readonly url: URL;
+    /** What the route's `load` resolved to, or on the initial navigation the copy the server embedded; `undefined` when the route has no loader. */
     readonly data: unknown;
 }
 
@@ -97,10 +117,13 @@ export type HrefArgs<Path extends string> = Record<string, never> extends Params
  */
 export interface NavigationEvent
 {
+    /** The stage: `start` when the navigation begins, then one of `commit`, `error`, or `cancel` when it ends. */
     readonly type: "start" | "commit" | "error" | "cancel";
     /** The same number for the start and the end of one navigation. */
     readonly id: number;
+    /** The URL being navigated to. */
     readonly url: URL;
+    /** How the navigation arrived: `push` adds a history entry, `replace` overwrites the current one, as the initial navigation does, and `pop` follows back or forward in the browser. */
     readonly mode: "push" | "replace" | "pop";
     /** The matched route's name on commit; undefined when the fallback rendered. */
     readonly name?: string | undefined;
@@ -189,8 +212,11 @@ function isLazy(view: unknown): view is LazyView<unknown, unknown>
 /** What `renderRouteState` embeds: the route the server rendered, its URL, and the data its loader produced. */
 export interface EmbeddedRouteState
 {
+    /** The name of the route the server rendered; the browser reuses `data` only when its initial navigation matches the same route. */
     readonly name: string;
+    /** The path and query of the URL the server rendered; the browser reuses `data` only when its initial URL has the same ones. */
     readonly href: string;
+    /** What the route's loader produced on the server, embedded as JSON. */
     readonly data: unknown;
 }
 

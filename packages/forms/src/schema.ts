@@ -9,12 +9,14 @@ import type { FieldErrors, Problem } from "zerolith";
 /** One segment of an issue path in object form. */
 export interface StandardPathSegment
 {
+    /** The key representing the path segment; `problemFromIssues` converts it to a string and joins the path's keys with dots to name the field. */
     readonly key: PropertyKey;
 }
 
 /** One validation failure. */
 export interface StandardIssue
 {
+    /** The error message of the issue; `problemFromIssues` lists it under the field its path names, or in `detail` when the path is absent or empty. */
     readonly message: string;
     /** The path to the failing value; absent for an issue about the whole input. */
     readonly path?: ReadonlyArray<PropertyKey | StandardPathSegment> | undefined;
@@ -28,6 +30,7 @@ export type StandardResult<Output> =
 /** The Standard Schema V1 interface, as published at standardschema.dev. */
 export interface StandardSchema<Input = unknown, Output = Input>
 {
+    /** The Standard properties: the `version` of the specification, the `vendor` name of the schema library, the optional inferred `types`, and the `validate` function that `validateForm` calls and awaits. */
     readonly "~standard": {
         readonly version: 1;
         readonly vendor: string;

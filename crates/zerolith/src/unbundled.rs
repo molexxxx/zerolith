@@ -30,10 +30,11 @@ const SKIPPED: [&str; 7] = [
 ];
 
 /// Files that belong to development, not to the served output.
-const DEVELOPMENT_FILES: [&str; 5] = [
+const DEVELOPMENT_FILES: [&str; 6] = [
     "package.json",
     "package-lock.json",
     "tsconfig.json",
+    "zerolith.json",
     "AGENTS.md",
     "README.md",
 ];
@@ -41,9 +42,16 @@ const DEVELOPMENT_FILES: [&str; 5] = [
 fn is_development_file(name: &str) -> bool {
     name.starts_with('.')
         || DEVELOPMENT_FILES.contains(&name)
-        || [".config.ts", ".config.js", ".config.mts", ".config.mjs"]
-            .iter()
-            .any(|suffix| name.ends_with(suffix))
+        || [
+            ".config.ts",
+            ".config.js",
+            ".config.mts",
+            ".config.mjs",
+            ".d.ts",
+            ".d.mts",
+        ]
+        .iter()
+        .any(|suffix| name.ends_with(suffix))
 }
 
 /// What `build` wrote.
@@ -52,6 +60,28 @@ pub struct Built {
     pub copied: usize,
     pub transformed: usize,
     pub html: usize,
+    /// The pages written, wherever they are in the output, each of which gets the import map.
+    pub pages: Vec<PathBuf>,
+    /// Each output file and the source that wrote it, so a second source for one file is refused.
+    written: BTreeMap<PathBuf, PathBuf>,
+}
+
+impl Built {
+    /// Records that `source` writes `target`, refusing a second source for the same output file, as `utils.ts` beside a stale `utils.js` would give.
+    fn claim(&mut self, root: &Path, out: &Path, target: &Path, source: &Path) -> io::Result<()> {
+        match self
+            .written
+            .insert(target.to_path_buf(), source.to_path_buf())
+        {
+            Some(first) if first != source => Err(io::Error::other(format!(
+                "{} and {} both become {} in the output; rename one",
+                css::shown(root, &first),
+                css::shown(root, source),
+                css::shown(out, target)
+            ))),
+            _ => Ok(()),
+        }
+    }
 }
 
 fn rewrite_html(html: &str) -> String {
@@ -143,6 +173,8 @@ struct Imports {
     files: BTreeMap<(PathBuf, Form), String>,
     /// The bare specifiers, each with the first module that imports it, for the check that the import map covers them.
     bare: BTreeMap<String, String>,
+    /// The imports refused, with the reason, which fail the build.
+    refused: Vec<String>,
 }
 
 /// The module that links a stylesheet a module imports, once, and waits for it so the page renders styled.
@@ -169,7 +201,7 @@ fn write_import(
     let relative = relative.strip_prefix("public").unwrap_or(relative);
     let name = format!(
         "./{}",
-        file.file_name().unwrap_or_default().to_string_lossy()
+        css::encoded(&file.file_name().unwrap_or_default().to_string_lossy())
     );
     let code = match form {
         Form::Stylesheet => STYLESHEET_MODULE.replace("__FILE__", &quoted(&name)),
@@ -190,12 +222,12 @@ fn write_import(
         Form::Json => {
             let text = fs::read_to_string(file)
                 .map_err(|error| io::Error::new(error.kind(), format!("{importer}: {error}")))?;
-            let value: serde_json::Value = serde_json::from_str(&text).map_err(|error| {
+            serde_json::from_str::<serde_json::Value>(&text).map_err(|error| {
                 io::Error::other(format!(
                     "{importer} names a file that is not valid JSON: {error}"
                 ))
             })?;
-            format!("export default {value};\n")
+            format!("export default JSON.parse({});\n", quoted(&text))
         }
         Form::Url => format!(
             "export default new URL({}, import.meta.url).href;\n",
@@ -248,6 +280,22 @@ fn rewrite(
             None => folder.join(path),
         };
         let target = css::canonical(&target).unwrap_or_else(|_| css::plain(&target));
+        let public = root.join("public");
+        let served = match path.strip_prefix('/') {
+            Some(absolute) if !target.exists() && public.join(absolute).is_file() => {
+                Some(absolute.to_string())
+            }
+            _ => target
+                .strip_prefix(&public)
+                .ok()
+                .map(|inside| inside.to_string_lossy().replace('\\', "/")),
+        };
+        if let Some(served) = served {
+            imports.refused.push(format!(
+                "{shown}: the import of {specifier} names a file in public/, which is served as it is and imports no module; reference it by its URL, /{served}, or move it next to the module"
+            ));
+            return None;
+        }
         imports
             .files
             .entry((target, form))
@@ -276,6 +324,7 @@ fn walk(
             walk(root, &path, out, built, prepare_templates, defines, imports)?;
             continue;
         }
+        let claim = |built: &mut Built, target: &Path| built.claim(root, out, target, &path);
         if is_development_file(&name) {
             continue;
         }
@@ -286,6 +335,7 @@ fn walk(
             .unwrap_or("");
         if let Ok(public) = relative.strip_prefix("public") {
             let target = out.join(public);
+            claim(built, &target)?;
             if let Some(parent) = target.parent() {
                 fs::create_dir_all(parent)?;
             }
@@ -302,6 +352,7 @@ fn walk(
         let read =
             |path: &Path| fs::read_to_string(path).map_err(|error| css::located(root, path, error));
         if transform::transforms(extension) {
+            claim(built, &target.with_extension("js"))?;
             let source = read(&path)?;
             let code = transform::transform(&path, &source)
                 .and_then(|code| rewrite(&code, root, &path, imports))
@@ -311,6 +362,7 @@ fn walk(
             fs::write(target.with_extension("js"), code)?;
             built.transformed += 1;
         } else if extension == "js" || extension == "mjs" {
+            claim(built, &target)?;
             let source = read(&path)?;
             let code = rewrite(&source, root, &path, imports)
                 .map(replace)
@@ -319,9 +371,12 @@ fn walk(
             fs::write(&target, code)?;
             built.copied += 1;
         } else if extension == "html" || extension == "htm" {
+            claim(built, &target)?;
             fs::write(&target, rewrite_html(&read(&path)?))?;
             built.html += 1;
+            built.pages.push(target);
         } else {
+            claim(built, &target)?;
             fs::copy(&path, &target)?;
             built.copied += 1;
         }
@@ -389,6 +444,9 @@ pub fn build(
         &defines,
         &mut imports,
     )?;
+    if !imports.refused.is_empty() {
+        return Err(io::Error::other(imports.refused.join("\n")));
+    }
     for ((file, form), importer) in &imports.files {
         write_import(&root, &out_dir, file, *form, importer)?;
         built.transformed += 1;
@@ -410,20 +468,13 @@ pub fn build(
         None
     };
     let mut mapped = ImportMap::default();
-    for entry in fs::read_dir(&out_dir)? {
-        let path = entry?.path();
-        if !path
-            .extension()
-            .is_some_and(|extension| extension == "html")
-        {
-            continue;
-        }
-        let current = fs::read_to_string(&path)?;
+    for path in &built.pages {
+        let current = fs::read_to_string(path)?;
         if let Some(map) = page_map(&current) {
             mapped.imports.extend(map.imports);
         }
         if let Some(vendored) = &vendored {
-            fs::write(&path, update_html(&current, &page_tags(vendored, &current)))?;
+            fs::write(path, update_html(&current, &page_tags(vendored, &current)))?;
         }
     }
     if let Some(vendored) = &vendored {
@@ -638,6 +689,88 @@ mod tests {
     }
 
     #[test]
+    fn maps_every_page_and_refuses_what_the_output_cannot_serve() {
+        let root =
+            std::env::temp_dir().join(format!("zerolith-unbundled-pages-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::create_dir_all(root.join("about")).unwrap();
+        fs::create_dir_all(root.join("public")).unwrap();
+        fs::create_dir_all(root.join("node_modules/zerolith/dist")).unwrap();
+        fs::write(
+            root.join("node_modules/zerolith/package.json"),
+            "{\"name\":\"zerolith\",\"version\":\"0.0.0\",\"exports\":{\".\":\"./dist/index.js\"}}",
+        )
+        .unwrap();
+        fs::write(
+            root.join("node_modules/zerolith/dist/index.js"),
+            "export const html = 1;",
+        )
+        .unwrap();
+        fs::write(
+            root.join("src/main.ts"),
+            "import { html } from \"zerolith\";\nimport settings from \"./settings.json\";\nexport const parts = [html, settings];\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("src/settings.json"),
+            "{\"__proto__\": {\"admin\": true}}",
+        )
+        .unwrap();
+        fs::write(root.join("src/env.d.ts"), "declare const x: number;\n").unwrap();
+        fs::write(root.join("zerolith.json"), "{}").unwrap();
+        fs::write(root.join("public/logo.svg"), "<svg/>").unwrap();
+        let page =
+            "<!doctype html><head></head><script type=\"module\" src=\"/src/main.ts\"></script>";
+        fs::write(root.join("index.html"), page).unwrap();
+        fs::write(root.join("about/index.html"), page).unwrap();
+        let (out, built, _) = build(&root, Path::new("dist"), false, false).unwrap();
+        assert_eq!(built.pages.len(), 2);
+        for page in ["index.html", "about/index.html"] {
+            let written = fs::read_to_string(out.join(page)).unwrap();
+            assert!(
+                written.contains("\"zerolith\":\"/vendor/zerolith/dist/index.js\""),
+                "{page}: {written}"
+            );
+        }
+        let json = fs::read_to_string(out.join("src/settings.json.js")).unwrap();
+        assert!(json.starts_with("export default JSON.parse("), "{json}");
+        assert!(!out.join("zerolith.json").exists());
+        assert!(!out.join("src/env.d.js").exists());
+
+        fs::write(root.join("src/main.js"), "export const stale = 1;\n").unwrap();
+        let collision = build(&root, Path::new("dist"), false, false)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            collision.contains("src/main.js and src/main.ts both become src/main.js")
+                || collision.contains("src/main.ts and src/main.js both become src/main.js"),
+            "{collision}"
+        );
+        fs::remove_file(root.join("src/main.js")).unwrap();
+
+        fs::write(
+            root.join("src/logo.ts"),
+            "import relative from \"../public/logo.svg\";\nimport served from \"/logo.svg\";\nexport const urls = [relative, served];\n",
+        )
+        .unwrap();
+        let public = build(&root, Path::new("dist"), false, false)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            public
+                .contains("src/logo.ts: the import of ../public/logo.svg names a file in public/"),
+            "{public}"
+        );
+        assert!(
+            public.contains("src/logo.ts: the import of /logo.svg names a file in public/"),
+            "{public}"
+        );
+        assert!(public.contains("by its URL, /logo.svg,"), "{public}");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn warns_of_a_bare_import_no_import_map_covers_and_keeps_the_page_entries() {
         let root =
             std::env::temp_dir().join(format!("zerolith-unbundled-bare-{}", std::process::id()));
@@ -751,7 +884,7 @@ mod tests {
         );
         assert_eq!(
             fs::read_to_string(out.join("src/data.json.js")).unwrap(),
-            "export default {\"ok\":true};\n"
+            "export default JSON.parse(\"{ \\\"ok\\\": true }\");\n"
         );
         assert_eq!(
             fs::read_to_string(out.join("src/logo.svg.url.js")).unwrap(),

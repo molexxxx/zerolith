@@ -23,9 +23,13 @@ export type DiagnosticSeverity = "error" | "warning" | "deprecation" | "info";
 /** Where a diagnostic points. Source positions are 1-based; `selector` locates a DOM node at runtime. */
 export interface DiagnosticLocation
 {
+    /** The source file the diagnostic points into. */
     file?: string;
+    /** The 1-based line within `file`. */
     line?: number;
+    /** The 1-based column within `line`. */
     column?: number;
+    /** A CSS selector that finds the node in the page the diagnostic is about, for a diagnostic raised at runtime. */
     selector?: string;
 }
 
@@ -36,6 +40,7 @@ export interface DiagnosticSuggestion
     description: string;
     /** The replacement source text, when the change is textual. */
     replacement?: string;
+    /** Whether a tool may make the change unreviewed: `machine_applicable` says it may, while `maybe_incorrect` and `has_placeholders` need a person to check or complete it. */
     applicability: Applicability;
 }
 
@@ -47,6 +52,7 @@ export interface Diagnostic
 {
     /** Stable snake_case identifier, for example `signal_written_inside_computed`. Codes are public API; message text is not. */
     code: string;
+    /** The diagnostic's weight; the runtime throws an `error` as a `ZerolithError` and passes every other severity to the `onDiagnostic` listeners. */
     severity: DiagnosticSeverity;
     /** One sentence naming what happened. Empty in production builds. */
     cause: string;
@@ -54,15 +60,20 @@ export interface Diagnostic
     fix: string;
     /** Documentation page for the code, with the arguments encoded in the query string. */
     url: string;
+    /** Where the diagnostic points, when the emitter knows: a position in the source or a node in the page. */
     location?: DiagnosticLocation;
+    /** A change that would resolve the diagnostic, when the emitter can name one. */
     suggestion?: DiagnosticSuggestion;
+    /** The values the diagnostic is about, such as the name of a refused attribute, kept apart so a tool can word its own text; `url` carries them in its query string. */
     args?: DiagnosticArgs;
 }
 
 /** The text of one catalog entry. */
 export interface DiagnosticText
 {
+    /** One sentence naming what happened, used as the diagnostic's `cause` and on the code's documentation page. */
     cause: string;
+    /** One sentence naming what to do about it, used as the diagnostic's `fix` and on the code's documentation page. */
     fix: string;
 }
 
@@ -133,8 +144,10 @@ export function diagnostic(code: DiagnosticCode, severity: DiagnosticSeverity, a
 /** An error thrown by zerolith. The diagnostic carries the machine-readable detail. */
 export class ZerolithError extends Error
 {
+    /** The record the error was built from, for tools that read its code and arguments as data instead of parsing the message. */
     readonly diagnostic: Diagnostic;
 
+    /** Builds the message from the record's code, cause, fix, and URL, leaving out a cause or fix that is empty, as both are in production builds. */
     constructor(record: Diagnostic)
     {
         const detail = (record.cause === "" ? "" : ": " + record.cause) + (record.fix === "" ? "" : " " + record.fix);

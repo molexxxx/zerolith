@@ -149,6 +149,27 @@ describe("API reference signatures", () =>
 
     it("fences a member that holds backticks with a longer run on the reference page", () =>
     {
-        expect(referencePage(ENTRY, symbolsOf(doc, "/repo", ENTRY))).toContain("- `` readonly [property: `prop:${string}`]: unknown ``");
+        expect(referencePage(ENTRY, documented())).toContain("- `` readonly [property: `prop:${string}`]: unknown ``");
+    });
+
+    it("refuses an export or a member without a doc comment, naming each", () =>
+    {
+        expect(() => referencePage(ENTRY, symbolsOf(doc, "/repo", ENTRY))).toThrow(/sample: undocumented members: Sample\.run, Sample\.make/);
+        const [first, ...rest] = documented();
+        expect(() => referencePage(ENTRY, [{ ...first, doc: "" } as (typeof rest)[number], ...rest])).toThrow(new RegExp(`sample: undocumented exports: ${first?.name ?? ""}$`));
     });
 });
+
+/** The sample's symbols with a doc comment on every member, as the build requires. */
+function documented(): ReturnType<typeof symbolsOf>
+{
+    const symbols = symbolsOf(doc, "/repo", ENTRY);
+    for (const member of symbols.flatMap((symbol) => symbol.members ?? []))
+    {
+        if (member.doc === "")
+        {
+            member.doc = `The ${member.name}.`;
+        }
+    }
+    return symbols;
+}

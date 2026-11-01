@@ -12,7 +12,9 @@ import { type ReadableSignal, type Signal, computed, effect, signal } from "zero
 /** One entry of an `Accept-Language` header or of `navigator.languages`. */
 export interface LanguageRange
 {
+    /** The language tag, or `*` for any language, as written before any `;` parameters. */
     readonly range: string;
+    /** The entry's `q` weight between 0 and 1, rounded to three decimals; 1 when the entry gives none. */
     readonly quality: number;
 }
 
@@ -144,6 +146,7 @@ export interface LocaleState
     readonly locale: ReadableSignal<string>;
     /** The writing direction of the current locale. */
     readonly direction: ReadableSignal<"ltr" | "rtl">;
+    /** A copy of the `supported` option, in the same order; `set` negotiates against it. */
     readonly supported: readonly string[];
     /** Switches locales after negotiating the request against `supported`. */
     set(requested: string | readonly string[]): void;
@@ -179,10 +182,15 @@ export function applyLocale(state: LocaleState, doc: Document = document): () =>
 /** Formatters for the current locale; each reads the locale signal when called, so a computed value or template re-renders on a locale change. */
 export interface Formatters
 {
+    /** Formats a number with `Intl.NumberFormat`. */
     number(value: number, options?: Intl.NumberFormatOptions): string;
+    /** Formats a `Date`, or a timestamp in milliseconds since the epoch, with `Intl.DateTimeFormat`. */
     date(value: Date | number, options?: Intl.DateTimeFormatOptions): string;
+    /** Formats a time `value` units of `unit` away from now with `Intl.RelativeTimeFormat`, such as `in 2 hours`; a negative value lies in the past. */
     relative(value: number, unit: Intl.RelativeTimeFormatUnit, options?: Intl.RelativeTimeFormatOptions): string;
+    /** Joins strings into a list with `Intl.ListFormat`, such as `a, b, and c` in English. */
     list(values: Iterable<string>, options?: Intl.ListFormatOptions): string;
+    /** Selects the plural category of a number with `Intl.PluralRules`, such as `one` or `other`, for choosing a message variant. */
     plural(value: number, options?: Intl.PluralRulesOptions): Intl.LDMLPluralRule;
 }
 

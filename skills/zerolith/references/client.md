@@ -45,7 +45,8 @@ An operation is named by its `operationId` in camel case, or by its method and p
 | The 2xx responses | `output`: the union of their JSON types, `string` for text, and `undefined` for a response without content |
 | No 2xx response | `output` from the `default` response, or `unknown` |
 | `summary`, `description`, and `deprecated` | The entry's doc comment, with `@deprecated` when it applies |
-| `additionalOperations`, OpenAPI 3.2's methods beyond the standard ones | An entry per method; a name that is not an HTTP method name fails the generator, since it would be written into the module |
+| `allOf`, `oneOf`, `anyOf`, and `$ref` in a schema | An intersection, a union, or the referenced type; keywords beside them that shape a type, such as `properties`, intersect with them |
+| `additionalOperations`, OpenAPI 3.2's methods beyond the standard ones | An entry per method, whose `method` is the name in lowercase, such as `copy`; a name that is not an HTTP method name fails the generator, since it would be written into the module |
 | Header and cookie parameters, security schemes, and references outside the document | Left out; headers travel through the client's options |
 
 > [!IMPORTANT]

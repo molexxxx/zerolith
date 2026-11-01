@@ -11,6 +11,7 @@ import { type DevtoolsHook, devtoolsSaveRestore } from "zerolith/internal";
 /** The part of `import.meta.hot` the runtime relies on: the object that survives a module's replacement. */
 export interface HotContext
 {
+    /** Survives each new version of the module; the runtime stores the module's component proxies here under the `zerolith` key, so a new version updates the proxies its importers already hold. */
     readonly data: Record<string, unknown>;
 }
 

@@ -9,31 +9,47 @@ import type { Transport } from "./index.js";
 /** The port shapes supported: a DOM `MessagePort`, Node's, or Electron's `MessagePortMain`. */
 export interface PortLike
 {
+    /** Sends a message to the other end; `portTransport` posts each `PortRequest` through it and `servePort` each `PortResponse`. */
     postMessage(message: unknown): void;
+    /** Starts delivering messages; called, when present, right after the listener is attached, since a DOM `MessagePort` and Electron's `MessagePortMain` queue messages until it runs. */
     start?(): void;
+    /** Receives messages the `EventTarget` way, as a DOM `MessagePort` does; used in preference to `on` when both exist. */
     addEventListener?(type: "message", listener: (event: { data: unknown }) => void): void;
+    /** Receives messages the `EventEmitter` way, as Electron's `MessagePortMain` does; used when `addEventListener` is absent, and a port with neither throws a `TypeError`. */
     on?(type: "message", listener: (event: { data: unknown }) => void): void;
 }
 
 /** What crosses the port for a request. */
 export interface PortRequest
 {
+    /** Tags the message as a request, so `servePort` ignores other traffic on the port. */
     kind: "zerolith:request";
+    /** Pairs the request with its response; each `portTransport` numbers its requests from 1. */
     id: number;
+    /** The request's absolute URL, from which `servePort` builds the `Request` its handler receives. */
     url: string;
+    /** The request method as `Request.method` reports it, such as `POST`. */
     method: string;
+    /** The request headers as `[name, value]` pairs with lowercase names, as iterating a `Headers` yields them. */
     headers: [string, string][];
+    /** The body as UTF-8 text, or `null` for a `GET` or `HEAD` request or an empty body. */
     body: string | null;
 }
 
 /** What crosses the port for a response. */
 export interface PortResponse
 {
+    /** Tags the message as a response, so `portTransport` ignores other traffic on the port. */
     kind: "zerolith:response";
+    /** The `id` of the request this answers; an answer with no pending request, such as one whose call was aborted, is dropped. */
     id: number;
+    /** The status code of the handler's response, or 500 when the handler threw. */
     status: number;
+    /** The status text of the handler's response, empty when none was set. */
     statusText: string;
+    /** The response headers as `[name, value]` pairs with lowercase names, as iterating a `Headers` yields them. */
     headers: [string, string][];
+    /** The body as UTF-8 text, or `null` when it is empty, as for a 204. */
     body: string | null;
 }
 

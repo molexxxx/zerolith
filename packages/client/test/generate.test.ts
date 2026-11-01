@@ -29,6 +29,21 @@ describe("generateClient", () =>
         expect(copy).toContain("{ method: \"copy\", path: \"/p\" }");
     });
 
+    it("intersects a composition with the keywords beside it", () =>
+    {
+        const schema = { allOf: [{ $ref: "#/components/schemas/Base" }], properties: { extra: { type: "string" } }, required: ["extra"] };
+        const code = generateClient(document(
+            { "/a": { get: { operationId: "a", responses: { "200": { description: "ok", content: { "application/json": { schema } } } } } } },
+            { schemas: { Base: { type: "object", properties: { id: { type: "integer" } }, required: ["id"] } } }
+        ));
+        expect(code).toMatch(/output: Base & \{\s+extra: string;\s+\};/);
+        const referenced = generateClient(document(
+            { "/b": { get: { operationId: "b", responses: { "200": { description: "ok", content: { "application/json": { schema: { $ref: "#/components/schemas/Base", properties: { more: { type: "boolean" } } } } } } } } } },
+            { schemas: { Base: { type: "object", properties: { id: { type: "integer" } } } } }
+        ));
+        expect(referenced).toMatch(/output: Base & \{\s+more\?: boolean;\s+\};/);
+    });
+
     it("accepts only OpenAPI 3.x documents", () =>
     {
         expect(() => generateClient({ openapi: "2.0" })).toThrow(/OpenAPI 3/);

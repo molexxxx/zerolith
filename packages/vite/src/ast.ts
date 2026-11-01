@@ -6,25 +6,35 @@
 /** What every ESTree node carries. */
 export interface AstNode
 {
+    /** The ESTree node type, such as `CallExpression`; `walk` treats any object with a string `type` as a node. */
     type: string;
+    /** Offset of the node's first character, as an index into the parsed code. */
     start: number;
+    /** Offset just past the node's last character, so `code.slice(start, end)` is the node's source text. */
     end: number;
 }
 
 /** One replacement of a source range; a zero-length range inserts. */
 export interface Edit
 {
+    /** Offset where the replaced range starts, as an index into the code the edit applies to. */
     start: number;
+    /** Offset just past the last character replaced; equal to `start` for an insertion. */
     end: number;
+    /** The text written in place of the range; empty to delete it. */
     text: string;
 }
 
 /** A line-preserving source map: every output line maps to the same input line. */
 export interface IdentityMap
 {
+    /** The version of the source map format, always the integer 3. */
     version: 3;
+    /** The original sources the mappings refer to by index; the identity map lists only the module's id. */
     sources: string[];
+    /** The symbol names the mappings refer to by index; empty, since no segment of an identity map names a symbol. */
     names: string[];
+    /** The encoded mapping data: one group of Base64 VLQ segments per generated line, groups separated by `;` and segments by `,`; the identity map writes one segment per line. */
     mappings: string;
 }
 

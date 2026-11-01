@@ -12,7 +12,9 @@ import type { ModuleParser } from "./transform.js";
 /** The result of lowering one module. */
 export interface JsxOutput
 {
+    /** The module text with each JSX expression replaced, on the same lines, by the `html` call it stands for, and the `html` import added at the start of the first line. */
     code: string;
+    /** The identity source map from each lowered line to the same line of the original file. */
     map: IdentityMap;
 }
 
@@ -96,8 +98,10 @@ const VOID_ELEMENTS: ReadonlySet<string> = new Set(["area", "base", "br", "col",
 /** Thrown for JSX the lowering refuses, with the offset in the module. */
 export class JsxError extends Error
 {
+    /** Offset in the module of the JSX node the lowering refused, which `position` turns into a line and column. */
     readonly offset: number;
 
+    /** Creates the error with `message` after a `zerolith: ` prefix and the offset of the refused node. */
     constructor(message: string, offset: number)
     {
         super(`zerolith: ${message}`);

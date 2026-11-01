@@ -72,7 +72,7 @@ fn sources(folder: &Path, found: &mut Vec<PathBuf>) {
     }
 }
 
-/// The template lint of the Vite plugin over a project's sources, as warnings that name the file, line, and column. JSX is lowered first, keeping its lines, so the findings point into the source.
+/// The template lint of the Vite plugin over a project's sources, as warnings that name the file, line, and column. JSX is lowered first; the lowering keeps the module's line count but writes each JSX tree on the tree's first line, so a finding inside JSX names that line, with a column in the lowered text.
 pub(crate) fn lint_sources(root: &Path) -> Vec<Finding> {
     let mut files = Vec::new();
     sources(root, &mut files);
@@ -142,7 +142,7 @@ fn preload_links(html: &str) -> Vec<&str> {
     links
 }
 
-/// Runs every check against `root`: the page and its import map, then the template lint over the sources.
+/// Runs every check against `root`: the page and its import map, the template lint over the sources, and the version the project's zerolith skill was written for.
 pub fn check(root: &Path) -> Vec<Finding> {
     let mut findings = page_checks(root);
     findings.extend(lint_sources(root));
@@ -182,7 +182,7 @@ fn page_checks(root: &Path) -> Vec<Finding> {
         ));
         return findings;
     };
-    if !html.contains("<script type=\"module\"") {
+    if crate::html::scan(&html).modules == 0 {
         findings.push(warning(
             "module_script_missing",
             "index.html has no <script type=\"module\">".to_string(),
@@ -497,6 +497,13 @@ export const view = html`<p>${count.get()}</p>`;
             check(&root).is_empty(),
             "a page without an import map is complete"
         );
+        fs::write(
+            root.join("index.html"),
+            "<html><head><!-- <script type=\"importmap\">{}</script> --><script type=\"importmap\" nonce=\"n0\">{\"imports\":{\"b\":\"/vendor/b.js\"}}</script></head><body><script src=\"/src/main.ts\" type='module'></script></body></html>",
+        )
+        .unwrap();
+        let codes: Vec<&str> = check(&root).iter().map(|finding| finding.code).collect();
+        assert_eq!(codes, vec!["importmap_target_missing"]);
         fs::write(root.join("index.html"), "<html><body></body></html>").unwrap();
         let codes: Vec<&str> = check(&root).iter().map(|finding| finding.code).collect();
         assert_eq!(codes, vec!["module_script_missing"]);

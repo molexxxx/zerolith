@@ -1,8 +1,8 @@
-//! Serving TypeScript and JSX without a build step. The dev server hands
-//! `.ts`, `.tsx`, and `.jsx` sources through here: the JSX lowering as text
-//! edits over the parser's tree, mirroring the Vite plugin so both produce
-//! the same `html` calls, then type stripping through oxc's transformer and
-//! code generation.
+//! TypeScript and JSX to JavaScript. The dev server, the bundled build, and
+//! the unbundled build hand `.ts`, `.tsx`, `.jsx`, and `.mts` sources
+//! through here: the JSX lowering as text edits over the parser's tree,
+//! mirroring the Vite plugin so both produce the same `html` calls, then
+//! type stripping through oxc's transformer and code generation.
 
 use std::fmt;
 use std::path::Path;
@@ -48,7 +48,7 @@ pub(crate) fn fail(message: impl Into<String>) -> TransformError {
     }
 }
 
-/// Whether the dev server transforms files with this extension.
+/// Whether the dev server and the builds transform files with this extension to JavaScript.
 pub fn transforms(extension: &str) -> bool {
     matches!(extension, "ts" | "mts" | "tsx" | "jsx")
 }

@@ -5,8 +5,11 @@ import type { Diagnostic } from "./diagnostics.js";
 /** What a reactive node looks like to an inspector. */
 export interface NodeSnapshot
 {
+    /** Unique across nodes and roots, assigned when the node is created; a `node` event names the node by this number. */
     id: number;
+    /** `state` for a `signal`, `computed` for a `computed` value, and `effect` for an effect, including those the renderer starts for its bindings. */
     kind: "state" | "computed" | "effect";
+    /** The signal's or computed value's `name` option, or else the name of the computed's or effect's function; `undefined` when there is neither. A named state node keeps its value across an edit in development. */
     name: string | undefined;
     /** The current value for state and computed nodes; absent for effects and when reading threw. */
     value?: unknown;
@@ -19,9 +22,13 @@ export interface NodeSnapshot
 /** A mounted root as the inspector sees it. */
 export interface RootSnapshot
 {
+    /** Unique across roots and nodes, assigned at mount; a `root` event names the root by this number. */
     id: number;
+    /** The call that mounted the root: `render` or `hydrate`, the latter also when hydration found no server markup and rendered instead. */
     kind: "render" | "hydrate";
+    /** The element or fragment the root was mounted into, with a selector target already resolved to its element. */
     container: Node;
+    /** Mounted while the inspector itself was rendering, as its own dock is; no subscriber hears of such a root, and the Roots tab leaves it out. */
     internal: boolean;
 }
 
@@ -35,6 +42,7 @@ export type DevtoolsEvent =
 /** The object published as `globalThis.__ZEROLITH_DEVTOOLS__` in development builds. */
 export interface DevtoolsHook
 {
+    /** The version of the hook's shape, which a tool reading the hook can check before it relies on the other members. */
     readonly version: number;
     /** Live reactive nodes, oldest first. */
     nodes(): NodeSnapshot[];

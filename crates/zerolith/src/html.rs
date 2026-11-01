@@ -24,6 +24,10 @@ pub struct Page {
     pub assets: Vec<Reference>,
     /// Whole elements the bundled output drops: import maps, and module preload links to local files, which name source modules the bundle replaces with its own preloads.
     pub dropped: Vec<(usize, usize)>,
+    /// The import map elements, whole, in document order, whatever their other attributes, such as a `nonce`.
+    pub import_maps: Vec<(usize, usize)>,
+    /// The module scripts of every kind, inline ones and remote ones included.
+    pub modules: usize,
 }
 
 /// The link relations whose `href` names a file the page loads; others, such as `canonical` and `alternate`, name pages.
@@ -235,8 +239,14 @@ pub fn scan(html: &str) -> Page {
                 attribute(html, &attributes, "type").map(|(value, _)| value.to_ascii_lowercase());
             let close = element_end(html, end, "script");
             match kind.as_deref() {
-                Some("importmap") => page.dropped.push((start, close)),
-                Some("module") => page.scripts.extend(local(html, &attributes, "src", tag)),
+                Some("importmap") => {
+                    page.dropped.push((start, close));
+                    page.import_maps.push((start, close));
+                }
+                Some("module") => {
+                    page.modules += 1;
+                    page.scripts.extend(local(html, &attributes, "src", tag));
+                }
                 Some("text/javascript" | "application/javascript") | None => {
                     page.assets.extend(local(html, &attributes, "src", tag));
                 }

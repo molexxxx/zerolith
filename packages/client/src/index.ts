@@ -6,13 +6,19 @@
  */
 import { PROBLEM_MEDIA_TYPE, type Problem, type Resource, isProblem, resource } from "zerolith";
 
-/** The HTTP methods an operation can use; `query` is the HTTP QUERY method. */
-export type Method = "get" | "put" | "post" | "delete" | "options" | "head" | "patch" | "trace" | "query";
+/**
+ * The HTTP method of an operation, in lowercase: one OpenAPI names, `query`
+ * being the HTTP QUERY method, or any other method token, as an OpenAPI 3.2
+ * `additionalOperations` entry such as `copy` gives.
+ */
+export type Method = "get" | "put" | "post" | "delete" | "options" | "head" | "patch" | "trace" | "query" | (string & {});
 
 /** One operation as the generated `Api` interface describes it. */
 export interface Operation
 {
+    /** The HTTP method in lowercase, such as `get`; the request sends it uppercased. */
     readonly method: Method;
+    /** The path template, such as `/notes/{id}`, whose placeholders the client fills from `params` with URI-encoded values. */
     readonly path: string;
     /** Path parameters, by the name inside the braces. */
     readonly params?: Record<string, string | number | boolean>;
@@ -39,7 +45,9 @@ export type Output<Op extends Operation> = Op["output"];
 /** Per-call options. */
 export interface CallOptions
 {
+    /** Becomes the request's `signal`, so aborting it rejects the call under `fetch` or `portTransport`; `query` replaces it with the resource's own signal. */
     signal?: AbortSignal;
+    /** Headers for this call, set over the client's `headers` so that a name in both takes this value. */
     headers?: HeadersInit;
 }
 
@@ -53,6 +61,7 @@ export interface ClientOptions
 {
     /** Prepended to every path. Defaults to "", the page's origin in a browser; pass an absolute URL elsewhere. */
     baseUrl?: string;
+    /** Sends every request the client builds and resolves with the response. Defaults to the global `fetch`, looked up on each call. */
     transport?: Transport;
     /** Headers sent with every request, or a function returning them, for values such as a bearer token. */
     headers?: HeadersInit | (() => HeadersInit);
@@ -61,9 +70,12 @@ export interface ClientOptions
 /** Thrown for a response outside 2xx, carrying the problem the server sent or one built from the status line. */
 export class ProblemError extends Error
 {
+    /** The problem the server sent, with `status` filled from the response when the body omits it; a body that is not a JSON problem yields `status` and a `title` from the status line. */
     readonly problem: Problem;
+    /** The response outside 2xx, for its status and headers; its body has already been read when the content type is JSON. */
     readonly response: Response;
 
+    /** Wraps `problem` and the `response` it came from; the message is the problem's `title`, or `HTTP <status>` when it has none. */
     constructor(problem: Problem, response: Response)
     {
         super(problem.title ?? `HTTP ${response.status}`);

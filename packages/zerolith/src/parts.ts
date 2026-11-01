@@ -18,6 +18,7 @@ export const CHILD_MARKER = "<!--zl$-->";
 /** Where and how one or more expressions bind into the template. */
 export interface PartSpec
 {
+    /** How the part binds: `CHILD` for content; for an attribute, `BOOLEAN`, `PROPERTY`, or `EVENT` after a `?`, `.`, or `@` prefix, `REF` for `ref`, and `ATTRIBUTE` otherwise. */
     kind: number;
     /** Position of the bound node in a tree walk of the template content. */
     index: number;
@@ -32,7 +33,9 @@ export interface PartSpec
 /** The scanner's output: markup with markers, and the parts in source order. */
 export interface Scanned
 {
+    /** The static strings as one markup string, with each bound attribute replaced by an attribute named `zl$N`, N being its index in `parts`, and each child expression by a `<!--zl$-->` comment. */
     markup: string;
+    /** One part per child expression and per bound attribute, in source order; `index` is -1 here, and `prepare` sets it on its own copies. */
     parts: PartSpec[];
 }
 

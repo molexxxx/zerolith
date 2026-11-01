@@ -66,44 +66,6 @@ pub struct Built {
     pub warnings: Vec<String>,
 }
 
-/// The extensions an import turns into a URL, as in Vite.
-const ASSET_EXTENSIONS: [&str; 34] = [
-    "apng",
-    "bmp",
-    "png",
-    "jpg",
-    "jpeg",
-    "jfif",
-    "pjpeg",
-    "pjp",
-    "gif",
-    "svg",
-    "ico",
-    "webp",
-    "avif",
-    "cur",
-    "jxl",
-    "mp4",
-    "webm",
-    "ogg",
-    "mp3",
-    "wav",
-    "flac",
-    "aac",
-    "opus",
-    "mov",
-    "m4a",
-    "vtt",
-    "woff",
-    "woff2",
-    "eot",
-    "ttf",
-    "otf",
-    "webmanifest",
-    "pdf",
-    "txt",
-];
-
 /// The syntax the output keeps; newer syntax, such as `using` declarations, is lowered. Targeting the oldest supported browsers instead would turn every class field into a `defineProperty` call, since their engines ship class fields with bugs the compatibility data excludes until Chrome 98 and Safari 16.
 const SCRIPT_TARGET: &str = "es2022";
 
@@ -387,8 +349,7 @@ impl Plugin for Zerolith {
         let code = if id.ends_with("?scoped") {
             self.reported(id, self.scoped_module(id))?
         } else if queried
-            || (!id.contains('?')
-                && extension_of(id).is_some_and(|extension| ASSET_EXTENSIONS.contains(&extension)))
+            || (!id.contains('?') && extension_of(id).is_some_and(crate::modules::is_asset))
         {
             self.reported(id, self.asset_module(id))?
         } else if !id.contains('?') && extension_of(id) == Some("css") {
@@ -532,17 +493,22 @@ impl Plugin for Zerolith {
 }
 
 /// Normalizes a base path: `./` and the empty string mean URLs relative to the page, anything else gets a leading and a trailing slash.
-pub fn normalize_base(base: &str) -> String {
+pub fn normalize_base(base: &str) -> io::Result<String> {
     let trimmed = base.trim();
+    if trimmed.contains("://") || trimmed.starts_with("//") {
+        return Err(failure(format!(
+            "the base {trimmed} is a URL; it is the path the app is served under, such as /app/, or ./ for files opened from any folder"
+        )));
+    }
     if trimmed.is_empty() || trimmed == "." || trimmed == "./" {
-        return "./".to_string();
+        return Ok("./".to_string());
     }
     let inner = trimmed.trim_matches('/');
-    if inner.is_empty() {
+    Ok(if inner.is_empty() {
         "/".to_string()
     } else {
         format!("/{inner}/")
-    }
+    })
 }
 
 /// The file a script or stylesheet URL in `index.html` names, without its query or fragment.
@@ -1164,7 +1130,7 @@ mod tests {
             root: root.to_path_buf(),
             out: PathBuf::from("dist"),
             empty_out_dir: false,
-            base: normalize_base(base),
+            base: normalize_base(base).unwrap(),
             mode: mode.to_string(),
             minify: true,
             sourcemap: false,
@@ -1306,9 +1272,16 @@ mod tests {
         );
         let code = read_all(&root.join("dist/assets"), "js");
         assert!(code.contains("import.meta.url"), "{code}");
-        assert_eq!(normalize_base(""), "./");
-        assert_eq!(normalize_base("/"), "/");
-        assert_eq!(normalize_base("/app"), "/app/");
+        assert_eq!(normalize_base("").unwrap(), "./");
+        assert_eq!(normalize_base("/").unwrap(), "/");
+        assert_eq!(normalize_base("/app").unwrap(), "/app/");
+        assert!(
+            normalize_base("https://cdn.example/app")
+                .unwrap_err()
+                .to_string()
+                .contains("is a URL")
+        );
+        assert!(normalize_base("//cdn.example/app").is_err());
         let _ = fs::remove_dir_all(&root);
     }
 

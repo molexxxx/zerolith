@@ -21,15 +21,19 @@ export type ElementAttributes = {
 /** The JSX namespace TypeScript reads. */
 export declare namespace JSX
 {
+    /** The type TypeScript gives every JSX expression and checks a function component's return type against: a `View`, which the lowered `html` call returns. */
     type Element = View;
+    /** Names the prop that carries children; TypeScript reads only the property's name, `children`, and checks the content between an element's tags against that prop. */
     interface ElementChildrenAttribute
     {
         children: unknown;
     }
+    /** Props TypeScript accepts on every component element on top of the component's own: `ref`, which the lowering passes to the component as an ordinary prop. */
     interface IntrinsicAttributes
     {
         ref?: unknown;
     }
+    /** Maps each intrinsic tag, a name such as `div` or `my-card`, to the attributes TypeScript checks on it: `ElementAttributes` for every tag. */
     type IntrinsicElements = { readonly [tag in keyof HTMLElementTagNameMap]: ElementAttributes } & { readonly [tag: string]: ElementAttributes };
 }
 
