@@ -100,12 +100,12 @@ To show a value derived from signals, bind a computed value, as `${computed(() =
 
 @include packages/zerolith/test/examples/guide.example.browser.test.ts#mount
 
-The page itself is plain HTML. The starter's `index.html` links the global stylesheet, loads one module, and leaves one element to mount into; a module script runs once the document is parsed, so it can sit in the head and still find `#app`:
+The page itself is plain HTML. The starter's `index.html` links the global stylesheet, loads the entry module, `src/main.ts` or `src/main.js`, and leaves one element to mount into; a module script runs once the document is parsed, so it can sit in the head and still find `#app`:
 
 ```html
 <head>
     <link rel="stylesheet" href="/src/styles.css">
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/src/main.ts"></script>
 </head>
 <body>
     <div id="app"></div>
