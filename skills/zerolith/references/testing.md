@@ -2,11 +2,45 @@
 
 # Testing
 
-zerolith views are plain functions that return templates, so most of a test is ordinary DOM work: render, click, read. `@zerolith/test` covers the parts worth not rewriting in every project. It depends only on `zerolith` and works in any runner that provides a DOM; the examples use Vitest's browser mode, which is what this repository runs.
+zerolith views are plain functions that return templates, so most of a test is ordinary DOM work: render, click, read. `@zerolith/test` covers the parts worth not rewriting in every project. It depends only on `zerolith` and works in any runner that provides a DOM; the examples use Vitest's browser mode, which the starter and this repository run.
+
+## Setting up
+
+The starter runs its tests with Vitest in headless Chromium, through Playwright. This is the `vitest.config.ts` that `zerolith new my-app` writes:
+
+```ts
+import { playwright } from "@vitest/browser-playwright";
+import { defineConfig } from "vitest/config";
+import { zerolith } from "@zerolith/vite";
+
+// Vitest reads the components itself, so it needs the JSX lowering
+// that zerolith dev and zerolith build apply.
+export default defineConfig({
+    plugins: zerolith().filter((plugin) => plugin.name === "zerolith:jsx"),
+    test: {
+        browser: {
+            enabled: true,
+            headless: true,
+            provider: playwright(),
+            instances: [{ browser: "chromium" }]
+        }
+    }
+});
+```
+
+A project with `html` templates instead of JSX leaves the plugin out. `npm test` runs the tests in `test/`, after `npx playwright install chromium` has run once, and `npm run check` runs the type check, the linter, the tests, and the build.
+
+| Helper | What it does |
+| --- | --- |
+| `mount(view)` | Renders the view into a new container in the document and returns its `container`, its `root`, and `unmount()` |
+| `cleanup()` | Unmounts everything `mount` created, newest first; register it with `afterEach` |
+| `settle()` | Waits for the asynchronous work a test started |
+| `hydrationMismatches(() => view)` | Renders the view on the server, hydrates a second copy over that markup, and returns every disagreement |
+| `accessibilityIssues(container)` | Returns the accessibility defects a test can see |
 
 ## Mount and interact
 
-`mount` renders a view into a container attached to the document and remembers it; `cleanup`, registered as the after-each hook, disposes every mount in reverse order. Effects run synchronously when a signal changes, so a click shows its result at once; `settle` is for the promises a test started, such as resources and lazy routes.
+`mount` renders a view into a container attached to the document and remembers it; `cleanup`, registered as the after-each hook, disposes every mount in reverse order. Effects run synchronously when a signal changes, so a click shows its result at once; `settle` is for the promises a test started, such as resources and lazy routes, and anything scheduled with a timer of zero.
 
 ```ts
 import { afterEach, expect, it } from "vitest";
@@ -24,11 +58,19 @@ it("counts clicks", async () =>
 });
 ```
 
-The container is a normal element: query it, dispatch events on it, or hand it to the runner's locator API.
+The container is a normal element: query it, dispatch events on it, or hand it to the runner's locator API. `mount` takes two options:
+
+| Option | What it does |
+| --- | --- |
+| `container` | Renders into this element instead of a new `div` |
+| `attach: false` | Keeps the new container out of the document; layout and focus need it attached, so the default is to attach it |
+
+> [!TIP]
+> Code that runs on the server, such as a form handler, needs no DOM at all: test it in Node by calling it with a `Request`, as the [forms guide's server example](forms.md#the-server) does.
 
 ## Hydration and accessibility
 
-`hydrationMismatches` renders a view with the server renderer, hydrates a second instance over that markup, and returns every disagreement, so a component that would be re-rendered on the client instead of adopted fails its test here rather than in production. `accessibilityIssues` finds the defects that need no accessibility tree to detect: images without `alt`, form controls without a label, buttons and links without a name, and frames without a title. They are the defects found on most pages in the WebAIM Million, and a floor rather than a conformance check; a full audit still needs an engine such as axe.
+`hydrationMismatches` renders a view with the server renderer, hydrates a second instance over that markup, and returns every disagreement, so a component that would be rendered again on the client instead of adopted fails its test here rather than in production. `accessibilityIssues` finds the defects that need no accessibility tree to detect:
 
 ```ts
 import { expect, it } from "vitest";
@@ -43,4 +85,15 @@ it("hydrates in place and has no accessibility defects", () =>
 });
 ```
 
-Each issue carries a stable code and the element, so a test can assert on exactly what it expects or fail on any issue at all.
+Each issue carries a stable code and the element, so a test can assert on exactly what it expects or fail on any issue at all:
+
+| Code | Found when |
+| --- | --- |
+| `image_without_alt` | An `<img>` has no `alt` attribute |
+| `control_without_label` | An input, select, or textarea has no `<label>`, `aria-label`, `aria-labelledby`, or `title` |
+| `button_without_name` | A button has no text, `aria-label`, `aria-labelledby`, `title`, or image with `alt`, and an input button no value |
+| `link_without_name` | A link with an `href` has no name, by the same rules as a button |
+| `frame_without_title` | An `<iframe>` has no `title` |
+
+> [!NOTE]
+> These are the defects the WebAIM Million finds on most home pages, and they are a floor rather than a conformance check. A full audit still needs an engine such as axe.

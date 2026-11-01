@@ -925,9 +925,39 @@ it("counts clicks and resets", async () =>
 });
 "#;
 
-const VITEST_CONFIG: &str = "import { playwright } from \"@vitest/browser-playwright\";\nimport { defineConfig } from \"vitest/config\";\n\nexport default defineConfig({\n    test: {\n        browser: { enabled: true, headless: true, provider: playwright(), instances: [{ browser: \"chromium\" }] }\n    }\n});\n";
+const VITEST_CONFIG: &str = r#"import { playwright } from "@vitest/browser-playwright";
+import { defineConfig } from "vitest/config";
 
-const VITEST_CONFIG_JSX: &str = "import { playwright } from \"@vitest/browser-playwright\";\nimport { defineConfig } from \"vitest/config\";\nimport { zerolith } from \"@zerolith/vite\";\n\n// Vitest reads the components directly, so it needs the same JSX lowering zerolith dev and build apply.\nexport default defineConfig({\n    plugins: zerolith().filter((plugin) => plugin.name === \"zerolith:jsx\"),\n    test: {\n        browser: { enabled: true, headless: true, provider: playwright(), instances: [{ browser: \"chromium\" }] }\n    }\n});\n";
+export default defineConfig({
+    test: {
+        browser: {
+            enabled: true,
+            headless: true,
+            provider: playwright(),
+            instances: [{ browser: "chromium" }]
+        }
+    }
+});
+"#;
+
+const VITEST_CONFIG_JSX: &str = r#"import { playwright } from "@vitest/browser-playwright";
+import { defineConfig } from "vitest/config";
+import { zerolith } from "@zerolith/vite";
+
+// Vitest reads the components itself, so it needs the JSX lowering
+// that zerolith dev and zerolith build apply.
+export default defineConfig({
+    plugins: zerolith().filter((plugin) => plugin.name === "zerolith:jsx"),
+    test: {
+        browser: {
+            enabled: true,
+            headless: true,
+            provider: playwright(),
+            instances: [{ browser: "chromium" }]
+        }
+    }
+});
+"#;
 
 const VITE_CONFIG: &str = "import { defineConfig } from \"vite\";\nimport { zerolith } from \"@zerolith/vite\";\n\nexport default defineConfig({\n    plugins: [zerolith()]\n});\n";
 
@@ -1965,9 +1995,9 @@ fn on_path(program: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        Answers, Choice, FAVICON, FULLSTACK_FILES, Start, TOOL_VERSIONS, Tool, agents_md, ask,
-        confirm, display_name, package_json, package_name, pick, scaffold, settle, settle_from,
-        starter_files,
+        Answers, Choice, FAVICON, FULLSTACK_FILES, Start, TOOL_VERSIONS, Tool, VITEST_CONFIG_JSX,
+        agents_md, ask, confirm, display_name, package_json, package_name, pick, scaffold, settle,
+        settle_from, starter_files,
     };
     use std::fs;
     use std::io::{self, Cursor};
@@ -1981,6 +2011,16 @@ mod tests {
             guide.contains(&format!("```markdown AGENTS.md\n{written}```")),
             "docs/guide/structure.md should show the AGENTS.md the default starter gets:
 {written}"
+        );
+    }
+
+    #[test]
+    fn writes_the_vitest_config_the_testing_guide_shows() {
+        let guide = include_str!("../../../docs/guide/testing.md");
+        assert!(
+            guide.contains(&format!("```ts\n{VITEST_CONFIG_JSX}```")),
+            "docs/guide/testing.md should show the vitest.config.ts the default starter gets:
+{VITEST_CONFIG_JSX}"
         );
     }
 
