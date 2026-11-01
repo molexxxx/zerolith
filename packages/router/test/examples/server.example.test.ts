@@ -33,11 +33,19 @@ async function handle(request: Request): Promise<Response>
     const router = createRouter(routes, { fallback: () => html`<h1>Not found</h1>` });
     await router.navigate(url.pathname + url.search);
 
+    const head = renderHead(router.head.get()) + renderStyles();
     const body = renderToString(App(router));
     const document = `<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8">${renderHead(router.head.get())}${renderStyles()}</head>
-<body><div id="app">${body}</div>${renderRouteState(router)}<script type="module" src="/app.js"></script></body>
+<head>
+<meta charset="utf-8">
+${head}
+</head>
+<body>
+<div id="app">${body}</div>
+${renderRouteState(router)}
+<script type="module" src="/app.js"></script>
+</body>
 </html>`;
     router.dispose();
     return new Response(document, {
