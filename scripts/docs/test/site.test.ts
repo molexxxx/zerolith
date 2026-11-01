@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { type Server } from "node:http";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { deflateRawSync } from "node:zlib";
 import { type Browser, type Page, chromium } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createStaticServer, listen, repositoryRoot, resolvePath } from "../../static.ts";
@@ -150,9 +151,10 @@ describe("documentation site", () =>
         await page.close();
     });
 
-    it("runs every playground example without an error", { timeout: 120000 }, async () =>
+    it("runs every playground example without an error or a warning, in a frame without modal dialogs", { timeout: 120000 }, async () =>
     {
         const { page, errors } = await open("/playground/");
+        expect(await page.getAttribute(".preview iframe", "sandbox")).toBe("allow-scripts allow-forms");
         const entries = await page.evaluate(() => history.length);
         const ids = await page.$$eval("select[name=\"example\"] option", (options) => options.map((option) => (option as HTMLOptionElement).value));
         expect(ids.length).toBeGreaterThan(5);
@@ -163,7 +165,8 @@ describe("documentation site", () =>
             await page.click("[data-action=\"run\"]");
             const frame = page.frameLocator(".preview iframe");
             await frame.locator("#app > *").first().waitFor({ timeout: 15000 });
-            const reported = await page.$$eval(".console .error", (lines) => lines.map((line) => line.textContent ?? ""));
+            await page.waitForTimeout(1000);
+            const reported = await page.$$eval(".console .error, .console .warn", (lines) => lines.map((line) => line.textContent ?? ""));
             failures.push(...reported.map((line) => `${id}: ${line}`));
         }
         expect(failures).toEqual([]);
@@ -208,10 +211,78 @@ describe("documentation site", () =>
         await page.close();
     });
 
-    it("opens a shared playground link with its code", { timeout: 60000 }, async () =>
+    it("opens the example a link names, and the first one for a name that is not an example", { timeout: 60000 }, async () =>
     {
         const { page } = await open("/playground/#example=conditions");
         await page.waitForFunction(() => (document.querySelector("textarea[name=\"code\"]") as HTMLTextAreaElement | null)?.value.includes("Sign in as Ada") === true);
+        await page.close();
+        const inherited = await open("/playground/#example=constructor");
+        const first = await inherited.page.$eval("select[name=\"example\"] option", (option) => (option as HTMLOptionElement).value);
+        expect(await inherited.page.inputValue("select[name=\"example\"]")).toBe(first);
+        await inherited.page.close();
+    });
+
+    it("copies a link that opens the same code, and says where to find the link when the browser will not copy it", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/");
+        await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin });
+        const program = "import { html, render } from \"zerolith\";\nrender(html`<p>shared</p>`, \"#app\");\n";
+        await page.fill("textarea[name=\"code\"]", program);
+        await page.click("[data-action=\"share\"]");
+        await page.locator("[data-action=\"share\"][data-copied]").waitFor();
+        const link = await page.evaluate(() => navigator.clipboard.readText());
+        expect(link.startsWith(`${origin}/playground/#code=`)).toBe(true);
+        const shared = await open(link.slice(origin.length));
+        await expect.poll(() => shared.page.frameLocator(".preview iframe").locator("#app p").first().textContent()).toBe("shared");
+        expect(await shared.page.inputValue("textarea[name=\"code\"]")).toBe(program);
+        expect(shared.errors).toEqual([]);
+        await shared.page.close();
+
+        await page.evaluate(() =>
+        {
+            Object.defineProperty(navigator, "clipboard", { value: { write: () => Promise.reject(new Error("refused")), writeText: () => Promise.reject(new Error("refused")) } });
+        });
+        await page.click("[data-action=\"share\"]");
+        await expect.poll(() => page.textContent(".playground .hint")).toContain("copy the link from the address bar");
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("opens a damaged or oversized shared link with an example, and says why in the console", { timeout: 60000 }, async () =>
+    {
+        const oversized = deflateRawSync(Buffer.from(`// ${"a".repeat(400000)}\n`)).toString("base64url");
+        for (const packed of ["not-a-deflate-stream", oversized])
+        {
+            const { page, errors } = await open(`/playground/#code=${packed}`);
+            await page.locator(".console .error").first().waitFor({ timeout: 15000 });
+            expect(await page.textContent(".console .error")).toBe("The code in this link could not be read, so the editor shows an example instead.");
+            expect(await page.inputValue("textarea[name=\"code\"]")).toContain("zerolith");
+            expect(errors).toEqual([]);
+            await page.close();
+        }
+    });
+
+    it("shows an error, a map, a set, and undefined in the preview's console by their contents", { timeout: 60000 }, async () =>
+    {
+        const { page } = await open("/playground/");
+        await page.fill("textarea[name=\"code\"]", "console.error(new TypeError(\"boom\"));\nconsole.log(new Map([[\"a\", 1]]), new Set([2]), undefined, [new Error(\"inner\")]);\n");
+        await page.click("[data-action=\"run\"]");
+        await expect.poll(() => page.$$eval(".console p", (lines) => lines.map((line) => line.textContent ?? ""))).toEqual(["TypeError: boom", "Map [[\"a\",1]] Set [2] undefined [\"Error: inner\"]"]);
+        await page.close();
+    });
+
+    it("loads the search index again when search reopens after a failed load", { timeout: 60000 }, async () =>
+    {
+        const { page } = await open("/guide/forms/");
+        await page.route("**/search.json", (route) => route.abort(), { times: 1 });
+        const dialog = page.locator("[data-island=\"search\"] dialog");
+        await page.click("[data-island=\"search\"] .trigger");
+        await dialog.locator(".status", { hasText: "did not load" }).waitFor();
+        await page.keyboard.press("Escape");
+        await expect.poll(() => dialog.evaluate((element) => (element as HTMLDialogElement).open)).toBe(false);
+        await page.click("[data-island=\"search\"] .trigger");
+        await dialog.locator("[role=\"option\"]").first().waitFor();
+        expect(await dialog.locator(".status", { hasText: "did not load" }).count()).toBe(0);
         await page.close();
     });
 

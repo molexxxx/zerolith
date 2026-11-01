@@ -46,4 +46,4 @@ function Counter()
         </section>`;
 }
 
-render(Counter(), "#app");
+render(() => Counter(), "#app");

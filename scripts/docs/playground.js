@@ -27,8 +27,12 @@ async function pack(text)
     return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+/** The most bytes a shared link's code may unpack to, so a crafted link cannot exhaust the reader's tab. */
+const SHARED_LIMIT = 256 * 1024;
+
 /**
- * Reverses `pack`; a damaged fragment gives `undefined`.
+ * Reverses `pack`; a damaged fragment, or one that unpacks to more than
+ * `SHARED_LIMIT` bytes, gives `undefined`.
  * @param {string} packed
  * @returns {Promise<string | undefined>}
  */
@@ -38,7 +42,20 @@ async function unpack(packed)
     {
         const binary = atob(packed.replace(/-/g, "+").replace(/_/g, "/"));
         const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+        let size = 0;
+        const limited = new TransformStream({
+            transform(chunk, controller)
+            {
+                size += chunk.byteLength;
+                if (size > SHARED_LIMIT)
+                {
+                    controller.error(new RangeError(`The shared code is over ${SHARED_LIMIT} bytes.`));
+                    return;
+                }
+                controller.enqueue(chunk);
+            }
+        });
+        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw")).pipeThrough(limited);
         return await new Response(stream).text();
     }
     catch
@@ -78,7 +95,32 @@ function siteTheme()
 function frameDocument(code, imports, theme)
 {
     const reporter = `
-        const send = (level, values) => parent.postMessage({ playground: true, level, text: values.map((value) => typeof value === "string" ? value : (() => { try { return JSON.stringify(value); } catch { return String(value); } })()).join(" ") }, "*");
+        const plain = (_, item) => item instanceof Error ? item.name + ": " + item.message : item instanceof Map || item instanceof Set ? [...item] : item;
+        const shown = (value) =>
+        {
+            if (typeof value === "string")
+            {
+                return value;
+            }
+            if (typeof value === "function")
+            {
+                return "function " + (value.name || "anonymous") + "()";
+            }
+            if (value instanceof Error)
+            {
+                return value.name + ": " + value.message;
+            }
+            const label = value instanceof Map || value instanceof Set ? value.constructor.name + " " : "";
+            try
+            {
+                return label + (JSON.stringify(value, plain) ?? String(value));
+            }
+            catch
+            {
+                return String(value);
+            }
+        };
+        const send = (level, values) => parent.postMessage({ playground: true, level, text: values.map(shown).join(" ") }, "*");
         for (const level of ["log", "info", "warn", "error"])
         {
             const original = console[level].bind(console);
@@ -140,12 +182,13 @@ export function start(host)
 
     const fragment = new URLSearchParams(location.hash.slice(1));
     const named = fragment.get("example");
-    if (named !== null && named in examples)
+    if (named !== null && Object.hasOwn(examples, named))
     {
         select.value = named;
     }
     const code = signal(examples[select.value] ?? editor.value);
     const ran = signal(code.get());
+    const notice = signal("");
     editor.value = code.get();
     let stopped = false;
 
@@ -159,9 +202,17 @@ export function start(host)
         effect(() =>
         {
             runButton?.toggleAttribute("data-stale", stale.get());
-            if (hint !== null)
+            if (hint === null)
+            {
+                return;
+            }
+            if (notice.get() === "")
             {
                 hint.textContent = stale.get() ? "Changes not run yet: press Run or Ctrl+Enter." : idle;
+            }
+            else
+            {
+                hint.textContent = notice.get();
             }
         });
     });
@@ -174,6 +225,7 @@ export function start(host)
     function run()
     {
         output.replaceChildren();
+        notice.set("");
         ran.set(code.get());
         const theme = siteTheme();
         const next = /** @type {HTMLIFrameElement} */ (frame.cloneNode(false));
@@ -200,7 +252,11 @@ export function start(host)
     const preference = matchMedia("(prefers-color-scheme: light)");
     preference.addEventListener("change", followTheme);
 
-    editor.addEventListener("input", () => code.set(editor.value));
+    editor.addEventListener("input", () =>
+    {
+        notice.set("");
+        code.set(editor.value);
+    });
     editor.addEventListener("scroll", () =>
     {
         shadowFrame.scrollTop = editor.scrollTop;
@@ -243,21 +299,23 @@ export function start(host)
     });
 
     const share = host.querySelector("[data-action=\"share\"]");
-    share?.addEventListener("click", async () =>
+    share?.addEventListener("click", () =>
     {
-        const link = new URL(location.href);
-        link.hash = `code=${await pack(code.get())}`;
-        history.replaceState(history.state, "", link.hash);
-        try
+        const href = pack(code.get()).then((packed) =>
         {
-            await navigator.clipboard.writeText(link.href);
-        }
-        catch
+            const link = new URL(location.href);
+            link.hash = `code=${packed}`;
+            history.replaceState(history.state, "", link.hash);
+            return link.href;
+        });
+        const copied = typeof ClipboardItem === "function" && typeof navigator.clipboard?.write === "function"
+            ? navigator.clipboard.write([new ClipboardItem({ "text/plain": href.then((text) => new Blob([text], { type: "text/plain" })) })])
+            : href.then((text) => navigator.clipboard.writeText(text));
+        copied.then(() =>
         {
-            return;
-        }
-        share.setAttribute("data-copied", "");
-        setTimeout(() => share.removeAttribute("data-copied"), 1500);
+            share.setAttribute("data-copied", "");
+            setTimeout(() => share.removeAttribute("data-copied"), 1500);
+        }, () => notice.set("The browser did not allow copying here, so copy the link from the address bar."));
     });
 
     /** @param {MessageEvent} event */
@@ -278,9 +336,17 @@ export function start(host)
     {
         void unpack(fragment.get("code") ?? "").then((shared) =>
         {
-            if (!stopped)
+            if (stopped)
             {
-                load(shared ?? code.get());
+                return;
+            }
+            load(shared ?? code.get());
+            if (shared === undefined)
+            {
+                const line = document.createElement("p");
+                line.className = "error";
+                line.textContent = "The code in this link could not be read, so the editor shows an example instead.";
+                output.append(line);
             }
         });
     }

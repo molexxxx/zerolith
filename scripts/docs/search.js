@@ -462,6 +462,10 @@ export function Search()
             return;
         }
         opened.set(true);
+        if (index.status.get() === "error")
+        {
+            index.reload();
+        }
         element.showModal();
         field.get()?.select();
     };
