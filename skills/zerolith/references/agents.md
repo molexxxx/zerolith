@@ -12,10 +12,13 @@ A coding agent needs two things to work well in a zerolith app: the project's ow
 
 ## What a new project holds
 
-1. **The project's AGENTS.md.** `zerolith new` writes an `AGENTS.md` next to `package.json`, with the project's commands, the rules that matter most, a table of where each kind of change goes, and a pointer to the skill. Agents that follow the AGENTS.md convention, Claude Code among them, read it at the start of every task; Claude Code reads a `CLAUDE.md` instead when the project has one, so put a line holding `@AGENTS.md` in that file to include this one. Keep it current as the project grows: when an agent gets something wrong twice, add the rule there.
+1. **The project's AGENTS.md.** `zerolith new` writes an `AGENTS.md` next to `package.json`, with the project's commands, the rules that matter most, a table of where each kind of change goes, and a pointer to the skill. Agents that follow the AGENTS.md convention, Claude Code among them, read it at the start of every task. Keep it current as the project grows: when an agent gets something wrong twice, add the rule there.
 2. **The zerolith skill.** An [Agent Skill](https://agentskills.io/) is a folder an agent loads when a task calls for it; this one holds the rules, one pattern for each concept, the commands, a checklist for finishing a change, and every guide and diagnostic code as a reference the agent opens when it needs one. `zerolith new` writes it into `.agents/skills/zerolith/`, which Codex, Cursor, GitHub Copilot, Gemini CLI, and most other agents read, and `.claude/skills/zerolith/`, which Claude Code reads, as the version of zerolith the project installs.
 
 Nothing else needs to run: an agent started in the project finds both on its own. If an agent was already running, start a new session, and commit the files so everyone's agents get them.
+
+> [!TIP]
+> Claude Code reads a `CLAUDE.md` instead of `AGENTS.md` when the project has one. Put a line holding `@AGENTS.md` in that file to include the project's `AGENTS.md` in it.
 
 ## Keeping the skill current
 
@@ -27,7 +30,10 @@ npx zerolith skill
 
 which replaces both copies with the skill for the new version; `zerolith doctor` reports `skill_outdated` until then. The same command adds the skill to a project made without it, by `zerolith new --no-skill` or before the command line had it.
 
-`npx skills add molexxxx/zerolith` installs the skill too, with the [skills](https://www.npmjs.com/package/skills) tool: it detects the agents installed on your machine, asks which ones to set up, and copies the skill from the repository's main branch, which can be ahead of the latest release.
+`npx skills add molexxxx/zerolith` installs the skill too, with the [skills](https://www.npmjs.com/package/skills) tool: it detects the agents installed on your machine, asks which ones to set up, and copies the skill.
+
+> [!WARNING]
+> `npx skills add` copies the skill from the repository's main branch, which can be ahead of the latest release. `npx zerolith skill` writes the skill for the version the project installs.
 
 ## What else an agent can use
 
@@ -38,4 +44,5 @@ which replaces both copies with the skill for the new version; `zerolith doctor`
 
 The `AGENTS.md` in your project is the one your agent reads. The [AGENTS.md at the root of the zerolith repository](https://github.com/molexxxx/zerolith/blob/main/AGENTS.md) is for agents changing zerolith itself, and an app never needs it.
 
-Whether this context makes agents measurably better is a claim to be tested, not assumed: a public evaluation suite is on the [roadmap](https://github.com/molexxxx/zerolith/blob/main/docs/ROADMAP.md), along with an MCP server for the docs.
+> [!NOTE]
+> Whether this context makes agents measurably better is a claim to be tested, not assumed: a public evaluation suite is on the [roadmap](https://github.com/molexxxx/zerolith/blob/main/docs/ROADMAP.md), along with an MCP server for the docs.

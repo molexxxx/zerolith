@@ -52,8 +52,11 @@ describe("observability guide", () =>
             transport: tracedTransport(fetch, tracer)
         });
 
-        await router.navigate("/");             // a "navigate" span
-        await api.call("listNotes");            // a "GET /notes" span and a traceparent header
+        // A "navigate" span:
+        await router.navigate("/");
+
+        // A "GET /notes" span, and a traceparent header on the request:
+        await api.call("listNotes");
         // #endregion spans
         const spans = exporter.getFinishedSpans();
         expect(spans.map((span) => span.name)).toEqual(["navigate", "GET /notes"]);
