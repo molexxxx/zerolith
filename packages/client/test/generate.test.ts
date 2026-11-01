@@ -61,12 +61,25 @@ describe("generateClient", () =>
         expect(() => generateClient({} as OpenApiDocument)).toThrow(/OpenAPI 3/);
     });
 
-    it("refuses a schema whose type name another schema or the module itself already uses", () =>
+    it("gives a schema a numbered type name when the module or an earlier schema already uses its own, and points its references there", () =>
     {
-        expect(() => generateClient(document({}, { schemas: { "note-item": { type: "string" }, note_item: { type: "string" } } }))).toThrow(/the schema "note[-_]item" becomes the type NoteItem, which is already the type of the schema "note[-_]item"; rename the schema in the document/);
-        expect(() => generateClient(document({}, { schemas: { record: { type: "object", additionalProperties: { type: "string" } } } }))).toThrow("zerolith/client: the schema \"record\" becomes the type Record, which is already TypeScript's Record type; rename the schema in the document");
-        expect(() => generateClient(document({}, { schemas: { api: { type: "string" } } }))).toThrow(/becomes the type Api, which is already the interface of the operations, which apiName renames/);
-        expect(generateClient(document({}, { schemas: { api: { type: "string" } } }), { apiName: "Contract" })).toContain("export type Api = string;");
+        const code = generateClient(document({}, {
+            schemas: {
+                record: { type: "object", additionalProperties: { type: "string" } },
+                Note: { $ref: "#/components/schemas/record" },
+                "note-item": { type: "string" },
+                note_item: { type: "number" },
+                api: { type: "boolean" },
+                Api2: { type: "string" }
+            }
+        }));
+        expect(code).toContain("/** The schema \"record\", named Record2 because Record is already TypeScript's Record type. */\nexport type Record2 = Record<string, string>;");
+        expect(code).toContain("export type Note = Record2;");
+        expect(code).toMatch(/export type NoteItem = (string|number);/);
+        expect(code).toMatch(/named NoteItem2 because NoteItem is already the type of the schema "note[-_]item"\. \*\/\nexport type NoteItem2 = (string|number);/);
+        expect(code).toContain("export type Api2 = string;");
+        expect(code).toContain("named Api3 because Api is already the interface of the operations, which apiName renames. */\nexport type Api3 = boolean;");
+        expect(generateClient(document({}, { schemas: { api: { type: "boolean" } } }), { apiName: "Contract" })).toContain("export type Api = boolean;");
     });
 
     it("names operations from the method and path when operationId is missing, and refuses collisions", () =>

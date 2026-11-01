@@ -21,7 +21,7 @@ Renaming a field on the server then fails `tsc` on the client, whatever language
 npx zerolith-client openapi.json --out src/api.ts
 ```
 
-The command writes three things: a type for every schema under `components.schemas`, an `Api` interface with one entry per operation, and a `routes` table with the method and path of each. Without `--out` it prints the module, and `--name` gives the interface another name. A schema whose type name another schema already takes, as `note-item` and `note_item` both become `NoteItem`, or one the module uses itself, such as `Record` or the interface's name, is refused with both named, so rename it in your copy of the document. One entry looks like this:
+The command writes three things: a type for every schema under `components.schemas`, an `Api` interface with one entry per operation, and a `routes` table with the method and path of each. Without `--out` it prints the module, and `--name` gives the interface another name. A schema whose type name the module already uses, such as `Record`, `Blob`, or the interface's name, or that another schema takes first, as `note-item` and `note_item` both give `NoteItem`, is written under the next free name with a number added, as `Record2`, with a comment that says why, and every reference to it follows. One entry looks like this:
 
 @include packages/client/test/examples/client.example.test.ts#generated excerpt
 

@@ -261,6 +261,9 @@ function deref<T extends { $ref?: string }>(context: Context, value: T, section:
     return current;
 }
 
+/** The type name each schema of the document being generated is written under, by schema name, which a `$ref` to the schema uses; `generateClient` sets it before it writes a type. */
+let schemaTypes: ReadonlyMap<string, string> = new Map();
+
 function schemaRefName(ref: string): string
 {
     const prefix = "#/components/schemas/";
@@ -268,7 +271,8 @@ function schemaRefName(ref: string): string
     {
         fail(`only local schema references are supported, found ${ref}`);
     }
-    return typeName(decodeURIComponent(ref.slice(prefix.length)));
+    const name = decodeURIComponent(ref.slice(prefix.length));
+    return schemaTypes.get(name) ?? typeName(name);
 }
 
 function literal(value: unknown): string
@@ -571,7 +575,7 @@ function entryOf(context: Context, path: string, item: PathItemObject, method: s
     return { name: operationName(operation, method, path), method, path, lines, doc: doc === "" ? undefined : doc };
 }
 
-/** The type names a generated module uses besides its schemas', with what each is, so a schema that would take one is refused. */
+/** The type names a generated module uses besides its schemas', with what each is, so a schema that would take one gets a numbered name instead. */
 function reservedTypeNames(apiName: string): Map<string, string>
 {
     return new Map([
@@ -586,6 +590,45 @@ function reservedTypeNames(apiName: string): Map<string, string>
 }
 
 /**
+ * The type name every schema is written under, by schema name, with the
+ * reason for a name that is not the schema's own. A schema keeps its own
+ * name, as `note-item` gives `NoteItem`, unless the module uses that name
+ * itself or a schema earlier in sorted order takes it; then it gets the
+ * first free name with a number added, as `Record2`.
+ */
+function schemaTypeNames(names: readonly string[], apiName: string): Map<string, { type: string; reason?: string }>
+{
+    const holders = reservedTypeNames(apiName);
+    const assigned = new Map<string, { type: string; reason?: string }>();
+    for (const name of names)
+    {
+        const type = typeName(name);
+        if (!holders.has(type))
+        {
+            holders.set(type, `the type of the schema ${JSON.stringify(name)}`);
+            assigned.set(name, { type });
+        }
+    }
+    for (const name of names)
+    {
+        if (assigned.has(name))
+        {
+            continue;
+        }
+        const base = typeName(name);
+        let suffix = 2;
+        while (holders.has(`${base}${suffix}`))
+        {
+            suffix++;
+        }
+        const type = `${base}${suffix}`;
+        assigned.set(name, { type, reason: `named ${type} because ${base} is already ${holders.get(base) ?? "taken"}` });
+        holders.set(type, `the type of the schema ${JSON.stringify(name)}`);
+    }
+    return assigned;
+}
+
+/**
  * Generates the contract module for an OpenAPI 3.x document given as a
  * parsed object (JSON; convert YAML first). Schemas under
  * `components.schemas` become exported types, every operation becomes an
@@ -593,9 +636,11 @@ function reservedTypeNames(apiName: string): Map<string, string>
  * method and path), and `routes` carries the method and path of each.
  * Header and cookie parameters, security, and non-local references are
  * left out; the client sends headers through its options. A schema whose
- * type name another schema already takes, as `note-item` and `note_item`
- * both become `NoteItem`, or one the module uses itself, such as `Record`
- * or the `Api` interface, is refused with both named.
+ * type name the module already uses, such as `Record`, `Blob`, or the
+ * `Api` interface, or that another schema takes first, as `note-item` and
+ * `note_item` both give `NoteItem`, is written under the first free name
+ * with a number added, as `Record2`, with a comment that says why, and
+ * every `$ref` to it uses that name.
  */
 export function generateClient(document: OpenApiDocument, options: GenerateOptions = {}): string
 {
@@ -612,17 +657,14 @@ export function generateClient(document: OpenApiDocument, options: GenerateOptio
     out.push("");
 
     const schemas = Object.entries(document.components?.schemas ?? {}).toSorted(([a], [b]) => a.localeCompare(b));
-    const taken = reservedTypeNames(context.apiName);
+    const types = schemaTypeNames(schemas.map(([name]) => name), context.apiName);
+    schemaTypes = new Map(Array.from(types, ([name, { type }]) => [name, type]));
     for (const [name, schema] of schemas)
     {
-        const type = typeName(name);
-        const holder = taken.get(type);
-        if (holder !== undefined)
-        {
-            fail(`the schema ${JSON.stringify(name)} becomes the type ${type}, which is already ${holder}; rename the schema in the document`);
-        }
-        taken.set(type, `the type of the schema ${JSON.stringify(name)}`);
-        out.push(`${comment(schema.description ?? schema.title, "")}export type ${type} = ${typeOf(schema, "")};`);
+        const { type, reason } = types.get(name) ?? { type: typeName(name) };
+        const note = reason === undefined ? undefined : `The schema ${JSON.stringify(name)}, ${reason}.`;
+        const text = [schema.description ?? schema.title, note].filter((part) => part !== undefined && part.trim() !== "").join("\n\n");
+        out.push(`${comment(text, "")}export type ${type} = ${typeOf(schema, "")};`);
         out.push("");
     }
 
