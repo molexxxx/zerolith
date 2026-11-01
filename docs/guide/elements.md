@@ -13,7 +13,31 @@ Replacing an application in one step freezes product work; replacing it one view
 
 @include packages/zerolith/test/examples/element.example.browser.test.ts#define
 
-Each declared prop is observed as an attribute and exposed as a property, both feeding the same signal: an attribute arrives as a string or `undefined`, a property keeps whatever was assigned, and a value set before the element was upgraded is kept. The view receives the host element for the things a boundary needs, such as dispatching events the outer framework listens to.
+Each declared prop is observed as an attribute and exposed as a property, and both feed the same signal, which the view receives by name:
+
+| Set by | The signal holds |
+| --- | --- |
+| An attribute, as `count="2"` | The string, or `undefined` once the attribute is removed |
+| A property, as `element.count = 5` | Whatever was assigned, with its type |
+| A property assigned before the element was defined | That value, kept when the element upgrades |
+
+The view's second argument is the host element, for what a boundary needs, such as dispatching the events the outer framework listens to.
+
+> [!TIP]
+> Name props in lowercase. HTML lowercases attribute names, so a camelCase prop such as `maxCount` is reachable as a property but never as an attribute.
+
+## Its life on the page
+
+| When | What happens |
+| --- | --- |
+| The element connects | The view renders into it, or hydrates the markup it already holds from the server |
+| An attribute or a property changes | Its signal updates, and only the bindings that read it change |
+| The element disconnects | The view is disposed with its effects |
+| It connects again, as when it moves | The view renders again, with the props it had |
+| `define` runs on the server, with no `customElements` | Nothing is registered |
+| `define` runs again for the same name | Nothing happens, so hot replacement can run the module again |
+
+The content lives in light DOM, as every zerolith view does, so scoped styles, design tokens, and global stylesheets apply unchanged, and there is no shadow root to pierce.
 
 ## Use it anywhere
 
@@ -27,8 +51,16 @@ From script, its properties and events work like any element's:
 
 @include packages/zerolith/test/examples/element.example.browser.test.ts#use
 
-React 19, Vue, and Angular set a property when the element has one and an attribute otherwise, which is why both paths exist. The content is rendered when the element connects, hydrated when it already holds server-rendered markup, and disposed when it disconnects. It lives in light DOM, as every zerolith view does, so scoped styles, design tokens, and global stylesheets apply unchanged and there is no shadow root to pierce.
+React 19 and Vue set a property when the element defines one and an attribute otherwise, and an Angular property binding such as `[count]` sets the property, so each framework reaches the same signal through the path it prefers.
 
 ## Coexisting with another framework
 
-The element is the boundary; nothing inside it knows about the framework outside. State flows in through props and out through events, the same contract a native element offers. Shared state that both sides own, a store the old application keeps, is bridged by writing it into a signal from the outside and reading the signal inside, and the old application can be retired one element at a time while `zerolith dev` or Vite serves both.
+The element is the boundary, and nothing inside it knows about the framework outside. Data crosses it the way it crosses a native element:
+
+| Direction | How |
+| --- | --- |
+| Into the view | Attributes and properties, which arrive as the prop signals |
+| Out of the view | Events dispatched from the host element, which the outer framework listens to |
+| Shared by both sides | A signal in a module both import: the outer application writes it wherever its own state changes, and the view reads it |
+
+The old application can then be retired one element at a time, while `zerolith dev` or Vite serves both.

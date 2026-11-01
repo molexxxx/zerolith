@@ -32,7 +32,9 @@ describe("custom elements guide", () =>
         document.body.append(host);
         expect(host.querySelector("span")?.textContent).toBe("Drafts: 2");
         // #region use
-        const counter = document.querySelector("note-count") as HTMLElement & { count: number };
+        type NoteCount = HTMLElement & { count: number };
+
+        const counter = document.querySelector("note-count") as NoteCount;
         counter.count = 5;                      // a property keeps its type
         counter.addEventListener("reset", () =>
         {
