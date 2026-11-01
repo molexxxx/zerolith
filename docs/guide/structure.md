@@ -19,7 +19,7 @@ my-app/
     package.json            scripts: dev, build, preview, check, typecheck, lint, test
     zerolith.json           the command line's settings: base path, proxy, dev, build, preview
     tsconfig.json           strict TypeScript, with JSX from zerolith
-    vitest.config.ts        browser tests in Chromium, with zerolith's JSX lowering
+    vitest.config.ts        browser tests in Chromium, with the zerolith plugin
     .oxlintrc.json          lint rules
     .gitignore              dependencies, the build, and local .env files
     AGENTS.md               the map and the rules, for coding agents and new contributors

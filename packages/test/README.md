@@ -19,12 +19,12 @@ it("renders and hydrates", async () =>
 });
 ```
 
-- `mount` renders a view into a container attached to the document and remembers it; `cleanup` disposes everything mounted, in reverse order.
+- `mount` renders a view into a container attached to the document and remembers it; given a function, as in `mount(() => Dashboard())`, it calls it inside an owner of its own, so a component that registers cleanups with `onDispose` mounts as it is. `cleanup` disposes everything mounted, in reverse order.
 - `settle` waits for the promises a test started, such as resources and lazy routes; effects themselves run synchronously.
 - `hydrationMismatches` renders a view with the server renderer, hydrates the same view over that markup, and returns every disagreement, so a component that cannot hydrate fails its test.
 - `accessibilityIssues` finds the defects a test can catch without a browser engine's accessibility tree: images without alternative text, controls without a label, buttons and links without a name, frames without a title.
 
-The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/testing/).
+Under Vitest, which reads the components itself, add the plugin from `@zerolith/vite` as `zerolith({ hot: false })` so a test reads JSX and stylesheets imported with `?scoped` as the app does; a project from `zerolith new` has it in `vitest.config.ts`. The guide is on the [docs site](https://molexxxx.github.io/zerolith/guide/testing/).
 
 Status: alpha. Install with `npm install --save-dev @zerolith/test@alpha`; the API may change before 1.0.
 

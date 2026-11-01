@@ -45,6 +45,7 @@ In order:
 
 - [x] Signals: `signal`, `computed`, `effect`, `batch`, `untracked`, `scope`, and `resource`, on the TC39 vocabulary.
 - [x] `html` and `css` tagged templates, keyed `each`, `when`, refs, and scoped styles.
+- [x] Scoped styles from a stylesheet of their own, `import card from "./card.css?scoped"`, the same value a `css` literal gives, keyed to the file's path so the server and the browser agree on it and an edit replaces the rules in place, in the command line, the Vite plugin, and Vitest.
 - [x] Fine-grained rendering with no virtual DOM, under Trusted Types and a strict CSP.
 - [x] Server rendering to strings and hydration with mismatch repair and reporting.
 - [x] Coded diagnostics with a cause, a fix, and a page per code.
@@ -91,7 +92,7 @@ The everyday helpers applications otherwise write by hand, each with one form, f
 
 See the [Vite guide](guide/vite.md).
 
-- [x] `@zerolith/vite`: JSX lowering, hot replacement that keeps named signals, development warnings, and a production check against development modules.
+- [x] `@zerolith/vite`: JSX lowering, `?scoped` stylesheets through Vite's own CSS pipeline, hot replacement that keeps named signals, development warnings, and a production check against development modules, with `hot: false` for test runners.
 - [x] The template prepare pass in `vite build` and in `zerolith build`, held to one output by a shared fixture.
 - [x] A size budget for the core and for a built example, enforced in CI.
 - [x] Static hoisting of templates with no bindings.
@@ -109,6 +110,7 @@ See the [command line guide](guide/command-line.md).
 - [x] `doctor` reports the same template warnings as the Vite plugin.
 - [x] `build` bundles with Rolldown and lightningcss compiled in: minified chunks with hashed names, lazy routes and locales split out, one stylesheet lowered for the supported browsers, assets copied under hashed names, a base path, and the same passes as the Vite plugin; `--unbundled` keeps the import map output.
 - [x] `dev` resolves packages from `node_modules` with the build's resolver, so a page needs no import map, and serves stylesheets, JSON, and other files imported from code, `PUBLIC_` variables from `.env` files, and the public folder, as `build` does.
+- [x] `build --unbundled` serves a module's imports of stylesheets, `?scoped` stylesheets, JSON, assets, `?url`, and `?raw` through small modules written next to the files, as `dev` does.
 - [x] `preview` serves a build's output as a static host would.
 - [x] `new` writes a starter in the brand style: TSX on the command line by default, asking for the language, Vite, and the inspector, with a browser test, a README on deploying, and the dependencies installed.
 - [x] `new --example fullstack` writes the fullstack example as a project of its own, an app with its Node backend, with tests of both and a README on developing with two processes and on deploying. The example is now Harbor, a team's projects and tasks, which shows how a larger application is put together: sessions, shared types and validation, a typed client, live updates, and a lazy route.
@@ -123,7 +125,8 @@ See the [command line guide](guide/command-line.md).
 - [x] The in-page inspector: component tree, signal graph, route state, and diagnostics, from any host including `file://`.
 - [x] Render and signal tracks in Chrome's Performance panel.
 - [x] Chrome DevTools workspace support from `zerolith dev`.
-- [x] `@zerolith/test`: mount with cleanup, settle, hydration mismatches, and accessibility issues.
+- [x] `@zerolith/test`: mount with cleanup, a view or a function that returns one, settle, hydration mismatches, and accessibility issues.
+- [x] Starters whose Vitest config takes the zerolith plugin without hot replacement, so tests read JSX and `?scoped` stylesheets as the app does.
 - [ ] A bolder, more useful inspector: search and filters, editing a writable signal's value, each signal's sources and dependents, a log of what each update changed and re-ran, an element picker that finds the part of the view behind an element, the router's state, and diagnostics linked to their pages.
 - [ ] The same hook served to agents through an MCP server in `zerolith dev`, with the configuration for common agents written by `zerolith new`.
 - [ ] A thin browser extension panel over the same hook.
@@ -148,7 +151,8 @@ See the [command line guide](guide/command-line.md).
 - [x] Links that work on GitHub and on the site alike: pages link each other by file, the docs build checks every link, and a test checks every relative link in the repository's Markdown.
 - [x] A home page that runs a counter and measures its DOM updates, a ten-step tutorial whose every file is a test, and a playground that runs zerolith in a sandboxed frame and shares code through a link.
 - [x] The site as a single-page application on `@zerolith/router`: every page prerendered for a first load and for readers without JavaScript, links that load the next page without a reload, and each page's islands started when it commits and stopped when the reader leaves.
-- [x] Code colored by the brand's code tokens, reading `html` and `css` templates and JSX as markup and styles, on the site and in the playground.
+- [x] Code colored by the brand's code tokens, reading `html` and `css` templates and JSX as markup and styles, on the site and in the playground, with each name keeping one color across a page.
+- [x] Playground examples that render as finished interface in the brand, with a preview that waits for the brand's fonts.
 - [ ] A domain of the project's own, if one is registered later. Every published version links its diagnostics to the GitHub Pages address, so those links have to keep working.
 - [ ] A versioned API manifest that feeds the agent index and editor tooling.
 - [ ] Type-checked code samples on every page.

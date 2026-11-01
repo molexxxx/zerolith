@@ -20,9 +20,15 @@ Update `src/components/item.ts`:
 
 ## A styled page
 
-Update `src/components/packing.ts` the same way:
+The page's styles can live in a stylesheet of their own, beside the component. Create `src/components/packing.css`:
+
+@include packages/zerolith/test/fixtures/tutorial/app/src/components/packing.css
+
+Then import it in `src/components/packing.ts`:
 
 @include packages/zerolith/test/fixtures/tutorial/app/src/components/packing.ts
+
+`?scoped` on the import turns the file into the same scoped style sheet a `css` literal makes, and `class=${page}` applies it the same way: `:scope` is the `section`, and the rules stop at the rows, which have styles of their own. A literal suits a few rules beside the markup, as in the row; a file suits a longer stylesheet, which your editor checks and completes as CSS. `zerolith dev` applies an edit to the file in place, without reloading the page.
 
 The page is now a `section` with its own scoped styles, and the list is the finished one. `src/components/add-item.ts` and `src/components/filters.ts` stay as they were.
 
@@ -30,4 +36,5 @@ The page is now a `section` with its own scoped styles, and the list is the fini
 
 - `css` writes a style sheet scoped to one component, applied with `class=${styles}`.
 - `:scope` is the element the styles apply to; other rules match only inside it.
+- A stylesheet imported with `?scoped`, as `import page from "./packing.css?scoped"`, is scoped the same way, for styles that read better in a file of their own.
 - Attributes bound to state, such as `data-packed`, let CSS follow the state.

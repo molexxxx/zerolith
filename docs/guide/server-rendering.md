@@ -34,7 +34,7 @@ Effects created while rendering, inside `each` rows, `when` branches, and comput
 
 @include packages/zerolith/test/examples/ssr.example.test.ts#styles
 
-A `css` literal creates its stylesheet when its module loads, so importing the components is enough for their styles to be included.
+A `css` literal, or a stylesheet imported with `?scoped`, creates its stylesheet when its module loads, so importing the components is enough for their styles to be included.
 
 ## Hydration
 

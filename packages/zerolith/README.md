@@ -35,6 +35,28 @@ html`<p>${count.get()}</p>`                        // frozen: read once at creat
 
 Both forms type-check, and the runtime cannot tell a frozen read from a deliberate one-time value, so no warning is possible. Call `.get()` only inside `computed`, `effect`, `resource.params`, and event handlers.
 
+## Styles
+
+A component's styles are scoped to it by the browser's `@scope` rule, with no shadow DOM, so global styles and design tokens still reach in. Write them in a `css` literal beside the markup, or keep a longer stylesheet in a file of its own and import it with `?scoped`:
+
+```ts
+import { css, html } from "zerolith";
+import card from "./card.css?scoped";
+
+const badge = css`:scope { padding: 4px 8px; border: 2px solid; }`;
+
+function Card({ title }: { title: string })
+{
+    return html`
+        <article class=${card}>
+            <h2>${title}</h2>
+            <span class=${badge}>New</span>
+        </article>`;
+}
+```
+
+Both give the same value, bound to a root element's `class`. A `?scoped` import needs `zerolith dev` and `zerolith build` from `@zerolith/cli`, or the Vite plugin, and `/// <reference types="zerolith/imports" />` in the project's `env.d.ts` types it.
+
 ## Principles
 
 - One reactivity model: `signal`, `computed`, `effect`, `batch`, `resource`, with the TC39 Signals vocabulary (`.get()`, `.set()`).

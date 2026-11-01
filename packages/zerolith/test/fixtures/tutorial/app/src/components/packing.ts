@@ -1,19 +1,11 @@
 // The packing list page: progress, the filters, the rows, and a note when
-// the filter leaves nothing to show.
-import { type View, computed, css, each, html, when } from "zerolith";
+// the filter leaves nothing to show. Its styles are in packing.css.
+import { type View, computed, each, html, when } from "zerolith";
 import { items, packedCount, shown } from "../store.ts";
 import { AddItem } from "./add-item.ts";
 import { Filters } from "./filters.ts";
 import { ItemRow } from "./item.ts";
-
-const page = css`
-    :scope { display: grid; gap: 1.5rem; }
-    h1, p { margin: 0; }
-    ul {
-        margin: 0; padding: 0; list-style: none;
-        border-top: 2px solid var(--line);
-    }
-`;
+import page from "./packing.css?scoped";
 
 export function Packing(): View
 {

@@ -93,7 +93,7 @@ Everything below runs, is tested in this repository, and is published under the 
 
 | Area | Package | What it does |
 | --- | --- | --- |
-| Core | `zerolith` | Signals, `html` and `css` templates with keyed lists and conditions, rendering, hydration, server rendering, custom elements, JSX types, coded diagnostics |
+| Core | `zerolith` | Signals, `html` and `css` templates with keyed lists and conditions, scoped styles in a literal or a stylesheet imported with `?scoped`, rendering, hydration, server rendering, custom elements, JSX types, coded diagnostics |
 | Routing | `@zerolith/router` | A typed route table, plain anchors, route data, head tags, a base path, and server rendering with embedded route state |
 | Forms | `@zerolith/forms` | Native forms enhanced with fetch, pending state, Standard Schema validation, and field errors as RFC 9457 problem details |
 | Data | `@zerolith/client` | Types and a route table generated from OpenAPI 3.x, checked calls, problems for failures, and a MessagePort transport |
@@ -103,7 +103,7 @@ Everything below runs, is tested in this repository, and is published under the 
 | Dev tools | `@zerolith/devtools` | The in-page inspector, named signals, and Performance panel tracks |
 | Observability | `@zerolith/otel` | OpenTelemetry spans for navigation, hydration, and requests |
 | Command line | `@zerolith/cli` | The Rust command line with prebuilt binaries: `new`, `dev` with packages resolved from `node_modules`, a proxy to backends, and a base path, `build`, which bundles and minifies with templates prepared ahead of time, `preview`, `skill`, which writes the zerolith skill for coding agents, `importmap` with integrity hashes, and `doctor`, with shared settings in `zerolith.json` |
-| Vite | `@zerolith/vite` | For projects on Vite: JSX lowering, hot replacement that keeps named state, transform-time warnings, templates prepared at build time, and a production build check |
+| Vite | `@zerolith/vite` | For projects on Vite: JSX lowering, `?scoped` stylesheets, hot replacement that keeps named state, transform-time warnings, templates prepared at build time, and a production build check; Vitest uses it for JSX and `?scoped` stylesheets in tests |
 
 Three example applications show it end to end: [notes](examples/notes), plain JavaScript on `zerolith dev` and `zerolith build`; [tasks](examples/tasks), TypeScript with a backend API, a typed client, and compiled messages, developed on Vite and bundled by `zerolith build`; and [fullstack](examples/fullstack), Harbor, a team's projects and tasks under `/app/` with a Node backend that shares its types and validation with the app, signs members in with a session cookie, streams activity live, and serves the build in production.
 
