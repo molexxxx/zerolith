@@ -161,7 +161,7 @@ See the [command line guide](guide/command-line.md).
 - [x] Checks that hold the docs to the code: the roadmap names the version the packages carry and the benchmark's pin, every import in a Markdown sample names an export its module has, every command-line flag the docs write exists, every flag is documented under its command, and the text keeps to American spelling, regular dashes, and no horizontal rules.
 - [ ] A versioned API manifest that feeds the agent index and editor tooling.
 - [ ] Type-checked code samples on every page.
-- [ ] Prose and spelling checks in CI.
+- [ ] A spell checker and a prose linter in CI, beyond the style rules the docs checks hold the text to.
 - [ ] A VS Code extension for templates, generated from the manifest.
 
 ## Coding agents
