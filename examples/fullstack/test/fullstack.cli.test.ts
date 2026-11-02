@@ -155,7 +155,9 @@ describe("fullstack example", () =>
         expect(page).toMatch(/<link rel="stylesheet" href="\/app\/assets\/index-[\w-]+\.css">/);
 
         const production = await backend(out);
-        const script = /src="(\/app\/assets\/index-[\w-]+\.js)"/.exec(page)?.[1] ?? "";
+        const served = await (await fetch(`${production}/app/`)).text();
+        const script = /src="(\/app\/assets\/index-[\w-]+\.js)"/.exec(served)?.[1] ?? "";
+        expect(script).not.toBe("");
         const asset = await fetch(`${production}${script}`);
         expect(asset.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
         expect((await fetch(`${production}/app/projects`)).headers.get("cache-control")).toBe("no-cache");

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type Diagnostic, type HydrateResult, type Signal, computed, each, html, hydrate, onDiagnostic, signal, when } from "zerolith";
 import { renderToString } from "zerolith/ssr";
+import { withoutComments } from "./markup.js";
 
 let host: HTMLElement | undefined;
 let result: HydrateResult | undefined;
@@ -171,7 +172,7 @@ describe("hydrate", () =>
     it("repairs a structural difference by rendering that part on the client", () =>
     {
         const el = serverThenClient(html`<div>${html`<i>old</i>`}</div>`, html`<div>${html`<b>new</b>`}</div>`);
-        expect(el.querySelector("div")?.innerHTML.replace(/<!--[^>]*-->/g, "")).toBe("<b>new</b>");
+        expect(withoutComments(el.querySelector("div")?.innerHTML ?? "")).toBe("<b>new</b>");
         expect(result?.mismatches.map((m) => m.kind)).toEqual(["structure"]);
     });
 

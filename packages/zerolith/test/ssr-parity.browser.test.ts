@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { type Root, computed, each, html, render, signal, when } from "zerolith";
 import { renderToString } from "zerolith/ssr";
+import { withoutComments } from "./markup.js";
 
 let root: Root | undefined;
 let host: HTMLElement | undefined;
@@ -19,7 +20,7 @@ function browserMarkup(view: unknown): string
     host = document.createElement("div");
     document.body.append(host);
     root = render(view, host);
-    return host.innerHTML.replace(/<!--[^>]*-->/g, "");
+    return withoutComments(host.innerHTML);
 }
 
 describe("server and browser renderers agree", () =>
@@ -35,7 +36,7 @@ describe("server and browser renderers agree", () =>
                 ${when(on, () => html`<p>on &amp; <b>${"<i>"}</b></p>`)}
                 <a href=${"/x?a=1&b=2"}>link</a>
             </section>`;
-        const server = renderToString(view()).replace(/<!--[^>]*-->/g, "");
+        const server = withoutComments(renderToString(view()));
         const browser = browserMarkup(view());
         expect(server.replace(/\s+/g, " ")).toBe(browser.replace(/\s+/g, " "));
     });

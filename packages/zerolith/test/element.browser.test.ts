@@ -55,12 +55,19 @@ describe("define", () =>
         document.body.append(host);
         expect(early.querySelector("b")?.textContent).toBe("early");
 
-        const markup = renderToString(html`<b>${"server"}</b>`);
+        const template = document.createElement("template");
+        template.innerHTML = "<zl-later label=\"server\"></zl-later>";
+        const element = template.content.firstElementChild as HTMLElement;
+        element.innerHTML = renderToString(html`<b>${"server"}</b>`);
+        const server = element.querySelector("b");
+        expect(customElements.get("zl-later")).toBeDefined();
+        expect(element.matches(":defined")).toBe(false);
         const rendered = document.createElement("div");
-        rendered.innerHTML = `<zl-later label="server">${markup}</zl-later>`;
+        rendered.append(element);
         host.append(rendered);
-        const element = rendered.firstElementChild as HTMLElement;
+        expect(element.matches(":defined")).toBe(true);
         expect(element.querySelectorAll("b")).toHaveLength(1);
+        expect(element.querySelector("b")).toBe(server);
         expect(element.querySelector("b")?.textContent).toBe("server");
     });
 
