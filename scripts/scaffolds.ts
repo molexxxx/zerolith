@@ -13,7 +13,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 interface Project
@@ -23,11 +23,13 @@ interface Project
 }
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const binary = process.env["ZEROLITH_BINARY_PATH"];
-if (binary === undefined || binary === "")
+const binaryPath = process.env["ZEROLITH_BINARY_PATH"];
+if (binaryPath === undefined || binaryPath === "")
 {
     throw new Error("ZEROLITH_BINARY_PATH names no binary; build one with cargo build --release and point it at target/release/zerolith");
 }
+/** The binary, resolved against the folder this runs from, since each project is written from its own folder. */
+const binary = resolve(binaryPath);
 const windows = process.platform === "win32";
 /** npm's own entry when this runs under `npm run`, so npm starts without a shell on Windows. */
 const npmCli = process.env["npm_execpath"];
@@ -67,18 +69,18 @@ function projects(help: string): Project[]
 /** Runs a command in a folder, appending its output to the log, and resolves with its exit code. */
 function run(command: string, args: string[], cwd: string, log: string[]): Promise<number>
 {
-    return new Promise((resolve) =>
+    return new Promise((finish) =>
     {
         log.push(`$ ${command} ${args.join(" ")}`);
         const direct = command === "npm" && npmCli !== undefined;
-        const child = spawn(direct ? process.execPath : command, direct ? [npmCli, ...args] : args, { cwd, shell: windows && command === "npm" && !direct, env: { ...process.env, CI: "true" } });
+        const child = spawn(direct ? process.execPath : command, direct ? [npmCli, ...args] : args, { cwd, shell: windows && command === "npm" && !direct, env: { ...process.env, CI: "true", ZEROLITH_BINARY_PATH: binary } });
         child.stdout.on("data", (chunk: Buffer) => log.push(chunk.toString()));
         child.stderr.on("data", (chunk: Buffer) => log.push(chunk.toString()));
-        child.on("close", (code) => resolve(code ?? 1));
+        child.on("close", (code) => finish(code ?? 1));
         child.on("error", (error) =>
         {
             log.push(String(error));
-            resolve(1);
+            finish(1);
         });
     });
 }
@@ -134,7 +136,7 @@ async function check(project: Project, work: string, tarballs: Map<string, strin
     const start = performance.now();
     const folder = join(work, project.name);
     const log: string[] = [];
-    let passed = await run(binary as string, ["new", folder, "--yes", "--no-install", ...project.flags], work, log) === 0;
+    let passed = await run(binary, ["new", folder, "--yes", "--no-install", ...project.flags], work, log) === 0;
     if (passed)
     {
         await useTarballs(folder, tarballs);
