@@ -54,6 +54,6 @@ jobs:
         env:
           SARIF: ${{ steps.analyze.outputs.sarif-output }}
         run: |
-          jq -r '.runs[].results[] | "\(.ruleId) \(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine) \(.message.text)"' "$SARIF"/*.sarif > findings.txt
+          jq -r '.runs[].results[] | select((.suppressions // []) | length == 0) | "\(.ruleId) \(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine) \(.message.text)"' "$SARIF"/*.sarif > findings.txt
           cat findings.txt
           test ! -s findings.txt

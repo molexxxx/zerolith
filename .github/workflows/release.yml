@@ -366,8 +366,6 @@ jobs:
       pages: write
       id-token: write
     uses: ./.github/workflows/docs.yml
-    with:
-      ref: ${{ github.sha }}
 
   github-release:
     name: GitHub release

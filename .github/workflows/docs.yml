@@ -1,24 +1,17 @@
 name: Docs
 
-# Builds the documentation site and deploys it to GitHub Pages. The release
-# workflow calls it with the commit it just published, so the site always
-# describes what the registry serves; a manual run redeploys a given ref.
+# Builds the documentation site and deploys it to GitHub Pages, always from
+# the commit the run is on. The release workflow calls it after publishing,
+# so the site describes what the registry serves; a manual run builds the
+# ref it is dispatched on: main for a change to the site alone, or a release
+# tag to deploy that release's site again.
 # The base path and the address for canonical links come from the Pages
 # configuration, so the same build serves the project site under
 # /zerolith/ and a custom domain at its root.
 
 on:
   workflow_call:
-    inputs:
-      ref:
-        description: Commit to build the site from
-        type: string
-        required: true
   workflow_dispatch:
-    inputs:
-      ref:
-        description: Commit, branch, or tag to build the site from; the latest release unless there is a reason
-        required: true
 
 permissions:
   contents: read
@@ -34,7 +27,6 @@ jobs:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
           persist-credentials: false
 
       - name: Set up Node
