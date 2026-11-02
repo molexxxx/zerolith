@@ -28,6 +28,7 @@
         "test": "vitest run --project node",
         "test:browser": "vitest run --project browser",
         "test:all": "vitest run --project node --project browser",
+        "test:coverage": "vitest run --coverage --project node --project browser",
         "test:cli": "vitest run --project cli",
         "scaffolds": "node scripts/scaffolds.ts",
         "size": "node scripts/size.ts",
@@ -46,7 +47,7 @@
         "docs": "node --conditions=development scripts/docs/build.ts",
         "docs:serve": "node scripts/serve.ts 8081 site",
         "brand": "node scripts/brand/render.ts",
-        "check": "npm run build && npm run typecheck && npm run lint && npm run test:all && npm run size && npm run docs",
+        "check": "npm run build && npm run typecheck && npm run lint && npm run test:coverage && npm run size && npm run docs",
         "sbom": "npm sbom --sbom-format cyclonedx --omit dev",
         "skills": "node --conditions=development scripts/skills.ts",
         "api": "node --conditions=development scripts/docs/build.ts --update-api"

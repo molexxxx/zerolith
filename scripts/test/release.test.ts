@@ -157,8 +157,7 @@ describe("the repository", () =>
         const chained = [...(manifest.scripts["check"] ?? "").matchAll(/npm run ([a-z:]+)/g)].map((match) => match[1] ?? "");
         for (const script of chained)
         {
-            const covered = script === "test:all" ? ci.includes("npm test") && ci.includes("npm run test:browser") : ci.includes(`npm run ${script}`);
-            expect(covered, script).toBe(true);
+            expect(ci.includes(`npm run ${script}`), script).toBe(true);
         }
     });
 });

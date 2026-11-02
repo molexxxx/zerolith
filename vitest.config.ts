@@ -31,6 +31,27 @@ export default defineConfig({
         }
     },
     test: {
+        coverage: {
+            provider: "v8",
+            include: ["packages/*/src/**/*.ts"],
+            /** The launcher in packages/cli is tested in the cli project, against the built binary this run does not start. */
+            exclude: ["**/*.d.ts", "packages/cli/src/**"],
+            reporter: ["text-summary", "json-summary"],
+            reportsDirectory: "coverage",
+            thresholds: {
+                lines: 92.5, statements: 92.4, functions: 91.5, branches: 84.7,
+                "packages/a11y/src/**": { lines: 91.3, statements: 91.1, functions: 87.1, branches: 81.0 },
+                "packages/client/src/**": { lines: 93.7, statements: 93.7, functions: 95.6, branches: 83.5 },
+                "packages/devtools/src/**": { lines: 79.7, statements: 77.3, functions: 67.1, branches: 64.0 },
+                "packages/forms/src/**": { lines: 92.1, statements: 91.0, functions: 84.2, branches: 85.1 },
+                "packages/i18n/src/**": { lines: 91.0, statements: 91.4, functions: 95.6, branches: 81.1 },
+                "packages/otel/src/**": { lines: 87.9, statements: 86.4, functions: 69.2, branches: 70.0 },
+                "packages/router/src/**": { lines: 95.0, statements: 95.1, functions: 93.6, branches: 90.2 },
+                "packages/test/src/**": { lines: 97.1, statements: 97.2, functions: 85.7, branches: 80.3 },
+                "packages/vite/src/**": { lines: 93.9, statements: 94.0, functions: 97.1, branches: 86.7 },
+                "packages/zerolith/src/**": { lines: 92.1, statements: 92.3, functions: 91.0, branches: 86.0 }
+            }
+        },
         projects: [
             {
                 extends: true,

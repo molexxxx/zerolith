@@ -193,6 +193,7 @@ See the [command line guide](guide/command-line.md).
 - [x] Trusted publishing for every npm package since `0.1.0-alpha.4` and for the crate on crates.io, with no registry token stored anywhere.
 - [x] Nightly canary releases of every npm package under the `canary` dist-tag, when the code changed since the last.
 - [x] CodeQL analysis of the TypeScript, the Rust, and the workflows on every push, which fails the build on any finding.
+- [x] A coverage floor in CI for every package but the command line's launcher, which is tested against the built binary: each package's lines, statements, functions, and branches stay within a point or two items of their coverage on 2026-11-01, and a floor rises when the coverage does.
 - [x] Every project `zerolith new` writes, each template on the command line, buildless, and on Vite, and each example, installed from packages packed from the checkout and checked by its own `npm run check` in CI.
 - [x] The npm the release workflow publishes with, installed from a lockfile so it is pinned by hash.
 - [ ] The OpenSSF Best Practices badge, passing and then silver.

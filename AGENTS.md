@@ -9,7 +9,7 @@ A standalone frontend framework monorepo. `packages/zerolith` is the browser run
 ## Commands
 
 - `npm ci` then `npx playwright install chromium` once.
-- `npm run check` is the full gate (build, typecheck, lint, Node and browser tests, the size budget, and the docs build). Run it before declaring work done.
+- `npm run check` is the full gate (build, typecheck, lint, Node and browser tests with a coverage floor per package, the size budget, and the docs build). Run it before declaring work done.
 - Under `crates/`, run `cargo fmt --check`, `cargo clippy -- -D warnings`, and `cargo test`.
 - `npm test` runs the Node project only; `npm run test:browser` runs the Chromium project only.
 

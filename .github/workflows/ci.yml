@@ -52,10 +52,16 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Test with the coverage floor
+        if: ${{ matrix.node == 24 }}
+        run: npm run test:coverage
+
       - name: Test (Node)
+        if: ${{ matrix.node != 24 }}
         run: npm test
 
       - name: Test (browser)
+        if: ${{ matrix.node != 24 }}
         run: npm run test:browser
 
       - name: Size budget
