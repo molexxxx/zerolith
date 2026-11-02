@@ -1,7 +1,7 @@
 // Executed examples for the observability guide.
 import { context, trace } from "@opentelemetry/api";
 import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
-import { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { InMemorySpanExporter, SimpleSpanProcessor, TracerProvider } from "@opentelemetry/sdk-trace";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { html } from "zerolith";
 import { createClient } from "@zerolith/client";
@@ -10,7 +10,7 @@ import { createRouter, defineRoutes, route } from "@zerolith/router";
 import { type Api, routes as apiRoutes } from "../../../client/test/fixtures/notes.api.ts";
 
 const exporter = new InMemorySpanExporter();
-const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+const provider = new TracerProvider({ spanProcessors: [new SimpleSpanProcessor({ exporter })] });
 const manager = new AsyncLocalStorageContextManager();
 
 beforeAll(() =>

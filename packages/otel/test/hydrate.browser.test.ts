@@ -1,12 +1,12 @@
 import { SpanStatusCode, trace } from "@opentelemetry/api";
-import { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { InMemorySpanExporter, SimpleSpanProcessor, TracerProvider } from "@opentelemetry/sdk-trace";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { type Root, html } from "zerolith";
 import { renderToString } from "zerolith/ssr";
 import { tracedHydrate } from "@zerolith/otel";
 
 const exporter = new InMemorySpanExporter();
-const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+const provider = new TracerProvider({ spanProcessors: [new SimpleSpanProcessor({ exporter })] });
 let host: HTMLElement | undefined;
 let root: Root | undefined;
 const view = (): unknown => html`<p>${"same"}</p>`;

@@ -1,6 +1,6 @@
 import { SpanStatusCode, context, trace } from "@opentelemetry/api";
 import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
-import { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { InMemorySpanExporter, SimpleSpanProcessor, TracerProvider } from "@opentelemetry/sdk-trace";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { html } from "zerolith";
 import { createClient } from "@zerolith/client";
@@ -8,7 +8,7 @@ import { navigationObserver, traceparent, tracedTransport } from "@zerolith/otel
 import { createRouter, defineRoutes, route } from "@zerolith/router";
 
 const exporter = new InMemorySpanExporter();
-const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+const provider = new TracerProvider({ spanProcessors: [new SimpleSpanProcessor({ exporter })] });
 const manager = new AsyncLocalStorageContextManager();
 
 beforeAll(() =>
