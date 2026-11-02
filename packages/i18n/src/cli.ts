@@ -6,7 +6,9 @@
  */
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
+import { realpathSync } from "node:fs";
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 import { type Catalog, compileIndex, compileMessages, messageNames } from "./compile.js";
 
 const USAGE = "usage: zerolith-i18n <folder> [--out <folder>] [--js] [--strict]\n";
@@ -181,7 +183,21 @@ export async function main(argv: readonly string[]): Promise<number>
     return missing > 0 && parsed.strict ? 1 : 0;
 }
 
-if (process.argv[1] !== undefined && /zerolith-i18n|[\\/]cli\.js$/.test(process.argv[1]))
+/** True when node started this module, directly or through the bin link npm installs, which it resolves the way node resolves its entry. */
+function started(): boolean
+{
+    const entry = process.argv[1];
+    try
+    {
+        return entry !== undefined && pathToFileURL(realpathSync(entry)).href === import.meta.url;
+    }
+    catch
+    {
+        return false;
+    }
+}
+
+if (started())
 {
     process.exitCode = await main(process.argv.slice(2));
 }

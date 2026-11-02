@@ -36,8 +36,8 @@ describe("zerolith-client", () =>
     it("reports a missing file or an invalid document in one line with exit code 1", async () =>
     {
         const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-        expect(await main([join(tmpdir(), "zerolith-client-missing.json")])).toBe(1);
         const folder = await mkdtemp(join(tmpdir(), "zerolith-client-"));
+        expect(await main([join(folder, "missing.json")])).toBe(1);
         const invalid = join(folder, "invalid.json");
         await writeFile(invalid, JSON.stringify({ openapi: "2.0" }));
         expect(await main([invalid])).toBe(1);

@@ -4,7 +4,9 @@
  * module for an OpenAPI document to a file, or to standard output.
  */
 import { readFile, writeFile } from "node:fs/promises";
+import { realpathSync } from "node:fs";
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 import { type OpenApiDocument, generateClient } from "./generate.js";
 
 const USAGE = "usage: zerolith-client <openapi.json> [--out <file.ts>] [--name <Api>]\n";
@@ -87,7 +89,21 @@ export async function main(argv: readonly string[]): Promise<number>
     return 0;
 }
 
-if (process.argv[1] !== undefined && /zerolith-client|[\\/]cli\.js$/.test(process.argv[1]))
+/** True when node started this module, directly or through the bin link npm installs, which it resolves the way node resolves its entry. */
+function started(): boolean
+{
+    const entry = process.argv[1];
+    try
+    {
+        return entry !== undefined && pathToFileURL(realpathSync(entry)).href === import.meta.url;
+    }
+    catch
+    {
+        return false;
+    }
+}
+
+if (started())
 {
     process.exitCode = await main(process.argv.slice(2));
 }
