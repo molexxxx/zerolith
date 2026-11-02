@@ -421,9 +421,6 @@ const RESERVED: ReadonlySet<string> = new Set(["arguments", "await", "break", "c
 /** Characters an HTML parser reads inside an inline script, and the line separators older engines refused in string literals. */
 const SCRIPT_UNSAFE = new RegExp(`[<>${String.fromCodePoint(0x2028, 0x2029)}]`, "g");
 
-/** Line breaks, which would end a `//` comment and turn the rest of its line into code. */
-const LINE_BREAKS = new RegExp(`[${String.fromCodePoint(10, 13, 0x2028, 0x2029)}]`, "g");
-
 /** The line breaks of a message's source, each starting a new line of its doc comment. */
 const SOURCE_LINES = /\r\n|[\n\r\u2028\u2029]/;
 
@@ -440,7 +437,7 @@ function jsLiteral(value: unknown): string
 /** Text for a `//` comment, kept on one line and with `<` written as `&lt;`, so it can end neither the comment nor an inline script. */
 function commentText(text: string): string
 {
-    return text.replace(LINE_BREAKS, " ").replaceAll("<", "&lt;");
+    return text.split(SOURCE_LINES).join(" ").replaceAll("<", "&lt;");
 }
 
 /** An argument or local name JavaScript can write as it is; MessageFormat also allows `-` and `.`, as in `$first-name`. */
