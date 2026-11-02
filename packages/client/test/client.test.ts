@@ -68,6 +68,21 @@ describe("createClient", () =>
         expect((failed as ProblemError).response.status).toBe(500);
     });
 
+    it("fills the path of a route with a long run of opening braces in linear time", async () =>
+    {
+        interface Braces
+        {
+            braces: { method: "get"; path: string; output: undefined };
+        }
+        const { transport, requests } = recorder(() => new Response(null, { status: 204 }));
+        const braces = "{".repeat(200000);
+        const api = createClient<Braces>({ braces: { method: "get", path: `/${braces}` } }, { baseUrl: "https://api.test", transport });
+        const start = performance.now();
+        await api.call("braces", {});
+        expect(performance.now() - start).toBeLessThan(1000);
+        expect(decodeURIComponent(new URL(requests[0]?.url ?? "").pathname)).toBe(`/${braces}`);
+    });
+
     it("merges client headers, including a function, with per-call headers", () =>
     {
         let token = "a";

@@ -12,6 +12,12 @@ Every package in this repository is released together and carries the same versi
 - Every npm package and the crate name https://zerolith.dev/ as their homepage.
 - Docs site: wheel scrolling on a mouse or trackpad glides through Lenis 1.3.27, so a wheel step eases over about a quarter second instead of jumping, at the same pace on a 60 Hz or a 144 Hz display. Links to a heading on the same page glide there, or jump when it is more than two screens away, and keep their history entries; a navigation lands where the router puts it, with no glide left over. Touch and keyboard scrolling stay native, the sidebar, sideways code, and the search dialog keep their own scrolling, and under `prefers-reduced-motion` the scroller never loads.
 
+### Fixed
+
+- `zerolith`: `renderToString` reads a template's markup in linear time; a long run of whitespace in the markup made it quadratic.
+- `@zerolith/router`: `createRouter` reads its `base` in linear time; a long run of slashes inside the base made it quadratic.
+- `@zerolith/client`: a call fills a route's path in linear time; a long run of `{` in the path made it quadratic.
+
 ## 0.1.0-alpha.7 (2026-11-01)
 
 A schema named like a built-in type keeps its name in the typed client again, as in 0.1.0-alpha.5, unless the generated module writes that built-in; 0.1.0-alpha.6 renamed every such schema. Harbor, the fullstack example, now waits for its backend, so `npm run dev` and `npm run api` start in either order. Canaries are versioned below every release, and this release sorts above the 0.1.0-alpha.6 canary that sorted above 0.1.0-alpha.6.

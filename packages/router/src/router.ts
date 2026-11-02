@@ -160,7 +160,17 @@ function normalizeBase(base: string | undefined): string
     {
         return "/";
     }
-    const inner = trimmed.replace(/^\/+|\/+$/g, "");
+    let start = 0;
+    let end = trimmed.length;
+    while (start < end && trimmed[start] === "/")
+    {
+        start++;
+    }
+    while (end > start && trimmed[end - 1] === "/")
+    {
+        end--;
+    }
+    const inner = trimmed.slice(start, end);
     return inner === "" ? "/" : `/${inner}/`;
 }
 

@@ -15,7 +15,7 @@ import { PART_END, PART_START, type TemplateView, directiveWrapsBranch, isDirect
 import { isSignal, scope } from "./signals.js";
 import { ATTRIBUTE, BOOLEAN, CHILD, type PartSpec, scanned } from "./template.js";
 
-const MARKER = /<!--zl\$-->|\s*zl\$(\d+)/g;
+const MARKER = /<!--zl\$-->|zl\$(\d+)/g;
 
 /** Escapes text content. */
 export function escapeText(text: string): string
@@ -117,12 +117,18 @@ function renderTemplate(view: TemplateView): string
         offset += spec.count;
     }
     let child = 0;
-    return markup.replace(MARKER, (match, index: string | undefined) =>
+    let out = "";
+    let last = 0;
+    for (const match of markup.matchAll(MARKER))
     {
+        const before = markup.slice(last, match.index);
+        last = match.index + match[0].length;
+        const index = match[1];
         if (index !== undefined)
         {
             const slot = slots[Number(index)];
-            return slot === undefined ? "" : renderAttribute(slot.spec, slot.values);
+            out += before.trimEnd() + (slot === undefined ? "" : renderAttribute(slot.spec, slot.values));
+            continue;
         }
         while (child < slots.length && slots[child]?.spec.kind !== CHILD)
         {
@@ -130,8 +136,9 @@ function renderTemplate(view: TemplateView): string
         }
         const slot = slots[child];
         child++;
-        return slot === undefined ? "" : part(renderValue(slot.values[0]));
-    });
+        out += before + (slot === undefined ? "" : part(renderValue(slot.values[0])));
+    }
+    return out + markup.slice(last);
 }
 
 /**

@@ -165,3 +165,16 @@ describe("renderToString", () =>
         expect(renderStyles()).toContain(`<style>@scope (.${card.scope}) to (:scope .zl-s > *) {`);
     });
 });
+
+describe("renderToString on long runs of whitespace", () =>
+{
+    it("reads the markup in linear time and still drops the whitespace before an attribute", () =>
+    {
+        const spaces = " ".repeat(200000);
+        const strings = Object.assign([`<p${spaces}title=`, `>${spaces}x</p>`], { raw: [`<p${spaces}title=`, `>${spaces}x</p>`] });
+        const start = performance.now();
+        const markup = renderToString(html(strings, "t"));
+        expect(performance.now() - start).toBeLessThan(1000);
+        expect(markup.replace(/<!--\/?zl:p-->/g, "")).toBe(`<p title="t">${spaces}x</p>`);
+    });
+});

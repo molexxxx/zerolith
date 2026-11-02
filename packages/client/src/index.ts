@@ -127,7 +127,7 @@ function searchOf(query: Record<string, unknown>): string
 
 function buildRequest(route: { method: Method; path: string }, input: LooseInput, options: CallOptions, client: ClientOptions): Request
 {
-    const path = route.path.replace(/\{([^}]+)\}/g, (_match, name: string) =>
+    const path = route.path.replace(/\{([^{}]+)\}/g, (_match, name: string) =>
     {
         const value = input.params?.[name];
         if (value === undefined)

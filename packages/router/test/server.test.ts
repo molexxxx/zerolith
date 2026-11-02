@@ -64,6 +64,16 @@ describe("the router without a window", () =>
         relative.dispose();
     });
 
+    it("normalizes a base with a long run of slashes inside it in linear time", () =>
+    {
+        const slashes = "/".repeat(200000);
+        const start = performance.now();
+        const router = createRouter(routes, { base: `//app${slashes}x//` });
+        expect(router.href("home")).toBe(`/app${slashes}x/`);
+        expect(performance.now() - start).toBeLessThan(1000);
+        router.dispose();
+    });
+
     it("renders head metadata with escaping", async () =>
     {
         const router = createRouter(routes);
