@@ -73,7 +73,7 @@ function run(command: string, args: string[], cwd: string, log: string[]): Promi
     {
         log.push(`$ ${command} ${args.join(" ")}`);
         const direct = command === "npm" && npmCli !== undefined;
-        const child = spawn(direct ? process.execPath : command, direct ? [npmCli, ...args] : args, { cwd, shell: windows && command === "npm" && !direct, env: { ...process.env, CI: "true", ZEROLITH_BINARY_PATH: binary } });
+        const child = spawn(direct ? process.execPath : command, direct ? [npmCli, ...args] : args, { cwd, shell: windows && command === "npm" && !direct, env: { ...process.env, CI: "true", NO_COLOR: "1", FORCE_COLOR: "0", ZEROLITH_BINARY_PATH: binary } });
         child.stdout.on("data", (chunk: Buffer) => log.push(chunk.toString()));
         child.stderr.on("data", (chunk: Buffer) => log.push(chunk.toString()));
         child.on("close", (code) => finish(code ?? 1));
