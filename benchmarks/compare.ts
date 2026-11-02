@@ -1,22 +1,31 @@
 /**
  * Measures what a change does to rendering speed against the core built at
- * a base commit. Both builds load in one headless Chromium, each in its own
- * tab, and every iteration of every operation runs on both in alternating
- * order, so the two meet the same load and drift cancels. The small
+ * a base commit. Both builds load side by side in one page of a headless
+ * Chromium, each in its own frame, so they share one renderer process and
+ * meet the same load wherever the system runs it: a process can take 40%
+ * longer on some of a processor's cores than on others, so two builds in
+ * two processes measure where each was placed as much as the change. Every
+ * iteration of every operation runs in both frames in alternating order,
+ * so drift cancels. Halfway the builds trade frames, as one frame can run
+ * some operations steadily faster than the other, and the second half runs
+ * in a new page with a renderer process of its own: in a page loaded after
+ * another in the same process, one frame ran an operation up to 21% slower.
+ * The small
  * operations run under the CPU slowdowns js-framework-benchmark uses, so
  * they take long enough to time, and garbage is collected before every
  * sample, on both builds alike, so a collection one sample causes does not
  * land in the next.
  *
- * Each operation's factor is the change's median time over the base's; the
- * geometric mean of the factors is the change's overall factor. A pass is
- * beyond its thresholds when the overall factor is more than the threshold
- * above 1, or one operation's is more than the operation threshold above 1,
- * so a large slowdown in one operation cannot hide in the mean. Such a pass
- * is confirmed with fresh samples, of every operation when the overall
- * factor crossed and of the crossing operations otherwise, and the change
- * fails only when the confirming pass crosses too, so one noisy pass cannot
- * fail it.
+ * A build's time for an operation is the geometric mean of its median in
+ * each frame, so a frame's own speed divides out of the operation's factor,
+ * the change's time over the base's; the geometric mean of the factors is
+ * the change's overall factor. A pass is beyond its thresholds when the
+ * overall factor is more than the threshold above 1, or one operation's is
+ * more than the operation threshold above 1, so a large slowdown in one
+ * operation cannot hide in the mean. Such a pass is confirmed with fresh
+ * samples, of every operation when the overall factor crossed and of the
+ * crossing operations otherwise, and the change fails only when the
+ * confirming pass crosses too, so one noisy pass cannot fail it.
  *   node benchmarks/compare.ts [--base <commit>] [--iterations <n>] [--threshold <percent>] [--operation-threshold <percent>]
  * The base is HEAD unless named, so before a commit it measures the
  * uncommitted change; `--base baseline` reads the commit from
@@ -34,18 +43,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { type CDPSession, type Page, chromium } from "playwright";
+import { type Browser, type Page, chromium } from "playwright";
 import { percentage, wholeNumber } from "../scripts/options.ts";
-import { checkPage, median, open, operations, rowCount, sample, serve } from "./harness.ts";
+import { type Operation, checkPage, median, openPair, operations, rowCount, sample, serve } from "./harness.ts";
 
-/** Each build's samples of one operation, in milliseconds. */
-interface Samples
+/** One operation's medians in a pass, each build's in each frame it ran in, in milliseconds. */
+interface Medians
 {
+    operation: Operation;
     base: number[];
     head: number[];
 }
 
-/** One operation's result in a pass: the median of each build and the change's factor. */
+/** One operation's result in a pass: each build's time, the geometric mean of its medians, and the change's factor. */
 interface Row
 {
     name: string;
@@ -58,6 +68,12 @@ interface Row
 }
 
 type Build = "base" | "head";
+
+/** Both frames of the pair page, by position. */
+const BOTH = [0, 1] as const;
+
+/** Which build each frame holds, in turn: the builds trade frames, so each is sampled in both. */
+const ARRANGEMENTS: readonly (readonly [Build, Build])[] = [["base", "head"], ["head", "base"]];
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const { values: flags } = parseArgs({
@@ -166,29 +182,74 @@ async function baseBuild(sha: string): Promise<string>
     }
 }
 
-/** Samples each operation `iterations` times on both builds, alternating which goes first: every operation, or the named ones. */
-async function measure(tabs: Record<Build, Page>, sessions: Record<Build, CDPSession>, only?: ReadonlySet<string>): Promise<Row[]>
+/**
+ * Samples each chosen operation `iterations` times on both builds, each in
+ * the frame the arrangement gives it, alternating which frame goes first,
+ * and adds each build's median to its results; when every operation ran,
+ * the last of them clear, checks that both pages hold no rows.
+ */
+async function sampleArrangement(origin: string, tab: Page, arrangement: readonly [Build, Build], results: readonly Medians[], everyOperation: boolean): Promise<void>
 {
-    const rows: Row[] = [];
-    for (const operation of operations.filter((one) => only === undefined || only.has(one.name)))
+    const session = await tab.context().newCDPSession(tab);
+    const frames = await openPair(tab, origin, arrangement);
+    for (const result of results)
     {
-        await sessions.base.send("Emulation.setCPUThrottlingRate", { rate: operation.slowdown });
-        await sessions.head.send("Emulation.setCPUThrottlingRate", { rate: operation.slowdown });
-        const samples: Samples = { base: [], head: [] };
+        await session.send("Emulation.setCPUThrottlingRate", { rate: result.operation.slowdown });
+        const samples: [number[], number[]] = [[], []];
         for (let i = 0; i < iterations; i++)
         {
-            for (const which of i % 2 === 0 ? (["base", "head"] as const) : (["head", "base"] as const))
+            for (const index of i % 2 === 0 ? BOTH : [1, 0] as const)
             {
-                await tabs[which].bringToFront();
-                samples[which].push(await sample(tabs[which], operation.name, true));
+                samples[index].push(await sample(frames[index], result.operation.name, true));
             }
         }
-        const before = median(samples.base);
-        const after = median(samples.head);
-        console.log(`${operation.label}: ${before.toFixed(2)} ms before, ${after.toFixed(2)} ms after`);
-        rows.push({ name: operation.name, label: operation.label, slowdown: operation.slowdown, before, after, factor: before > 0 ? after / before : 1, measured: before >= MEASURABLE_MS });
+        const times = [median(samples[0]), median(samples[1])] as const;
+        for (const index of BOTH)
+        {
+            result[arrangement[index]].push(times[index]);
+        }
+        console.log(`${result.operation.label}: ${arrangement[0]} ${times[0].toFixed(2)} ms in frame 1, ${arrangement[1]} ${times[1].toFixed(2)} ms in frame 2`);
     }
-    return rows;
+    for (const index of everyOperation ? BOTH : [])
+    {
+        if (await rowCount(frames[index]) !== 0)
+        {
+            throw new Error(`the ${arrangement[index]} page kept rows after clear`);
+        }
+    }
+    checkPage(tab);
+}
+
+/**
+ * Samples each operation `iterations` times on both builds in each
+ * arrangement: every operation, or the named ones. Each arrangement runs in
+ * a page of its own, with a renderer process of its own, so the two start
+ * alike. A build's time is the geometric mean of its medians in the two
+ * frames, so a frame that runs faster than the other speeds both builds by
+ * the same factor and the change's factor keeps none of it.
+ */
+async function measure(origin: string, browser: Browser, only?: ReadonlySet<string>): Promise<Row[]>
+{
+    const results = operations.filter((one) => only === undefined || only.has(one.name)).map((operation): Medians => ({ operation, base: [], head: [] }));
+    for (const arrangement of ARRANGEMENTS)
+    {
+        const tab = await browser.newPage();
+        try
+        {
+            await sampleArrangement(origin, tab, arrangement, results, only === undefined);
+        }
+        finally
+        {
+            await tab.context().close();
+        }
+    }
+    return results.map((result) =>
+    {
+        const { operation } = result;
+        const before = Math.sqrt((result.base[0] ?? 0) * (result.base[1] ?? 0));
+        const after = Math.sqrt((result.head[0] ?? 0) * (result.head[1] ?? 0));
+        return { name: operation.name, label: operation.label, slowdown: operation.slowdown, before, after, factor: before > 0 ? after / before : 1, measured: before >= MEASURABLE_MS };
+    });
 }
 
 function overallOf(rows: readonly Row[]): number
@@ -233,20 +294,9 @@ const server = await serve(
 const browser = await chromium.launch({ args: ["--js-flags=--expose-gc"] });
 try
 {
-    const tabs = { base: await browser.newPage(), head: await browser.newPage() };
-    await open(tabs.base, `${server.origin}/bench/base`);
-    await open(tabs.head, `${server.origin}/bench/head`);
-    const sessions = { base: await tabs.base.context().newCDPSession(tabs.base), head: await tabs.head.context().newCDPSession(tabs.head) };
-    const method = `paired samples per operation in one browser, milliseconds of script plus forced style and layout, with js-framework-benchmark's CPU slowdowns. Lower is faster.`;
+    const method = `paired samples per operation in each frame of a page that holds both builds side by side, then in a new page with the builds in each other's frames, combined by geometric mean; milliseconds of script plus forced style and layout, with js-framework-benchmark's CPU slowdowns. Lower is faster.`;
 
-    const rows = await measure(tabs, sessions);
-    for (const which of ["base", "head"] as const)
-    {
-        if (await rowCount(tabs[which]) !== 0)
-        {
-            throw new Error(`the ${which} page kept rows after clear`);
-        }
-    }
+    const rows = await measure(server.origin, browser);
     const overall = overallOf(rows);
     const reports = [table(`Median of ${iterations} ${method}`, rows, overall, commit)];
     const failures: string[] = [];
@@ -255,7 +305,7 @@ try
     if (all || crossedFirst.size > 0)
     {
         console.log(`Beyond a threshold; confirming with fresh samples of ${all ? "every operation" : [...crossedFirst].join(", ")}.`);
-        const confirming = await measure(tabs, sessions, all ? undefined : crossedFirst);
+        const confirming = await measure(server.origin, browser, all ? undefined : crossedFirst);
         const confirmingOverall = overallOf(confirming);
         reports.push(table(`Confirming pass: median of ${iterations} fresh ${method}`, confirming, all ? confirmingOverall : undefined, commit));
         if (all && crossesOverall(confirmingOverall))
@@ -267,8 +317,6 @@ try
             failures.push(`${row.label} is ${factorText(row.factor)} against ${commit} in both passes, beyond the ${operationThreshold}% threshold for one operation.`);
         }
     }
-    checkPage(tabs.base);
-    checkPage(tabs.head);
 
     console.log(`\n${reports.join("\n\n")}\n`);
     const summary = process.env["GITHUB_STEP_SUMMARY"];

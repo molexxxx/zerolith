@@ -28,11 +28,11 @@ async function run(implementation: string): Promise<Map<string, number>>
         const samples: number[] = [];
         for (let i = 0; i < iterations; i++)
         {
-            samples.push(await sample(tab, name));
+            samples.push(await sample(tab.mainFrame(), name));
         }
         results.set(name, median(samples));
     }
-    const rowsAfterClear = await rowCount(tab);
+    const rowsAfterClear = await rowCount(tab.mainFrame());
     if (rowsAfterClear !== 0)
     {
         throw new Error(`${implementation}: ${rowsAfterClear} rows left after clear`);

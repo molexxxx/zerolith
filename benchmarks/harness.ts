@@ -1,14 +1,15 @@
 /**
  * What the benchmark scripts share: the keyed-table operations of
  * js-framework-benchmark with the CPU slowdown it runs each under, a server
- * for the benchmark pages, and one timed sample of an operation.
+ * for the benchmark pages and for two of them side by side in one page, and
+ * one timed sample of an operation.
  */
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Page } from "playwright";
+import type { Frame, Page } from "playwright";
 
 /** An operation of the keyed table: the name its page's `bench` object uses, a label, and the CPU slowdown js-framework-benchmark measures it under. */
 export interface Operation
@@ -53,24 +54,49 @@ ${map}<script type="module" src="/web/${page.script}.js"></script>
 </html>`;
 }
 
+/** The names of the two frames a pair page holds, in order. */
+const PAIR_FRAMES = ["first", "second"] as const;
+
+function pairHtml(names: readonly [string, string]): string
+{
+    return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>bench ${names[0]} and ${names[1]}</title>
+<style>html, body { margin: 0; height: 100%; } body { display: flex; } iframe { flex: 1; border: 0; }</style>
+</head>
+<body><iframe name="${PAIR_FRAMES[0]}" src="/bench/${names[0]}"></iframe><iframe name="${PAIR_FRAMES[1]}" src="/bench/${names[1]}"></iframe></body>
+</html>`;
+}
+
 /** Cross-origin isolation, which gives `performance.now()` microsecond resolution in place of a tenth of a millisecond. */
 const ISOLATED = { "cross-origin-opener-policy": "same-origin", "cross-origin-embedder-policy": "require-corp" };
 
 /**
- * Serves `/bench/<name>` for each page, the scripts in `web/` under `/web/`,
+ * Serves `/bench/<name>` for each page, `/pair/<name>/<name>` for two of
+ * them side by side in one document, the scripts in `web/` under `/web/`,
  * and each folder of `cores` under `/<key>/`, on a free loopback port.
  */
 export async function serve(pages: Readonly<Record<string, BenchPage>>, cores: Readonly<Record<string, string>>): Promise<{ origin: string; close: () => void }>
 {
     const roots = [["web", web], ...Object.entries(cores)];
+    const named = (name: string | undefined): BenchPage | undefined => (name !== undefined && Object.hasOwn(pages, name) ? pages[name] : undefined);
     const server = createServer(async (request, response) =>
     {
         const url = new URL(request.url ?? "/", "http://localhost");
-        const page = url.pathname.startsWith("/bench/") ? pages[url.pathname.slice("/bench/".length)] : undefined;
+        const page = url.pathname.startsWith("/bench/") ? named(url.pathname.slice("/bench/".length)) : undefined;
         if (page !== undefined)
         {
             response.writeHead(200, { "content-type": "text/html; charset=utf-8", ...ISOLATED });
             response.end(html(page));
+            return;
+        }
+        const [, first, second] = /^\/pair\/([^/]+)\/([^/]+)$/.exec(url.pathname) ?? [];
+        if (first !== undefined && second !== undefined && named(first) !== undefined && named(second) !== undefined)
+        {
+            response.writeHead(200, { "content-type": "text/html; charset=utf-8", ...ISOLATED });
+            response.end(pairHtml([first, second]));
             return;
         }
         for (const [prefix, folder] of roots)
@@ -126,8 +152,8 @@ async function step<T>(tab: Page, work: Promise<T>): Promise<T>
     }
 }
 
-/** Opens a benchmark page and waits for its `bench` object; an uncaught page error fails the open or the step it happens in. */
-export async function open(tab: Page, url: string): Promise<void>
+/** Fails the steps on a tab that follow its first uncaught error, from any of its frames, with that error. */
+function watch(tab: Page): void
 {
     const failure = new Promise<never>((_resolve, reject) => tab.once("pageerror", (error) =>
     {
@@ -136,30 +162,63 @@ export async function open(tab: Page, url: string): Promise<void>
     }));
     failure.catch(() => undefined);
     pageFailures.set(tab, failure);
+}
+
+/** Waits for a frame's `bench` object. */
+async function ready(frame: Frame): Promise<void>
+{
+    await step(frame.page(), frame.waitForFunction(() => typeof (globalThis as unknown as { bench?: unknown }).bench === "object"));
+}
+
+/** Opens a benchmark page and waits for its `bench` object; an uncaught page error fails the open or the step it happens in. */
+export async function open(tab: Page, url: string): Promise<void>
+{
+    watch(tab);
     await step(tab, tab.goto(url));
-    await step(tab, tab.waitForFunction(() => typeof (globalThis as unknown as { bench?: unknown }).bench === "object"));
+    await ready(tab.mainFrame());
 }
 
 /**
- * Times one run of an operation in milliseconds; every operation but the two
- * creates starts from 1,000 fresh rows, which are not timed. With `collect`,
- * garbage is collected before the timing starts, which needs Chromium
- * launched with `--js-flags=--expose-gc`.
+ * Opens two benchmark pages side by side in one tab, so both run in its
+ * renderer process and meet the same load wherever the system runs it, and
+ * returns their frames once both have their `bench` object; an uncaught
+ * error in either fails the open or the step it happens in.
  */
-export async function sample(tab: Page, name: string, collect = false): Promise<number>
+export async function openPair(tab: Page, origin: string, names: readonly [string, string]): Promise<readonly [Frame, Frame]>
 {
+    watch(tab);
+    await step(tab, tab.goto(`${origin}/pair/${names[0]}/${names[1]}`));
+    const first = tab.frame({ name: PAIR_FRAMES[0] });
+    const second = tab.frame({ name: PAIR_FRAMES[1] });
+    if (first === null || second === null)
+    {
+        throw new Error(`the pair page of ${names.join(" and ")} has no frames named ${PAIR_FRAMES.join(" and ")}`);
+    }
+    await Promise.all([ready(first), ready(second)]);
+    return [first, second];
+}
+
+/**
+ * Times one run of an operation in milliseconds, in a tab's main frame or a
+ * frame of a pair page; every operation but the two creates starts from
+ * 1,000 fresh rows, which are not timed. With `collect`, garbage is
+ * collected before the timing starts, which needs Chromium launched with
+ * `--js-flags=--expose-gc`.
+ */
+export async function sample(frame: Frame, name: string, collect = false): Promise<number>
+{
+    const tab = frame.page();
     if (name !== "create" && name !== "createMany")
     {
-        await step(tab, tab.evaluate(() => (globalThis as unknown as { bench: Record<string, () => Promise<number>> }).bench["create"]?.()));
+        await step(tab, frame.evaluate(() => (globalThis as unknown as { bench: Record<string, () => Promise<number>> }).bench["create"]?.()));
     }
     if (collect)
     {
-        await step(tab, tab.evaluate(() => (globalThis as unknown as { gc?: () => void }).gc?.()));
+        await step(tab, frame.evaluate(() => (globalThis as unknown as { gc?: () => void }).gc?.()));
     }
-    return step(tab, tab.evaluate((operation) => (globalThis as unknown as { bench: Record<string, () => Promise<number>> }).bench[operation]?.() ?? Promise.resolve(0), name));
+    return step(tab, frame.evaluate((operation) => (globalThis as unknown as { bench: Record<string, () => Promise<number>> }).bench[operation]?.() ?? Promise.resolve(0), name));
 }
 
-/** The rows a page holds, which must be none after `clear`. */
 /** Throws the page's first uncaught error, for an error raised after the last step, once the page is done. */
 export function checkPage(tab: Page): void
 {
@@ -170,9 +229,10 @@ export function checkPage(tab: Page): void
     }
 }
 
-export async function rowCount(tab: Page): Promise<number>
+/** The rows a benchmark page holds, which must be none after `clear`. */
+export async function rowCount(frame: Frame): Promise<number>
 {
-    return step(tab, tab.evaluate(() => (globalThis as unknown as { bench: { count(): number } }).bench.count()));
+    return step(frame.page(), frame.evaluate(() => (globalThis as unknown as { bench: { count(): number } }).bench.count()));
 }
 
 export function median(values: readonly number[]): number
