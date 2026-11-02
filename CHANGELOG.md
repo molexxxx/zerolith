@@ -2,7 +2,9 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
-## Unreleased
+## 0.1.0-alpha.8 (2026-11-02)
+
+The production build of every browser package is minified one module at a time, with source maps that lead back to the TypeScript, so a page that loads the core, the router, and `@zerolith/a11y` through an import map transfers 18,953 B of their modules after gzip, where 0.1.0-alpha.7 sent 35,833 B. `zerolith importmap` vendors only the modules a page's entries load and reads their imports with the parser, so every one of them gets an integrity hash and a preload. The docs moved to https://zerolith.dev/, where every diagnostic now links its page.
 
 ### Changed
 
