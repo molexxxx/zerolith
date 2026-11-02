@@ -722,3 +722,79 @@ mod specifier_tests {
         assert_eq!(out.lines().count(), source.lines().count());
     }
 }
+
+#[cfg(test)]
+mod properties {
+    use super::{lower_jsx, transform};
+    use oxc_span::SourceType;
+    use proptest::prelude::*;
+    use std::path::Path;
+
+    /// Pieces of JSX, TypeScript, and markup that put the lowering's parser and writer in unusual states when strung together at random.
+    fn jsx_soup() -> impl Strategy<Value = String> {
+        let pieces = vec![
+            "<",
+            ">",
+            "</",
+            "/>",
+            "<>",
+            "</>",
+            "{",
+            "}",
+            "div",
+            "a",
+            "Row",
+            "zl-x",
+            " ",
+            "\n",
+            "\r\n",
+            "=",
+            "\"x\"",
+            "'y'",
+            "{x}",
+            "{...p}",
+            "on:click",
+            "prop:value",
+            "bool:disabled",
+            "class",
+            "ref",
+            "<!--",
+            "-->",
+            "`",
+            "${",
+            "&amp;",
+            "&lt;",
+            "\\",
+            "const ",
+            "let v = ",
+            ";",
+            "() => ",
+            "(",
+            ")",
+            "as",
+            "<T,>",
+            "html`",
+            "/*",
+            "*/",
+            "//",
+        ];
+        prop::collection::vec(prop::sample::select(pieces), 0..48).prop_map(|parts| parts.concat())
+    }
+
+    proptest! {
+        /// Lowering returns code or an error for any string of JSX pieces, without a panic.
+        #[test]
+        fn lowering_returns_for_any_jsx(source in jsx_soup()) {
+            let _ = lower_jsx(&source, SourceType::tsx());
+            let _ = lower_jsx(&source, SourceType::jsx());
+        }
+
+        /// The dev server's transform returns code or an error for any text, without a panic.
+        #[test]
+        fn transforming_returns_for_any_text(source in any::<String>()) {
+            for name in ["a.ts", "a.tsx", "a.jsx"] {
+                let _ = transform(Path::new(name), &source);
+            }
+        }
+    }
+}

@@ -332,3 +332,42 @@ mod tests {
         assert_eq!(found, expected);
     }
 }
+
+#[cfg(test)]
+mod properties {
+    use super::position;
+    use proptest::prelude::*;
+
+    /// The line and UTF-16 column of an offset, counted one character at a time by the rule `position` documents, which is the one Vite's locator uses for the plugin's warnings: only LF starts a line, a lone CR or U+2028 is a character of the line, and a column counts UTF-16 units.
+    fn counted(source: &str, offset: u32) -> (usize, usize) {
+        let mut line = 1;
+        let mut column = 1;
+        for (index, character) in source.char_indices() {
+            if index + character.len_utf8() > offset as usize {
+                break;
+            }
+            if character == '\n' {
+                line += 1;
+                column = 1;
+            } else {
+                column += character.len_utf16();
+            }
+        }
+        (line, column)
+    }
+
+    proptest! {
+        /// Any offset into text with Windows line endings, lone carriage returns, line separators, and characters outside the Basic Multilingual Plane gives the line and column a character count gives.
+        #[test]
+        fn position_agrees_with_a_character_count(source in "(\\r\\n|\\n|\\r|[a-z ]|\\x{e9}|\\x{1f600}|\\x{2028}){0,80}", offset in 0u32..400) {
+            prop_assert_eq!(position(&source, offset), counted(&source, offset));
+        }
+
+        /// Any offset within any text, inside a character or past the end, gives the line and column a character count gives.
+        #[test]
+        fn position_agrees_on_any_text(source in any::<String>(), at in any::<prop::sample::Index>(), past in 0u32..4) {
+            let offset = u32::try_from(at.index(source.len() + 1)).expect("a short text") + past;
+            prop_assert_eq!(position(&source, offset), counted(&source, offset));
+        }
+    }
+}

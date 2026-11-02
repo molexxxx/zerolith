@@ -1083,3 +1083,58 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod properties {
+    use super::percent_decode;
+    use proptest::prelude::*;
+
+    /// The rule, applied one character at a time: `%` and two hex digits become that byte, and every other character stays as it is.
+    fn reference(text: &str) -> String {
+        let characters: Vec<char> = text.chars().collect();
+        let mut bytes = Vec::new();
+        let mut index = 0;
+        while index < characters.len() {
+            let digit = |at: usize| {
+                characters
+                    .get(at)
+                    .and_then(|character| character.to_digit(16))
+            };
+            if characters[index] == '%'
+                && let (Some(high), Some(low)) = (digit(index + 1), digit(index + 2))
+            {
+                bytes.push(u8::try_from(high * 16 + low).expect("two hex digits make a byte"));
+                index += 3;
+                continue;
+            }
+            let mut buffer = [0; 4];
+            bytes.extend_from_slice(characters[index].encode_utf8(&mut buffer).as_bytes());
+            index += 1;
+        }
+        String::from_utf8_lossy(&bytes).into_owned()
+    }
+
+    proptest! {
+        /// Encoding every byte of any text, in either case of hex digit, and decoding it gives the text back.
+        #[test]
+        fn decoding_reverses_encoding_every_byte(text in any::<String>(), upper in any::<bool>()) {
+            let encoded: String = text
+                .bytes()
+                .map(|byte| if upper { format!("%{byte:02X}") } else { format!("%{byte:02x}") })
+                .collect();
+            prop_assert_eq!(percent_decode(&encoded), text);
+        }
+
+        /// Any input, escapes cut short and invalid ones included, decodes as the reference decodes it.
+        #[test]
+        fn decoding_matches_the_reference(text in "(%[0-9a-fA-Fg-z%]{0,2}|[^%]){0,40}") {
+            prop_assert_eq!(percent_decode(&text), reference(&text));
+        }
+
+        /// Any text at all decodes as the reference decodes it.
+        #[test]
+        fn decoding_matches_the_reference_on_any_text(text in any::<String>()) {
+            prop_assert_eq!(percent_decode(&text), reference(&text));
+        }
+    }
+}

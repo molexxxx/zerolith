@@ -196,6 +196,7 @@ See the [command line guide](guide/command-line.md).
 - [x] A coverage floor in CI for every package but the command line's launcher, which is tested against the built binary: each package's lines, statements, functions, and branches stay within a point or two items of their coverage on 2026-11-01, and a floor rises when the coverage does.
 - [x] Every project `zerolith new` writes, each template on the command line, buildless, and on Vite, and each example, installed from packages packed from the checkout and checked by its own `npm run check` in CI.
 - [x] The npm the release workflow publishes with, installed from a lockfile so it is pinned by hash.
+- [x] Randomized-input tests, through fast-check and proptest, of the URL rule both renderers share, server rendering read back by the browser's parser, the client generator and the i18n compiler against code a name could inject, and the command line's percent decoding, source positions, and transforms.
 - [ ] The OpenSSF Best Practices badge, passing and then silver.
 - [ ] A trademark search for the name.
 
