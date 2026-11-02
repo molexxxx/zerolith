@@ -6,13 +6,30 @@
 const ENTITIES: Readonly<Record<string, string>> = { amp: "&", lt: "<", gt: ">", quot: "\"", "#39": "'" };
 
 /**
- * The markup with every tag removed, and with any `<` an unfinished tag
- * leaves behind, since a `<` in the text reaches the markup escaped as
- * `&lt;`. No tag can be left or formed.
+ * The markup with every tag removed, an unfinished tag at the end with it,
+ * in one scan, so no tag can be left or formed; a `<` in the text reaches
+ * the markup escaped as `&lt;`.
  */
 export function stripTags(markup: string): string
 {
-    return markup.replace(/<[^>]*>/g, "").replaceAll("<", "");
+    let text = "";
+    let inTag = false;
+    for (const character of markup)
+    {
+        if (inTag)
+        {
+            inTag = character !== ">";
+        }
+        else if (character === "<")
+        {
+            inTag = true;
+        }
+        else
+        {
+            text += character;
+        }
+    }
+    return text;
 }
 
 /** A heading's text as a reader sees it: its tags removed and the entities the renderer writes decoded in one pass, so `&amp;lt;` reads `&lt;`. */
