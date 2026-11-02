@@ -1,5 +1,5 @@
 import * as fc from "fast-check";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { safeUrl } from "../src/binding.js";
 
 /**
@@ -57,21 +57,9 @@ function canRunScript(type: string): boolean
 
 describe("safeUrl under randomized input", () =>
 {
-    it("lets through no URL that parses to a scheme that runs script", () =>
+    it("lets through no URL that runs script: no script scheme, and no data URL of a type that can", async () =>
     {
-        fc.assert(fc.property(urls, (value) =>
-        {
-            if (!safeUrl(value) || !URL.canParse(value, "https://example.test/"))
-            {
-                return true;
-            }
-            const { protocol } = new URL(value, "https://example.test/");
-            return protocol !== "javascript:" && protocol !== "vbscript:";
-        }), { numRuns: 20000 });
-    });
-
-    it("lets through only data URLs whose type cannot run script", async () =>
-    {
+        let dataChecked = 0;
         await fc.assert(fc.asyncProperty(urls, async (value) =>
         {
             if (!safeUrl(value) || !URL.canParse(value, "https://example.test/"))
@@ -79,13 +67,19 @@ describe("safeUrl under randomized input", () =>
                 return true;
             }
             const url = new URL(value, "https://example.test/");
-            if (url.protocol !== "data:")
+            if (url.protocol === "javascript:" || url.protocol === "vbscript:")
             {
-                return true;
+                return false;
             }
-            const response = await fetch(url).catch(() => undefined);
-            const type = response?.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
-            return type === undefined || !canRunScript(type);
-        }), { numRuns: 5000 });
+            if (url.protocol === "data:")
+            {
+                dataChecked++;
+                const response = await fetch(url).catch(() => undefined);
+                const type = response?.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
+                return type === undefined || !canRunScript(type);
+            }
+            return true;
+        }), { numRuns: 20000 });
+        expect(dataChecked).toBeGreaterThan(50);
     });
 });
