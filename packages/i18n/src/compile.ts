@@ -418,13 +418,38 @@ const NUMBER_OPTIONS: Record<string, string> = {
 /** Names a module cannot bind; a message named so is exported under its name from a binding of its own. */
 const RESERVED: ReadonlySet<string> = new Set(["arguments", "await", "break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete", "do", "else", "enum", "eval", "export", "extends", "false", "finally", "for", "function", "if", "implements", "import", "in", "instanceof", "interface", "let", "new", "null", "package", "private", "protected", "public", "return", "static", "super", "switch", "this", "throw", "true", "try", "typeof", "var", "void", "while", "with", "yield"]);
 
+/** Characters an HTML parser reads inside an inline script, and the line separators older engines refused in string literals. */
+const SCRIPT_UNSAFE = new RegExp(`[<>${String.fromCodePoint(0x2028, 0x2029)}]`, "g");
+
+/** Line breaks, which would end a `//` comment and turn the rest of its line into code. */
+const LINE_BREAKS = new RegExp(`[${String.fromCodePoint(10, 13, 0x2028, 0x2029)}]`, "g");
+
+/** The line breaks of a message's source, each starting a new line of its doc comment. */
+const SOURCE_LINES = /\r\n|[\n\r\u2028\u2029]/;
+
+/**
+ * A value written as JavaScript source: its JSON, with `<`, `>`, U+2028, and
+ * U+2029 escaped, so generated code stays inert even when a page inlines
+ * it in a script element.
+ */
+function jsLiteral(value: unknown): string
+{
+    return JSON.stringify(value).replace(SCRIPT_UNSAFE, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+}
+
+/** Text for a `//` comment, kept on one line. */
+function commentText(text: string): string
+{
+    return text.replace(LINE_BREAKS, " ");
+}
+
 /** An argument or local name JavaScript can write as it is; MessageFormat also allows `-` and `.`, as in `$first-name`. */
 const PLAIN_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /** A property name as code: as it is when plain, quoted otherwise. */
 function property(name: string): string
 {
-    return PLAIN_NAME.test(name) ? name : JSON.stringify(name);
+    return PLAIN_NAME.test(name) ? name : jsLiteral(name);
 }
 
 function identifier(key: string): string
@@ -488,7 +513,7 @@ class Emitter
         {
             this.fail(`$${name} is used both as ${existing} and as ${type}`);
         }
-        return PLAIN_NAME.test(name) ? `args.${name}` : `args[${JSON.stringify(name)}]`;
+        return PLAIN_NAME.test(name) ? `args.${name}` : `args[${jsLiteral(name)}]`;
     }
 
     private optionValue(value: Literal | Variable | undefined): string | undefined
@@ -497,7 +522,7 @@ class Emitter
         {
             return undefined;
         }
-        return value.kind === "literal" ? JSON.stringify(value.value) : `String(${this.argument(value.name, "string")})`;
+        return value.kind === "literal" ? jsLiteral(value.value) : `String(${this.argument(value.name, "string")})`;
     }
 
     private numberOptions(expression: Expression): string
@@ -532,7 +557,7 @@ class Emitter
             }
             else if (option === "useGrouping" && value.kind === "literal")
             {
-                entries.push(`useGrouping: ${value.value === "never" ? "false" : value.value === "always" ? "true" : JSON.stringify(value.value)}`);
+                entries.push(`useGrouping: ${value.value === "never" ? "false" : value.value === "always" ? "true" : jsLiteral(value.value)}`);
             }
             else if (option === "fractionDigits" && value.kind === "literal" && /^[0-9]+$/.test(value.value))
             {
@@ -554,17 +579,17 @@ class Emitter
         const length = literal(fn === "datetime" ? "dateLength" : "length") ?? (fn === "time" ? undefined : "medium");
         if (length !== undefined && fn !== "time")
         {
-            entries.push(`dateStyle: ${JSON.stringify(length)}`);
+            entries.push(`dateStyle: ${jsLiteral(length)}`);
         }
         const precision = literal(fn === "datetime" ? "timePrecision" : "precision") ?? (fn === "date" ? undefined : "minute");
         if (precision !== undefined && fn !== "date")
         {
-            entries.push(`timeStyle: ${JSON.stringify(precision === "second" ? "medium" : "short")}`);
+            entries.push(`timeStyle: ${jsLiteral(precision === "second" ? "medium" : "short")}`);
         }
         const zone = literal("timeZone");
         if (zone !== undefined && zone !== "input")
         {
-            entries.push(`timeZone: ${JSON.stringify(zone)}`);
+            entries.push(`timeZone: ${jsLiteral(zone)}`);
         }
         const hour12 = literal("hour12");
         if (hour12 !== undefined)
@@ -574,7 +599,7 @@ class Emitter
         const style = literal("timeZoneStyle");
         if (style !== undefined)
         {
-            entries.push(`timeZoneName: ${JSON.stringify(style)}`);
+            entries.push(`timeZoneName: ${jsLiteral(style)}`);
         }
         return entries.length === 0 ? "{}" : `{ ${entries.join(", ")} }`;
     }
@@ -635,7 +660,7 @@ class Emitter
             {
                 this.fail(":string needs an operand");
             }
-            return operand.kind === "literal" ? JSON.stringify(operand.value) : `String(${this.argument(operand.name, "string")})`;
+            return operand.kind === "literal" ? jsLiteral(operand.value) : `String(${this.argument(operand.name, "string")})`;
         }
         if (NUMBER_FUNCTIONS.has(fn))
         {
@@ -656,7 +681,7 @@ class Emitter
             {
                 this.fail(`:${fn} needs an operand`);
             }
-            const value = operand.kind === "literal" ? `new Date(${JSON.stringify(operand.value)})` : this.argument(operand.name, "date");
+            const value = operand.kind === "literal" ? `new Date(${jsLiteral(operand.value)})` : this.argument(operand.name, "date");
             return `${this.shared(`new Intl.DateTimeFormat(locale, ${this.dateOptions(expression)})`)}().format(${value})`;
         }
         this.fail(`unknown function :${fn}`);
@@ -676,7 +701,7 @@ class Emitter
             {
                 return `{ value: String(${value}), categories: [] }`;
             }
-            const type = JSON.stringify(mode === "ordinal" ? "ordinal" : "cardinal");
+            const type = jsLiteral(mode === "ordinal" ? "ordinal" : "cardinal");
             const reads = this.reads;
             const options = this.numberOptions(expression);
             if (this.reads === reads)
@@ -693,7 +718,7 @@ class Emitter
             {
                 this.fail("a selector needs an operand");
             }
-            const value = operand.kind === "literal" ? JSON.stringify(operand.value) : `String(${this.argument(operand.name, "string")})`;
+            const value = operand.kind === "literal" ? jsLiteral(operand.value) : `String(${this.argument(operand.name, "string")})`;
             return `{ value: ${value}, categories: [] }`;
         }
         this.fail(`:${fn} cannot select`);
@@ -705,7 +730,7 @@ class Emitter
         {
             return "\"\"";
         }
-        return parts.map((part) => (typeof part === "string" ? JSON.stringify(part) : this.format(part))).join(" + ");
+        return parts.map((part) => (typeof part === "string" ? jsLiteral(part) : this.format(part))).join(" + ");
     }
 
     body(): string
@@ -725,7 +750,7 @@ class Emitter
             return this.pattern(this.message.pattern);
         }
         const selectors = this.message.selectors.map((selector) => this.selector(selector));
-        const variants = this.message.variants.map((variant) => `{ keys: ${JSON.stringify(variant.keys)}, pattern: () => ${this.pattern(variant.pattern)} }`);
+        const variants = this.message.variants.map((variant) => `{ keys: ${jsLiteral(variant.keys)}, pattern: () => ${this.pattern(variant.pattern)} }`);
         this.used.add("select");
         return `$select([${selectors.join(", ")}], [${variants.join(", ")}])`;
     }
@@ -948,12 +973,12 @@ export function compileMessages(locale: string, catalog: Catalog, options: Compi
 {
     const javascript = options.language === "js";
     const out: string[] = [];
-    out.push(`// Generated by @zerolith/i18n from ${options.source ?? `the ${locale} catalog`}. Do not edit; regenerate instead.`);
+    out.push(`// Generated by @zerolith/i18n from ${commentText(options.source ?? `the ${locale} catalog`)}. Do not edit; regenerate instead.`);
     if (javascript)
     {
         out.push("// @ts-check");
     }
-    out.push(`export const locale${javascript ? "" : ": string"} = ${JSON.stringify(locale)};`);
+    out.push(`export const locale${javascript ? "" : ": string"} = ${jsLiteral(locale)};`);
     out.push("");
     const head = out.length;
     const formatters = new Map<string, string>();
@@ -978,7 +1003,7 @@ export function compileMessages(locale: string, catalog: Catalog, options: Compi
         const emitter = new Emitter(key, message, formatters, used);
         const body = emitter.body();
         const args = [...emitter.arguments.entries()].toSorted(([a], [b]) => a.localeCompare(b));
-        const doc = source.replace(/\*\//g, "* /").split(/\r?\n/).map((line) => ` * ${line}`.trimEnd()).join("\n");
+        const doc = source.replace(/\*\//g, "* /").replaceAll("<", "&lt;").split(SOURCE_LINES).map((line) => ` * ${line}`.trimEnd()).join("\n");
         const argumentType = `{ ${args.map(([argument, type]) => `${property(argument)}: ${typeOf(type)}`).join("; ")} }`;
         if (javascript)
         {
@@ -1030,14 +1055,14 @@ export function compileIndex(locales: readonly string[], options: CompileOptions
     }
     if (!javascript)
     {
-        lines.push(`import type * as first from "./${locales[0] ?? "en"}.${extension}";`);
+        lines.push(`import type * as first from ${jsLiteral(`./${locales[0] ?? "en"}.${extension}`)};`);
         lines.push("");
     }
-    lines.push(`export const locales${javascript ? "" : ": readonly string[]"} = ${JSON.stringify(locales)};`);
+    lines.push(`export const locales${javascript ? "" : ": readonly string[]"} = ${jsLiteral(locales)};`);
     lines.push("");
     lines.push(`/** Loads one locale's messages; each locale is its own module. */`);
     lines.push(javascript ? "export const loaders = {" : "export const loaders: Readonly<Record<string, () => Promise<typeof first>>> = {");
-    lines.push(locales.map((locale) => `    ${JSON.stringify(locale)}: () => import("./${locale}.${extension}")`).join(",\n"));
+    lines.push(locales.map((locale) => `    ${jsLiteral(locale)}: () => import(${jsLiteral(`./${locale}.${extension}`)})`).join(",\n"));
     lines.push("};");
     lines.push("");
     return lines.join("\n");
