@@ -1,0 +1,8 @@
+{
+    "name": "zerolith-release-npm",
+    "private": true,
+    "description": "The npm the release workflow publishes with. npm ci installs it from the lockfile, so it is pinned by hash; Node 26 bundles npm 11.20.0, and moving a dist-tag through trusted publishing needs 11.21.0 or later.",
+    "dependencies": {
+        "npm": "11.21.1"
+    }
+}

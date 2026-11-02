@@ -18,3 +18,13 @@ updates:
         patterns:
           - "vitest"
           - "@vitest/*"
+  - package-ecosystem: npm
+    directory: /.github/npm
+    schedule:
+      interval: weekly
+    versioning-strategy: increase
+    commit-message:
+      prefix: "ci"
+    ignore:
+      - dependency-name: npm
+        update-types: ["version-update:semver-major"]
