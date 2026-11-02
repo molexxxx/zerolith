@@ -29,6 +29,7 @@
         "test:browser": "vitest run --project browser",
         "test:all": "vitest run --project node --project browser",
         "test:cli": "vitest run --project cli",
+        "scaffolds": "node scripts/scaffolds.ts",
         "size": "node scripts/size.ts",
         "bench": "node benchmarks/run.ts",
         "notes": "node scripts/zerolith.ts dev examples/notes",

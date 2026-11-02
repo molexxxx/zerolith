@@ -191,6 +191,7 @@ See the [command line guide](guide/command-line.md).
 - [x] GitHub releases created by the release workflow, with the version's changelog section and the SBOM attached.
 - [x] Trusted publishing for every npm package since `0.1.0-alpha.4` and for the crate on crates.io, with no registry token stored anywhere.
 - [x] Nightly canary releases of every npm package under the `canary` dist-tag, when the code changed since the last.
+- [x] Every project `zerolith new` writes, each template on the command line, buildless, and on Vite, and each example, installed from packages packed from the checkout and checked by its own `npm run check` in CI.
 - [ ] The OpenSSF Best Practices badge, passing and then silver.
 - [ ] A trademark search for the name.
 

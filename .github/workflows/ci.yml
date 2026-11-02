@@ -120,6 +120,11 @@ jobs:
         env:
           ZEROLITH_BINARY_PATH: target/release/zerolith
 
+      - name: Check every project zerolith new writes
+        run: npm run scaffolds
+        env:
+          ZEROLITH_BINARY_PATH: target/release/zerolith
+
   rust-windows:
     name: Rust on Windows
     runs-on: windows-2025
