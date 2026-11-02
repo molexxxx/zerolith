@@ -72,6 +72,7 @@ Each example's README walks through what it shows and what the build writes.
 | `npm run skills` | Regenerate the Agent Skill's references from the guides, and the copy of the whole skill the command line builds in; a test fails while either is stale |
 | `npm run api` | Accept a change to the public API by rewriting the reports in `api/`; the docs build fails while the API differs from them |
 | `npm run bench` | Run the keyed-table benchmark |
+| `npm run bench:compare` | Build the core at a base commit, HEAD unless `--base` names another, and time each operation on it and on the working tree's build in one browser, alternating sample by sample; fails when the change is more than `--threshold` percent slower, 5 by default. Run `npm run build` first. CI runs it on every push and pull request against `--base baseline`, the commit `benchmarks/baseline` names |
 | `npm run sbom` | Emit a CycloneDX SBOM of the runtime dependency graph |
 | `npm run brand` | Render the brand PNG and ICO files from their SVG sources |
 | `node scripts/version.ts <version>` | Set one version on every package, the platform packages, the ranges between them, the packages' version constants, and the crate, for a release commit; [releases.md](docs/policy/releases.md) has the rest of the steps |
@@ -84,7 +85,7 @@ Each example's README walks through what it shows and what the build writes.
 
 ## Pull requests
 
-- Meet the definition of done in [AGENTS.md](AGENTS.md#definition-of-done): specifications followed and tested from their examples, a failing test before a fix, hostile and edge input covered, `npm run bench` against `main` for a change to signals, rendering, lists, or the router, every doc that describes the change updated in the same pull request, visible changes checked in a browser, and the diff reviewed before it is pushed.
+- Meet the definition of done in [AGENTS.md](AGENTS.md#definition-of-done): specifications followed and tested from their examples, a failing test before a fix, hostile and edge input covered, `npm run bench:compare` results for a change to signals, rendering, lists, or the router, every doc that describes the change updated in the same pull request, visible changes checked in a browser, and the diff reviewed before it is pushed.
 - One change per pull request. Dependency updates are their own pull requests and link the changelog of each updated package.
 - Add or update tests for behavior changes. Runtime packages run their tests both in Node and in a real browser; if a change only makes sense in one, say so in the description.
 - Links in the guides and the tutorial work on GitHub and on the site: link another docs page by its file, such as `structure.md` or `../learn/state.md`, and what only the site serves, such as a diagnostic page, a reference page, or `llms.txt`, by its full address under https://zerolith.dev/. The docs build turns both into site paths and refuses a root-relative link, and a test checks that every relative link in the repository's Markdown points at a file.

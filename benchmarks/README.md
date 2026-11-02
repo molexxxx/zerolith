@@ -97,3 +97,9 @@ Run against 0.1.0-alpha.5 as published, alternating under the same load at 11 it
 | 2026-11-01, 0.1.0-alpha.6 | 9,909 B | 1.03 |
 
 The core grew with hydration, custom elements, and diagnostics, and since 0.1.0-alpha.4 with the rendering work that clones each template from a copy prepared once, locates bindings by position, and gives keyed lists fast paths for creating, appending, replacing, swapping, removing, and clearing rows, and for updating rows that keep their places. 0.1.0-alpha.6 adds the factory form of `render`, `hydrate`, and `renderToString`, the cleanup a failed mount does, and coded refusals for a function given to `when` or `each`.
+
+## npm run bench:compare
+
+`npm run bench:compare` measures what a change does to the core's speed. It builds the core at a base commit in a temporary worktree, HEAD unless `--base` names another, then loads that build and the working tree's in one headless Chromium, a tab each, and times every iteration of every operation on both, alternating which goes first, so the two meet the same load and drift between runs cancels. The small operations run under js-framework-benchmark's CPU slowdowns, so they take long enough to time. Each operation's factor is the change's median over the base's, and the run fails when their geometric mean is more than `--threshold` percent above 1, 5 by default.
+
+CI runs it on every push and pull request against `--base baseline`, the commit [baseline](baseline) names, so slowdowns too small to fail one push cannot add up unnoticed: every push is measured against the same commit. The baseline moves only in a commit that says why: after each release, to the release's tag, and after a change that makes the core faster, to that change, so the gain is kept; a deliberate slowdown moves it with its reason.

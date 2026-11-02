@@ -32,6 +32,7 @@
         "scaffolds": "node scripts/scaffolds.ts",
         "size": "node scripts/size.ts",
         "bench": "node benchmarks/run.ts",
+        "bench:compare": "node benchmarks/compare.ts",
         "notes": "node scripts/zerolith.ts dev examples/notes",
         "notes:build": "node scripts/zerolith.ts build examples/notes",
         "notes:preview": "node scripts/zerolith.ts preview examples/notes",

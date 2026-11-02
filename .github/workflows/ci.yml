@@ -130,6 +130,34 @@ jobs:
         env:
           ZEROLITH_BINARY_PATH: target/release/zerolith
 
+  benchmark:
+    name: Benchmark
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build the core
+        run: npm run build --workspace zerolith
+
+      - name: Compare with the baseline
+        run: npm run bench:compare -- --base baseline --threshold 5
+
   rust-windows:
     name: Rust on Windows
     runs-on: windows-2025
