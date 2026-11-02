@@ -49,6 +49,7 @@ async function exportsByEntry(): Promise<Map<string, Set<string>>>
     return entries;
 }
 
+/** The spellings the style check refuses; this file names them, so the check skips it. */
 const britishSpellings = [
     "colour", "behaviour", "centre", "catalogue", "organise", "recognise", "normalise", "serialise", "analyse", "artefact",
     "programme", "defence", "licence", "travelled", "labelled", "modelled", "cancelled", "cancelling", "judgement",
@@ -104,7 +105,7 @@ describe("the repository's prose", () =>
     {
         const found: string[] = [];
         const spelling = new RegExp(`\\b(${britishSpellings.join("|")})s?\\b`, "i");
-        for (const file of tracked("*.md", "*.ts", "*.tsx", "*.js", "*.mjs", "*.rs", "*.json", "*.css", "*.html", "*.yml", "*.toml", ":!package-lock.json", ":!**/package-lock.json"))
+        for (const file of tracked("*.md", "*.ts", "*.tsx", "*.js", "*.mjs", "*.rs", "*.json", "*.css", "*.html", "*.yml", "*.toml", ":!package-lock.json", ":!**/package-lock.json", ":!scripts/test/docs-sync.test.ts"))
         {
             const lines = (await text(file)).split("\n");
             const body = file.endsWith(".md") && lines[0] === "---" ? lines.indexOf("---", 1) + 1 : 0;
@@ -112,7 +113,7 @@ describe("the repository's prose", () =>
             for (const [index, line] of lines.entries())
             {
                 const where = `${file}:${index + 1}`;
-                if (line.includes("—"))
+                if (line.includes(String.fromCodePoint(0x2014)))
                 {
                     found.push(`${where}: em dash`);
                 }
