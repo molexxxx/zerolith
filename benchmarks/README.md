@@ -55,17 +55,36 @@ zerolith's entry updates rows by setting a new array, as the guides teach, so th
 
 Each framework is the keyed entry of the benchmark's repository at commit `ca8715d` (2026-10-25), built from its own lockfile; zerolith is the entry in [js-framework-benchmark/](js-framework-benchmark/), installed from its lockfile and built with `npm run build-prod`. The durations are the mean of 10 runs, and 20 for selecting a row; the memory, size, and first paint results are one run each, as the harness takes them, so small differences there say little.
 
-The machine was an AMD Ryzen 9 9950X3D (16 cores) with 31.1 GB of memory, on Windows 11 Pro (build 26200), with Chrome 156.0.8078.74 run headless by the benchmark's own driver and Node 24.13.0, as on 2026-10-31. It was in normal use during the runs, and the frameworks ran one after another; the vanilla entry, measured in the same run, is the reference to read the others against.
+The machine was an AMD Ryzen 9 9950X3D (16 cores) with 31.1 GB of memory, on Windows 11 Pro (build 26200), with Chrome 156.0.8078.74 run headless by the benchmark's own driver and Node 24.13.0, as on 2026-10-31. It was in normal use during the runs, and the frameworks ran one after another; the vanilla entry, measured in the same run, is the reference to read the others against. The benchmark's driver runs each framework in a browser process of its own, and on this processor, whose two halves of cores differ, a process held to one half took about 40% longer than one held to the other (see [npm run bench:compare](#npm-run-benchcompare)); these runs did not hold the browser to either half, so a difference of a few percent between two frameworks here can be where the system ran each one.
 
 ### Reproducing
 
 [js-framework-benchmark/README.md](js-framework-benchmark/README.md) lists the steps to run the entry from a checkout of the benchmark. To measure the same frameworks, pass them all to the runner: `npm run bench -- --framework keyed/vanillajs keyed/zerolith keyed/solid keyed/svelte keyed/vue keyed/react-hooks keyed/angular-cf-signals-nozone keyed/preact-signals keyed/lit`.
 
+On a processor whose cores differ, hold the runner to one group of them, which every browser it starts inherits: from a Windows Command Prompt, `start "" /affinity FF /wait /b cmd /c npm run bench -- --framework keyed/vanillajs keyed/zerolith` keeps it on the first eight logical processors, and on Linux, `taskset -c 0-7 npm run bench -- --framework keyed/vanillajs keyed/zerolith` does the same.
+
 ## npm run bench
 
-`npm run bench` runs the same operations against two pages in headless Chromium: the zerolith implementation (`web/zerolith.js`, loading the production entry unbundled through an import map) and a hand-written DOM baseline (`web/vanilla.js`). Each sample times the operation plus the synchronous style and layout it forces, then waits a frame outside the measurement. The script prints the median per operation and the geometric mean of the zerolith to vanilla ratios. Pass an iteration count as the first argument; the default is 7.
+`npm run bench` runs the same operations against two pages in headless Chromium: the zerolith implementation (`web/zerolith.js`, loading the production entry unbundled through an import map) and a hand-written DOM baseline (`web/vanilla.js`). It measures the two against each other as [npm run bench:compare](#npm-run-benchcompare) measures two builds: side by side in one page, so both run in one renderer process, alternating sample by sample and trading frames halfway in a new page, each operation under js-framework-benchmark's CPU slowdown, with garbage collected before every sample. Each sample times the operation plus the synchronous style and layout it forces, then waits a frame outside the measurement. The script prints each page's time for every operation, the geometric mean of its median in the two frames, and the geometric mean of the zerolith to vanilla ratios, which leaves out an operation vanilla does in under a millisecond, where a sample is mostly timer resolution. Pass an iteration count as the first argument; the default is 7.
 
 It is a quick check that a change did not make rendering slower, not a substitute for the public benchmark: the baseline here is written for this harness, and the page skips the template prepare pass of the build tools.
+
+### 2026-11-02, main at `3bb5d78`
+
+Windows 11, Chrome Headless Shell 156, 15 iterations, two runs, the zerolith row written on one line as the js-framework-benchmark entry writes it. The runs before this one measured each page in a browser of its own, without the CPU slowdowns, so their numbers do not compare with these.
+
+| Operation | Vanilla (ms) | zerolith (ms) | Ratio | Second run |
+| --- | --- | --- | --- | --- |
+| create 1,000 rows | 22.6 | 23.6 | 1.04 | 1.03 |
+| replace all rows | 20.6 | 21.3 | 1.03 | 1.07 |
+| update every 10th row | 27.4 | 27.4 | 1.00 | 0.91 |
+| select a row | 0.1 | 0.4 | n/a | n/a |
+| swap two rows | 12.9 | 12.8 | 0.99 | 1.08 |
+| remove a row | 5.4 | 5.5 | 1.01 | 0.98 |
+| create 10,000 rows | 238.7 | 242.8 | 1.02 | 1.01 |
+| append 1,000 rows | 21.1 | 23.2 | 1.10 | 1.05 |
+| clear rows | 11.7 | 12.3 | 1.05 | 1.08 |
+| geometric mean | | | 1.03 | 1.03 |
 
 ### 2026-11-01, 0.1.0-alpha.6
 

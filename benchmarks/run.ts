@@ -1,60 +1,43 @@
 /**
  * Runs the keyed-table benchmark (the js-framework-benchmark operation set)
- * for zerolith and for a vanilla DOM baseline in headless Chromium and
- * prints the median of each operation and the ratio between them. The
- * zerolith page loads the production entry unbundled through an import map,
- * the same way a buildless deployment would.
+ * for zerolith and for a vanilla DOM baseline in headless Chromium, the two
+ * pages measured against each other as `npm run bench:compare` measures two
+ * builds, and prints each operation's time on each and the ratio between
+ * them. The zerolith page loads the production entry unbundled through an
+ * import map, the same way a buildless deployment would.
  *   node benchmarks/run.ts [iterations]
  */
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { wholeNumber } from "../scripts/options.ts";
-import { checkPage, median, open, operations, rowCount, sample, serve } from "./harness.ts";
+import { MEASURABLE_MS, measurePair, serve } from "./harness.ts";
 
 const iterations = wholeNumber("iterations", process.argv[2] ?? "7");
 const server = await serve(
     { vanilla: { script: "vanilla" }, zerolith: { script: "zerolith", core: "zerolith" } },
     { zerolith: fileURLToPath(new URL("../packages/zerolith/dist/production/", import.meta.url)) }
 );
-
-async function run(implementation: string): Promise<Map<string, number>>
+const browser = await chromium.launch({ args: ["--js-flags=--expose-gc"] });
+try
 {
-    const browser = await chromium.launch();
-    const tab = await browser.newPage();
-    await open(tab, `${server.origin}/bench/${implementation}`);
-    const results = new Map<string, number>();
-    for (const { name } of operations)
+    const timed = await measurePair(browser, server.origin, ["vanilla", "zerolith"], iterations);
+    console.log(`median of ${iterations} paired samples per operation in each frame of one page, the pages side by side and trading frames halfway, combined by geometric mean; milliseconds of script plus forced style and layout, with js-framework-benchmark's CPU slowdowns`);
+    console.log("operation".padEnd(24) + "vanilla".padStart(10) + "zerolith".padStart(10) + "ratio".padStart(8));
+    const ratios: number[] = [];
+    for (const { operation, times: [vanilla, zerolith] } of timed)
     {
-        const samples: number[] = [];
-        for (let i = 0; i < iterations; i++)
+        const measured = vanilla >= MEASURABLE_MS;
+        if (measured)
         {
-            samples.push(await sample(tab.mainFrame(), name));
+            ratios.push(zerolith / vanilla);
         }
-        results.set(name, median(samples));
+        console.log(operation.label.padEnd(24) + vanilla.toFixed(1).padStart(10) + zerolith.toFixed(1).padStart(10) + (measured ? (zerolith / vanilla).toFixed(2) : "n/a").padStart(8));
     }
-    const rowsAfterClear = await rowCount(tab.mainFrame());
-    if (rowsAfterClear !== 0)
-    {
-        throw new Error(`${implementation}: ${rowsAfterClear} rows left after clear`);
-    }
-    checkPage(tab);
-    await browser.close();
-    return results;
+    const mean = Math.exp(ratios.reduce((sum, ratio) => sum + Math.log(ratio), 0) / Math.max(1, ratios.length));
+    console.log("geometric mean ratio".padEnd(24) + "".padStart(20) + mean.toFixed(2).padStart(8));
 }
-
-const vanilla = await run("vanilla");
-const zerolith = await run("zerolith");
-server.close();
-
-console.log(`median of ${iterations} runs, milliseconds of script plus forced style and layout`);
-console.log("operation".padEnd(24) + "vanilla".padStart(10) + "zerolith".padStart(10) + "ratio".padStart(8));
-let product = 1;
-for (const { name, label } of operations)
+finally
 {
-    const base = vanilla.get(name) ?? 0;
-    const ours = zerolith.get(name) ?? 0;
-    const ratio = base > 0 ? ours / base : 0;
-    product *= ratio > 0 ? ratio : 1;
-    console.log(label.padEnd(24) + base.toFixed(1).padStart(10) + ours.toFixed(1).padStart(10) + ratio.toFixed(2).padStart(8));
+    await browser.close();
+    server.close();
 }
-console.log("geometric mean ratio".padEnd(24) + "".padStart(20) + Math.pow(product, 1 / operations.length).toFixed(2).padStart(8));

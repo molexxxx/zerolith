@@ -9,19 +9,13 @@ function remove(id)
     rows.set(rows.get().filter((row) => row.id !== id));
 }
 
-/** One table row, as in the js-framework-benchmark entry: the id is read once, since `each` keys the rows by it, and the label and the selection stay live. */
+/** One table row, as in the js-framework-benchmark entry: the id is read once, since `each` keys the rows by it, and the label and the selection stay live. The markup stays on one line, as the entry's does, so no whitespace text nodes sit between the cells, where the vanilla page has none. */
 function Row(row)
 {
     const { id } = row.get();
     const label = computed(() => row.get().label);
     const className = computed(() => (selected.get() === id ? "danger" : ""));
-    return html`
-        <tr class=${className}>
-            <td class="col-md-1">${id}</td>
-            <td class="col-md-4"><a @click=${() => selected.set(id)}>${label}</a></td>
-            <td class="col-md-1"><a @click=${() => remove(id)}><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>
-            <td class="col-md-6"></td>
-        </tr>`;
+    return html`<tr class=${className}><td class="col-md-1">${id}</td><td class="col-md-4"><a @click=${() => selected.set(id)}>${label}</a></td><td class="col-md-1"><a @click=${() => remove(id)}><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td><td class="col-md-6"></td></tr>`;
 }
 
 render(html`<table class="table table-hover table-striped test-data"><tbody>${each(rows, (row) => row.id, Row)}</tbody></table>`, "#main");

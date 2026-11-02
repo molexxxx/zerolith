@@ -43,17 +43,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { type Browser, type Page, chromium } from "playwright";
+import { type Browser, chromium } from "playwright";
 import { percentage, wholeNumber } from "../scripts/options.ts";
-import { type Operation, checkPage, median, openPair, operations, rowCount, sample, serve } from "./harness.ts";
-
-/** One operation's medians in a pass, each build's in each frame it ran in, in milliseconds. */
-interface Medians
-{
-    operation: Operation;
-    base: number[];
-    head: number[];
-}
+import { MEASURABLE_MS, measurePair, serve } from "./harness.ts";
 
 /** One operation's result in a pass: each build's time, the geometric mean of its medians, and the change's factor. */
 interface Row
@@ -66,14 +58,6 @@ interface Row
     factor: number;
     measured: boolean;
 }
-
-type Build = "base" | "head";
-
-/** Both frames of the pair page, by position. */
-const BOTH = [0, 1] as const;
-
-/** Which build each frame holds, in turn: the builds trade frames, so each is sampled in both. */
-const ARRANGEMENTS: readonly (readonly [Build, Build])[] = [["base", "head"], ["head", "base"]];
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const { values: flags } = parseArgs({
@@ -93,8 +77,6 @@ const cache = process.env["ZEROLITH_BENCH_CACHE"] || join(tmpdir(), "zerolith-be
 /** How many commits' builds the cache keeps, the ones used last. */
 const CACHE_ENTRIES = 8;
 const npmCli = process.env["npm_execpath"];
-/** Below this many milliseconds a sample is mostly timer resolution, so the operation is shown but left out of the overall factor. */
-const MEASURABLE_MS = 1;
 
 /** Runs a command to completion with its output shown, and throws when it fails. */
 function run(command: string, commandArgs: string[], cwd: string): void
@@ -182,74 +164,18 @@ async function baseBuild(sha: string): Promise<string>
     }
 }
 
-/**
- * Samples each chosen operation `iterations` times on both builds, each in
- * the frame the arrangement gives it, alternating which frame goes first,
- * and adds each build's median to its results; when every operation ran,
- * the last of them clear, checks that both pages hold no rows.
- */
-async function sampleArrangement(origin: string, tab: Page, arrangement: readonly [Build, Build], results: readonly Medians[], everyOperation: boolean): Promise<void>
-{
-    const session = await tab.context().newCDPSession(tab);
-    const frames = await openPair(tab, origin, arrangement);
-    for (const result of results)
-    {
-        await session.send("Emulation.setCPUThrottlingRate", { rate: result.operation.slowdown });
-        const samples: [number[], number[]] = [[], []];
-        for (let i = 0; i < iterations; i++)
-        {
-            for (const index of i % 2 === 0 ? BOTH : [1, 0] as const)
-            {
-                samples[index].push(await sample(frames[index], result.operation.name, true));
-            }
-        }
-        const times = [median(samples[0]), median(samples[1])] as const;
-        for (const index of BOTH)
-        {
-            result[arrangement[index]].push(times[index]);
-        }
-        console.log(`${result.operation.label}: ${arrangement[0]} ${times[0].toFixed(2)} ms in frame 1, ${arrangement[1]} ${times[1].toFixed(2)} ms in frame 2`);
-    }
-    for (const index of everyOperation ? BOTH : [])
-    {
-        if (await rowCount(frames[index]) !== 0)
-        {
-            throw new Error(`the ${arrangement[index]} page kept rows after clear`);
-        }
-    }
-    checkPage(tab);
-}
-
-/**
- * Samples each operation `iterations` times on both builds in each
- * arrangement: every operation, or the named ones. Each arrangement runs in
- * a page of its own, with a renderer process of its own, so the two start
- * alike. A build's time is the geometric mean of its medians in the two
- * frames, so a frame that runs faster than the other speeds both builds by
- * the same factor and the change's factor keeps none of it.
- */
+/** Times every operation, or the named ones, on both builds, and the change's factor for each. */
 async function measure(origin: string, browser: Browser, only?: ReadonlySet<string>): Promise<Row[]>
 {
-    const results = operations.filter((one) => only === undefined || only.has(one.name)).map((operation): Medians => ({ operation, base: [], head: [] }));
-    for (const arrangement of ARRANGEMENTS)
-    {
-        const tab = await browser.newPage();
-        try
-        {
-            await sampleArrangement(origin, tab, arrangement, results, only === undefined);
-        }
-        finally
-        {
-            await tab.context().close();
-        }
-    }
-    return results.map((result) =>
-    {
-        const { operation } = result;
-        const before = Math.sqrt((result.base[0] ?? 0) * (result.base[1] ?? 0));
-        const after = Math.sqrt((result.head[0] ?? 0) * (result.head[1] ?? 0));
-        return { name: operation.name, label: operation.label, slowdown: operation.slowdown, before, after, factor: before > 0 ? after / before : 1, measured: before >= MEASURABLE_MS };
-    });
+    return (await measurePair(browser, origin, ["base", "head"], iterations, only)).map(({ operation, times: [before, after] }) => ({
+        name: operation.name,
+        label: operation.label,
+        slowdown: operation.slowdown,
+        before,
+        after,
+        factor: before > 0 ? after / before : 1,
+        measured: before >= MEASURABLE_MS
+    }));
 }
 
 function overallOf(rows: readonly Row[]): number
