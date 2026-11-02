@@ -83,6 +83,7 @@ Each example's README walks through what it shows and what the build writes.
 
 ## Pull requests
 
+- Meet the definition of done in [AGENTS.md](AGENTS.md#definition-of-done): specifications followed and tested from their examples, a failing test before a fix, hostile and edge input covered, `npm run bench` against `main` for a change to signals, rendering, lists, or the router, every doc that describes the change updated in the same pull request, visible changes checked in a browser, and the diff reviewed before it is pushed.
 - One change per pull request. Dependency updates are their own pull requests and link the changelog of each updated package.
 - Add or update tests for behavior changes. Runtime packages run their tests both in Node and in a real browser; if a change only makes sense in one, say so in the description.
 - Links in the guides and the tutorial work on GitHub and on the site: link another docs page by its file, such as `structure.md` or `../learn/state.md`, and what only the site serves, such as a diagnostic page, a reference page, or `llms.txt`, by its full address under https://zerolith.dev/. The docs build turns both into site paths and refuses a root-relative link, and a test checks that every relative link in the repository's Markdown points at a file.
