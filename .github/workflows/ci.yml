@@ -35,6 +35,11 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Advisories
+        run: |
+          npm audit
+          npm audit signatures
+
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 

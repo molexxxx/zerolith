@@ -186,6 +186,7 @@ See the [command line guide](guide/command-line.md).
 - [x] A code of conduct, a contributing guide, issue forms, a pull request template, and code owners.
 - [x] SHA-pinned workflows, OpenSSF Scorecard, a CycloneDX SBOM, and provenance on every published package.
 - [x] A check of the crate's dependencies against the RustSec advisory database in CI, through cargo-deny.
+- [x] A check of the npm dependencies against the advisory database and their registry signatures in CI, through `npm audit` and `npm audit signatures`, with Dependabot alerts on.
 - [x] Private vulnerability reporting and secret scanning with push protection.
 - [x] One version across every package and the crate, set by a script and checked by a test, and a dry run of the release workflow before each publish.
 - [x] GitHub releases created by the release workflow, with the version's changelog section and the SBOM attached.
