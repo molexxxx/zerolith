@@ -437,10 +437,10 @@ function jsLiteral(value: unknown): string
     return JSON.stringify(value).replace(SCRIPT_UNSAFE, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
 }
 
-/** Text for a `//` comment, kept on one line. */
+/** Text for a `//` comment, kept on one line and with `<` written as `&lt;`, so it can end neither the comment nor an inline script. */
 function commentText(text: string): string
 {
-    return text.replace(LINE_BREAKS, " ");
+    return text.replace(LINE_BREAKS, " ").replaceAll("<", "&lt;");
 }
 
 /** An argument or local name JavaScript can write as it is; MessageFormat also allows `-` and `.`, as in `$first-name`. */

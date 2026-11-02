@@ -17,7 +17,7 @@ Every package in this repository is released together and carries the same versi
 - `zerolith`: `renderToString` reads a template's markup in linear time; a long run of whitespace in the markup made it quadratic.
 - `@zerolith/router`: `createRouter` reads its `base` in linear time; a long run of slashes inside the base made it quadratic.
 - `@zerolith/client`: a call fills a route's path in linear time; a long run of `{` in the path made it quadratic.
-- `@zerolith/i18n`: generated modules write every string, select key, and locale with `<`, `>`, U+2028, and U+2029 escaped, so no message can end an inline script or open a comment, the index quotes each locale in its import paths, and a source name with a line break stays inside the header comment.
+- `@zerolith/i18n`: generated modules write every string, select key, and locale with `<`, `>`, U+2028, and U+2029 escaped, so no message can end an inline script or open a comment, the index quotes each locale in its import paths, and a source name with a line break or a `<` stays inside the header comment.
 - Docs site: a heading that shows an escaped entity, such as `&lt;`, shows it in the table of contents as written instead of decoded twice.
 
 ## 0.1.0-alpha.7 (2026-11-01)
