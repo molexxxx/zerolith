@@ -42,6 +42,19 @@ function keepsNativeScroll(node: HTMLElement): boolean
     return (tall && /auto|scroll/.test(style.overflowY)) || (wide && /auto|scroll/.test(style.overflowX));
 }
 
+/** A fragment's id decoded, or as written when its escapes are malformed. */
+function decoded(id: string): string
+{
+    try
+    {
+        return decodeURIComponent(id);
+    }
+    catch
+    {
+        return id;
+    }
+}
+
 /** Takes over a link to a heading on the page shown, after the router has saved the position of the entry it leaves. */
 function onClick(event: MouseEvent): void
 {
@@ -59,7 +72,8 @@ function onClick(event: MouseEvent): void
     {
         return;
     }
-    const target = document.getElementById(url.hash.slice(1)) ?? document.getElementById(decodeURIComponent(url.hash.slice(1)));
+    const id = url.hash.slice(1);
+    const target = document.getElementById(id) ?? document.getElementById(decoded(id));
     if (target === null)
     {
         return;

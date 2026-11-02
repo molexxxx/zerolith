@@ -399,6 +399,17 @@ describe("documentation site", () =>
         expect(await page.evaluate(() => ({ hash: location.hash, entries: history.length, focused: document.activeElement?.id }))).toEqual({ hash: "#the-route-table", entries: entries + 1, focused: "the-route-table" });
         await page.goBack();
         await expect.poll(() => page.evaluate(() => `${location.hash}${Math.round(scrollY)}`)).toBe("0");
+
+        await page.evaluate(() =>
+        {
+            const link = document.createElement("a");
+            link.id = "malformed";
+            link.href = "#%E0%A4%A";
+            link.textContent = "a link whose fragment holds a malformed escape";
+            document.querySelector("main")?.prepend(link);
+        });
+        await page.click("#malformed");
+        await expect.poll(() => page.evaluate(() => location.hash)).toBe("#%E0%A4%A");
         expect(errors).toEqual([]);
         await page.close();
     });
