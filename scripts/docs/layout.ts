@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 import { type View, html, unsafeHtml } from "zerolith";
 import { renderStyles, renderToString } from "zerolith/ssr";
 import { Search } from "./search.js";
+import { headingText } from "./text.ts";
 
 const brand = new URL("../../brand/", import.meta.url);
 
@@ -126,7 +127,7 @@ function headings(content: string): Array<{ id: string; text: string }>
 {
     return [...content.matchAll(/<h2 id="([^"]+)">([\s\S]*?)<\/h2>/g)].map((match) => ({
         id: match[1] ?? "",
-        text: (match[2] ?? "").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").replace(/&#39;/g, "'")
+        text: headingText(match[2] ?? "")
     }));
 }
 

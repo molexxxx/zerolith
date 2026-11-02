@@ -24,6 +24,7 @@ import { type Characteristic, Home, NotFound, homeMarkdown } from "./home.ts";
 import { type Link, type NavGroup, type PageData, diagnosticIcon, fontFaces, icon, markdownTwin, renderPage, siteStyles } from "./layout.ts";
 import { Playground, examples as playgroundExamples, playgroundMarkdown, playgroundModules } from "./playground.ts";
 import { type Entry, type ManifestSymbol, apiReport, elementsAsCode, extract, referencePage, symbolsOf } from "./reference.ts";
+import { stripTags } from "./text.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const out = join(root, "site");
@@ -105,7 +106,7 @@ function slug(text: string): string
  */
 function headingId(html: string, used: Set<string>): string
 {
-    const stem = slug(html.replace(/<[^>]+>/g, "")) || "section";
+    const stem = slug(stripTags(html)) || "section";
     let id = stem;
     for (let count = 2; used.has(id); count++)
     {
