@@ -57,6 +57,25 @@ Each framework is the keyed entry of the benchmark's repository at commit `ca871
 
 The machine was an AMD Ryzen 9 9950X3D (16 cores) with 31.1 GB of memory, on Windows 11 Pro (build 26200), with Chrome 156.0.8078.74 run headless by the benchmark's own driver and Node 24.13.0, as on 2026-10-31. It was in normal use during the runs, and the frameworks ran one after another; the vanilla entry, measured in the same run, is the reference to read the others against. The benchmark's driver runs each framework in a browser process of its own, and on this processor, whose two halves of cores differ, a process held to one half took about 40% longer than one held to the other (see [npm run bench:compare](#npm-run-benchcompare)); these runs did not hold the browser to either half, so a difference of a few percent between two frameworks here can be where the system ran each one.
 
+### Held to one group of cores, 2026-11-02
+
+vanilla and zerolith 0.1.0-alpha.7 alone, from the same checkout and builds, with the runner held to the first eight logical processors as [Reproducing](#reproducing) shows, over the nine timed operations. Each cell is the median of 15 runs, as the official page shows them by default; script is the part of it spent running JavaScript, and the rest is style, layout, and paint.
+
+| Operation | vanilla (ms) | zerolith (ms) | Factor | vanilla script (ms) | zerolith script (ms) |
+| --- | --- | --- | --- | --- | --- |
+| create 1,000 rows | 28.0 | 31.8 | 1.14 | 1.7 | 4.8 |
+| replace all 1,000 rows | 29.1 | 32.1 | 1.10 | 3.5 | 6.5 |
+| update every 10th row | 11.9 | 12.8 | 1.08 | 0.4 | 1.0 |
+| select a row | 5.4 | 5.7 | 1.06 | | |
+| swap 2 rows | 14.1 | 14.9 | 1.06 | 0.2 | 0.4 |
+| remove one row | 13.3 | 13.5 | 1.02 | | |
+| create 10,000 rows | 293.8 | 330.2 | 1.12 | 17.5 | 42.4 |
+| append 1,000 rows | 29.9 | 32.5 | 1.09 | 1.8 | 4.5 |
+| clear 1,000 rows | 11.4 | 11.7 | 1.03 | 8.4 | 8.8 |
+| weighted geometric mean | | | 1.08 | | |
+
+Held to one group, zerolith's factor against vanilla is 1.08, where the run above, left to the system, gave 1.14 against 1.01. Nearly all of the difference is script: the style, layout, and paint that follow creating 1,000 rows take 25.9 ms for vanilla and 26.7 for zerolith, while the script before them takes 1.7 and 4.8, about 3 µs more for each row.
+
 ### Reproducing
 
 [js-framework-benchmark/README.md](js-framework-benchmark/README.md) lists the steps to run the entry from a checkout of the benchmark. To measure the same frameworks, pass them all to the runner: `npm run bench -- --framework keyed/vanillajs keyed/zerolith keyed/solid keyed/svelte keyed/vue keyed/react-hooks keyed/angular-cf-signals-nozone keyed/preact-signals keyed/lit`.
@@ -69,22 +88,22 @@ On a processor whose cores differ, hold the runner to one group of them, which e
 
 It is a quick check that a change did not make rendering slower, not a substitute for the public benchmark: the baseline here is written for this harness, and the page skips the template prepare pass of the build tools.
 
-### 2026-11-02, main at `3bb5d78`
+### 2026-11-02, main at `43b854f`
 
-Windows 11, Chrome Headless Shell 156, 15 iterations, two runs, the zerolith row written on one line as the js-framework-benchmark entry writes it. The runs before this one measured each page in a browser of its own, without the CPU slowdowns, so their numbers do not compare with these.
+Windows 11, Chrome Headless Shell 156, 15 iterations, two runs, the zerolith row written on one line as the js-framework-benchmark entry writes it, against the vanilla page as it is now: each row a copy of one prepared row, filled through the text nodes the copy holds, with one listener on the table body for every row's links, as the fastest hand-written entries of js-framework-benchmark are written. The same day, against the earlier vanilla page, which built each row with `createElement` and gave each link a listener of its own, the same core measured 1.03 twice; held to one group of cores, js-framework-benchmark itself measured 1.08 ([above](#held-to-one-group-of-cores-2026-11-02)), as this page does. The runs before these measured each page in a browser of its own, without the CPU slowdowns, so their numbers do not compare with these.
 
 | Operation | Vanilla (ms) | zerolith (ms) | Ratio | Second run |
 | --- | --- | --- | --- | --- |
-| create 1,000 rows | 22.6 | 23.6 | 1.04 | 1.03 |
-| replace all rows | 20.6 | 21.3 | 1.03 | 1.07 |
-| update every 10th row | 27.4 | 27.4 | 1.00 | 0.91 |
-| select a row | 0.1 | 0.4 | n/a | n/a |
-| swap two rows | 12.9 | 12.8 | 0.99 | 1.08 |
-| remove a row | 5.4 | 5.5 | 1.01 | 0.98 |
-| create 10,000 rows | 238.7 | 242.8 | 1.02 | 1.01 |
-| append 1,000 rows | 21.1 | 23.2 | 1.10 | 1.05 |
-| clear rows | 11.7 | 12.3 | 1.05 | 1.08 |
-| geometric mean | | | 1.03 | 1.03 |
+| create 1,000 rows | 19.8 | 22.6 | 1.14 | 1.11 |
+| replace all rows | 18.3 | 20.6 | 1.13 | 1.12 |
+| update every 10th row | 24.9 | 24.8 | 1.00 | 1.05 |
+| select a row | 0.2 | 0.4 | n/a | n/a |
+| swap two rows | 11.4 | 12.2 | 1.07 | 1.02 |
+| remove a row | 4.7 | 4.7 | 1.00 | 1.08 |
+| create 10,000 rows | 221.9 | 243.2 | 1.10 | 1.10 |
+| append 1,000 rows | 20.2 | 22.4 | 1.11 | 1.08 |
+| clear rows | 9.3 | 10.2 | 1.10 | 1.11 |
+| geometric mean | | | 1.08 | 1.08 |
 
 ### 2026-11-01, 0.1.0-alpha.6
 

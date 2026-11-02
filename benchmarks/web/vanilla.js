@@ -1,7 +1,11 @@
 import { buildRows, timed } from "./common.js";
 
 // A hand-written DOM baseline: the fastest reasonable code for the same
-// operations, with no abstraction. Framework overhead is measured against it.
+// operations, with no abstraction, written as the fastest hand-written
+// entries of js-framework-benchmark are: each row is a copy of one prepared
+// row, filled through the text nodes the copy already holds, and one listener
+// on the table body serves both links of every row. Framework overhead is
+// measured against it.
 
 const tbody = document.createElement("tbody");
 const table = document.createElement("table");
@@ -9,35 +13,20 @@ table.className = "table table-hover table-striped test-data";
 table.append(tbody);
 document.getElementById("main").append(table);
 
+const prepared = document.createElement("tr");
+prepared.innerHTML = "<td class=\"col-md-1\"> </td><td class=\"col-md-4\"><a> </a></td><td class=\"col-md-1\"><a><span class=\"glyphicon glyphicon-remove\" aria-hidden=\"true\"></span></a></td><td class=\"col-md-6\"></td>";
+
 let rows = [];
+let elements = [];
 let selectedRow = null;
-const elements = new Map();
 
 function rowElement(row)
 {
-    const tr = document.createElement("tr");
-    const id = document.createElement("td");
-    id.className = "col-md-1";
-    id.textContent = String(row.id);
-    const label = document.createElement("td");
-    label.className = "col-md-4";
-    const link = document.createElement("a");
-    link.textContent = row.label;
-    link.addEventListener("click", () => select(tr));
-    label.append(link);
-    const action = document.createElement("td");
-    action.className = "col-md-1";
-    const removeLink = document.createElement("a");
-    const icon = document.createElement("span");
-    icon.className = "glyphicon glyphicon-remove";
-    icon.setAttribute("aria-hidden", "true");
-    removeLink.append(icon);
-    removeLink.addEventListener("click", () => remove(row.id));
-    action.append(removeLink);
-    const spacer = document.createElement("td");
-    spacer.className = "col-md-6";
-    tr.append(id, label, action, spacer);
-    elements.set(row.id, tr);
+    const tr = prepared.cloneNode(true);
+    const id = tr.firstChild;
+    id.firstChild.nodeValue = row.id;
+    id.nextSibling.firstChild.firstChild.nodeValue = row.label;
+    tr.rowId = row.id;
     return tr;
 }
 
@@ -54,17 +43,40 @@ function select(tr)
 function setRows(next)
 {
     rows = next;
-    elements.clear();
+    elements = next.map(rowElement);
     selectedRow = null;
-    tbody.replaceChildren(...rows.map(rowElement));
+    tbody.replaceChildren(...elements);
 }
 
 function remove(id)
 {
-    rows = rows.filter((row) => row.id !== id);
-    elements.get(id)?.remove();
-    elements.delete(id);
+    const index = rows.findIndex((row) => row.id === id);
+    const tr = elements[index];
+    rows.splice(index, 1);
+    elements.splice(index, 1);
+    if (tr === selectedRow)
+    {
+        selectedRow = null;
+    }
+    tr.remove();
 }
+
+tbody.addEventListener("click", (event) =>
+{
+    const link = event.target.closest("a");
+    if (link !== null)
+    {
+        const tr = link.closest("tr");
+        if (link.parentNode.className === "col-md-4")
+        {
+            select(tr);
+        }
+        else
+        {
+            remove(tr.rowId);
+        }
+    }
+});
 
 globalThis.bench = {
     create: () => timed(() => setRows(buildRows(1000))),
@@ -75,19 +87,21 @@ globalThis.bench = {
         {
             const row = rows[i];
             row.label += " !!!";
-            elements.get(row.id).children[1].firstChild.textContent = row.label;
+            elements[i].firstChild.nextSibling.firstChild.firstChild.nodeValue = row.label;
         }
     }),
-    select: () => timed(() => select(elements.get(rows[1].id))),
+    select: () => timed(() => select(elements[1])),
     swap: () => timed(() =>
     {
         if (rows.length > 998)
         {
-            const a = elements.get(rows[1].id);
-            const b = elements.get(rows[998].id);
+            const a = elements[1];
+            const b = elements[998];
             const first = rows[1];
             rows[1] = rows[998];
             rows[998] = first;
+            elements[1] = b;
+            elements[998] = a;
             const afterA = a.nextSibling;
             tbody.insertBefore(a, b.nextSibling);
             tbody.insertBefore(b, afterA);
@@ -98,9 +112,17 @@ globalThis.bench = {
     append: () => timed(() =>
     {
         const added = buildRows(1000);
+        const created = added.map(rowElement);
         rows = rows.concat(added);
-        tbody.append(...added.map(rowElement));
+        elements = elements.concat(created);
+        tbody.append(...created);
     }),
-    clear: () => timed(() => setRows([])),
+    clear: () => timed(() =>
+    {
+        rows = [];
+        elements = [];
+        selectedRow = null;
+        tbody.textContent = "";
+    }),
     count: () => document.querySelectorAll("tr").length
 };
