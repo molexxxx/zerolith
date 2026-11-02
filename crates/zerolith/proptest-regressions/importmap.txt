@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc ec404719cd51321252113aa41dfb54905d9234179da9066fc61492cd9f434e2e # shrinks to pieces = [Static { specifier: "./a.js", form: 2, spaced: false }]
+cc 9cb01e1ddd0ac8340cd08222008a5d4a15276dc383cc08b03c92a93c3876123e # shrinks to from = "a.js", specifier = "./../a.js"

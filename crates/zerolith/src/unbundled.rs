@@ -463,6 +463,7 @@ pub fn build(
             Path::new("vendor"),
             false,
             prepare_templates,
+            true,
         )?)
     } else {
         None
@@ -561,7 +562,7 @@ mod tests {
         fs::write(root.join("node_modules/zerolith/package.json"), format!("{{\"name\":\"zerolith\",\"version\":\"{}\",\"exports\":{{\".\":{{\"development\":\"./dist/index.js\",\"default\":\"./dist/index.js\"}}}}}}", env!("CARGO_PKG_VERSION"))).unwrap();
         fs::write(
             root.join("node_modules/zerolith/dist/index.js"),
-            "export const html = 1;",
+            "import \"./scan.js\";\nexport const html = 1;",
         )
         .unwrap();
         fs::write(

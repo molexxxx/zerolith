@@ -14,7 +14,7 @@ Thank you for considering a contribution. This page covers the mechanics; [GOVER
 1. Install Node 24 or newer (Node 26 is the active LTS line) and npm 11, and Rust through rustup for the command line.
 2. `npm ci` installs the dev toolchain. The runtime itself has no dependencies.
 3. `npx playwright install chromium` once, for the browser test projects.
-4. `npm run build` compiles every package from TypeScript into its `dist/` folder, which the examples and the tests load. It bundles no application.
+4. `npm run build` compiles every package from TypeScript into its `dist/` folder, the readable build the examples and the tests load, and writes each browser package's production build, minified one module at a time with source maps, into `dist/production/`. It bundles no application.
 5. `cargo build --release` builds the `zerolith` command line into `target/release`, which the examples run on.
 6. `npm run check` runs everything the Node jobs in CI run, and `npm run test:cli` what the Rust job adds.
 
@@ -52,13 +52,13 @@ Each example's README walks through what it shows and what the build writes.
 | `docs/ROADMAP.md` | What is shipped, next, and planned |
 | `brand/` | The brand system; `brand/README.md` describes the rules |
 | `benchmarks/` | The keyed-table benchmark against a vanilla DOM baseline |
-| `scripts/` | The docs build, the size budget, the static server, the runner for this checkout's command line (`zerolith.ts`), the brand renderer, and the release tooling (`version.ts`, `built-versions.ts`, `release-notes.ts`, `platforms.ts`) |
+| `scripts/` | The docs build, the packages' production build (`production.ts`), the size budget, the static server, the runner for this checkout's command line (`zerolith.ts`), the brand renderer, and the release tooling (`version.ts`, `built-versions.ts`, `release-notes.ts`, `platforms.ts`) |
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| `npm run build` | Compile every package to `dist/` with `tsc` |
+| `npm run build` | Compile every package to `dist/` with `tsc`, and write the browser packages' minified production builds to `dist/production/` with `scripts/production.ts` |
 | `npm run typecheck` | Type-check sources, tests, and configs without emitting |
 | `npm run lint` | Lint with oxlint |
 | `npm test` | Run the Node test project |
@@ -67,7 +67,7 @@ Each example's README walks through what it shows and what the build writes.
 | `npm run test:cli` | Build the examples with the `zerolith` binary and drive the output in headless Chromium; run `cargo build` first, which it finds in `target/release` or `target/debug` by date, or point `ZEROLITH_BINARY_PATH` at a binary. CI runs it in the Rust job |
 | `npm run scaffolds` | Write every project `zerolith new` offers, each template on the command line, buildless, and on Vite, one without the inspector, and each example, outside the checkout; install each against packages packed from the checkout and run its own `npm run check`. Needs `ZEROLITH_BINARY_PATH`; names such as `tsx-vite` limit the run. CI runs it in the Rust job |
 | `npm run check` | Build, typecheck, lint, both test projects with the coverage floor, the size budget, and the docs build; this is what CI runs |
-| `npm run size` | Check the compressed size budget |
+| `npm run size` | Check the compressed size budgets: the core bundled, the core's modules as an import map loads them, and a built example |
 | `npm run docs` | Build the docs site into `site/`; fails on an undocumented export, a missing example, or a broken link. `ZEROLITH_DOCS_BASE=/docs/` builds it for a subpath and `ZEROLITH_DOCS_URL` names its address; the docs workflow passes both from the Pages configuration |
 | `npm run docs:serve` | Serve the built docs site on port 8081 |
 | `npm run skills` | Regenerate the Agent Skill's references from the guides, and the copy of the whole skill the command line builds in; a test fails while either is stale |

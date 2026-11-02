@@ -26,7 +26,8 @@
     "exports": {
         ".": {
             "types": "./dist/index.d.ts",
-            "default": "./dist/index.js"
+            "development": "./dist/index.js",
+            "default": "./dist/production/index.js"
         },
         "./package.json": "./package.json"
     },
@@ -37,7 +38,7 @@
         "README.md"
     ],
     "scripts": {
-        "build": "tsc -p tsconfig.build.json"
+        "build": "tsc -p tsconfig.build.json && node ../../scripts/production.ts"
     },
     "peerDependencies": {
         "@opentelemetry/api": ">=1.9.0 <2.0.0",

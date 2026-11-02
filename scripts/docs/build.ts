@@ -9,13 +9,14 @@
  * example fails the build.
  */
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { copyFile, cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Marked, marked } from "marked";
 import { rolldown } from "rolldown";
 import { diagnosticCatalog } from "zerolith";
-import { CORE_BUDGET_GZIP_BYTES, measure } from "../measure.ts";
+import { CORE_BUDGET_GZIP_BYTES, measure, moduleGraph } from "../measure.ts";
 import { normalizeBase, rebaseHtml, rebaseMarkdown, rebasePath } from "./base.ts";
 import { brokenLinks, mapLinks, sitePath } from "./links.ts";
 import { exampleCode, includeExamples } from "./examples.ts";
@@ -48,9 +49,8 @@ const brandAssets: Record<string, string> = {
 };
 /** The site's own scripts, copied from scripts/docs. */
 const siteScripts = ["theme.js", "island.js", "search.js", "demo.js", "playground.js"];
-/** The router's modules the site runs on, copied from its build to /router/. */
-const routerModules = ["index.js", "router.js", "match.js"];
-const routerBuild = join(root, "packages", "router", "dist");
+/** The router's production build, whose entry's modules the site copies with their source maps to /router/. */
+const routerBuild = join(root, "packages", "router", "dist", "production");
 /** The guides' groups, in reading order; every guide names one in its front matter. */
 const guideGroups = ["Basics", "Building apps", "Tooling"];
 /** The packages that ship to the browser, whose dependencies the home page counts. */
@@ -673,15 +673,19 @@ async function characteristics(manifest: ManifestSymbol[]): Promise<Characterist
     ];
 }
 
-/** Copies the site's scripts, the production build the islands hydrate from, the playground's modules, and the brand assets into the site. */
-async function copyAssets(production: string, modules: string[]): Promise<void>
+/** Copies the site's scripts, the production build the islands hydrate from, each module written as it was read and pinned with its source map beside it, the playground's modules, and the brand assets into the site. */
+async function copyAssets(production: string, core: Map<string, string>, router: Map<string, string>): Promise<void>
 {
-    await Promise.all([mkdir(join(out, "zerolith"), { recursive: true }), mkdir(join(out, "fonts"), { recursive: true })]);
+    await Promise.all([mkdir(join(out, "zerolith"), { recursive: true }), mkdir(join(out, "router"), { recursive: true }), mkdir(join(out, "fonts"), { recursive: true })]);
+    const place = (build: string, folder: string, loaded: Map<string, string>): Promise<void>[] => [...loaded].flatMap(([name, text]) => [
+        writeFile(join(out, folder, name), text),
+        copyFile(join(build, `${name}.map`), join(out, folder, `${name}.map`))
+    ]);
     await Promise.all([
-        ...modules.map((name) => copyFile(join(production, name), join(out, "zerolith", name))),
+        ...place(production, "zerolith", core),
         ...Object.entries(brandAssets).map(([path, source]) => copyFile(join(root, "brand", source), join(out, path))),
         ...siteScripts.map((name) => copyFile(join(root, "scripts", "docs", name), join(out, name))),
-        mkdir(join(out, "router"), { recursive: true }).then(() => Promise.all(routerModules.map((name) => copyFile(join(routerBuild, name), join(out, "router", name))))),
+        ...place(routerBuild, "router", router),
         ...playgroundModules(root).map(({ from, to }) => cp(from, join(out, to), { recursive: true, filter: (source) => !source.endsWith(".map") && !source.endsWith(".d.ts") && !/[\\/]production$/.test(source) })),
         cp(join(root, "skills"), join(out, "skills"), { recursive: true })
     ]);
@@ -718,15 +722,25 @@ async function write(path: string, content: string): Promise<void>
 const start = performance.now();
 await rm(out, { recursive: true, force: true });
 const production = join(root, "packages", "zerolith", "dist", "production");
-let modules: string[];
-try
+for (const build of [production, routerBuild])
 {
-    modules = (await readdir(production)).filter((name) => name.endsWith(".js"));
+    if (!existsSync(join(build, "index.js")))
+    {
+        throw new Error(`${relative(root, build).replaceAll("\\", "/")} is missing; run \`npm run build\` before \`npm run docs\``);
+    }
 }
-catch
+/** The modules each package's entry loads, as paths in its production build, which the site copies and pins. */
+const loaded = (build: string): Map<string, string> => new Map([...moduleGraph(join(build, "index.js"))].map(([file, text]) =>
 {
-    throw new Error("packages/zerolith/dist/production is missing; run `npm run build` before `npm run docs`");
-}
+    const name = relative(build, file).replaceAll("\\", "/");
+    if (name.startsWith("../"))
+    {
+        throw new Error(`${file} lies outside ${build}, so the site cannot serve it beside the entry that imports it`);
+    }
+    return [name, text];
+}));
+const coreLoaded = loaded(production);
+const routerLoaded = loaded(routerBuild);
 
 const learnPages = await collect("learn", "Learn");
 const guidePages = await collect("guide", "Guide");
@@ -743,13 +757,13 @@ for (const name of siteScripts)
 {
     integrity[`/${name}`] = sri(await readFile(join(root, "scripts", "docs", name)));
 }
-for (const name of modules)
+for (const [name, text] of coreLoaded)
 {
-    integrity[`/zerolith/${name}`] = sri(await readFile(join(production, name)));
+    integrity[`/zerolith/${name}`] = sri(text);
 }
-for (const name of routerModules)
+for (const [name, text] of routerLoaded)
 {
-    integrity[`/router/${name}`] = sri(await readFile(join(routerBuild, name)));
+    integrity[`/router/${name}`] = sri(text);
 }
 const shared = { version, integrity, image: new URL("social-card.png", siteUrl).href };
 const absolute = (path: string): string => new URL(path.slice(1), siteUrl).href;
@@ -872,7 +886,7 @@ for (const entry of searchEntries)
     entry.path = rebasePath(entry.path, base);
 }
 await write("search.json", JSON.stringify(searchEntries));
-await copyAssets(production, modules);
+await copyAssets(production, coreLoaded, routerLoaded);
 
 const sitemap = ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>", "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">", ...[...rendered.keys()].toSorted().map((path) => `<url><loc>${absolute(path)}</loc></url>`), "</urlset>"];
 await write("sitemap.xml", sitemap.join("\n") + "\n");

@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { type Server } from "node:http";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { deflateRawSync } from "node:zlib";
 import { type Browser, type Page, chromium } from "playwright";
@@ -465,5 +465,28 @@ describe("documentation site", () =>
         expect(home).toContain("<link rel=\"canonical\" href=\"https://zerolith.dev/\">");
         const sitemap = await readFile(join(site, "sitemap.xml"), "utf8");
         expect(sitemap).toContain("<loc>https://zerolith.dev/learn/state/</loc>");
+    });
+
+    it("serves the production builds of the core and the router, and the source map each pinned module names, with its sources inside", async () =>
+    {
+        const home = await readFile(join(site, "index.html"), "utf8");
+        const map = JSON.parse(/<script type="importmap">([\s\S]*?)<\/script>/.exec(home)?.[1] ?? "{}") as { integrity: Record<string, string> };
+        let named = 0;
+        for (const path of Object.keys(map.integrity).filter((key) => key.endsWith(".js")))
+        {
+            const file = /\/\/# sourceMappingURL=(\S+)\s*$/.exec(await readFile(join(site, path), "utf8"))?.[1];
+            if (file === undefined)
+            {
+                continue;
+            }
+            named++;
+            const sourceMap = JSON.parse(await readFile(join(site, dirname(path), file), "utf8")) as { sources: string[]; sourcesContent?: string[] };
+            expect(sourceMap.sourcesContent?.length, path).toBe(sourceMap.sources.length);
+        }
+        expect(named).toBeGreaterThan(0);
+        for (const path of ["/zerolith/render.js", "/router/router.js"])
+        {
+            expect(await readFile(join(site, path), "utf8"), path).not.toContain("/**");
+        }
     });
 });

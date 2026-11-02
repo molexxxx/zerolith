@@ -71,6 +71,6 @@
         "README.md"
     ],
     "scripts": {
-        "build": "tsc -p tsconfig.build.json && node scripts/production.ts"
+        "build": "tsc -p tsconfig.build.json && node ../../scripts/production.ts"
     }
 }

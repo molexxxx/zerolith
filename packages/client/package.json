@@ -30,15 +30,18 @@
     "exports": {
         ".": {
             "types": "./dist/index.d.ts",
-            "default": "./dist/index.js"
+            "development": "./dist/index.js",
+            "default": "./dist/production/index.js"
         },
         "./generate": {
             "types": "./dist/generate.d.ts",
-            "default": "./dist/generate.js"
+            "development": "./dist/generate.js",
+            "default": "./dist/production/generate.js"
         },
         "./port": {
             "types": "./dist/port.d.ts",
-            "default": "./dist/port.js"
+            "development": "./dist/port.js",
+            "default": "./dist/production/port.js"
         },
         "./package.json": "./package.json"
     },
@@ -49,7 +52,7 @@
         "README.md"
     ],
     "scripts": {
-        "build": "tsc -p tsconfig.build.json"
+        "build": "tsc -p tsconfig.build.json && node ../../scripts/production.ts"
     },
     "peerDependencies": {
         "zerolith": "^0.1.0-alpha.7"

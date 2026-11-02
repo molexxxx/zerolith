@@ -96,7 +96,8 @@ See the [Vite guide](guide/vite.md).
 
 - [x] `@zerolith/vite`: JSX lowering, `?scoped` stylesheets through Vite's own CSS pipeline, hot replacement that keeps named signals, development warnings, and a production check against development modules, with `hot: false` for test runners.
 - [x] The template prepare pass in `vite build` and in `zerolith build`, held to one output by a shared fixture.
-- [x] A size budget for the core and for a built example, enforced in CI.
+- [x] A size budget for the core, bundled and as an import map loads its modules, and for a built example, enforced in CI.
+- [x] Production builds of every package a page loads, minified one module at a time with a source map to the TypeScript source, and the readable build under the `development` condition.
 - [x] Static hoisting of templates with no bindings.
 - [x] A check that fails a client build when a lazy route view or a compiled locale is also imported statically, which would merge it into the importing chunk, in `vite build` and in `zerolith build`.
 - [x] The Vite plugin, the inspector, and `zerolith build` require the `zerolith` of their own version, which they share `zerolith/internal` with, and stop with `package_version_mismatch` when they meet another.

@@ -12,7 +12,7 @@ group: Tooling
 > [!NOTE]
 > A zerolith project does not need Vite. `zerolith dev` and `zerolith build` in the [command line](command-line.md) do both jobs, and the build runs Rolldown, the bundler Vite itself uses. This guide is for a project that already uses Vite, or that wants a Vite plugin such as Tailwind's.
 
-zerolith runs under Vite without a plugin. The packages are plain ES modules, and Vite's default `development` condition selects the build with diagnostic text and the inspector while developing and the lean build for production. The zerolith plugin adds the rest:
+zerolith runs under Vite without a plugin. The packages are plain ES modules, and Vite's default `development` condition selects the readable build with diagnostic text and the inspector while developing and the lean, minified build for production. The zerolith plugin adds the rest:
 
 | The plugin adds | Where |
 | --- | --- |
