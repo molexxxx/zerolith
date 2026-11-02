@@ -99,15 +99,45 @@ export async function serve(pages: Readonly<Record<string, BenchPage>>, cores: R
     return { origin: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, close: () => server.close() };
 }
 
-/** Opens a benchmark page and waits for its `bench` object; a page error fails the run. */
+/** A promise that rejects with each benchmark page's first uncaught error. */
+const pageFailures = new WeakMap<Page, Promise<never>>();
+
+/** Each benchmark page's first uncaught error, for the check at the end of a run. */
+const pageErrors = new WeakMap<Page, Error>();
+
+/** The longest one step on a page may take, so a step whose promise never settles fails the run instead of hanging it. */
+const STEP_TIMEOUT_MS = 120000;
+
+/** Waits for a step on a page, failing first with the page's first uncaught error, or once the step outlasts the timeout. */
+async function step<T>(tab: Page, work: Promise<T>): Promise<T>
+{
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_resolve, reject) =>
+    {
+        timer = setTimeout(() => reject(new Error(`a benchmark step took more than ${STEP_TIMEOUT_MS / 1000} seconds`)), STEP_TIMEOUT_MS);
+    });
+    try
+    {
+        return await Promise.race([work, timeout, pageFailures.get(tab) ?? timeout]);
+    }
+    finally
+    {
+        clearTimeout(timer);
+    }
+}
+
+/** Opens a benchmark page and waits for its `bench` object; an uncaught page error fails the open or the step it happens in. */
 export async function open(tab: Page, url: string): Promise<void>
 {
-    tab.on("pageerror", (error) =>
+    const failure = new Promise<never>((_resolve, reject) => tab.once("pageerror", (error) =>
     {
-        throw error;
-    });
-    await tab.goto(url);
-    await tab.waitForFunction(() => typeof (globalThis as unknown as { bench?: unknown }).bench === "object");
+        pageErrors.set(tab, error);
+        reject(error);
+    }));
+    failure.catch(() => undefined);
+    pageFailures.set(tab, failure);
+    await step(tab, tab.goto(url));
+    await step(tab, tab.waitForFunction(() => typeof (globalThis as unknown as { bench?: unknown }).bench === "object"));
 }
 
 /**
@@ -120,19 +150,29 @@ export async function sample(tab: Page, name: string, collect = false): Promise<
 {
     if (name !== "create" && name !== "createMany")
     {
-        await tab.evaluate(() => (globalThis as unknown as { bench: Record<string, () => Promise<number>> }).bench["create"]?.());
+        await step(tab, tab.evaluate(() => (globalThis as unknown as { bench: Record<string, () => Promise<number>> }).bench["create"]?.()));
     }
     if (collect)
     {
-        await tab.evaluate(() => (globalThis as unknown as { gc?: () => void }).gc?.());
+        await step(tab, tab.evaluate(() => (globalThis as unknown as { gc?: () => void }).gc?.()));
     }
-    return tab.evaluate((operation) => (globalThis as unknown as { bench: Record<string, () => Promise<number>> }).bench[operation]?.() ?? Promise.resolve(0), name);
+    return step(tab, tab.evaluate((operation) => (globalThis as unknown as { bench: Record<string, () => Promise<number>> }).bench[operation]?.() ?? Promise.resolve(0), name));
 }
 
 /** The rows a page holds, which must be none after `clear`. */
+/** Throws the page's first uncaught error, for an error raised after the last step, once the page is done. */
+export function checkPage(tab: Page): void
+{
+    const error = pageErrors.get(tab);
+    if (error !== undefined)
+    {
+        throw error;
+    }
+}
+
 export async function rowCount(tab: Page): Promise<number>
 {
-    return tab.evaluate(() => (globalThis as unknown as { bench: { count(): number } }).bench.count());
+    return step(tab, tab.evaluate(() => (globalThis as unknown as { bench: { count(): number } }).bench.count()));
 }
 
 export function median(values: readonly number[]): number

@@ -6,9 +6,10 @@
  * instead; see their READMEs.
  */
 import { join } from "node:path";
+import { port } from "./options.ts";
 import { createStaticServer, listen, repositoryRoot } from "./static.ts";
 
-const port = Number(process.argv[2] ?? 8080);
+const listenOn = port("port", process.argv[2] ?? "8080");
 const folder = process.argv[3] ?? "site";
-const origin = await listen(createStaticServer(join(repositoryRoot, folder)), port);
+const origin = await listen(createStaticServer(join(repositoryRoot, folder)), listenOn);
 console.log(`serving ${folder} at ${origin}/`);

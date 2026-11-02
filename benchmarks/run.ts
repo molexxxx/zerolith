@@ -8,9 +8,10 @@
  */
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { median, open, operations, rowCount, sample, serve } from "./harness.ts";
+import { wholeNumber } from "../scripts/options.ts";
+import { checkPage, median, open, operations, rowCount, sample, serve } from "./harness.ts";
 
-const iterations = Number(process.argv[2] ?? 7);
+const iterations = wholeNumber("iterations", process.argv[2] ?? "7");
 const server = await serve(
     { vanilla: { script: "vanilla" }, zerolith: { script: "zerolith", core: "zerolith" } },
     { zerolith: fileURLToPath(new URL("../packages/zerolith/dist/production/", import.meta.url)) }
@@ -36,6 +37,7 @@ async function run(implementation: string): Promise<Map<string, number>>
     {
         throw new Error(`${implementation}: ${rowsAfterClear} rows left after clear`);
     }
+    checkPage(tab);
     await browser.close();
     return results;
 }

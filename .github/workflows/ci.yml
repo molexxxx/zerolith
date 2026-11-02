@@ -161,8 +161,24 @@ jobs:
       - name: Build the core
         run: npm run build --workspace zerolith
 
+      - name: Restore the baseline build
+        id: baseline
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .bench-cache
+          key: bench-baseline-${{ hashFiles('benchmarks/baseline', 'benchmarks/compare.ts') }}
+
       - name: Compare with the baseline
+        env:
+          ZEROLITH_BENCH_CACHE: ${{ github.workspace }}/.bench-cache
         run: npm run bench:compare -- --base baseline --threshold 5
+
+      - name: Save the baseline build
+        if: ${{ !cancelled() && steps.baseline.outputs.cache-hit != 'true' && hashFiles('.bench-cache/*/index.js') != '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .bench-cache
+          key: bench-baseline-${{ hashFiles('benchmarks/baseline', 'benchmarks/compare.ts') }}
 
   rust-windows:
     name: Rust on Windows
