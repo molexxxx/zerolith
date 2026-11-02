@@ -15,6 +15,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { wholeNumber } from "./options.ts";
 
 interface Project
 {
@@ -33,7 +34,7 @@ const binary = resolve(binaryPath);
 const windows = process.platform === "win32";
 /** npm's own entry when this runs under `npm run`, so npm starts without a shell on Windows. */
 const npmCli = process.env["npm_execpath"];
-const parallel = Number(process.env["SCAFFOLDS_PARALLEL"] ?? 3);
+const parallel = wholeNumber("SCAFFOLDS_PARALLEL", process.env["SCAFFOLDS_PARALLEL"] ?? "3");
 
 /** The values `zerolith new --help` lists for a flag. */
 function possibleValues(help: string, flag: string): string[]
@@ -149,14 +150,20 @@ async function check(project: Project, work: string, tarballs: Map<string, strin
 
 const help = spawnSync(binary, ["new", "--help"], { encoding: "utf8" }).stdout;
 const filter = process.argv.slice(2);
-const chosen = projects(help).filter((project) => filter.length === 0 || filter.includes(project.name));
+const all = projects(help);
+const unknown = filter.filter((name) => !all.some((project) => project.name === name));
+if (unknown.length > 0)
+{
+    throw new Error(`no project is named ${unknown.join(", ")}; the projects are ${all.map((project) => project.name).join(", ")}`);
+}
+const chosen = all.filter((project) => filter.length === 0 || filter.includes(project.name));
 const work = await mkdtemp(join(tmpdir(), "zerolith-scaffolds-"));
 const tarballs = await pack(join(work, "tarballs"));
 console.log(`${tarballs.size} packages packed; checking ${chosen.length} projects in ${work}`);
 
 const results: Awaited<ReturnType<typeof check>>[] = [];
 const queue = [...chosen];
-await Promise.all(Array.from({ length: Math.max(1, parallel) }, async () =>
+await Promise.all(Array.from({ length: parallel }, async () =>
 {
     for (let project = queue.shift(); project !== undefined; project = queue.shift())
     {
