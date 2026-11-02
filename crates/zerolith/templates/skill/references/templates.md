@@ -97,7 +97,7 @@ Where an expression sits in the markup decides what it binds to:
 | `name=${value}` | An attribute. Several expressions can share one value, as in `class="card ${tone}"`. | Removes the attribute |
 | `?name=${flag}` | A boolean attribute, present while the flag is truthy. | Removes the attribute |
 | `.name=${value}` | A property of the element, such as `.value` on an input. | Assigns it to the property |
-| `@name=${handler}` | An event listener: a function, or an object with `handleEvent` and optional `capture`, `passive`, and `once`. | Adds no listener |
+| `@name=${handler}` | An event listener added to the element itself, so `event.currentTarget` is that element and the event reaches it as it would any listener: a function, or an object with `handleEvent` and optional `capture`, `passive`, and `once`. | Adds no listener |
 | `ref=${target}` | Hands the element to a callback, or to a writable signal, which goes back to `undefined` when the element is removed. | Fails with `ref_not_assignable` |
 
 Content, attributes, boolean attributes, and properties take a plain value or a signal, and a signal keeps them live. An event binding takes the handler itself, and a ref takes the callback or signal that receives the element.
