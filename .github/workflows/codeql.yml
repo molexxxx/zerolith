@@ -4,7 +4,10 @@ name: CodeQL
 # and the workflows themselves, on every push to main, every pull request,
 # and weekly, so a new query catches what existing code already does. The
 # job fails on any finding and lists each one in its log, so a finding
-# stops the build instead of waiting in the Security tab.
+# stops the build instead of waiting in the Security tab. A newer push
+# cancels a pull request's run, but a run on main always finishes, since an
+# analysis stopped partway reports a configuration error on the Security
+# tab until the next one completes.
 
 on:
   push:
@@ -18,7 +21,7 @@ permissions:
 
 concurrency:
   group: codeql-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   analyze:
