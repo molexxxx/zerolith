@@ -344,3 +344,181 @@ async fn main() -> ExitCode {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Cli;
+    use clap::CommandFactory;
+    use std::collections::{BTreeMap, BTreeSet};
+    use std::path::{Path, PathBuf};
+
+    /// The files a reader learns the command line from: the guides, the tutorial, the READMEs, the skill, and the text `zerolith new` writes.
+    fn documents(root: &Path) -> Vec<PathBuf> {
+        let mut files = vec![
+            root.join("README.md"),
+            root.join("crates/zerolith/README.md"),
+            root.join("crates/zerolith/src/new.rs"),
+            root.join("skills/zerolith/SKILL.md"),
+        ];
+        for folder in ["docs/guide", "docs/learn", "packages", "examples"] {
+            for entry in std::fs::read_dir(root.join(folder)).expect("a docs folder") {
+                let path = entry.expect("a folder entry").path();
+                if path.is_dir() {
+                    files.push(path.join("README.md"));
+                } else if path.extension().is_some_and(|extension| extension == "md") {
+                    files.push(path);
+                }
+            }
+        }
+        files.retain(|file| file.is_file());
+        files
+    }
+
+    /// Each `--flag` written after a `zerolith <command>` on one line, up to the end of the code span or command.
+    fn written_flags(line: &str) -> Vec<(&str, &str)> {
+        let mut found = Vec::new();
+        let mut rest = line;
+        while let Some(at) = rest.find("zerolith") {
+            rest = &rest[at + "zerolith".len()..];
+            let mut after = rest.strip_prefix("/cli").unwrap_or(rest);
+            if let Some(tagged) = after.strip_prefix('@') {
+                after = tagged.trim_start_matches(|c: char| !c.is_whitespace());
+            }
+            if !after.starts_with(' ') {
+                continue;
+            }
+            let command = after
+                .split(['`', '|', ';', '&', '"', '\''])
+                .next()
+                .unwrap_or("");
+            let mut words = command.split_whitespace();
+            let Some(name) = words.next() else {
+                continue;
+            };
+            for word in words {
+                if let Some(flag) = word.strip_prefix("--") {
+                    let flag = flag.split('=').next().unwrap_or("");
+                    let flag = flag.trim_end_matches(|c: char| !c.is_ascii_alphanumeric());
+                    if !flag.is_empty() {
+                        found.push((name, flag));
+                    }
+                }
+            }
+        }
+        found
+    }
+
+    /// Each command's long flags, `--help` included.
+    fn long_flags() -> BTreeMap<String, BTreeSet<String>> {
+        Cli::command()
+            .get_subcommands()
+            .map(|command| {
+                let mut longs: BTreeSet<String> = command
+                    .get_arguments()
+                    .filter_map(|argument| argument.get_long().map(str::to_string))
+                    .collect();
+                longs.insert("help".to_string());
+                (command.get_name().to_string(), longs)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn docs_write_only_flags_the_command_line_has() {
+        let flags = long_flags();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let mut unknown = Vec::new();
+        let mut checked = 0;
+        for file in documents(&root) {
+            let text = std::fs::read_to_string(&file).expect("a readable document");
+            for (index, line) in text.lines().enumerate() {
+                for (name, flag) in written_flags(line) {
+                    let Some(known) = flags.get(name) else {
+                        continue;
+                    };
+                    checked += 1;
+                    if !known.contains(flag) {
+                        unknown.push(format!(
+                            "{}:{}: zerolith {name} has no --{flag}",
+                            file.strip_prefix(&root).unwrap_or(&file).display(),
+                            index + 1
+                        ));
+                    }
+                }
+            }
+        }
+        assert!(checked > 20, "only {checked} flags found in the docs");
+        assert!(unknown.is_empty(), "{}", unknown.join("\n"));
+    }
+
+    #[test]
+    fn the_command_line_guide_documents_every_flag_in_its_command_section() {
+        let flags = long_flags();
+        let guide = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/guide/command-line.md");
+        let text = std::fs::read_to_string(guide).expect("the command line guide");
+        let mut sections: Vec<(Vec<&str>, String)> = Vec::new();
+        for line in text.lines() {
+            if let Some(heading) = line.strip_prefix("## ") {
+                let named = heading
+                    .split(|c: char| !c.is_ascii_alphanumeric())
+                    .filter(|word| flags.contains_key(*word))
+                    .collect();
+                sections.push((named, String::new()));
+            } else if let Some((_, body)) = sections.last_mut() {
+                body.push_str(line);
+                body.push('\n');
+            }
+        }
+        let mut problems = Vec::new();
+        for (command, longs) in &flags {
+            let bodies: Vec<&str> = sections
+                .iter()
+                .filter(|(named, _)| named.contains(&command.as_str()))
+                .map(|(_, body)| body.as_str())
+                .collect();
+            if bodies.is_empty() {
+                problems.push(format!("{command} has no section"));
+            }
+            for flag in longs.iter().filter(|flag| *flag != "help") {
+                if !bodies
+                    .iter()
+                    .any(|body| body.contains(&format!("`--{flag}")))
+                {
+                    problems.push(format!(
+                        "{command} --{flag} is not documented in its section"
+                    ));
+                }
+            }
+        }
+        for (named, body) in &sections {
+            for row in body.lines().filter_map(|line| line.strip_prefix("| `--")) {
+                let flag = row
+                    .split(|c: char| !(c.is_ascii_alphanumeric() || c == '-'))
+                    .next()
+                    .unwrap_or("");
+                if !named.iter().any(|command| flags[*command].contains(flag)) {
+                    problems.push(format!(
+                        "--{flag} is listed under {named:?}, which has no such flag"
+                    ));
+                }
+            }
+        }
+        assert!(problems.is_empty(), "{}", problems.join("\n"));
+    }
+
+    #[test]
+    fn written_flags_reads_commands_in_code_and_prose() {
+        assert_eq!(
+            written_flags("run `npx @zerolith/cli@alpha new my-app --template tsx --yes` first"),
+            vec![("new", "template"), ("new", "yes")]
+        );
+        assert_eq!(
+            written_flags("`zerolith build --out=public` then `zerolith dev`"),
+            vec![("build", "out")]
+        );
+        assert_eq!(
+            written_flags("zerolith.json and zerolith-client --input"),
+            Vec::<(&str, &str)>::new()
+        );
+    }
+}

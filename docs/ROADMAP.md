@@ -15,7 +15,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 | Command line | Published with prebuilt binaries for six targets; writes a starter or the fullstack example with the zerolith skill, develops, bundles, and previews a project on its own, forwards an API to its backend, and serves under a base path |
 | Dev tools and testing | Shipped; the browser extension adapter remains |
 | Accessibility, i18n, observability | Shipped; the conformance report and the MessageFormat 1 import remain |
-| Docs | Published to GitHub Pages, their permanent home, by each release, and run as a single-page application on `@zerolith/router` over prerendered pages: a home page that runs and measures zerolith, a tutorial, a playground, the guides, the reference, and a page per diagnostic, every example run as a test |
+| Docs | Published at https://zerolith.dev/ by each release, and run as a single-page application on `@zerolith/router` over prerendered pages: a home page that runs and measures zerolith, a tutorial, a playground, the guides, the reference, and a page per diagnostic, every example run as a test |
 | Coding agents | Every new project holds an `AGENTS.md` and the zerolith skill for its version, which `zerolith skill` keeps current; an interface skill, MCP servers, and evals remain |
 | Adoption | No production application yet; the first migration is under way |
 | Project and supply chain | Policies, provenance, GitHub releases, npm and crates.io publishing through trusted publishing alone, and nightly canaries |
@@ -158,6 +158,7 @@ See the [command line guide](guide/command-line.md).
 - [x] Playground examples that render as finished interface in the brand, with a preview that waits for the brand's fonts.
 - [x] Wheel scrolling that glides on a mouse or trackpad and keeps the router's positions and history, with touch, keyboard, and reduced motion left native.
 - [x] A domain of the project's own: the site moved to [zerolith.dev](https://zerolith.dev/) on 2026-11-01, and the GitHub Pages address redirects to it page for page, so the diagnostic links of every earlier version keep working.
+- [x] Checks that hold the docs to the code: the roadmap names the version the packages carry and the benchmark's pin, every import in a Markdown sample names an export its module has, every command-line flag the docs write exists, every flag is documented under its command, and the text keeps to American spelling, regular dashes, and no horizontal rules.
 - [ ] A versioned API manifest that feeds the agent index and editor tooling.
 - [ ] Type-checked code samples on every page.
 - [ ] Prose and spelling checks in CI.
