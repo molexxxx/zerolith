@@ -325,7 +325,7 @@ class Instance
             const spec = specs[next] as PartSpec;
             if (spec.kind !== CHILD)
             {
-                parts[next] = new AttributePart(node as Element, spec);
+                parts[next] = elementPart(node as Element, spec);
             }
             else if (unmarked[next] === true)
             {
@@ -416,7 +416,7 @@ class Instance
                         broken = true;
                         return;
                     }
-                    parts.push(new AttributePart(node as Element, spec));
+                    parts.push(elementPart(node as Element, spec));
                     next++;
                 }
                 index++;
@@ -867,16 +867,27 @@ interface HandlerObject
     once?: boolean;
 }
 
-/** An attribute, boolean attribute, property, or event binding on one element. */
+/** The part for a binding on an element, of the class its kind needs, so a part holds only the fields that kind uses. */
+function elementPart(element: Element, spec: PartSpec): BoundPart
+{
+    if (spec.kind === EVENT)
+    {
+        return new EventPart(element, spec);
+    }
+    if (spec.kind === REF)
+    {
+        return new RefPart(element, spec);
+    }
+    return new AttributePart(element, spec);
+}
+
+/** An attribute, boolean attribute, or property binding on one element. */
 class AttributePart implements BoundPart, Sink
 {
     readonly count: number;
     private readonly element: Element;
     private readonly spec: PartSpec;
     private owner: Disposable | undefined = undefined;
-    private listener: EventListenerOrEventListenerObject | undefined = undefined;
-    private listenerOptions: AddEventListenerOptions | undefined = undefined;
-    private target: unknown = undefined;
 
     constructor(element: Element, spec: PartSpec)
     {
@@ -887,16 +898,6 @@ class AttributePart implements BoundPart, Sink
 
     bind(values: readonly unknown[], offset: number): void
     {
-        if (this.spec.kind === EVENT)
-        {
-            this.listen(values[offset]);
-            return;
-        }
-        if (this.spec.kind === REF)
-        {
-            this.reference(values[offset]);
-            return;
-        }
         this.owner?.dispose();
         this.owner = undefined;
         if (this.count === 1)
@@ -985,6 +986,26 @@ class AttributePart implements BoundPart, Sink
         }
         element.setAttribute(spec.name, text);
     }
+}
+
+/** A ref binding on one element. */
+class RefPart implements BoundPart
+{
+    readonly count: number;
+    private readonly element: Element;
+    private owner: Disposable | undefined = undefined;
+    private target: unknown = undefined;
+
+    constructor(element: Element, spec: PartSpec)
+    {
+        this.element = element;
+        this.count = spec.count;
+    }
+
+    bind(values: readonly unknown[], offset: number): void
+    {
+        this.reference(values[offset]);
+    }
 
     /**
      * Hands the element to a writable signal or a callback; the signal is
@@ -1029,6 +1050,28 @@ class AttributePart implements BoundPart, Sink
             }
             throw fail("ref_not_assignable", { type: describe(target) });
         });
+    }
+}
+
+/** An event binding on one element: its handler is a listener on that element, swapped when the template updates. */
+class EventPart implements BoundPart
+{
+    readonly count: number;
+    private readonly element: Element;
+    private readonly spec: PartSpec;
+    private listener: EventListenerOrEventListenerObject | undefined = undefined;
+    private listenerOptions: AddEventListenerOptions | undefined = undefined;
+
+    constructor(element: Element, spec: PartSpec)
+    {
+        this.element = element;
+        this.spec = spec;
+        this.count = spec.count;
+    }
+
+    bind(values: readonly unknown[], offset: number): void
+    {
+        this.listen(values[offset]);
     }
 
     private listen(handler: unknown): void
