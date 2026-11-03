@@ -424,7 +424,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.github-release.outputs.version }}
-        run: gh workflow run benchmarks.yml --ref main -f version="$VERSION"
+        run: gh workflow run benchmarks.yml --ref "zerolith@$VERSION" -f version="$VERSION"
 
   crate:
     name: crates.io

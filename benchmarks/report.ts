@@ -5,15 +5,16 @@
  * frameworks must be the ones `frameworks.json` lists, and it is written
  * as `results/<date>-<version>.json` from what it holds, never under a name
  * it brings, and never over a run already kept. With `--pin <version>`, it
- * also moves what names the measured release: `baseline`, the
- * js-framework-benchmark entry's two pins, and the sentences in the roadmap
- * and the entry's README that state the pin, unless the baseline names a
- * later release; the entry's lockfile is npm's to update. Given both, the
- * run must be of the pinned version. Every check runs before any file is
+ * also moves what names the measured release, unless the entry pins a
+ * later one: the js-framework-benchmark entry's two pins and the sentences
+ * in the roadmap and the entry's README that state the pin, and `baseline`
+ * when it names an earlier release or a commit the release's tag holds in
+ * git's history. Given both, the run must be of the pinned version. Every check runs before any file is
  * written. With `--check`, alone, it exits with 1 when the README's section
  * is not what the runs render, changing nothing.
  *   node benchmarks/report.ts [--add <file>] [--pin <version>] [--check]
  */
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -23,6 +24,19 @@ import { checkRun, pinRelease, readRuns, renderResults, replaceSection } from ".
 
 const { values: flags } = parseArgs({ options: { add: { type: "string" }, pin: { type: "string" }, check: { type: "boolean", default: false } }, strict: true });
 const folder = fileURLToPath(new URL("./results/", import.meta.url));
+const root = fileURLToPath(new URL("../", import.meta.url));
+
+/** Whether the commit is in the history of the tag, as git answers it in the repository. */
+function contains(commit: string, tag: string): boolean
+{
+    const result = spawnSync("git", ["merge-base", "--is-ancestor", commit, tag], { cwd: root, encoding: "utf8" });
+    if (result.status === 0 || result.status === 1)
+    {
+        return result.status === 0;
+    }
+    throw new Error(`git merge-base --is-ancestor ${commit} ${tag} failed: ${result.error?.message ?? result.stderr.trim()}`);
+}
+
 if (flags.check && (flags.add !== undefined || flags.pin !== undefined))
 {
     throw new Error("--check changes nothing, so it takes neither --add nor --pin");
@@ -53,8 +67,15 @@ if (flags.add !== undefined)
 
 if (flags.pin !== undefined)
 {
-    const moved = await pinRelease(flags.pin, fileURLToPath(new URL("../", import.meta.url)));
-    console.log(moved ? `pinned the baseline and the entry to ${flags.pin}` : `left the pin, which names a later release than ${flags.pin}`);
+    const moved = await pinRelease(flags.pin, root, contains);
+    if (!moved.entry)
+    {
+        console.log(`left the pin, which names a later release than ${flags.pin}`);
+    }
+    else
+    {
+        console.log(moved.baseline ? `pinned the entry and the baseline to ${flags.pin}` : `pinned the entry to ${flags.pin}; the baseline names a commit the release does not hold, and stays`);
+    }
 }
 
 if (added !== undefined)

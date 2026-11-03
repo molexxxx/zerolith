@@ -90,6 +90,14 @@ describe("benchmarks/results", () =>
         }
     });
 
+    it("has the benchmarks workflow check out js-framework-benchmark at the repository and commit frameworks.json names", async () =>
+    {
+        const listed = JSON.parse(await readFile(new URL("frameworks.json", folder), "utf8")) as { repository: string; commit: string };
+        const workflow = await readFile(new URL("../.github/workflows/benchmarks.yml", folder), "utf8");
+        const checkout = /- name: Check out js-framework-benchmark\n {8}uses: actions\/checkout@\S+ # \S+\n {8}with:\n {10}repository: (\S+)\n {10}ref: (\S+)\n/.exec(workflow);
+        expect(checkout?.slice(1)).toEqual([listed.repository, listed.commit]);
+    });
+
     it("renders the results section the README holds", async () =>
     {
         const readme = await readFile(new URL("README.md", folder), "utf8");
@@ -211,6 +219,12 @@ async function alpha8(root: string): Promise<Run>
     return JSON.parse(await readFile(join(root, "benchmarks/results/2026-11-02-0.1.0-alpha.8.json"), "utf8")) as Run;
 }
 
+/** A history in which git is never asked, for baselines that name a release. */
+function unasked(commit: string, tag: string): boolean
+{
+    throw new Error(`git was asked whether ${tag} holds ${commit}`);
+}
+
 describe("pinRelease", () =>
 {
     it("moves the baseline, both pins, and the two sentences that state the pin, and nothing else", async () =>
@@ -220,7 +234,7 @@ describe("pinRelease", () =>
         {
             const before = JSON.parse(await readFile(join(root, "benchmarks/js-framework-benchmark/package.json"), "utf8")) as Record<string, Record<string, string>>;
             const roadmap = await readFile(join(root, "docs/ROADMAP.md"), "utf8");
-            expect(await pinRelease("9.9.9-alpha.1", root)).toBe(true);
+            expect(await pinRelease("9.9.9-alpha.1", root, unasked)).toEqual({ entry: true, baseline: true });
             expect(await readFile(join(root, "benchmarks/baseline"), "utf8")).toBe("zerolith@9.9.9-alpha.1\n");
             const after = JSON.parse(await readFile(join(root, "benchmarks/js-framework-benchmark/package.json"), "utf8")) as Record<string, Record<string, string>>;
             expect(after).toEqual({ ...before, dependencies: { ...before["dependencies"], zerolith: "9.9.9-alpha.1" }, devDependencies: { ...before["devDependencies"], "@zerolith/cli": "9.9.9-alpha.1" } });
@@ -241,7 +255,7 @@ describe("pinRelease", () =>
         try
         {
             const before = await snapshot(root);
-            expect(await pinRelease("0.0.1", root)).toBe(false);
+            expect(await pinRelease("0.0.1", root, unasked)).toEqual({ entry: false, baseline: false });
             expect(await snapshot(root)).toEqual(before);
         }
         finally
@@ -250,18 +264,45 @@ describe("pinRelease", () =>
         }
     });
 
-    it("refuses what is not a version, a baseline that names no release, and a file that no longer states the pin, changing no file", async () =>
+    it("moves a baseline that names a commit to a release that holds it, and keeps one the release does not hold", async () =>
+    {
+        for (const holds of [true, false])
+        {
+            const root = await copyRoot();
+            try
+            {
+                await writeFile(join(root, "benchmarks/baseline"), "0123abc\n");
+                const asked: string[] = [];
+                const moved = await pinRelease("9.9.9", root, (commit, tag) =>
+                {
+                    asked.push(`${commit} ${tag}`);
+                    return holds;
+                });
+                expect(moved, String(holds)).toEqual({ entry: true, baseline: holds });
+                expect(asked).toEqual(["0123abc zerolith@9.9.9"]);
+                expect(await readFile(join(root, "benchmarks/baseline"), "utf8")).toBe(holds ? "zerolith@9.9.9\n" : "0123abc\n");
+                const manifest = JSON.parse(await readFile(join(root, "benchmarks/js-framework-benchmark/package.json"), "utf8")) as Record<string, Record<string, string>>;
+                expect(manifest["dependencies"]?.["zerolith"]).toBe("9.9.9");
+            }
+            finally
+            {
+                await rm(root, { recursive: true, force: true });
+            }
+        }
+    });
+
+    it("refuses what is not a version, a baseline that names no commit, and a file that no longer states the pin, changing no file", async () =>
     {
         const root = await copyRoot();
         try
         {
-            await expect(pinRelease("1.0.0; rm -rf /", root)).rejects.toThrow("is not a version");
+            await expect(pinRelease("1.0.0; rm -rf /", root, unasked)).rejects.toThrow("is not a version");
             await writeFile(join(root, "docs/ROADMAP.md"), "# Roadmap\n");
             const before = await snapshot(root);
-            await expect(pinRelease("9.9.9", root)).rejects.toThrow("holds no");
+            await expect(pinRelease("9.9.9", root, unasked)).rejects.toThrow("holds no");
             expect(await snapshot(root)).toEqual(before);
-            await writeFile(join(root, "benchmarks/baseline"), "HEAD\n");
-            await expect(pinRelease("9.9.9", root)).rejects.toThrow("names no zerolith release");
+            await writeFile(join(root, "benchmarks/baseline"), "--output=x HEAD\n");
+            await expect(pinRelease("9.9.9", root, unasked)).rejects.toThrow("names no commit");
         }
         finally
         {

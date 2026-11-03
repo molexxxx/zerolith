@@ -73,6 +73,9 @@ export interface Run
 export const SECTION_START = "<!-- results: written by `npm run bench:report` from benchmarks/results/ -->";
 export const SECTION_END = "<!-- /results -->";
 
+/** A version as npm publishes zerolith: three numbers and, for a prerelease, its identifiers. */
+const VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/;
+
 /** Text a run may carry into the README: letters, digits, spaces, and punctuation that means nothing to Markdown or HTML. */
 const PLAIN = /^[A-Za-z0-9 .,;:()+\-/']{1,200}$/;
 
@@ -138,7 +141,7 @@ export function checkRun(value: unknown, file: string): Run
 {
     const run = record(value, file, ["date", "zerolith", "commit", "statistic", "method", "machine", "note", "frameworks"], ["date", "zerolith", "commit", "statistic", "method", "machine", "frameworks"]);
     text(run["date"], `${file}.date`, /^\d{4}-\d{2}-\d{2}$/);
-    text(run["zerolith"], `${file}.zerolith`, /^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/);
+    text(run["zerolith"], `${file}.zerolith`, VERSION);
     text(run["commit"], `${file}.commit`, /^[0-9a-f]{7,40}$/);
     text(run["statistic"], `${file}.statistic`, /^(median|mean)$/);
     text(run["method"], `${file}.method`, PLAIN);
@@ -382,46 +385,68 @@ async function replacedOnce(path: string, pattern: RegExp, replacement: string):
     return before.replace(pattern, replacement);
 }
 
+/** What `pinRelease` moved: the entry's pin, with the sentences that state it, and the baseline. */
+export interface Pinned
+{
+    entry: boolean;
+    baseline: boolean;
+}
+
 /**
  * Moves what names the measured release, under the repository at `root`:
- * `benchmarks/baseline`, the js-framework-benchmark entry's pins of
- * `zerolith` and `@zerolith/cli`, and the sentences in the roadmap and the
- * entry's README that state the pin. The pin only moves forward: when the
- * baseline names a later release, every file is left as it is and the
- * result is false. Every file is read and checked before any is written,
- * so a refusal changes none. The entry's lockfile is npm's to update.
+ * the js-framework-benchmark entry's pins of `zerolith` and `@zerolith/cli`,
+ * with the sentences in the roadmap and the entry's README that state the
+ * pin, and `benchmarks/baseline`. The pin only moves forward, so a release
+ * earlier than the entry's pin changes nothing. The baseline names a
+ * release or, after a change that made the core faster, that commit; it
+ * moves to the release when it names an earlier one, or a commit the
+ * release holds, as `contains(commit, tag)` answers, and a commit the
+ * release does not hold stays the baseline. Every file is read and checked
+ * before any is written, so a refusal changes none.
  */
-export async function pinRelease(version: string, root: string): Promise<boolean>
+export async function pinRelease(version: string, root: string, contains: (commit: string, tag: string) => boolean): Promise<Pinned>
 {
-    if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/.test(version))
+    if (!VERSION.test(version))
     {
         throw new Error(`${JSON.stringify(version)} is not a version`);
     }
-    const baselinePath = join(root, "benchmarks", "baseline");
-    const pinned = /^zerolith@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)\n?$/.exec(await readFile(baselinePath, "utf8"))?.[1];
-    if (pinned === undefined)
+    const entry = join(root, "benchmarks", "js-framework-benchmark");
+    const manifestPath = join(entry, "package.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
+    const pinned = manifest.dependencies["zerolith"];
+    if (pinned === undefined || !VERSION.test(pinned))
     {
-        throw new Error(`${baselinePath} names no zerolith release`);
+        throw new Error(`${manifestPath} pins no zerolith release`);
     }
     if (compareVersions(version, pinned) < 0)
     {
-        return false;
+        return { entry: false, baseline: false };
     }
-    const entry = join(root, "benchmarks", "js-framework-benchmark");
-    const manifest = JSON.parse(await readFile(join(entry, "package.json"), "utf8")) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
+    const baselinePath = join(root, "benchmarks", "baseline");
+    const named = (await readFile(baselinePath, "utf8")).trim();
+    if (!/^[0-9A-Za-z][0-9A-Za-z@._/-]*$/.test(named))
+    {
+        throw new Error(`${baselinePath} names no commit`);
+    }
+    const tag = `zerolith@${version}`;
+    const release = named.startsWith("zerolith@") ? named.slice("zerolith@".length) : undefined;
+    const moveBaseline = release !== undefined && VERSION.test(release) ? compareVersions(version, release) >= 0 : contains(named, tag);
     manifest.dependencies["zerolith"] = version;
     manifest.devDependencies["@zerolith/cli"] = version;
     const files: [string, string][] = [
-        [baselinePath, `zerolith@${version}\n`],
-        [join(entry, "package.json"), `${JSON.stringify(manifest, null, 4)}\n`],
+        [manifestPath, `${JSON.stringify(manifest, null, 4)}\n`],
         [join(root, "docs", "ROADMAP.md"), await replacedOnce(join(root, "docs", "ROADMAP.md"), /pinned to `[^`]+`/, `pinned to \`${version}\``)],
         [join(entry, "README.md"), await replacedOnce(join(entry, "README.md"), /The entry pins \S+?,/, `The entry pins ${version},`)]
     ];
+    if (moveBaseline)
+    {
+        files.push([baselinePath, `${tag}\n`]);
+    }
     for (const [path, content] of files)
     {
         await writeFile(path, content);
     }
-    return true;
+    return { entry: true, baseline: moveBaseline };
 }
 
 /** The README with its results section replaced by `section`; throws when the README holds no section to replace. */

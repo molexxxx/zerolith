@@ -3,16 +3,17 @@ name: Benchmarks
 # Measures a published release on js-framework-benchmark next to every
 # framework benchmarks/frameworks.json lists, on a GitHub-hosted runner, and
 # commits the run with the results section of benchmarks/README.md, the
-# baseline, and the entry's pin. The release workflow starts it once a
-# release is out; a manual run measures any published version again, and
-# with commit off checks the run and keeps it as an artifact only.
+# baseline, and the entry's pin. The release workflow starts it on the
+# release's tag once the release is out; a manual run measures any published
+# version again, on its tag where the tag holds this workflow, and with
+# commit off checks the run and keeps it as an artifact only.
 #
 # Measuring builds the other frameworks' entries, which runs their packages
 # and build tools, so that job holds no write access and no secret and hands
-# on only the run's file. The job that commits checks every field of that
-# file, its version, and its frameworks, names it from what it holds, and
-# runs no code but this repository's own and npm resolving the entry's
-# lockfile with install scripts off.
+# on only the run's file. Run on a tag, it writes nothing a run on main
+# could restore. The job that commits checks every field of that file, its
+# version, and its frameworks, names it from what it holds, and runs no code
+# but this repository's own.
 
 on:
   workflow_dispatch:
@@ -55,28 +56,52 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Read the benchmark's commit and entries
-        id: upstream
-        run: |
-          set -eu
-          {
-            echo "repository=$(jq -r .repository benchmarks/frameworks.json)"
-            echo "commit=$(jq -r .commit benchmarks/frameworks.json)"
-            echo "entries=$(jq -r '[.frameworks[].entry | "keyed/" + .] | join(" ")' benchmarks/frameworks.json)"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Check out js-framework-benchmark
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: ${{ steps.upstream.outputs.repository }}
-          ref: ${{ steps.upstream.outputs.commit }}
-          path: jfb
-          persist-credentials: false
-
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
+
+      # The release workflow starts this one right after publishing, before
+      # the registry may serve every package at the version.
+      - name: Wait for the release on the registry
+        run: |
+          set -eu
+          for attempt in $(seq 1 20); do
+            if platforms="$(npm view "@zerolith/cli@$VERSION" optionalDependencies --json 2>/dev/null)"; then
+              packages=("zerolith@$VERSION" "@zerolith/cli@$VERSION")
+              while IFS= read -r platform; do
+                packages+=("$platform")
+              done < <(printf '%s' "$platforms" | jq -r 'to_entries[] | "\(.key)@\(.value)"')
+              missing=""
+              for package in "${packages[@]}"; do
+                if [ "$(npm view "$package" version 2>/dev/null)" != "${package##*@}" ]; then
+                  missing="$missing $package"
+                fi
+              done
+              if [ -z "$missing" ]; then
+                exit 0
+              fi
+              echo "not served yet:$missing, attempt $attempt of 20"
+            else
+              echo "@zerolith/cli@$VERSION is not served yet, attempt $attempt of 20"
+            fi
+            sleep 30
+          done
+          exit 1
+
+      - name: Read the entries
+        id: entries
+        run: echo "list=$(jq -r '[.frameworks[].entry | "keyed/" + .] | join(" ")' benchmarks/frameworks.json)" >> "$GITHUB_OUTPUT"
+
+      # frameworks.json names the same repository and commit, and a test
+      # holds the two equal.
+      - name: Check out js-framework-benchmark
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: krausest/js-framework-benchmark
+          ref: ca8715d9ae84916fd24de3a79457d8c328f9b766
+          path: jfb
+          persist-credentials: false
 
       - name: Install the benchmark
         working-directory: jfb
@@ -101,19 +126,9 @@ jobs:
           entry=jfb/frameworks/keyed/zerolith
           rm -rf "$entry"
           mkdir -p "$entry"
-          cp -R benchmarks/js-framework-benchmark/index.html benchmarks/js-framework-benchmark/package.json benchmarks/js-framework-benchmark/package-lock.json benchmarks/js-framework-benchmark/src "$entry/"
+          cp -R benchmarks/js-framework-benchmark/index.html benchmarks/js-framework-benchmark/package.json benchmarks/js-framework-benchmark/src "$entry/"
           cd "$entry"
           npm pkg set "dependencies.zerolith=$VERSION" "devDependencies.@zerolith/cli=$VERSION"
-          # A release run starts this workflow right after publishing, before
-          # every package may be served at the version.
-          for attempt in 1 2 3 4 5 6 7 8 9 10; do
-            if npm install --package-lock-only --ignore-scripts --no-audit --no-fund; then
-              exit 0
-            fi
-            echo "the registry does not serve $VERSION yet, attempt $attempt of 10"
-            sleep 60
-          done
-          exit 1
 
       - name: Start the benchmark's server
         working-directory: jfb
@@ -129,20 +144,27 @@ jobs:
           cat server.log
           exit 1
 
+      # Each entry installs from the lockfile the benchmark's repository
+      # keeps for it, but the zerolith entry, whose versions this run sets:
+      # the benchmark's rebuild installs it from its exact pins.
       - name: Build and check each entry
         working-directory: jfb
         env:
-          ENTRIES: ${{ steps.upstream.outputs.entries }}
+          ENTRIES: ${{ steps.entries.outputs.list }}
         run: |
           set -eu
           for entry in $ENTRIES; do
-            npm run rebuild-ci -- "$entry"
+            if [ "$entry" = keyed/zerolith ]; then
+              npm run rebuild -- "$entry"
+            else
+              npm run rebuild-ci -- "$entry"
+            fi
           done
 
       - name: Run the benchmark
         working-directory: jfb
         env:
-          ENTRIES: ${{ steps.upstream.outputs.entries }}
+          ENTRIES: ${{ steps.entries.outputs.list }}
         run: |
           set -eu
           # shellcheck disable=SC2086
@@ -185,10 +207,13 @@ jobs:
             exit 1
           fi
 
+      # The full history and the tags, so the pin can ask whether the
+      # release holds a commit the baseline names.
       - name: Check out main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
+          fetch-depth: 0
           persist-credentials: ${{ inputs.commit }}
 
       - name: Set up Node
@@ -206,10 +231,8 @@ jobs:
         run: |
           set -eu
           node benchmarks/report.ts --pin "$VERSION" --add "$RUNNER_TEMP/run/run.json"
-          cd benchmarks/js-framework-benchmark
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
           git status --short
-          git diff -- ../README.md
+          git diff -- benchmarks/README.md
 
       - name: Commit and push
         if: ${{ inputs.commit }}
@@ -217,8 +240,8 @@ jobs:
           set -eu
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add benchmarks/baseline benchmarks/README.md benchmarks/results benchmarks/js-framework-benchmark/package.json benchmarks/js-framework-benchmark/package-lock.json benchmarks/js-framework-benchmark/README.md docs/ROADMAP.md
-          git commit -m "Add the $VERSION js-framework-benchmark run" -m "The benchmarks workflow measured $VERSION on a GitHub-hosted runner, next to the frameworks benchmarks/frameworks.json lists. The baseline and the entry's pin follow the newest release measured."
+          git add benchmarks/baseline benchmarks/README.md benchmarks/results benchmarks/js-framework-benchmark/package.json benchmarks/js-framework-benchmark/README.md docs/ROADMAP.md
+          git commit -m "Add the $VERSION js-framework-benchmark run" -m "The benchmarks workflow measured $VERSION on a GitHub-hosted runner, next to the frameworks benchmarks/frameworks.json lists. The entry's pin follows the newest release measured, and the baseline with it unless it names a commit the release does not hold."
           for _ in 1 2 3; do
             if git push origin HEAD:main; then
               exit 0
