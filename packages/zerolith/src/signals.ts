@@ -86,13 +86,14 @@ export interface Disposable
     dispose(): void;
 }
 
-/** A disposable an owner holds, linked to the child adopted before it, so an owner keeps its children without an array. */
-interface Child extends Disposable
+/** A disposable an owner holds, linked to the child adopted before it, so an owner keeps its children without an array. Internal to the runtime packages. */
+export interface Child extends Disposable
 {
     previous: Child | undefined;
 }
 
-interface OwnerNode
+/** What owns children: an owner, or an effect or binding while it runs. Internal to the runtime packages. */
+export interface OwnerNode
 {
     /** The newest child, which links to the older ones. */
     children: Child | undefined;
@@ -1009,8 +1010,13 @@ export function createOwner(detached = false): Owner
     return created;
 }
 
-/** An owner as one object, its children and its methods together, so creating one per row allocates once. */
-class OwnerScope implements Owner, OwnerNode, Child
+/**
+ * An owner as one object, its children and its methods together, so
+ * creating one allocates once. Internal to the runtime packages, which
+ * extend it for an object that also owns what it creates, as a row of a
+ * keyed list does.
+ */
+export class OwnerScope implements Owner, OwnerNode, Child
 {
     children: Child | undefined = undefined;
     previous: Child | undefined = undefined;

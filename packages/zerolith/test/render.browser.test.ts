@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type Diagnostic, type Root, ZerolithError, computed, each, effect, html, onDiagnostic, onDispose, render, signal, when } from "zerolith";
-import { prepared, scan } from "zerolith/internal";
+import { type DevtoolsHook, devtoolsInternal, prepared, scan } from "zerolith/internal";
 
 let root: Root | undefined;
 let host: HTMLElement | undefined;
@@ -22,6 +22,12 @@ function mount(view: unknown): HTMLElement
     document.body.append(host);
     root = render(view, host);
     return host;
+}
+
+/** A row function whose computed value carries `name`, to find it among the development tools' nodes. */
+function namedRow(name: string): (item: { get(): { id: number } }) => unknown
+{
+    return (item) => html`<li>${computed(() => item.get().id, { name })}</li>`;
 }
 
 /** A template of one bold element, the same strings on every call. */
@@ -630,6 +636,21 @@ describe("each", () =>
         expect(read()).toEqual(["2", "B", "4", "d", "3", "c"]);
         items.set([{ id: 3, name: "c" }]);
         expect(read()).toEqual(["3", "c"]);
+    });
+
+    it("counts what a row's view creates as the application's in the development tools, and as the inspector's in rows the inspector renders", () =>
+    {
+        const tools = (globalThis as { __ZEROLITH_DEVTOOLS__?: DevtoolsHook }).__ZEROLITH_DEVTOOLS__ as DevtoolsHook;
+        const items = signal([{ id: 1 }]);
+        mount(html`<ul>${each(items, (item) => item.id, namedRow("application row"))}</ul>`);
+        const inspector = document.createElement("div");
+        document.body.append(inspector);
+        const inspectorRoot = devtoolsInternal(() => render(html`<ul>${each(items, (item) => item.id, namedRow("inspector row"))}</ul>`, inspector));
+        const nodes = tools.nodes();
+        expect(nodes.find((node) => node.name === "application row")?.internal).toBe(false);
+        expect(nodes.find((node) => node.name === "inspector row")?.internal).toBe(true);
+        inspectorRoot.dispose();
+        inspector.remove();
     });
 
     it("creates the index signal only for a row function that takes it", () =>

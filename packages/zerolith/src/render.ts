@@ -9,9 +9,9 @@
  * and the client walks the existing nodes with the template's part indices.
  */
 import { URL_ATTRIBUTES, describe, isNothing, isText, join, safeUrl } from "./binding.js";
-import { measure, trackRoot, untrackRoot } from "./devtools.js";
+import { isInternal, measure, trackRoot, untrackRoot } from "./devtools.js";
 import { diagnostic, fail, report } from "./diagnostics.js";
-import { type Disposable, type Owner, type ReadableSignal, type Signal, type Sink, createOwner, isSignal, onDispose, signal, startBinding, startEffect, untracked } from "./signals.js";
+import { type Disposable, type Owner, OwnerScope, type ReadableSignal, type Signal, type Sink, createOwner, isSignal, onDispose, signal, startBinding, startEffect, untracked } from "./signals.js";
 import { ATTRIBUTE, BOOLEAN, CHILD, EVENT, type PartSpec, type Prepared, REF, prepare, trusted, walker } from "./template.js";
 
 /** Brand carried by every value the renderer accepts as a description of UI. */
@@ -1283,23 +1283,31 @@ export type KeyOf<T> = (item: T, index: number) => string | number | bigint | bo
 /** The row renderer for `each()`. The item is a signal that updates in place; the index is a signal too, created only when the function declares a second parameter. */
 export type RowOf<T> = (item: ReadableSignal<T>, index: ReadableSignal<number>) => unknown;
 
-interface Row<T>
+/** A row of `each`, which is also the owner of what its view creates, so a row allocates one object for both. */
+class Row<T> extends OwnerScope
 {
     readonly key: unknown;
-    /** The row's first node, which the rows before it are inserted ahead of. */
-    readonly start: ChildNode;
+    /** The row's first node, which the rows before it are inserted ahead of, set when the row is created. */
+    start!: ChildNode;
     /**
      * A row that renders a template with no binding at its top level holds
      * the template's own nodes, with no markers around them; undefined
      * when that template has one node, which `start` alone holds.
      */
-    readonly nodes: readonly ChildNode[] | undefined;
+    nodes: readonly ChildNode[] | undefined = undefined;
     /** Any other row holds its view in a part between its start marker and the part's anchor. */
-    readonly part: ChildPart | undefined;
+    part: ChildPart | undefined = undefined;
     readonly item: Signal<T>;
     /** Undefined when the row function declares no index parameter. */
     readonly index: Signal<number> | undefined;
-    readonly owner: Owner;
+
+    constructor(key: unknown, item: Signal<T>, index: Signal<number> | undefined)
+    {
+        super(isInternal());
+        this.key = key;
+        this.item = item;
+        this.index = index;
+    }
 }
 
 /** Removes a row's nodes; its owner is disposed by the caller. */
@@ -1437,7 +1445,7 @@ class Keyed<T> extends Directive
             {
                 for (let i = order.length - 1; i >= 0; i--)
                 {
-                    (order[i] as Row<T>).owner.dispose();
+                    (order[i] as Row<T>).dispose();
                 }
             });
         });
@@ -1450,12 +1458,10 @@ class Keyed<T> extends Directive
          */
         const create = (key: unknown, value: T, index: number, parent: Node, before: Node | null, adopt?: { start: Comment; end: Comment }): Row<T> =>
         {
-            const item = signal(value);
-            const position = this.row.length > 1 ? signal(index) : undefined;
-            const rowOwner = createOwner(true);
-            const row = rowOwner.run((): Row<T> =>
+            const row = new Row<T>(key, signal(value), this.row.length > 1 ? signal(index) : undefined);
+            row.run(() =>
             {
-                const view = this.row(item, position as ReadableSignal<number>);
+                const view = this.row(row.item, row.index as ReadableSignal<number>);
                 if (adopt === undefined && view instanceof TemplateResult)
                 {
                     const prepared = prepare(view.strings);
@@ -1464,13 +1470,15 @@ class Keyed<T> extends Directive
                         const instance = Instance.create(view.strings, prepared);
                         instance.update(view.values);
                         parent.insertBefore(instance.content as Node, before);
-                        return { key, start: (instance.nodes === undefined ? instance.content : instance.nodes[0]) as ChildNode, nodes: instance.nodes, part: undefined, item, index: position, owner: rowOwner };
+                        row.start = (instance.nodes === undefined ? instance.content : instance.nodes[0]) as ChildNode;
+                        row.nodes = instance.nodes;
+                        return;
                     }
                 }
-                const start = adopt?.start ?? parent.insertBefore(document.createComment(""), before);
+                row.start = adopt?.start ?? parent.insertBefore(document.createComment(""), before);
                 const rowPart = new ChildPart(adopt?.end ?? parent.insertBefore(document.createComment(""), before));
+                row.part = rowPart;
                 rowPart.set(view, adopt === undefined ? undefined : adopt.start.nextSibling ?? adopt.end);
-                return { key, start, nodes: undefined, part: rowPart, item, index: position, owner: rowOwner };
             });
             rows.set(key, row);
             return row;
@@ -1485,7 +1493,7 @@ class Keyed<T> extends Directive
             }
             for (let i = order.length - 1; i >= 0; i--)
             {
-                (order[i] as Row<T>).owner.dispose();
+                (order[i] as Row<T>).dispose();
             }
             parent.textContent = "";
             parent.appendChild(end);
@@ -1525,7 +1533,7 @@ class Keyed<T> extends Directive
                 {
                     for (const row of old)
                     {
-                        row.owner.dispose();
+                        row.dispose();
                         removeRow(row);
                     }
                     rows.clear();
@@ -1590,7 +1598,7 @@ class Keyed<T> extends Directive
                 for (let i = head; i < oldTail; i++)
                 {
                     const row = old[i] as Row<T>;
-                    row.owner.dispose();
+                    row.dispose();
                     removeRow(row);
                     rows.delete(row.key);
                 }
@@ -1660,7 +1668,7 @@ class Keyed<T> extends Directive
                     const row = old[i] as Row<T>;
                     if (!keys.has(row.key))
                     {
-                        row.owner.dispose();
+                        row.dispose();
                         removeRow(row);
                         rows.delete(row.key);
                     }
