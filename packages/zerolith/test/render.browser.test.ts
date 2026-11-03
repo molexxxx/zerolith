@@ -24,6 +24,12 @@ function mount(view: unknown): HTMLElement
     return host;
 }
 
+/** A template of one bold element, the same strings on every call. */
+function card(text: string): unknown
+{
+    return html`<b>${text}</b>`;
+}
+
 /** The comments inside `node`, which only part markers put there. */
 function comments(node: Node): Comment[]
 {
@@ -126,6 +132,31 @@ describe("html and render", () =>
         expect(div.textContent).toBe("");
         value.set(3);
         expect(div.textContent).toBe("3");
+    });
+
+    it("shows a template again after showing nothing, though its strings are the ones it showed before", () =>
+    {
+        const value = signal<unknown>(card("first"));
+        const el = mount(html`<div>${value}</div>`);
+        const div = el.querySelector("div") as HTMLDivElement;
+        value.set(null);
+        expect(div.querySelector("b")).toBeNull();
+        value.set(card("second"));
+        expect(div.querySelector("b")?.textContent).toBe("second");
+    });
+
+    it("removes a list's rows and stops updating them once the position shows something else", () =>
+    {
+        const items = signal([{ id: 1 }, { id: 2 }]);
+        const value = signal<unknown>(each(items, (item) => item.id, (item) => html`<i>${item.get().id}</i>`));
+        const el = mount(html`<div>${value}</div>`);
+        const div = el.querySelector("div") as HTMLDivElement;
+        expect(div.querySelectorAll("i").length).toBe(2);
+        value.set("text");
+        expect(div.querySelectorAll("i").length).toBe(0);
+        items.set([{ id: 1 }, { id: 2 }, { id: 3 }]);
+        expect(div.querySelectorAll("i").length).toBe(0);
+        expect(div.textContent).toBe("text");
     });
 
     it("keeps the DOM when a signal yields a template with the same strings", () =>
