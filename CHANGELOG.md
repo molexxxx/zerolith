@@ -2,7 +2,7 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
-## 0.1.0-alpha.9
+## 0.1.0-alpha.9 (2026-11-03)
 
 Rows hold less memory: with 1,000 rows of the js-framework-benchmark entry, the page keeps about 11% less than with 0.1.0-alpha.8, both measured the same way on one machine, since a signal bound into a template no longer holds an effect function and its closure, a binding that is its element's only child adds no comment marker, and a row holds fewer objects and arrays. The core's production bundle is 10,315 B after gzip, 418 B more than 0.1.0-alpha.8's, and its budget grows to 10,752 B from 10,240 B to make room for this work. Each release is now measured on js-framework-benchmark once it is published, beside the release before in the same session, and https://zerolith.dev/benchmarks/ shows the results, this release's memory among them.
 
