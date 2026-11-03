@@ -3,12 +3,15 @@
  * benchmark's own result files, for every framework `frameworks.json`
  * lists: each timed operation's median duration and each memory, size, and
  * first paint result.
- *   node benchmarks/collect.ts <webdriver-ts/results> --date <YYYY-MM-DD> --zerolith <version> --method <text> --machine <text> [--note <text>] [--previous <version>] [--out <file>]
+ *   node benchmarks/collect.ts <webdriver-ts/results> --date <YYYY-MM-DD> --zerolith <version> --method <text> --machine <text> [--note <text>] [--previous <version>] [--again <results>]... [--out <file>]
  * An entry's files are named for its folder and the version it ran; an
  * entry with files of several versions is refused, except zerolith, whose
  * version `--zerolith` names. `--previous` names zerolith's release before,
  * measured in the same run from the folder `zerolith-previous`, which the
- * run keeps as `previous`. `--out` writes the run to that file instead, as
+ * run keeps as `previous`. Each `--again` names the results folder of one
+ * more pass of the memory, size, and first paint benchmarks, which the
+ * benchmark samples once a pass, and each of those results is the median
+ * over every pass. `--out` writes the run to that file instead, as
  * the benchmarks workflow does before `npm run bench:report -- --add` takes
  * it into the folder.
  */
@@ -38,15 +41,17 @@ const { positionals, values: flags } = parseArgs({
         machine: { type: "string" },
         note: { type: "string" },
         previous: { type: "string" },
+        again: { type: "string", multiple: true },
         out: { type: "string" }
     },
     strict: true
 });
 const [folder] = positionals;
 const { date, zerolith, method, machine, note, previous, out } = flags;
+const passes = flags.again ?? [];
 if (folder === undefined || date === undefined || zerolith === undefined || method === undefined || machine === undefined || !/^\d{4}-\d{2}-\d{2}$/.test(date))
 {
-    throw new Error("usage: node benchmarks/collect.ts <webdriver-ts/results> --date <YYYY-MM-DD> --zerolith <version> --method <text> --machine <text> [--note <text>] [--previous <version>] [--out <file>]");
+    throw new Error("usage: node benchmarks/collect.ts <webdriver-ts/results> --date <YYYY-MM-DD> --zerolith <version> --method <text> --machine <text> [--note <text>] [--previous <version>] [--again <results>]... [--out <file>]");
 }
 
 const here = fileURLToPath(new URL("./", import.meta.url));
@@ -73,9 +78,9 @@ function resultName(entry: string, version?: string): { name: string; version: s
     return chosen[0] as { name: string; version: string };
 }
 
-async function read(name: string, benchmark: string): Promise<ResultFile>
+async function read(name: string, benchmark: string, from: string = folder as string): Promise<ResultFile>
 {
-    return JSON.parse(await readFile(join(folder as string, `${name}_${benchmark}.json`), "utf8")) as ResultFile;
+    return JSON.parse(await readFile(join(from, `${name}_${benchmark}.json`), "utf8")) as ResultFile;
 }
 
 /** One entry's results in the run, read from the files of the folder `folderName`. */
@@ -95,19 +100,24 @@ async function measured(name: string, entry: string, folderName: string, version
     const measures: Record<string, number> = {};
     for (const measure of MEASURES)
     {
-        const value = (await read(result.name, measure.id)).values["DEFAULT"]?.median;
-        if (value === undefined)
+        const samples: number[] = [];
+        for (const from of [folder as string, ...passes])
         {
-            throw new Error(`${result.name}: ${measure.id} holds no result`);
+            const value = (await read(result.name, measure.id, from)).values["DEFAULT"]?.median;
+            if (value === undefined)
+            {
+                throw new Error(`${result.name}: ${measure.id} holds no result in ${from}`);
+            }
+            samples.push(value);
         }
-        measures[measure.id] = value;
+        measures[measure.id] = median(samples);
     }
     return { name, entry, version: result.version, operations, measures };
 }
 
 const frameworks = await Promise.all(listed.frameworks.map(({ name, entry }) => measured(name, entry, entry, entry === "zerolith" ? zerolith : undefined)));
 const before = previous === undefined ? undefined : await measured("zerolith", "zerolith", "zerolith-previous", previous);
-const run: Run = { date, zerolith, commit: listed.commit.slice(0, 7), statistic: "median", method, machine, ...(note === undefined ? {} : { note }), frameworks, ...(before === undefined ? {} : { previous: before }) };
+const run: Run = { date, zerolith, commit: listed.commit.slice(0, 7), statistic: "median", method, machine, ...(note === undefined ? {} : { note }), ...(passes.length === 0 ? {} : { passes: passes.length + 1 }), frameworks, ...(before === undefined ? {} : { previous: before }) };
 const target = out ?? join(here, "results", `${date}-${zerolith}.json`);
 await writeFile(target, `${JSON.stringify(run, null, 4)}\n`);
 console.log(`wrote ${target}`);

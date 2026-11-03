@@ -8,7 +8,7 @@
  * same results as the benchmarks README renders them.
  */
 import { type View, html } from "zerolith";
-import { MEASURES, OPERATIONS, type FrameworkResult, type Ranked, type Run, SECTION_END, SECTION_START, label, ranked, renderResults, rivals, scores } from "../../benchmarks/results.ts";
+import { MEASURES, OPERATIONS, type FrameworkResult, type Ranked, type Run, SECTION_END, SECTION_START, label, measuresNote, noneFastest, ranked, renderResults, rivals, scores } from "../../benchmarks/results.ts";
 import { repository } from "./layout.ts";
 
 /** What the page renders: the newest release's newest run first, as `readRuns` orders them. */
@@ -38,8 +38,8 @@ const contents = [
 /** The method, as paragraphs of text and links, shared by the page and its Markdown twin. */
 const method: Array<Array<string | { text: string; href: string }>> = [
     ["js-framework-benchmark renders the same table of rows in every framework and times nine operations on it, from creating 1,000 rows to clearing them. Its driver clicks a button in Chrome and measures from the click to the end of the paint it causes, from Chrome's performance trace, so script, style, layout, and paint all count, and five of the operations run with the CPU slowed down, as the official runs do. Each time here is the median of a run's samples: 15 of each operation, and 25 of selecting a row."],
-    ["Every framework is the keyed entry of the benchmark's repository at the commit ", { text: "frameworks.json", href: `${repository}/blob/main/benchmarks/frameworks.json` }, " names, built from its own lockfile, and zerolith is ", { text: "the entry in this repository", href: `${repository}/tree/main/benchmarks/js-framework-benchmark` }, ", pinned to the release. The memory results are what Chrome reports for the page after an action and a forced garbage collection, and the size results are the bytes of the entry's files; the benchmark takes one sample of each, so small differences there say little."],
-    ["Each release is measured once it is published, by ", { text: "the benchmarks workflow", href: `${repository}/blob/main/.github/workflows/benchmarks.yml` }, ", and the run is kept in the repository with the machine and method it used. A change of machine or method moves every framework's score, so each release's run also measures the release before in the same session on the same machine, and the two zerolith rows compare like for like; Every run shows the earlier runs, each with how it was taken."],
+    ["Every framework is the keyed entry of the benchmark's repository at the commit ", { text: "frameworks.json", href: `${repository}/blob/main/benchmarks/frameworks.json` }, " names, built from its own lockfile, and zerolith is ", { text: "the entry in this repository", href: `${repository}/tree/main/benchmarks/js-framework-benchmark` }, ", pinned to the release. The memory results are what Chrome reports for the page after an action and a forced garbage collection, and the size results are the bytes of the entry's files; the benchmark takes one sample of each a pass, so each release's run repeats them for five passes and keeps the medians."],
+    ["Each release is measured once it is published, by ", { text: "the benchmarks workflow", href: `${repository}/blob/main/.github/workflows/benchmarks.yml` }, ", and the run is kept in the repository with the machine and method it used. A change of machine or method moves every framework's score, so each release's run also measures the release before in the same session on the same machine, and the two zerolith rows compare like for like. The earlier runs are listed under Every run, each with how it was taken."],
     ["These are this project's runs, not the official results, which the benchmark's maintainer measures and publishes at ", { text: "krausest.github.io/js-framework-benchmark", href: officialResults }, "; zerolith is not among them until its entry is accepted upstream. ", { text: "The benchmarks README", href: readme }, " has the full method and the steps to take a run yourself."]
 ];
 
@@ -100,7 +100,7 @@ function Scores(run: Run)
     const slowest = Math.max(...rows.map(printed));
     return html`
         <figure class="scores" id="scores">
-            <p class="key">Lower is faster. A score of 1.00 would be the fastest framework at every operation, and each bar is the extra time a framework takes over that.${run.previous === undefined ? "" : ` The outlined bar is zerolith ${run.previous.version}, the release before, measured in the same session on the same machine.`}</p>
+            <p class="key">Lower is faster. A score of 1.00 would be the fastest framework at every operation, and each bar is the extra time a framework takes over that.${noneFastest(run)}${run.previous === undefined ? "" : ` The outlined bar is zerolith ${run.previous.version}, the release before, measured in the same session on the same machine.`}</p>
             <div class="table">
                 <table>
                     <thead>
@@ -182,7 +182,7 @@ export function Benchmarks(data: BenchmarksData): View
         </section>
         <section class="band" id="memory-size-and-first-paint">
             <h2>Memory, size, and first paint</h2>
-            <p>The benchmark takes one sample of each, so a small difference here says little.</p>
+            <p>${measuresNote(current)}</p>
             ${FrameworkTable(order, "Measure", MEASURES, (measure) => measure.label, (measure, framework) => framework.measures?.[measure.id]?.toFixed(measure.digits) ?? "-")}
         </section>
         <section class="band" id="every-run">

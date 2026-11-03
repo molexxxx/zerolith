@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { type FrameworkResult, OPERATIONS, type Run, checkRun, compareVersions, pinRelease, previousScore, readRuns, renderResults, replaceSection, scores } from "../../benchmarks/results.ts";
+import { type FrameworkResult, OPERATIONS, type Run, checkRun, compareVersions, measuresNote, noneFastest, pinRelease, previousScore, readRuns, renderResults, replaceSection, scores } from "../../benchmarks/results.ts";
 
 const folder = new URL("../../benchmarks/", import.meta.url);
 
@@ -133,6 +133,29 @@ function releaseBefore(time: number, fields: Record<string, unknown> = {}): Fram
 {
     return { name: "zerolith", entry: "zerolith", version: "0.1.0", operations: Object.fromEntries(OPERATIONS.map((operation) => [operation.id, time])), ...fields } as FrameworkResult;
 }
+
+describe("what a run says about itself", () =>
+{
+    it("says why no score is 1.00 when no framework was fastest at every operation, and nothing when one was", () =>
+    {
+        const split = run(["vanilla", "zerolith"], (name, operation) => ((name === "vanilla") === (operation === "01_run1k") ? 10 : 12));
+        expect(noneFastest(split)).toContain("No framework was fastest at every operation in this run, so none scores 1.00");
+        expect(renderResults([split])).toContain("so none scores 1.00");
+        expect(noneFastest(taken({}))).toBe("");
+        expect(renderResults([taken({})])).not.toContain("none scores 1.00");
+    });
+
+    it("says how many passes its memory, size, and first paint results are the median of, and takes only a count from 2 to 20", () =>
+    {
+        expect(measuresNote(taken({}))).toBe("The benchmark takes one sample of each, so a small difference here says little.");
+        expect(measuresNote(taken({ passes: 5 }))).toBe("Each value is the median of 5 passes, since the benchmark takes one sample of each a pass.");
+        expect(checkRun({ ...valid(), passes: 5 }, "run.json").passes).toBe(5);
+        for (const passes of [1, 2.5, 21, "5"])
+        {
+            expect(() => checkRun({ ...valid(), passes }, "run.json"), String(passes)).toThrow("run.json.passes");
+        }
+    });
+});
 
 describe("the release before", () =>
 {

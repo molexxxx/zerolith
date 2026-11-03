@@ -200,6 +200,21 @@ jobs:
           # shellcheck disable=SC2086
           npm run bench -- --headless --chromeBinary "$(command -v google-chrome)" --framework $ENTRIES
 
+      # The benchmark samples memory, size, and first paint once a pass, so
+      # the run takes four more passes of them and keeps the medians.
+      - name: Measure memory, size, and first paint again
+        working-directory: jfb
+        env:
+          ENTRIES: ${{ steps.previous.outputs.entries }}
+        run: |
+          set -eu
+          cp -R webdriver-ts/results "$RUNNER_TEMP/pass-1"
+          for pass in 2 3 4 5; do
+            # shellcheck disable=SC2086
+            npm run bench -- --headless --chromeBinary "$(command -v google-chrome)" --benchmark 21_ 22_ 25_ 40_ --framework $ENTRIES
+            cp -R webdriver-ts/results "$RUNNER_TEMP/pass-$pass"
+          done
+
       # A run's text may hold only what checkRun in benchmarks/results.ts
       # takes, so the CPU's name loses characters such as the @ before its
       # clock speed.
@@ -214,7 +229,7 @@ jobs:
           if [ -n "$PREVIOUS" ]; then
             before=(--previous "$PREVIOUS")
           fi
-          node benchmarks/collect.ts jfb/webdriver-ts/results --date "$(date -u +%F)" --zerolith "$VERSION" --method "medians of 15 runs on a GitHub-hosted runner" --machine "$machine" "${before[@]}" --out "$RUNNER_TEMP/run.json"
+          node benchmarks/collect.ts "$RUNNER_TEMP/pass-1" --again "$RUNNER_TEMP/pass-2" --again "$RUNNER_TEMP/pass-3" --again "$RUNNER_TEMP/pass-4" --again "$RUNNER_TEMP/pass-5" --date "$(date -u +%F)" --zerolith "$VERSION" --method "medians of 15 runs on a GitHub-hosted runner" --machine "$machine" "${before[@]}" --out "$RUNNER_TEMP/run.json"
           cat "$RUNNER_TEMP/run.json"
 
       - name: Keep the run

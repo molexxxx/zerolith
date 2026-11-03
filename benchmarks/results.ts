@@ -66,6 +66,8 @@ export interface Run
     machine: string;
     /** What a reader of the history needs to know about the run, if anything. */
     note?: string;
+    /** How many passes of the memory, size, and first paint benchmarks each of those results is the median of, when more than the one the benchmark takes. */
+    passes?: number;
     frameworks: FrameworkResult[];
     /** zerolith's release before, measured in the same session on the same machine, when the run took it. */
     previous?: FrameworkResult;
@@ -141,7 +143,7 @@ function numbers(value: unknown, where: string, ids: readonly string[], low: num
  */
 export function checkRun(value: unknown, file: string): Run
 {
-    const run = record(value, file, ["date", "zerolith", "commit", "statistic", "method", "machine", "note", "frameworks", "previous"], ["date", "zerolith", "commit", "statistic", "method", "machine", "frameworks"]);
+    const run = record(value, file, ["date", "zerolith", "commit", "statistic", "method", "machine", "note", "passes", "frameworks", "previous"], ["date", "zerolith", "commit", "statistic", "method", "machine", "frameworks"]);
     text(run["date"], `${file}.date`, /^\d{4}-\d{2}-\d{2}$/);
     text(run["zerolith"], `${file}.zerolith`, VERSION);
     text(run["commit"], `${file}.commit`, /^[0-9a-f]{7,40}$/);
@@ -151,6 +153,11 @@ export function checkRun(value: unknown, file: string): Run
     if (run["note"] !== undefined)
     {
         text(run["note"], `${file}.note`, PLAIN);
+    }
+    const passes = run["passes"];
+    if (passes !== undefined && !(typeof passes === "number" && Number.isInteger(passes) && passes >= 2 && passes <= 20))
+    {
+        fail(`${file}.passes`, `${JSON.stringify(passes)} is not a count of passes from 2 to 20`);
     }
     const frameworks = run["frameworks"];
     if (!Array.isArray(frameworks) || frameworks.length === 0)
@@ -333,6 +340,20 @@ export function rivals(run: Run): string
     return `${NUMBER_WORDS[count] ?? String(count)} popular framework${count === 1 ? "" : "s"}`;
 }
 
+/** What the memory, size, and first paint results of a run are made of, as the README and the docs page say it. */
+export function measuresNote(run: Run): string
+{
+    return run.passes === undefined
+        ? "The benchmark takes one sample of each, so a small difference here says little."
+        : `Each value is the median of ${run.passes} passes, since the benchmark takes one sample of each a pass.`;
+}
+
+/** The sentence saying why no score is 1.00, with a leading space, when no framework was fastest at every operation; empty otherwise. */
+export function noneFastest(run: Run): string
+{
+    return Number(Math.min(...scores(run).values()).toFixed(2)) > 1 ? " No framework was fastest at every operation in this run, so none scores 1.00: each operation's fastest framework sets that operation's 1.00." : "";
+}
+
 /** A run's label in a table: its zerolith version and day. */
 export function label(run: Run): string
 {
@@ -384,7 +405,7 @@ export function renderResults(runs: readonly Run[]): string
     const lines: string[] = [];
     lines.push("## Results");
     lines.push("");
-    lines.push(`The newest release, zerolith ${current.zerolith}, measured on ${current.date} with ${current.method}, next to hand-written JavaScript and ${rivals(current)}. The score is each framework's weighted geometric mean: every operation's time over the fastest framework's, combined with the weights of the official results page, so 1.00 would be fastest everywhere and lower is faster. ${current.previous === undefined ? "This run did not measure the release before; every run's scores are listed below." : `The release before, zerolith ${current.previous.version}, ran in the same session on the same machine, so its row compares with the newest like for like.`}`);
+    lines.push(`The newest release, zerolith ${current.zerolith}, measured on ${current.date} with ${current.method}, next to hand-written JavaScript and ${rivals(current)}. The score is each framework's weighted geometric mean: every operation's time over the fastest framework's, combined with the weights of the official results page, so 1.00 would be fastest everywhere and lower is faster.${noneFastest(current)} ${current.previous === undefined ? "This run did not measure the release before; every run's scores are listed below." : `The release before, zerolith ${current.previous.version}, ran in the same session on the same machine, so its row compares with the newest like for like.`}`);
     lines.push("");
     lines.push(table(
         ["Framework", "Entry", "Version", "Score"],
@@ -410,6 +431,8 @@ export function renderResults(runs: readonly Run[]): string
     {
         lines.push("");
         lines.push("### Memory, size, and first paint");
+        lines.push("");
+        lines.push(measuresNote(current));
         lines.push("");
         lines.push(table(
             ["Measure", ...order.map((framework) => framework.name)],
