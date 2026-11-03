@@ -168,6 +168,7 @@ export function Home(data: HomeData): View
                 <a href="/reference/zerolith/">Reference</a>
                 <a href="/e/">Diagnostics</a>
                 <a href="/playground/">Playground</a>
+                <a href="/benchmarks/">Benchmarks</a>
                 <a href=${repository}>GitHub</a>
                 <a href="https://www.npmjs.com/package/zerolith">npm</a>
                 <a href=${`${repository}/blob/main/CHANGELOG.md`}>Changelog</a>

@@ -1512,7 +1512,8 @@ main[tabindex="-1"]:focus
 }
 
 .figure figcaption,
-.diagram figcaption
+.diagram figcaption,
+.scores figcaption
 {
     grid-column: 1 / -1;
     max-width: 90ch;
@@ -1713,6 +1714,309 @@ main[tabindex="-1"]:focus
 {
     width: 24px;
     height: 24px;
+}
+
+.masthead.bench
+{
+    grid-template-columns: minmax(0, 1fr);
+    padding-bottom: var(--zl-space-8);
+}
+
+.bench .lead
+{
+    max-width: 52ch;
+}
+
+.contents
+{
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--zl-space-2) var(--zl-space-6);
+    margin-top: var(--zl-space-8);
+    padding-top: var(--zl-space-3);
+    border-top: var(--zl-rule) solid var(--zl-line);
+}
+
+.contents a
+{
+    color: var(--zl-text-muted);
+    font-family: var(--zl-font-mono);
+    font-size: 0.8125rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-decoration: none;
+}
+
+.contents a:hover
+{
+    color: var(--zl-text);
+}
+
+.scores
+{
+    margin: 0 0 var(--zl-space-16);
+}
+
+.scores .table
+{
+    margin: 0;
+}
+
+.scores .key
+{
+    max-width: 66ch;
+    margin: 0 0 var(--zl-space-4);
+    color: var(--zl-text-muted);
+    font-size: var(--zl-text-sm);
+}
+
+.scores .legend
+{
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--zl-space-2) var(--zl-space-6);
+    margin: 0 0 var(--zl-space-3);
+    color: var(--zl-text-muted);
+    font-family: var(--zl-font-mono);
+    font-size: var(--zl-text-xs);
+}
+
+.scores .legend > span
+{
+    display: inline-flex;
+    align-items: center;
+    gap: var(--zl-space-2);
+    white-space: nowrap;
+}
+
+.key-fill
+{
+    width: 16px;
+    height: 12px;
+    background: var(--zl-control-line);
+}
+
+.key-tick
+{
+    width: var(--zl-rule);
+    height: 16px;
+    background: var(--zl-text-muted);
+}
+
+.scores .number
+{
+    text-align: right;
+}
+
+.scores tbody th,
+.scores tbody td
+{
+    vertical-align: middle;
+}
+
+.scores td.number
+{
+    font-family: var(--zl-font-mono);
+    font-size: var(--zl-text-sm);
+}
+
+.scores .name
+{
+    display: block;
+}
+
+.scores .entry
+{
+    display: block;
+    margin-top: var(--zl-space-1);
+    color: var(--zl-text-muted);
+    font-family: var(--zl-font-mono);
+    font-size: var(--zl-text-xs);
+    font-weight: 400;
+}
+
+.scores .version
+{
+    white-space: nowrap;
+}
+
+.scores td.bar
+{
+    width: 60%;
+    padding-left: 0;
+    border-left: var(--zl-rule) solid var(--zl-line);
+}
+
+.scores th.bar
+{
+    padding-left: var(--zl-rule);
+}
+
+.scores tfoot td
+{
+    padding-top: var(--zl-space-2);
+    padding-bottom: var(--zl-space-3);
+    border-top: var(--zl-rule) solid var(--zl-line);
+}
+
+.scores tfoot td.bar
+{
+    border-left-color: transparent;
+}
+
+.scores .axis
+{
+    position: relative;
+    display: block;
+    height: 1.7em;
+    color: var(--zl-text-muted);
+    font-family: var(--zl-font-mono);
+    font-size: var(--zl-text-xs);
+}
+
+.scores .axis span
+{
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+
+.scores .axis span:first-child
+{
+    transform: none;
+}
+
+.scores .axis span::before
+{
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    left: calc(50% - var(--zl-rule) / 2);
+    width: var(--zl-rule);
+    height: var(--zl-space-2);
+    background: var(--zl-line);
+}
+
+.scores .axis span:first-child::before
+{
+    left: 0;
+}
+
+.scores .track
+{
+    position: relative;
+    display: block;
+    height: 12px;
+}
+
+.track .fill
+{
+    display: block;
+    min-width: var(--zl-rule);
+    height: 100%;
+    background: var(--zl-control-line);
+}
+
+.track .tick
+{
+    position: absolute;
+    top: calc(-1 * var(--zl-space-1));
+    bottom: calc(-1 * var(--zl-space-1));
+    width: var(--zl-rule);
+    margin-left: calc(-1 * var(--zl-rule) / 2);
+    background: var(--zl-text-muted);
+}
+
+.scores tr.ours,
+.frameworks .ours
+{
+    background: var(--zl-surface);
+}
+
+.ours .track .fill
+{
+    background: var(--zl-text);
+}
+
+.scores td.before
+{
+    color: var(--zl-text-muted);
+}
+
+.frameworks th,
+.frameworks td
+{
+    padding-inline: var(--zl-space-3);
+}
+
+.frameworks td
+{
+    font-family: var(--zl-font-mono);
+    font-size: var(--zl-text-sm);
+    text-align: end;
+    white-space: nowrap;
+}
+
+.frameworks thead th + th
+{
+    text-align: end;
+}
+
+.frameworks thead .ours
+{
+    color: var(--zl-text);
+}
+
+.frameworks .time,
+.frameworks .factor
+{
+    display: block;
+}
+
+.frameworks .factor
+{
+    color: var(--zl-text-muted);
+    font-size: var(--zl-text-xs);
+}
+
+.frameworks tbody th .main
+{
+    display: block;
+    white-space: nowrap;
+}
+
+.frameworks tbody th .sub
+{
+    display: block;
+    margin-top: var(--zl-space-1);
+    color: var(--zl-text-muted);
+    font-family: var(--zl-font-mono);
+    font-size: var(--zl-text-xs);
+    font-weight: 400;
+}
+
+.frameworks tbody th .how
+{
+    display: block;
+    max-width: 26ch;
+    margin-top: var(--zl-space-1);
+    color: var(--zl-text-muted);
+    font-size: var(--zl-text-xs);
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+.band .notes
+{
+    color: var(--zl-text-muted);
+    font-size: var(--zl-text-sm);
+}
+
+.method .twin
+{
+    margin-top: var(--zl-space-8);
+    font-weight: 600;
 }
 
 .site-foot
@@ -2134,5 +2438,98 @@ main[tabindex="-1"]:focus
         font-size: var(--zl-text-xs);
         letter-spacing: 0.06em;
         text-transform: uppercase;
+    }
+
+    .band .frameworks tr
+    {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--zl-space-2) var(--zl-space-4);
+    }
+
+    .band .frameworks tbody th
+    {
+        grid-column: 1 / -1;
+    }
+
+    .frameworks tbody th .how
+    {
+        max-width: none;
+    }
+
+    .band .frameworks tbody th,
+    .band .frameworks tbody td
+    {
+        padding: var(--zl-space-1) var(--zl-space-2);
+        text-align: start;
+    }
+
+    .scores .table
+    {
+        overflow: visible;
+    }
+
+    .scores table,
+    .scores tbody
+    {
+        display: block;
+    }
+
+    .scores thead
+    {
+        display: none;
+    }
+
+    .scores tr
+    {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas: "name score" "name before" "bar bar";
+    }
+
+    .scores tbody th
+    {
+        grid-area: name;
+    }
+
+    .scores tbody td.score
+    {
+        grid-area: score;
+    }
+
+    .scores tbody td.before
+    {
+        display: flex;
+        flex-direction: column;
+        grid-area: before;
+        align-items: flex-end;
+        padding-top: 0;
+        border-top: 0;
+        font-size: var(--zl-text-xs);
+    }
+
+    .scores td.before::before
+    {
+        content: attr(data-label);
+    }
+
+    .scores tbody td.bar
+    {
+        grid-area: bar;
+        width: auto;
+        padding-top: 0;
+        padding-left: var(--zl-space-4);
+        border-top: 0;
+        border-left: 0;
+    }
+
+    .scores tfoot
+    {
+        display: none;
+    }
+
+    .scores .track
+    {
+        border-left: var(--zl-rule) solid var(--zl-line);
     }
 }

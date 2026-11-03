@@ -119,7 +119,8 @@ const sections = [
     { title: "Learn", href: "/learn/", matches: (path: string) => path.startsWith("/learn/") },
     { title: "Guide", href: "/guide/", matches: (path: string) => path.startsWith("/guide/") },
     { title: "Reference", href: "/reference/zerolith/", matches: (path: string) => path.startsWith("/reference/") || path.startsWith("/e/") },
-    { title: "Playground", href: "/playground/", matches: (path: string) => path.startsWith("/playground/") }
+    { title: "Playground", href: "/playground/", matches: (path: string) => path.startsWith("/playground/") },
+    { title: "Benchmarks", href: "/benchmarks/", matches: (path: string) => path.startsWith("/benchmarks/") }
 ];
 
 /** The second-level headings of a rendered article, for the page's table of contents. */

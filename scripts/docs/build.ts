@@ -17,7 +17,9 @@ import { Marked, marked } from "marked";
 import { rolldown } from "rolldown";
 import { diagnosticCatalog } from "zerolith";
 import { CORE_BUDGET_GZIP_BYTES, measure, moduleGraph } from "../measure.ts";
+import { readRuns } from "../../benchmarks/results.ts";
 import { normalizeBase, rebaseHtml, rebaseMarkdown, rebasePath } from "./base.ts";
+import { Benchmarks, benchmarksDescription, benchmarksMarkdown } from "./benchmarks.ts";
 import { brokenLinks, mapLinks, sitePath } from "./links.ts";
 import { exampleCode, includeExamples } from "./examples.ts";
 import { type Role, type Roles, escapeHtml, highlight, rolesOf } from "./highlight.ts";
@@ -849,6 +851,8 @@ const homeDescription = "A full frontend framework with clear patterns for you a
 await publish({ ...shared, title: "zerolith", description: homeDescription, path: "/", url: absolute("/"), layout: "wide", view: Home(homeData) }, homeMarkdown(homeData));
 const playgroundDescription = "Edit a zerolith app in the browser, run it with Ctrl+Enter, and share a link to what you made.";
 await publish({ ...shared, title: "Playground", description: playgroundDescription, path: "/playground/", url: absolute("/playground/"), layout: "wide", view: Playground() }, await playgroundMarkdown(root));
+const benchmarksData = { runs: await readRuns(join(root, "benchmarks", "results")) };
+await publish({ ...shared, title: "Benchmarks", description: benchmarksDescription(benchmarksData), path: "/benchmarks/", url: absolute("/benchmarks/"), layout: "wide", view: Benchmarks(benchmarksData) }, benchmarksMarkdown(benchmarksData));
 
 const known = new Set<string>(["/styles.css", "/highlight.js", "/smooth.js", "/llms.txt", "/llms-full.txt", "/api.json", "/search.json", "/sitemap.xml", "/zerolith/index.js"]);
 for (const path of rendered.keys())
@@ -910,7 +914,7 @@ for (const section of ["Learn", "Guide", "Reference", "Diagnostics"] as const)
     llms.push("");
 }
 llms.push("## Agent Skills", "", "- [zerolith](/skills/zerolith/SKILL.md): the rules, the pattern for each concept, the commands, and a checklist for finishing a change, with every guide as a reference; `zerolith new` writes it into every project, and `npx zerolith skill` adds or updates it", "");
-llms.push("## Optional", "", `- [Playground](/playground.md): ${playgroundDescription}`, "- [API manifest](/api.json): every export with its kind, module, and documentation, as JSON", "");
+llms.push("## Optional", "", `- [Playground](/playground.md): ${playgroundDescription}`, `- [Benchmarks](/benchmarks.md): ${benchmarksDescription(benchmarksData)}`, "- [API manifest](/api.json): every export with its kind, module, and documentation, as JSON", "");
 await write("llms.txt", rebaseMarkdown(llms.join("\n"), base));
 await write("llms-full.txt", rebaseMarkdown([homeMarkdown(homeData), ...pages.map((page) => page.markdown)].join("\n\n\n"), base) + "\n");
 

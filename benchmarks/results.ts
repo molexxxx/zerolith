@@ -283,10 +283,31 @@ export function scores(run: Run): Map<string, number>
     }));
 }
 
+const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+
+/** The frameworks a run measured besides hand-written JavaScript and zerolith, as prose counts them: "seven popular frameworks". */
+export function rivals(run: Run): string
+{
+    const count = run.frameworks.filter((framework) => framework.name !== "vanilla" && framework.name !== "zerolith").length;
+    return `${NUMBER_WORDS[count] ?? String(count)} popular framework${count === 1 ? "" : "s"}`;
+}
+
 /** A run's label in a table: its zerolith version and day. */
-function label(run: Run): string
+export function label(run: Run): string
 {
     return `${run.zerolith}, ${run.date}`;
+}
+
+/**
+ * The run the newest one is compared with, from runs in the order
+ * `readRuns` gives them: the newest earlier release measured the same way,
+ * or none, since a change of machine or method moves every framework's
+ * score.
+ */
+export function comparedRun(runs: readonly Run[]): Run | undefined
+{
+    const [current] = runs;
+    return current === undefined ? undefined : runs.find((run) => run.method === current.method && compareVersions(run.zerolith, current.zerolith) < 0);
 }
 
 function table(header: readonly string[], rows: readonly (readonly string[])[]): string
@@ -309,7 +330,7 @@ export function renderResults(runs: readonly Run[]): string
     {
         throw new Error("no run to render");
     }
-    const previous = runs.find((run) => run.method === current.method && compareVersions(run.zerolith, current.zerolith) < 0);
+    const previous = comparedRun(runs);
     const currentScores = scores(current);
     const previousScores = previous === undefined ? undefined : scores(previous);
     const order = current.frameworks.toSorted((a, b) => (currentScores.get(a.name) ?? 0) - (currentScores.get(b.name) ?? 0));
@@ -317,7 +338,7 @@ export function renderResults(runs: readonly Run[]): string
     const lines: string[] = [];
     lines.push("## Results");
     lines.push("");
-    lines.push(`The newest release, zerolith ${current.zerolith}, measured on ${current.date} with ${current.method}, next to hand-written JavaScript and seven popular frameworks. The score is each framework's weighted geometric mean: every operation's time over the fastest framework's, combined with the weights of the official results page, so 1.00 would be fastest everywhere and lower is faster. ${previous === undefined ? "No earlier release was measured the same way, so there is no column to compare with; every run's scores are listed below." : `The last column is the newest earlier release measured the same way, ${label(previous)}.`}`);
+    lines.push(`The newest release, zerolith ${current.zerolith}, measured on ${current.date} with ${current.method}, next to hand-written JavaScript and ${rivals(current)}. The score is each framework's weighted geometric mean: every operation's time over the fastest framework's, combined with the weights of the official results page, so 1.00 would be fastest everywhere and lower is faster. ${previous === undefined ? "No earlier release was measured the same way, so there is no column to compare with; every run's scores are listed below." : `The last column is the newest earlier release measured the same way, ${label(previous)}.`}`);
     lines.push("");
     lines.push(table(
         ["Framework", "Entry", "Version", "Score", ...(previous === undefined ? [] : [label(previous)])],
