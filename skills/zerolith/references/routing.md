@@ -162,6 +162,7 @@ export const router = createRouter(routes, {
 | Option | Default | What it does |
 | --- | --- | --- |
 | `fallback` | Nothing renders | Renders when no route matches, given the URL |
+| `head` | None | The title and description every page starts from, as an object or a function of the URL and the matched route's name; see [Head metadata](#head-metadata) |
 | `base` | `"/"` | The path the application is served under; see [Under a base path](#under-a-base-path) |
 | `onError` | `navigate` rejects | Receives the error and the URL when a loader, a lazy import, or a route's `head` throws, or when the new page throws as it renders |
 | `scroll` | `true` | `false` leaves scrolling to the application |
@@ -216,8 +217,8 @@ render(() => <Layout content={router.outlet()} />, "#app");
 | Member | What it is |
 | --- | --- |
 | `outlet()` | The current page as a view, for the layout to place |
-| `href(name, params)` | The path of a named route, with the base and the parameters encoded; a misspelled name or a missing parameter fails to type-check |
-| `navigate(to, { replace })` | Goes to a path or URL after the route's loader, and resolves once the page has changed; `replace` replaces the history entry instead of adding one. A URL on another origin is left to the browser, through `location.assign`, or `location.replace` with `replace` |
+| `href(name, params)` | The path of a named route, with the base and the parameters encoded; a misspelled name or a missing parameter fails to type-check, and a name the table does not hold throws `route_name_unknown`, so a JavaScript project cannot ship a link to the home page in its place |
+| `navigate(to, { replace, reload })` | Goes to a path or URL after the route's loader, and resolves once the page has changed; `replace` replaces the history entry instead of adding one, and `reload` runs the loader and renders the page again even for the URL shown, as after a form's redirect back to the page. A URL on another origin is left to the browser, through `location.assign`, or `location.replace` with `replace` |
 | `matches(path, { exact })` | A signal, true while the URL is at `path` or below it, segment by segment, so `/notes` covers `/notes/7` and not `/notesy`; `exact` requires the path itself |
 | `current` | A signal of the current match, with its `name`, `params`, `url`, and `data`, or `undefined` while the fallback shows |
 | `url` | A signal of the current URL |
@@ -230,7 +231,7 @@ render(() => <Layout content={router.outlet()} />, "#app");
 
 Plain anchors navigate, as the links in the layout and the home page do. One delegated listener handles same-origin links clicked without modifier keys and leaves `download`, `target`, and `rel="external"` links, and any link with a modifier key, to the browser. Code navigates with `router.navigate`, as the settings page does.
 
-Back and forward restore the scroll position, and so does a reload, since the router keeps each position in its history entry's state; a new navigation scrolls to the top or to the hash. The first navigation of a fresh visit leaves the scroll where the browser and the reader put it, since a server-rendered page is readable, and scrollable, before the router starts. A link to a hash on the page shown is left to the browser, and back and forward between the entries it adds move to the hash without loading the page again. Pass `scroll: false` to keep control of scrolling.
+Back and forward restore the scroll position, and so does a reload, since the router keeps each position in its history entry's state; a new navigation scrolls to the top or to the hash. The first navigation of a fresh visit leaves the scroll where the browser and the reader put it, since a server-rendered page is readable, and scrollable, before the router starts. A link to a hash on the page shown is left to the browser, and back and forward between the entries it adds move to the hash without loading the page again. A link, or a `navigate()`, to the URL of the page shown keeps the page as it is, an open `<details>` and the focus included: no loader runs and no view renders, the history entry follows the link, and the page moves to the hash or the top. A URL whose query differs is another page, and `navigate(url, { reload: true })` loads and renders the page shown again on purpose, as after a form's redirect back to it. Pass `scroll: false` to keep control of scrolling.
 
 A navigation whose loader fails calls `onError` with the error and the URL; without `onError`, `navigate` rejects. The route's `head` runs before the URL changes, so one that throws fails the navigation the same way and leaves the page as it was. A navigation that a newer one replaces before it commits is canceled rather than failed: its loader's `abort` signal fires as the newer one starts, wherever it goes, and `onError` is not called for it.
 
@@ -247,5 +248,19 @@ Route paths stay relative to the base: `"/notes/:id"` matches `/app/notes/7`, an
 ## Head metadata
 
 `head` sets the document title and description per route, as a static object, as the home route's is, or as a function of the parameters and loaded data, as `releaseHead` is.
+
+The router's own `head` option gives the fields every page starts from, so a site's name and description are written once:
+
+```ts
+const router = createRouter(routes, {
+    head: ({ name }) => ({
+        title: name === undefined ? "Not found | Notes" : "Notes",
+        description: "A notebook that runs on zerolith."
+    }),
+    fallback: (url) => NotFound({ url })
+});
+```
+
+A route's fields go over the defaults field by field, and the fallback shows the defaults; as a function, the option receives the URL and the matched route's name, undefined for the fallback, so the not-found page can have a title of its own. On every commit the document shows the merged head as a whole: a field that neither the defaults nor the route gives clears the title, or removes the description element, so a page never keeps the previous page's values. A router whose routes and options declare no head at all leaves the document's head alone.
 
 The same metadata is `router.head`, a signal the server renders with `renderHead` from `@zerolith/router/server` (see [Server rendering](server-rendering.md)). `router.ready` settles once the initial navigation, loader included, has committed; await it before hydrating.

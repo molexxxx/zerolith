@@ -2,6 +2,19 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
+## 0.1.0-alpha.10
+
+### Breaking changes
+
+- `@zerolith/router`: `href()` throws `route_name_unknown` for a name the route table does not hold, where it returned the base path, so a JavaScript project cannot ship a link to the home page in place of a misspelled one; a TypeScript project saw the mistake at type-check time already. The error names the route given.
+- `@zerolith/router`: the document head is applied as a whole on every commit once any route or the router declares one. `createRouter` takes `head`, the fields every page starts from, as an object or as a function of the URL and the matched route's name, undefined for the fallback, so the not-found page can have a title of its own; a route's fields go over them one by one, and a field neither gives clears the title or removes the description element. A route that left out a field had kept the previous page's value, and the fallback had kept the previous title. A router whose routes and options declare no head leaves the document's head alone, as before.
+- `@zerolith/router`: a link or a `navigate()` to the URL of the page shown keeps the page, as back and forward between its entries already did: no loader runs and no view renders, the history entry follows the link, and with `scroll` on the page moves to the hash or the top. Rendering the page again had lost its state, such as an open `<details>` or the focus. A navigation whose query differs is another page, and one to the URL shown while another navigation loads cancels that one. `navigate(url, { reload: true })` loads and renders the page shown again on purpose, as after a form's redirect back to it; a form's `navigate` option that passes the router's `navigate` through should pass `reload` with it.
+
+### Changed
+
+- Docs site: the first page hands its title and description to the router as its head, since the router now clears a field the head lacks.
+- Fullstack example and `zerolith new --example fullstack`: Harbor's sign-in page navigates to the page shown with `reload`, so it loads for the signed-in session.
+
 ## 0.1.0-alpha.9 (2026-11-03)
 
 Rows hold less memory: with 1,000 rows of the js-framework-benchmark entry, the page keeps about 11% less than with 0.1.0-alpha.8, both measured the same way on one machine, since a signal bound into a template no longer holds an effect function and its closure, a binding that is its element's only child adds no comment marker, and a row holds fewer objects and arrays. The core's production bundle is 10,315 B after gzip, 418 B more than 0.1.0-alpha.8's, and its budget grows to 10,752 B from 10,240 B to make room for this work. Each release is now measured on js-framework-benchmark once it is published, beside the release before in the same session, and https://zerolith.dev/benchmarks/ shows the results, this release's memory among them.

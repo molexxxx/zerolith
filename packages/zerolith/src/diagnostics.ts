@@ -114,7 +114,8 @@ export type DiagnosticCode =
     | "mount_target_missing"
     | "template_not_prepared"
     | "lazy_module_not_split"
-    | "package_version_mismatch";
+    | "package_version_mismatch"
+    | "route_name_unknown";
 
 /** Builds the full diagnostic record for a catalog code. */
 export function diagnostic(code: DiagnosticCode, severity: DiagnosticSeverity, args?: DiagnosticArgs, location?: DiagnosticLocation): Diagnostic

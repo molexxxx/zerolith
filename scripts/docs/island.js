@@ -222,7 +222,13 @@ function adoptStyles(fetched)
  */
 function serverPage()
 {
-    return { nodes: Array.from(document.body.childNodes), head: {}, canonical: undefined, markdown: undefined };
+    const description = document.querySelector("meta[name=\"description\"]")?.getAttribute("content");
+    return {
+        nodes: Array.from(document.body.childNodes),
+        head: description === null || description === undefined ? { title: document.title } : { title: document.title, description },
+        canonical: undefined,
+        markdown: undefined
+    };
 }
 
 /**

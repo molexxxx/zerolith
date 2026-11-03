@@ -142,6 +142,12 @@ Cause: A ref binding received something other than a writable signal or a functi
 
 Fix: Pass a signal created with signal<Element | undefined>(undefined) or a callback that receives the element.
 
+## route_name_unknown
+
+Cause: href() of @zerolith/router was called with a name the route table does not hold, so there is no path to build.
+
+Fix: Use a name the table passed to createRouter declares; the message names the one given, and TypeScript rejects it in a typed project.
+
 ## script_in_template
 
 Cause: A template contains a script element.

@@ -69,6 +69,9 @@ In order:
 - [x] A typed route table with lazy views, loaders, head metadata, and scroll restoration.
 - [x] A server entry with head rendering and embedded route data that the browser reuses.
 - [x] An `observe` hook for navigation start, commit, error, and cancel.
+- [x] Head metadata applied as a whole on every commit, with router-level defaults and a head for the fallback.
+- [x] A navigation to the URL of the page shown keeps the page.
+- [x] `href()` refuses a route name the table does not hold with a coded error.
 - [ ] Generated route declarations for large route tables, where inference slows type checking.
 - [ ] View-stack routing for desktop applications: history, kept-alive views, and full-screen views.
 

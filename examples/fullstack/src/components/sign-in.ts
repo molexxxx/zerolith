@@ -28,7 +28,7 @@ export function SignIn(): View
         onSuccess: () =>
         {
             reloadSession();
-            void router.navigate(router.url.get().href, { replace: true });
+            void router.navigate(router.url.get().href, { replace: true, reload: true });
         }
     });
     return html`

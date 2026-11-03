@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Root, effect, html, onDispose, render, signal } from "zerolith";
+import { type Root, ZerolithError, effect, html, onDispose, render, signal } from "zerolith";
 import { type RouteTable, type Router, createRouter, defineRoutes, lazy, route } from "@zerolith/router";
 
 let root: Root | undefined;
@@ -67,8 +67,141 @@ describe("router", () =>
         expect(typed.href("docs", { path: "a/b" })).toBe("/docs/a/b");
         // @ts-expect-error a parameter is required
         typed.href("release");
-        // @ts-expect-error the route does not exist
-        typed.href("nope");
+        let thrown: unknown;
+        try
+        {
+            // @ts-expect-error the route does not exist
+            typed.href("nope");
+        }
+        catch (error)
+        {
+            thrown = error;
+        }
+        expect(thrown).toBeInstanceOf(ZerolithError);
+        const { diagnostic } = thrown as ZerolithError;
+        expect(diagnostic.code).toBe("route_name_unknown");
+        expect(diagnostic.args).toEqual({ name: "nope" });
+        expect(diagnostic.url).toBe("https://zerolith.dev/e/route_name_unknown?name=nope");
+        expect(diagnostic.cause).toContain("href()");
+    });
+
+    it("applies the head as a whole on every commit: the router's defaults under a route's fields, cleared where neither gives one", async () =>
+    {
+        history.replaceState(null, "", "/");
+        document.title = "Before";
+        document.querySelector("meta[name=\"description\"]")?.remove();
+        router = createRouter(table(), { window, head: { title: "Site", description: "Site description" }, fallback: () => html`<p>missing</p>` });
+        await settled(router);
+        mount(html`<main>${router.outlet()}</main>`);
+        expect(document.title).toBe("Home title");
+        expect(document.querySelector<HTMLMetaElement>("meta[name=\"description\"]")?.content).toBe("Home description");
+        expect(router.head.get()).toEqual({ title: "Home title", description: "Home description" });
+
+        await router.navigate("/releases/v2");
+        expect(document.title).toBe("Two");
+        expect(document.querySelector<HTMLMetaElement>("meta[name=\"description\"]")?.content).toBe("Site description");
+
+        await router.navigate("/docs/a");
+        expect(document.title).toBe("Site");
+        await router.navigate("/missing");
+        expect(document.title).toBe("Site");
+        expect(router.head.get()).toEqual({ title: "Site", description: "Site description" });
+        router.dispose();
+
+        history.replaceState(null, "", "/");
+        router = createRouter(table(), { window, head: ({ name, url }) => ({ title: name === undefined ? `Not found ${url.pathname}` : "App" }), fallback: () => html`<p>missing</p>` });
+        await settled(router);
+        await router.navigate("/missing");
+        expect(document.title).toBe("Not found /missing");
+        expect(document.querySelector("meta[name=\"description\"]")).toBeNull();
+        await router.navigate("/docs/a");
+        expect(document.title).toBe("App");
+        router.dispose();
+
+        history.replaceState(null, "", "/");
+        router = createRouter(table(), { window });
+        await settled(router);
+        expect(document.querySelector<HTMLMetaElement>("meta[name=\"description\"]")?.content).toBe("Home description");
+        await router.navigate("/releases/v1");
+        expect(document.title).toBe("One");
+        expect(document.querySelector("meta[name=\"description\"]")).toBeNull();
+        await router.navigate("/docs/a");
+        expect(document.title).toBe("");
+        router.dispose();
+
+        history.replaceState(null, "", "/");
+        document.title = "Kept";
+        router = createRouter(defineRoutes({ home: route({ path: "/", view: () => html`<h1>Home</h1>` }), other: route({ path: "/other", view: () => html`<h1>Other</h1>` }) }), { window });
+        await settled(router);
+        await router.navigate("/other");
+        expect(document.title).toBe("Kept");
+    });
+
+    it("keeps the page shown when a link or navigate() names its URL, following the link in the history and the scroll", async () =>
+    {
+        history.replaceState(null, "", "/");
+        const events: string[] = [];
+        let loads = 0;
+        let views = 0;
+        const pages = defineRoutes({
+            home: route({ path: "/", view: () => html`<h1>Home</h1>` }),
+            guide: route({
+                path: "/guide",
+                load: () => Promise.resolve(++loads),
+                view: ({ data }) => html`<h1 id="guide">Guide ${data}</h1><details open><summary>Part</summary><p>Inside</p></details><p id="part" style="margin-top: 3000px">Deep</p>`
+            }),
+            slow: route({ path: "/slow", load: () => new Promise<string>((resolve) => setTimeout(() => resolve("late"), 50)), view: ({ data }) => html`<p>${data}</p>` })
+        });
+        router = createRouter(pages, { window, observe: (event) => events.push(`${event.type} ${event.url.pathname}${event.url.search}${event.url.hash}${event.name === undefined ? "" : ` ${event.name}`}`) });
+        await settled(router);
+        const el = mount(html`<main>${router.outlet()}<a id="same" href="/guide">guide</a><a id="deep" href="/guide#part">deep</a></main>`);
+        await router.navigate("/guide");
+        const heading = el.querySelector("#guide");
+        el.querySelector("details")?.removeAttribute("open");
+        views++;
+        const entries = history.length;
+        window.scrollTo(0, 500);
+        events.length = 0;
+
+        await router.navigate("/guide");
+        expect(loads).toBe(1);
+        expect(el.querySelector("#guide")).toBe(heading);
+        expect(el.querySelector("details")?.hasAttribute("open")).toBe(false);
+        expect(history.length).toBe(entries + 1);
+        expect(window.scrollY).toBe(0);
+        expect(events).toEqual(["start /guide", "commit /guide guide"]);
+
+        el.querySelector("#same")?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+        await settled(router);
+        expect(loads).toBe(1);
+        expect(el.querySelector("#guide")).toBe(heading);
+        expect(history.length).toBe(entries + 1);
+
+        el.querySelector("#deep")?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+        await vi.waitFor(() => expect(location.hash).toBe("#part"));
+        expect(loads).toBe(1);
+        expect(el.querySelector("#guide")).toBe(heading);
+
+        await router.navigate("/guide?x=1");
+        expect(loads).toBe(2);
+        expect(el.querySelector("#guide")).not.toBe(heading);
+        expect(views).toBe(1);
+
+        const second = el.querySelector("#guide");
+        await router.navigate("/guide?x=1", { reload: true });
+        expect(loads).toBe(3);
+        expect(el.querySelector("#guide")).not.toBe(second);
+        expect(el.querySelector("#guide")?.textContent).toBe("Guide 3");
+        await router.navigate("/guide?x=1");
+        expect(loads).toBe(3);
+
+        const replaced = router.navigate("/slow");
+        await router.navigate("/guide?x=1");
+        await replaced;
+        expect(loads).toBe(3);
+        expect(router.pending.get()).toBe(false);
+        expect(el.querySelector("#guide")?.textContent).toBe("Guide 3");
+        expect(events.slice(-4)).toEqual(["start /slow", "start /guide?x=1", "commit /guide?x=1 guide", "cancel /slow"]);
     });
 
     it("renders the matched route through the outlet, loads data first, and sets the head", async () =>

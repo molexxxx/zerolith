@@ -74,6 +74,26 @@ describe("the router without a window", () =>
         router.dispose();
     });
 
+    it("merges the router's default head under each route's, and gives the fallback the defaults", async () =>
+    {
+        const router = createRouter(routes, { head: { title: "Site", description: "Site description" }, fallback: () => html`<p>missing</p>` });
+        await router.navigate("/notes/7");
+        expect(router.head.get()).toEqual({ title: "Note 7", description: "Site description" });
+        await router.navigate("/");
+        expect(router.head.get()).toEqual({ title: "Home", description: "The <start> & more" });
+        await router.navigate("/missing");
+        expect(router.head.get()).toEqual({ title: "Site", description: "Site description" });
+        expect(renderHead(router.head.get())).toBe("<title>Site</title><meta name=\"description\" content=\"Site description\">");
+        router.dispose();
+        const named = createRouter(routes, { head: ({ name, url }) => ({ title: name ?? `Nothing at ${url.pathname}` }) });
+        await named.navigate("/raw");
+        expect(named.head.get()).toEqual({ title: "raw" });
+        await named.navigate("/missing");
+        expect(named.head.get()).toEqual({ title: "Nothing at /missing" });
+        named.dispose();
+        expect(() => router.href("nowhere" as "home")).toThrow("route_name_unknown");
+    });
+
     it("renders head metadata with escaping", async () =>
     {
         const router = createRouter(routes);

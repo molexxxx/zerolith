@@ -150,7 +150,7 @@ It is the same document the enhancer builds when the schema fails in the browser
 | `send` | Replaces the request: it receives the submission, with its data, method, action, and abort signal, and returns a promise of the `Response` |
 | `headers` | Adds headers to the default request |
 | `fetch` | The `fetch` the default request uses, the global one unless given |
-| `navigate` | Where a redirected response takes the page, `location.assign` unless given; pass a function that calls the router's `navigate` to stay in the application |
+| `navigate` | Where a redirected response takes the page, `location.assign` unless given; pass `(url) => router.navigate(url, { reload: true })` to stay in the application, with `reload` so a redirect back to the page shown loads it again |
 | `reset` | Resets the form element after a successful response |
 | `onSuccess` | Runs after a successful response, with its result; an error it throws is reported as an uncaught error is, with `reportError`, and leaves `status` as it is |
 | `onFailure` | Runs with the problem, from the schema or the server; an error it throws is reported the same way |

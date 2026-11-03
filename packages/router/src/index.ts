@@ -5,6 +5,7 @@ export type { ParamsOf } from "./match.js";
 export type {
     AnyRoute,
     Head,
+    HeadContext,
     HrefArgs,
     LazyView,
     LoadContext,

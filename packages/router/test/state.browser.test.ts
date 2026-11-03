@@ -46,8 +46,10 @@ describe("embedded route state", () =>
         expect(loads).toEqual([]);
         expect(router.current.get()?.data).toEqual({ id: "1", fresh: false });
         expect(document.querySelector(ROUTE_STATE_SELECTOR)).toBeNull();
+        await router.navigate("/notes/2");
         await router.navigate("/notes/1?tab=a");
-        expect(loads).toEqual(["/notes/1?tab=a"]);
+        expect(loads).toEqual(["/notes/2", "/notes/1?tab=a"]);
+        expect(router.current.get()?.data).toEqual({ id: "1", fresh: true });
     });
 
     it("runs the loader when the embedded state is for another URL, another route, or is not JSON", async () =>

@@ -29,6 +29,12 @@ interface Head
     description?: string
 }
 
+interface HeadContext
+{
+    url: URL
+    name: string | undefined
+}
+
 interface LazyView<Params, Data>
 {
     readonly lazy: () => Promise<RouteView<Params, Data>>
@@ -82,7 +88,7 @@ interface Router<T extends RouteTable>
     readonly head: ReadableSignal<Head>
     readonly ready: Promise<void>
     href<N extends keyof T & string>(name: N, ...args: HrefArgs<T[N]["path"]>): string
-    navigate(to: string, options?: { replace?: boolean }): Promise<void>
+    navigate(to: string, options?: { replace?: boolean; reload?: boolean }): Promise<void>
     matches(path: string, options?: { exact?: boolean }): ReadableSignal<boolean>
     outlet(): View
     dispose(): void
@@ -91,6 +97,7 @@ interface Router<T extends RouteTable>
 interface RouterOptions
 {
     fallback?: (url: URL) => unknown
+    head?: Head | ((context: HeadContext) => Head)
     onError?: (error: unknown, url: URL) => void
     scroll?: boolean
     window?: Window | null

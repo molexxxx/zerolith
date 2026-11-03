@@ -3,7 +3,7 @@
  * through the History API, delegated handling of plain anchors, loaders
  * that run before the URL changes, head metadata, and scroll restoration.
  */
-import { type ReadableSignal, type View, batch, computed, each, signal, untracked } from "zerolith";
+import { DIAGNOSTIC_URL, type ReadableSignal, type View, ZerolithError, batch, computed, diagnosticCatalog, each, signal, untracked } from "zerolith";
 import { type ParamsOf, type Pattern, build, compile, match } from "./match.js";
 
 /** Document metadata a route contributes. */
@@ -131,11 +131,26 @@ export interface NavigationEvent
     readonly error?: unknown;
 }
 
+/** What the router's `head` option receives when it is a function. */
+export interface HeadContext
+{
+    /** The URL being navigated to. */
+    url: URL;
+    /** The matched route's name, or undefined for the fallback. */
+    name: string | undefined;
+}
+
 /** Options for `createRouter`. */
 export interface RouterOptions
 {
     /** Renders when no route matches. */
     fallback?: (url: URL) => unknown;
+    /**
+     * The head fields every page starts from, as an object or as a function of the URL and the matched route's name, undefined for the fallback.
+     * A route's `head` overrides them field by field, and the fallback shows them as they are. Once any route or this option declares a head,
+     * the document shows the merged head as a whole on every commit: a field neither gives clears the title or removes the description element.
+     */
+    head?: Head | ((context: HeadContext) => Head);
     /** Called when a loader, a lazy import, or a route's `head` throws, or when the new page throws as it renders. Without it the error propagates from `navigate()`. */
     onError?: (error: unknown, url: URL) => void;
     /** Set false to leave scrolling to the application. Defaults to true. */
@@ -187,10 +202,14 @@ export interface Router<T extends RouteTable>
     readonly head: ReadableSignal<Head>;
     /** Settles when the initial navigation from the window's location has committed; already settled without a window. Rejects as `navigate` would. */
     readonly ready: Promise<void>;
-    /** Builds a URL path for a named route. */
+    /** Builds a URL path for a named route; a name the table does not hold throws `route_name_unknown`. */
     href<N extends keyof T & string>(name: N, ...args: HrefArgs<T[N]["path"]>): string;
-    /** Navigates to a path or URL, running the route's loader first. A URL on another origin is left to the browser, through `location.assign`, or `location.replace` with `replace`. */
-    navigate(to: string, options?: { replace?: boolean }): Promise<void>;
+    /**
+     * Navigates to a path or URL, running the route's loader first. The URL of the page shown keeps the page, unless `reload` asks for the
+     * loader to run and the page to render again, as after a form's redirect back to the page. A URL on another origin is left to the
+     * browser, through `location.assign`, or `location.replace` with `replace`.
+     */
+    navigate(to: string, options?: { replace?: boolean; reload?: boolean }): Promise<void>;
     /** A signal that is true while the URL is at `path` or below it; `exact` requires equality. */
     matches(path: string, options?: { exact?: boolean }): ReadableSignal<boolean>;
     /** Renders the current route, used as `${router.outlet()}`. */
@@ -253,7 +272,8 @@ function readEmbeddedState(doc: Document): EmbeddedRouteState | undefined
     }
 }
 
-function headOf(resolved: Resolved): Head
+/** The route's own head fields, or none for the fallback or a route without `head`. */
+function ownHead(resolved: Resolved): Head
 {
     if (resolved.compiled === undefined || resolved.match === undefined)
     {
@@ -265,6 +285,30 @@ function headOf(resolved: Resolved): Head
         return {};
     }
     return typeof declared === "function" ? declared({ params: resolved.match.params, data: resolved.match.data, url: resolved.match.url }) : declared;
+}
+
+/** The head the document shows for a navigation: the defaults, with the route's own fields over them. */
+function headOf(resolved: Resolved, target: URL, defaults: RouterOptions["head"]): Head
+{
+    const merged: Head = { ...(typeof defaults === "function" ? defaults({ url: target, name: resolved.match?.name }) : defaults) };
+    const own = ownHead(resolved);
+    if (own.title !== undefined)
+    {
+        merged.title = own.title;
+    }
+    if (own.description !== undefined)
+    {
+        merged.description = own.description;
+    }
+    return merged;
+}
+
+/** The error `href()` throws for a name the route table does not hold, built from the core's catalog as the core builds its own. */
+function unknownRoute(name: string): ZerolithError
+{
+    const code = "route_name_unknown";
+    const text = diagnosticCatalog[code];
+    return new ZerolithError({ code, severity: "error", cause: text?.cause ?? "", fix: text?.fix ?? "", url: `${DIAGNOSTIC_URL}${code}?${new URLSearchParams({ name }).toString()}`, args: { name } });
 }
 
 /** A fragment percent-decoded, or as it is when its escapes are malformed, as in `#100%`. */
@@ -432,28 +476,31 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         return { match: { name: compiled.name, params, url: target, data }, view, compiled };
     };
 
+    /** True once any route or the options declare a head; a router with none leaves the document's head alone. */
+    const managesHead = options.head !== undefined || compiledRoutes.some((entry) => entry.route.head !== undefined);
+
+    /** Writes the merged head as a whole: the title, empty when it has none, and the description element, removed when it has none. */
     const applyHead = (value: Head): void =>
     {
-        if (win === undefined)
+        if (win === undefined || !managesHead)
         {
             return;
         }
         const doc = win.document;
-        if (value.title !== undefined)
+        doc.title = value.title ?? "";
+        let meta = doc.querySelector<HTMLMetaElement>("meta[name=\"description\"]");
+        if (value.description === undefined)
         {
-            doc.title = value.title;
+            meta?.remove();
+            return;
         }
-        if (value.description !== undefined)
+        if (meta === null)
         {
-            let meta = doc.querySelector<HTMLMetaElement>("meta[name=\"description\"]");
-            if (meta === null)
-            {
-                meta = doc.createElement("meta");
-                meta.name = "description";
-                doc.head.append(meta);
-            }
-            meta.content = value.description;
+            meta = doc.createElement("meta");
+            meta.name = "description";
+            doc.head.append(meta);
         }
+        meta.content = value.description;
     };
 
     /** Restores a saved position, or moves to the hash; failing both, to the top unless `top` is false, as on the first navigation, where the browser has placed the page. */
@@ -484,10 +531,13 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
     };
 
     let matchedView: RouteView<unknown, unknown> | undefined;
+    /** True once a navigation has committed, so a page is shown that a navigation to its own URL keeps. */
+    let committed = false;
 
     const commit = (target: URL, resolved: Resolved, value: Head, restored: number | undefined, first: boolean): void =>
     {
         matchedView = resolved.view;
+        committed = true;
         batch(() =>
         {
             url.set(target);
@@ -504,11 +554,31 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
      * the route and its head before the URL changes, then commits. A failure
      * at any step clears `pending` and ends in an `error` event.
      */
-    const go = async (target: URL, mode: "push" | "replace" | "pop", restored?: number, first = false): Promise<void> =>
+    const go = async (target: URL, mode: "push" | "replace" | "pop", restored?: number, first = false, reload = false): Promise<void> =>
     {
         const run = ++generation;
         controller?.abort();
         controller = undefined;
+        const shown = url.get();
+        if (committed && !reload && target.pathname === shown.pathname && target.search === shown.search)
+        {
+            pending.set(false);
+            options.observe?.({ type: "start", id: run, url: target, mode });
+            if (win !== undefined && mode === "push")
+            {
+                clearTimeout(scrollPause);
+                saveScroll();
+                win.history.pushState({}, "", target.href);
+            }
+            else if (win !== undefined && mode === "replace")
+            {
+                win.history.replaceState(entryState(), "", target.href);
+            }
+            url.set(target);
+            scrollTo(target, mode === "pop" && target.hash === "" ? restored : undefined);
+            options.observe?.({ type: "commit", id: run, url: target, mode, name: current.get()?.name });
+            return;
+        }
         pending.set(true);
         options.observe?.({ type: "start", id: run, url: target, mode });
         const failed = (error: unknown): void =>
@@ -526,7 +596,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         try
         {
             resolved = await resolve(target);
-            value = headOf(resolved);
+            value = headOf(resolved, target, options.head);
         }
         catch (error)
         {
@@ -673,7 +743,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             const entry = byName.get(name);
             if (entry === undefined)
             {
-                return base;
+                throw unknownRoute(name);
             }
             return bare + build(entry.route.path, (args[0] ?? {}) as Record<string, string>);
         },
@@ -692,7 +762,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
                 }
                 return Promise.resolve();
             }
-            return go(target, navigation.replace === true ? "replace" : "push");
+            return go(target, navigation.replace === true ? "replace" : "push", undefined, false, navigation.reload === true);
         },
         matches(path, matching = {})
         {

@@ -139,6 +139,11 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
         cause: "A package released together with zerolith, such as @zerolith/vite, @zerolith/devtools, or the command line, met a zerolith of another version. They share the zerolith/internal entry, which can change with every version, so each requires the zerolith of its own version.",
         fix: "Give zerolith and every @zerolith package the project uses the same version and install again; the message names both versions, and npm ls zerolith shows what is installed and what requires it."
     },
+    route_name_unknown:
+    {
+        cause: "href() of @zerolith/router was called with a name the route table does not hold, so there is no path to build.",
+        fix: "Use a name the table passed to createRouter declares; the message names the one given, and TypeScript rejects it in a typed project."
+    },
     template_not_prepared:
     {
         cause: "A template reached the runtime that the build's prepare pass never saw, in a bundle built without the scanner.",
