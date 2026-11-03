@@ -3,7 +3,8 @@ name: Benchmarks
 # Measures a published release on js-framework-benchmark next to every
 # framework benchmarks/frameworks.json lists, on a GitHub-hosted runner, and
 # commits the run with the results section of benchmarks/README.md, the
-# baseline, and the entry's pin. The release workflow starts it on the
+# baseline, and the entry's pin, then deploys the docs site again so its
+# benchmarks page shows the run. The release workflow starts it on the
 # release's tag once the release is out; a manual run measures any published
 # version again, on its tag where the tag holds this workflow, and with
 # commit off checks the run and keeps it as an artifact only.
@@ -196,6 +197,8 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: write
+      actions: write
+      deployments: read
     env:
       VERSION: ${{ inputs.version }}
     steps:
@@ -249,3 +252,27 @@ jobs:
             git pull --rebase origin main
           done
           exit 1
+
+      # The site renders the runs it was built with. While it still shows
+      # this release, deployed from the commit the release's tag names, it
+      # is deployed again from the tag; after a deploy from another commit,
+      # the next deploy takes the run from main on its own.
+      - name: Deploy the release's site again
+        if: ${{ inputs.commit }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          pinned="$(node -p "require('./benchmarks/js-framework-benchmark/package.json').dependencies.zerolith")"
+          if [ "$pinned" != "$VERSION" ]; then
+            echo "$VERSION is not the newest release measured, $pinned is, so the site stays as deployed"
+            exit 0
+          fi
+          deployed="$(gh api "repos/$GITHUB_REPOSITORY/deployments?environment=github-pages&per_page=1" --jq '.[0].sha')"
+          released="$(git rev-parse "zerolith@$VERSION^{commit}")"
+          if [ "$deployed" != "$released" ]; then
+            echo "the site was deployed from $deployed, not from $released, so its next deploy takes this run"
+            exit 0
+          fi
+          gh workflow run docs.yml --ref "zerolith@$VERSION"

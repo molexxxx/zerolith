@@ -4,7 +4,9 @@ name: Docs
 # the commit the run is on. The release workflow calls it after publishing,
 # so the site describes what the registry serves; a manual run builds the
 # ref it is dispatched on: main for a change to the site alone, or a release
-# tag to deploy that release's site again.
+# tag to deploy that release's site again, as the benchmarks workflow does
+# once a release's run lands. The benchmark runs come from main whichever
+# commit is built, since each release's run is committed after it.
 # The base path and the address for canonical links come from the Pages
 # configuration, so the same build serves the project site under
 # /zerolith/ and a custom domain at its root.
@@ -28,6 +30,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Take the newest benchmark runs
+        run: |
+          set -eu
+          git fetch --no-tags --depth 1 origin main
+          git checkout FETCH_HEAD -- benchmarks/results
 
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
