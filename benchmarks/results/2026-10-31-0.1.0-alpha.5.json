@@ -1,0 +1,64 @@
+{
+    "date": "2026-10-31",
+    "zerolith": "0.1.0-alpha.5",
+    "commit": "ca8715d",
+    "statistic": "mean",
+    "method": "means of 10 runs, the cores left to the system",
+    "machine": "AMD Ryzen 9 9950X3D with 31.1 GB of memory, Windows 11 Pro (build 26200), Chrome 156.0.8078.74 headless, Node 24.13.0",
+    "frameworks": [
+        {
+            "name": "vanilla",
+            "entry": "vanillajs",
+            "version": "hand-written",
+            "score": 1
+        },
+        {
+            "name": "Solid",
+            "entry": "solid",
+            "version": "1.9.3",
+            "score": 1.11
+        },
+        {
+            "name": "zerolith",
+            "entry": "zerolith",
+            "version": "0.1.0-alpha.5",
+            "score": 1.12
+        },
+        {
+            "name": "Svelte",
+            "entry": "svelte",
+            "version": "5.42.1",
+            "score": 1.14
+        },
+        {
+            "name": "Lit",
+            "entry": "lit",
+            "version": "3.2.0",
+            "score": 1.23
+        },
+        {
+            "name": "Vue",
+            "entry": "vue",
+            "version": "3.5.39",
+            "score": 1.26
+        },
+        {
+            "name": "Preact",
+            "entry": "preact-signals",
+            "version": "11.0.0 + 2.3.1",
+            "score": 1.34
+        },
+        {
+            "name": "Angular",
+            "entry": "angular-cf-signals-nozone",
+            "version": "22.2.2",
+            "score": 1.42
+        },
+        {
+            "name": "React",
+            "entry": "react-hooks",
+            "version": "19.2.0",
+            "score": 1.44
+        }
+    ]
+}

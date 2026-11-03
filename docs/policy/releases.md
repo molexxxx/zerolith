@@ -30,7 +30,7 @@ Alpha and beta versions (`0.1.0-alpha.1` and on) are published under the `alpha`
 4. The release workflow builds from the release commit, runs each binary it built, runs the full check again, publishes to npm with provenance through trusted publishing, publishes the crate to crates.io once npm has the version, and creates a GitHub release tagged `zerolith@<version>` whose notes are the version's changelog section, with the CycloneDX SBOM attached.
 5. The release workflow rebuilds the documentation site from the commit it published and deploys it to GitHub Pages, so the docs always describe what the registry serves; the API reference and the agent index (`llms.txt`, the API manifest) are regenerated from that build, never hand-edited. Pushes to the default branch do not redeploy the site, and a manual run of the docs workflow redeploys a given ref.
 
-6. A commit after the release moves `benchmarks/baseline` to the release's tag, so CI measures every later push against what users installed.
+6. A commit after the release moves `benchmarks/baseline` to the release's tag, so CI measures every later push against what users installed, pins the js-framework-benchmark entry to the release, and adds the release's run to `benchmarks/results/`, every framework measured again next to the released packages, from which `npm run bench:report` writes the results section of the benchmarks README, newest first.
 
 No step publishes from a developer machine. Publishing credentials do not exist outside the workflow.
 

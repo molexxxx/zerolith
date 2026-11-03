@@ -1,0 +1,15 @@
+{
+    "repository": "krausest/js-framework-benchmark",
+    "commit": "ca8715d9ae84916fd24de3a79457d8c328f9b766",
+    "frameworks": [
+        { "name": "vanilla", "entry": "vanillajs" },
+        { "name": "zerolith", "entry": "zerolith" },
+        { "name": "Solid", "entry": "solid" },
+        { "name": "Svelte", "entry": "svelte" },
+        { "name": "Lit", "entry": "lit" },
+        { "name": "Vue", "entry": "vue" },
+        { "name": "Preact", "entry": "preact-signals" },
+        { "name": "Angular", "entry": "angular-cf-signals-nozone" },
+        { "name": "React", "entry": "react-hooks" }
+    ]
+}

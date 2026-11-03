@@ -1,96 +1,87 @@
 # Benchmarks
 
-Two harnesses measure zerolith. [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark) is the shared public benchmark, where every framework renders the same keyed table; it is run here with zerolith next to the popular frameworks. `npm run bench` is this repository's quick check against a hand-written DOM baseline.
+zerolith is measured on [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark), the shared public benchmark where every framework renders the same keyed table and performs the same operations, next to hand-written JavaScript and seven popular frameworks. The results below are the newest release's, measured again for every release; [How the results are measured](#how-the-results-are-measured) says how. Two scripts in this folder check a change between releases: [npm run bench](#npm-run-bench) against a hand-written page, and [npm run bench:compare](#npm-run-benchcompare) against an earlier build.
 
-## js-framework-benchmark
+<!-- results: written by `npm run bench:report` from benchmarks/results/ -->
+## Results
 
-Every entry renders a table of rows and performs the same nine operations. The harness clicks a button and measures from the click to the end of the paint it causes, from Chrome's performance trace, so script, style, layout, and paint all count; five operations run with the CPU slowed by Chrome, as the official runs do. The memory results are what `performance.measureUserAgentSpecificMemory()` reports for the page after an operation and a forced garbage collection, and the size results are the bytes of the entry's files, uncompressed and compressed.
+The newest release, zerolith 0.1.0-alpha.8, measured on 2026-11-02 with medians of 15 runs, held to one group of cores on an idle machine, next to hand-written JavaScript and seven popular frameworks. The score is each framework's weighted geometric mean: every operation's time over the fastest framework's, combined with the weights of the official results page, so 1.00 would be fastest everywhere and lower is faster. The last column is the run before, 0.1.0-alpha.6, 2026-11-01, with means of 10 runs, the cores left to the system.
 
-The zerolith entry is in [js-framework-benchmark/](js-framework-benchmark/). The official results, measured by the benchmark's maintainer, are at https://krausest.github.io/js-framework-benchmark/; zerolith is not among them until the entry is accepted upstream.
-
-### Results, 2026-11-01
-
-One full run on one machine with every entry as published, zerolith at 0.1.0-alpha.6 installed from npm. The last column is the run of 2026-10-31, with zerolith at 0.1.0-alpha.5. 0.1.0-alpha.7 changes no runtime code, and the entry built with it is the same bundle byte for byte, so these results hold for it as well; the entry built with 0.1.0-alpha.8 differs from it only in the diagnostics link the bundle carries, `https://zerolith.dev/e/` in place of `https://molexxxx.github.io/zerolith/e/`.
-
-| Framework | Entry | Version | Weighted geometric mean | 2026-10-31 |
+| Framework | Entry | Version | Score | 0.1.0-alpha.6, 2026-11-01 |
 | --- | --- | --- | --- | --- |
-| vanilla | `vanillajs` | hand-written | 1.01 | 1.00 |
-| Solid | `solid` | 1.9.3 | 1.14 | 1.11 |
-| zerolith | `zerolith` | 0.1.0-alpha.6 | 1.14 | 1.12, at 0.1.0-alpha.5 |
-| Svelte | `svelte` | 5.42.1 | 1.15 | 1.14 |
-| Lit | `lit` | 3.2.0 | 1.24 | 1.23 |
-| Vue | `vue` | 3.5.39 | 1.24 | 1.26 |
-| Preact | `preact-signals` | 11.0.0, signals 2.3.1 | 1.34 | 1.34 |
-| Angular | `angular-cf-signals-nozone` | 22.2.2 | 1.38 | 1.42 |
-| React | `react-hooks` | 19.2.0 | 1.48 | 1.44 |
+| vanilla | `vanillajs` | hand-written | 1.00 | 1.01 |
+| Solid | `solid` | 1.9.3 | 1.07 | 1.14 |
+| zerolith | `zerolith` | 0.1.0-alpha.8 | 1.08 | 1.14 |
+| Svelte | `svelte` | 5.42.1 | 1.10 | 1.15 |
+| Lit | `lit` | 3.2.0 | 1.18 | 1.24 |
+| Vue | `vue` | 3.5.39 | 1.19 | 1.24 |
+| Preact | `preact-signals` | 11.0.0 + 2.3.1 | 1.27 | 1.34 |
+| Angular | `angular-cf-signals-nozone` | 22.2.2 | 1.29 | 1.38 |
+| React | `react-hooks` | 19.2.0 | 1.41 | 1.48 |
 
-The weighted geometric mean combines each framework's factor against the fastest result of every operation, with the weights of the official results page, so 1.00 would be fastest everywhere; vanilla's 1.01 comes from zerolith selecting a row fastest in this run.
+### Every operation
 
-Between the two days the other entries, whose code did not change, moved by as much as 2.8 percent, more than zerolith's 1.8 percent, so the day-to-day comparison says little. Measured side by side instead, in one run the same day with zerolith built from `main` at `301d419`, whose core is the one 0.1.0-alpha.6 shipped, next to 0.1.0-alpha.5 as published and vanilla, the new core's weighted geometric mean was 1.14 to 0.1.0-alpha.5's 1.15: faster at creating, selecting, swapping, and clearing rows, slightly slower at removing one, and level on the rest.
-
-Each cell below is the mean duration in milliseconds, with the factor against the fastest framework for that operation in parentheses.
+Each cell is the median duration in milliseconds, with the factor against the fastest framework for that operation in parentheses.
 
 | Operation | vanilla | Solid | zerolith | Svelte | Lit | Vue | Preact | Angular | React |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| create rows: create 1,000 rows | 30.4 (1.00) | 32.3 (1.06) | 35.1 (1.15) | 32.9 (1.08) | 36.0 (1.18) | 36.3 (1.19) | 42.1 (1.38) | 45.3 (1.49) | 37.9 (1.24) |
-| replace all rows: replace all 1,000 rows | 33.6 (1.00) | 36.6 (1.09) | 37.6 (1.12) | 37.8 (1.13) | 39.3 (1.17) | 41.7 (1.24) | 46.9 (1.40) | 50.1 (1.49) | 44.6 (1.33) |
-| partial update: update every 10th of 1,000 rows (4x slowdown) | 20.7 (1.00) | 24.8 (1.19) | 24.7 (1.19) | 25.0 (1.20) | 25.1 (1.21) | 26.3 (1.27) | 24.1 (1.16) | 25.1 (1.21) | 30.3 (1.46) |
-| select row: highlight a row (4x slowdown) | 8.5 (1.17) | 10.3 (1.41) | 7.3 (1.00) | 10.7 (1.48) | 11.3 (1.56) | 9.2 (1.26) | 9.2 (1.27) | 11.2 (1.55) | 13.2 (1.82) |
-| swap rows: swap 2 of 1,000 rows (4x slowdown) | 23.0 (1.00) | 35.0 (1.52) | 25.9 (1.13) | 30.0 (1.30) | 29.2 (1.27) | 27.0 (1.17) | 27.1 (1.18) | 25.1 (1.09) | 244.5 (10.62) |
-| remove row: remove one row (2x slowdown) | 18.9 (1.00) | 20.9 (1.10) | 21.4 (1.13) | 21.3 (1.13) | 21.3 (1.13) | 23.5 (1.24) | 21.5 (1.14) | 20.9 (1.11) | 22.4 (1.19) |
-| create many rows: create 10,000 rows | 324.2 (1.00) | 352.3 (1.09) | 371.9 (1.15) | 355.1 (1.10) | 381.0 (1.18) | 388.9 (1.20) | 441.3 (1.36) | 445.9 (1.38) | 453.0 (1.40) |
-| append rows: add 1,000 rows to 1,000 | 33.9 (1.00) | 36.9 (1.09) | 37.6 (1.11) | 37.1 (1.09) | 41.0 (1.21) | 40.3 (1.19) | 47.3 (1.40) | 47.7 (1.41) | 42.8 (1.26) |
-| clear rows: clear 1,000 rows (4x slowdown) | 16.8 (1.00) | 20.2 (1.20) | 19.8 (1.18) | 20.7 (1.23) | 27.8 (1.65) | 24.1 (1.43) | 29.4 (1.75) | 29.8 (1.77) | 32.2 (1.91) |
+| create 1,000 rows | 28.5 (1.00) | 29.7 (1.04) | 31.9 (1.12) | 30.9 (1.08) | 33.2 (1.16) | 33.8 (1.19) | 38.8 (1.36) | 42.2 (1.48) | 34.6 (1.21) |
+| replace all 1,000 rows | 30.1 (1.00) | 32.3 (1.07) | 33.2 (1.10) | 33.3 (1.11) | 34.7 (1.15) | 35.8 (1.19) | 40.7 (1.35) | 41.5 (1.38) | 40.3 (1.34) |
+| update every 10th row (4x slowdown) | 12.3 (1.00) | 14.1 (1.15) | 14.4 (1.17) | 14.1 (1.15) | 14.8 (1.20) | 15.5 (1.26) | 14.1 (1.15) | 14.3 (1.16) | 17.8 (1.45) |
+| select a row (4x slowdown) | 6.0 (1.00) | 6.4 (1.07) | 6.0 (1.00) | 8.2 (1.37) | 8.7 (1.45) | 6.8 (1.13) | 6.6 (1.10) | 8.4 (1.40) | 8.8 (1.47) |
+| swap 2 rows (4x slowdown) | 15.4 (1.00) | 16.6 (1.08) | 16.2 (1.05) | 17.5 (1.14) | 20.2 (1.31) | 17.5 (1.14) | 18.9 (1.23) | 18.0 (1.17) | 127.3 (8.27) |
+| remove one row (2x slowdown) | 13.8 (1.01) | 14.1 (1.03) | 13.7 (1.00) | 14.3 (1.04) | 14.8 (1.08) | 16.7 (1.22) | 14.7 (1.07) | 15.1 (1.10) | 15.1 (1.10) |
+| create 10,000 rows | 306.0 (1.00) | 321.2 (1.05) | 337.9 (1.10) | 326.9 (1.07) | 349.3 (1.14) | 351.3 (1.15) | 408.4 (1.33) | 402.0 (1.31) | 418.7 (1.37) |
+| append 1,000 rows to 1,000 | 31.2 (1.00) | 31.6 (1.01) | 33.4 (1.07) | 32.4 (1.04) | 35.8 (1.15) | 35.3 (1.13) | 41.0 (1.31) | 41.5 (1.33) | 37.2 (1.19) |
+| clear 1,000 rows (4x slowdown) | 11.9 (1.00) | 14.5 (1.22) | 12.3 (1.03) | 13.3 (1.12) | 15.9 (1.34) | 15.3 (1.29) | 16.8 (1.41) | 15.1 (1.27) | 21.0 (1.76) |
+
+### Memory, size, and first paint
 
 | Measure | vanilla | Solid | zerolith | Svelte | Lit | Vue | Preact | Angular | React |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| ready memory, after load (MB) | 0.56 | 0.58 | 0.72 | 0.67 | 0.72 | 0.87 | 0.69 | 1.14 | 1.18 |
-| run memory, with 1,000 rows (MB) | 2.02 | 2.83 | 3.39 | 3.02 | 2.98 | 4.07 | 5.04 | 3.76 | 4.57 |
-| after creating and clearing 1,000 rows 5 times (MB) | 0.65 | 0.77 | 0.96 | 0.97 | 0.88 | 1.19 | 8.94 | 1.68 | 1.97 |
+| ready memory, after load (MB) | 0.57 | 0.59 | 0.72 | 0.66 | 0.72 | 0.86 | 0.69 | 1.14 | 1.18 |
+| run memory, with 1,000 rows (MB) | 2.03 | 2.84 | 3.39 | 3.03 | 2.98 | 4.07 | 5.04 | 3.76 | 4.57 |
+| after creating and clearing 1,000 rows 5 times (MB) | 0.65 | 0.78 | 0.96 | 0.97 | 0.87 | 1.18 | 8.94 | 1.70 | 1.97 |
 | size uncompressed (kB) | 11.7 | 11.5 | 27.1 | 26.6 | 22.1 | 64.3 | 23.3 | 110.6 | 190.3 |
-| size compressed (kB) | 2.5 | 4.5 | 8.2 | 9.7 | 7.3 | 23.3 | 8.3 | 33.8 | 51.4 |
-| first paint (ms) | 112.7 | 115.4 | 113.8 | 120.2 | 114.4 | 116.4 | 112.2 | 118.4 | 208.9 |
+| size compressed (kB) | 2.5 | 4.5 | 8.1 | 9.7 | 7.3 | 23.3 | 8.3 | 33.8 | 51.4 |
+| first paint (ms) | 125.4 | 124.4 | 127.1 | 128.3 | 121.4 | 127.1 | 132.3 | 136.8 | 213.6 |
 
-zerolith's entry updates rows by setting a new array, as the guides teach, so the keyed list compares all 1,000 keys to find the changed rows, where the Solid, Svelte, and Preact entries write to a signal in each changed row. The entry's bundle grew from 26.2 to 27.1 kB uncompressed and from 7.9 to 8.2 kB compressed with this release's new checks and cleanup paths.
+### Every run
 
-Each framework is the keyed entry of the benchmark's repository at commit `ca8715d` (2026-10-25), built from its own lockfile; zerolith is the entry in [js-framework-benchmark/](js-framework-benchmark/), installed from its lockfile and built with `npm run build-prod`. The durations are the mean of 10 runs, and 20 for selecting a row; the memory, size, and first paint results are one run each, as the harness takes them, so small differences there say little.
+Each run's scores, newest first. A score compares frameworks within its own run, so a change in how the runs were taken moves every framework's score with it.
 
-The machine was an AMD Ryzen 9 9950X3D (16 cores) with 31.1 GB of memory, on Windows 11 Pro (build 26200), with Chrome 156.0.8078.74 run headless by the benchmark's own driver and Node 24.13.0, as on 2026-10-31. It was in normal use during the runs, and the frameworks ran one after another; the vanilla entry, measured in the same run, is the reference to read the others against. The benchmark's driver runs each framework in a browser process of its own, and on this processor, whose two halves of cores differ, a process held to one half took 38 to 53% longer than one held to the other (see [npm run bench:compare](#npm-run-benchcompare)); these runs did not hold the browser to either half, so a difference of a few percent between two frameworks here can be where the system ran each one.
+| Run | vanilla | Solid | zerolith | Svelte | Lit | Vue | Preact | Angular | React | Measured |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0.1.0-alpha.8, 2026-11-02 | 1.00 | 1.07 | 1.08 | 1.10 | 1.18 | 1.19 | 1.27 | 1.29 | 1.41 | medians of 15 runs, held to one group of cores on an idle machine |
+| 0.1.0-alpha.6, 2026-11-01 | 1.01 | 1.14 | 1.14 | 1.15 | 1.24 | 1.24 | 1.34 | 1.38 | 1.48 | means of 10 runs, the cores left to the system |
+| 0.1.0-alpha.5, 2026-10-31 | 1.00 | 1.11 | 1.12 | 1.14 | 1.23 | 1.26 | 1.34 | 1.42 | 1.44 | means of 10 runs, the cores left to the system |
 
-### Held to one group of cores, 2026-11-02
+0.1.0-alpha.6, 2026-11-01: 0.1.0-alpha.7 builds the same bundle byte for byte, so this run stands for it too.
+<!-- /results -->
 
-vanilla and zerolith 0.1.0-alpha.8 alone, from the same checkout and builds, with the runner held to the first eight logical processors as [Reproducing](#reproducing) shows and the machine otherwise idle, over the nine timed operations. Each cell is the median of 15 runs, as the official page shows them by default; script is the part of it spent running JavaScript, and the rest is style, layout, and paint.
+## How the results are measured
 
-| Operation | vanilla (ms) | zerolith (ms) | zerolith over vanilla | vanilla script (ms) | zerolith script (ms) |
-| --- | --- | --- | --- | --- | --- |
-| create 1,000 rows | 28.4 | 31.7 | 1.12 | 1.7 | 4.9 |
-| replace all 1,000 rows | 29.4 | 32.5 | 1.11 | 3.6 | 6.5 |
-| update every 10th row | 12.5 | 13.8 | 1.10 | 0.4 | 1.2 |
-| select a row | 6.0 | 5.6 | 0.93 | 0.4 | 0.6 |
-| swap 2 rows | 16.7 | 18.4 | 1.10 | 0.2 | 0.4 |
-| remove one row | 14.9 | 15.7 | 1.05 | 0.4 | 0.2 |
-| create 10,000 rows | 302.3 | 335.5 | 1.11 | 17.7 | 42.8 |
-| append 1,000 rows | 31.1 | 33.7 | 1.08 | 1.8 | 4.5 |
-| clear 1,000 rows | 12.1 | 12.1 | 1.00 | 9.0 | 8.9 |
-| weighted geometric mean | | | 1.08 | | |
+Every entry renders a table of rows and performs the same nine operations. The harness clicks a button and measures from the click to the end of the paint it causes, from Chrome's performance trace, so script, style, layout, and paint all count; five operations run with the CPU slowed by Chrome, as the official runs do, and each operation's duration is the median of 15 runs, 25 for selecting a row, as the official results page shows them by default. The memory results are what `performance.measureUserAgentSpecificMemory()` reports for the page after an operation and a forced garbage collection, and the size results are the bytes of the entry's files, uncompressed and compressed; each of those is one run, as the harness takes them, so small differences there say little.
 
-Held to one group, zerolith's factor against vanilla is 1.08, where the run above, left to the system, put zerolith at 1.14 and vanilla at 1.01; a run the same day with 0.1.0-alpha.7, while a game ran on the machine, gave 1.08 as well. Nearly all of the difference is script: the paint after creating 1,000 rows takes 26.3 ms for vanilla and 26.4 for zerolith, while the script before it takes 1.7 and 4.9, about 3 µs more for each row.
+Each framework is the keyed entry of the benchmark's repository at the commit [frameworks.json](frameworks.json) names, built from its own lockfile. zerolith is the entry in [js-framework-benchmark/](js-framework-benchmark/), pinned to the release and built with `npm run build-prod`; it updates rows by setting a new array, as the guides teach, so the keyed list compares all 1,000 keys to find the changed rows, where the Solid, Svelte, and Preact entries write to a signal in each changed row. The official results, measured by the benchmark's maintainer, are at https://krausest.github.io/js-framework-benchmark/; zerolith is not among them until the entry is accepted upstream.
+
+The benchmark's driver runs each framework in a browser process of its own. On a processor whose cores differ, such as the Ryzen 9 9950X3D these runs used, a process held to one half of the cores took 38 to 53% longer than one held to the other (see [npm run bench:compare](#npm-run-benchcompare)), so a run is taken with the runner held to one group of cores, which every browser it starts inherits, on an otherwise idle machine. The runs before 2026-11-02 left the cores to the system and took means of 10 runs, and every framework's score in them is higher for it.
 
 ### Reproducing
 
-[js-framework-benchmark/README.md](js-framework-benchmark/README.md) lists the steps to run the entry from a checkout of the benchmark. To measure the same frameworks, pass them all to the runner: `npm run bench -- --framework keyed/vanillajs keyed/zerolith keyed/solid keyed/svelte keyed/vue keyed/react-hooks keyed/angular-cf-signals-nozone keyed/preact-signals keyed/lit`.
+[js-framework-benchmark/README.md](js-framework-benchmark/README.md) lists the steps to run the entry from a checkout of the benchmark. To measure every framework the results show, pass their entries to the runner, held to one group of cores: from a Windows Command Prompt, `start "" /affinity FF /wait /b cmd /c npm run bench -- --headless --framework keyed/vanillajs keyed/zerolith keyed/solid keyed/svelte keyed/vue keyed/react-hooks keyed/angular-cf-signals-nozone keyed/preact-signals keyed/lit` keeps it on the first eight logical processors, and on Linux, `taskset -c 0-7` in front of the same `npm run bench` does the same.
 
-On a processor whose cores differ, hold the runner to one group of them, which every browser it starts inherits: from a Windows Command Prompt, `start "" /affinity FF /wait /b cmd /c npm run bench -- --framework keyed/vanillajs keyed/zerolith` keeps it on the first eight logical processors, and on Linux, `taskset -c 0-7 npm run bench -- --framework keyed/vanillajs keyed/zerolith` does the same.
+Then, in this repository, `npm run bench:collect -- <checkout>/webdriver-ts/results --date <YYYY-MM-DD> --zerolith <version> --method <text> --machine <text>` writes the run into [results/](results/), and `npm run bench:report` writes the results section above from every run there. A test fails while the section and the runs disagree.
 
 ## npm run bench
 
-`npm run bench` runs the same operations against two pages in headless Chromium: the zerolith implementation (`web/zerolith.js`, loading the production entry unbundled through an import map) and a hand-written DOM baseline (`web/vanilla.js`). It measures the two against each other as [npm run bench:compare](#npm-run-benchcompare) measures two builds: side by side in one page, so both run in one renderer process, alternating sample by sample and trading frames halfway in a new page, each operation under js-framework-benchmark's CPU slowdown, with garbage collected before every sample. Each sample times the operation plus the synchronous style and layout it forces, then waits a frame outside the measurement. The script prints each page's time for every operation, the geometric mean of its median in the two frames, and the geometric mean of the zerolith to vanilla ratios, which leaves out an operation vanilla does in under a millisecond, where a sample is mostly timer resolution. Pass an iteration count as the first argument; the default is 7.
+`npm run bench` runs the same operations against two pages in headless Chromium: the zerolith implementation (`web/zerolith.js`, loading the production entry unbundled through an import map) and a hand-written DOM baseline (`web/vanilla.js`), whose rows are copies of one prepared row filled through the text nodes the copy holds, with one listener on the table body for every row's links, as the fastest hand-written entries of js-framework-benchmark are written. It measures the two against each other as [npm run bench:compare](#npm-run-benchcompare) measures two builds: side by side in one page, so both run in one renderer process, alternating sample by sample and trading frames halfway in a new page, each operation under js-framework-benchmark's CPU slowdown, with garbage collected before every sample. Each sample times the operation plus the synchronous style and layout it forces, then waits a frame outside the measurement. The script prints each page's time for every operation, the geometric mean of its median in the two frames, and the geometric mean of the zerolith to vanilla ratios, which leaves out an operation vanilla does in under a millisecond, where a sample is mostly timer resolution. Pass an iteration count as the first argument; the default is 7.
 
 It is a quick check that a change did not make rendering slower, not a substitute for the public benchmark: the baseline here is written for this harness, and the page skips the template prepare pass of the build tools.
 
-### 2026-11-02, 0.1.0-alpha.8
+### Newest: 0.1.0-alpha.8, 2026-11-02
 
-Windows 11, Chrome Headless Shell 156, 15 iterations, two runs with the machine otherwise idle, the zerolith row written on one line as the js-framework-benchmark entry writes it, against the vanilla page as it is now: each row a copy of one prepared row, filled through the text nodes the copy holds, with one listener on the table body for every row's links, as the fastest hand-written entries of js-framework-benchmark are written. Earlier the same day the same core measured 1.08 twice at `43b854f` with a game running on the machine, and 1.03 twice against the earlier vanilla page, which built each row with `createElement` and gave each link a listener of its own; held to one group of cores, js-framework-benchmark itself measured 1.08 ([above](#held-to-one-group-of-cores-2026-11-02)), as this page does. The runs before these measured each page in a browser of its own, without the CPU slowdowns, so their numbers do not compare with these.
+Windows 11, Chrome Headless Shell 156, 15 iterations, two runs on an otherwise idle machine. js-framework-benchmark itself measured the same release at 1.08 of vanilla ([Results](#results)), as this page does.
 
 | Operation | Vanilla (ms) | zerolith (ms) | Ratio | Second run |
 | --- | --- | --- | --- | --- |
@@ -105,36 +96,18 @@ Windows 11, Chrome Headless Shell 156, 15 iterations, two runs with the machine 
 | clear rows | 12.3 | 13.7 | 1.11 | 1.13 |
 | geometric mean | | | 1.08 | 1.07 |
 
-### 2026-11-01, 0.1.0-alpha.6
-
-Windows 11, Chrome Headless Shell 156, 11 iterations.
-
-| Operation | Vanilla (ms) | zerolith (ms) | Ratio |
-| --- | --- | --- | --- |
-| create 1,000 rows | 21.1 | 24.1 | 1.14 |
-| replace all rows | 18.3 | 21.5 | 1.17 |
-| update every 10th row | 4.4 | 4.4 | 1.00 |
-| select a row | 0.0 | 0.1 | n/a |
-| swap two rows | 1.8 | 1.4 | 0.78 |
-| remove a row | 1.2 | 1.1 | 0.92 |
-| create 10,000 rows | 217.9 | 255.3 | 1.17 |
-| append 1,000 rows | 21.1 | 20.6 | 0.98 |
-| clear rows | 1.6 | 1.9 | 1.19 |
-| geometric mean | | | 1.03 |
-
-Run against 0.1.0-alpha.5 as published, alternating under the same load at 11 iterations each, the two cores measured within each other's spread: 1.11 and 1.08 for 0.1.0-alpha.5, 1.06 and 1.11 for 0.1.0-alpha.6.
-
-### Earlier runs
+### Every run
 
 | Run | Core gzip | Geometric mean |
 | --- | --- | --- |
-| 2026-10-28, first run after the template layer | 6,248 B | 1.26 |
-| 2026-10-30, 0.1.0-alpha.2 | 8,116 B | 1.29 |
-| 2026-10-31, main at `38d5e74` | 9,512 B | 1.09 |
-| 2026-10-31, 0.1.0-alpha.5 | 9,548 B | 1.05 |
+| 2026-11-02, 0.1.0-alpha.8 | 9,897 B | 1.08 |
 | 2026-11-01, 0.1.0-alpha.6 | 9,909 B | 1.03 |
+| 2026-10-31, 0.1.0-alpha.5 | 9,548 B | 1.05 |
+| 2026-10-31, main at `38d5e74` | 9,512 B | 1.09 |
+| 2026-10-30, 0.1.0-alpha.2 | 8,116 B | 1.29 |
+| 2026-10-28, first run after the template layer | 6,248 B | 1.26 |
 
-The core grew with hydration, custom elements, and diagnostics, and since 0.1.0-alpha.4 with the rendering work that clones each template from a copy prepared once, locates bindings by position, and gives keyed lists fast paths for creating, appending, replacing, swapping, removing, and clearing rows, and for updating rows that keep their places. 0.1.0-alpha.6 adds the factory form of `render`, `hydrate`, and `renderToString`, the cleanup a failed mount does, and coded refusals for a function given to `when` or `each`.
+The runs before 2026-11-02 measured each page in a browser of its own, without the CPU slowdowns, against a vanilla page that built each row with `createElement` and gave each link a listener of its own, so they compare with each other but not with the newest. The core grew with hydration, custom elements, and diagnostics, and since 0.1.0-alpha.4 with the rendering work that clones each template from a copy prepared once, locates bindings by position, and gives keyed lists fast paths for creating, appending, replacing, swapping, removing, and clearing rows, and for updating rows that keep their places.
 
 ## npm run bench:compare
 
