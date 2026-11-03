@@ -2,7 +2,7 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
-## 0.1.0-alpha.9 (2026-11-03)
+## 0.1.0-alpha.9
 
 A signal bound into a template is a binding that holds the signal and the part it writes, where it had been an effect whose function closed over both, so 1,000 rows of the js-framework-benchmark entry keep 3.80 MB where 0.1.0-alpha.8 kept 3.93 MB. Each release is now measured on js-framework-benchmark once it is published, beside the release before in the same session, and the docs site shows the results at https://zerolith.dev/benchmarks/.
 

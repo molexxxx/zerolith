@@ -1,6 +1,6 @@
 {
     "name": "@zerolith/router",
-    "version": "0.1.0-alpha.9",
+    "version": "0.1.0-alpha.8",
     "description": "Typed client-side routing for zerolith: an inference-only route table, plain anchors, loaders, head metadata, and an outlet view",
     "license": "Apache-2.0",
     "author": "molexxxx",
@@ -47,9 +47,9 @@
         "build": "tsc -p tsconfig.build.json && node ../../scripts/production.ts"
     },
     "peerDependencies": {
-        "zerolith": "^0.1.0-alpha.9"
+        "zerolith": "^0.1.0-alpha.8"
     },
     "devDependencies": {
-        "zerolith": "^0.1.0-alpha.9"
+        "zerolith": "^0.1.0-alpha.8"
     }
 }
