@@ -355,6 +355,8 @@ mod tests {
 
     #[test]
     fn reports_a_skill_written_for_another_version() {
+        /// A version below every release, so never the one this binary writes into the skill.
+        const OTHER: &str = "0.0.1";
         let root =
             std::env::temp_dir().join(format!("zerolith-doctor-skill-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
@@ -366,7 +368,7 @@ mod tests {
         .unwrap();
         fs::write(
             root.join("node_modules/zerolith/package.json"),
-            "{\"name\":\"zerolith\",\"version\":\"0.1.0-alpha.9\"}",
+            format!("{{\"name\":\"zerolith\",\"version\":\"{OTHER}\"}}"),
         )
         .unwrap();
         crate::skill::write(&root).unwrap();
@@ -381,7 +383,7 @@ mod tests {
         assert!(
             found.iter().all(|(code, cause)| *code == "skill_outdated"
                 && cause.contains(&format!(
-                    "describes zerolith {}, and 0.1.0-alpha.9 is installed",
+                    "describes zerolith {}, and {OTHER} is installed",
                     env!("CARGO_PKG_VERSION")
                 ))),
             "{found:?}"
@@ -402,7 +404,7 @@ mod tests {
         .unwrap();
         fs::write(
             root.join("node_modules/zerolith/package.json"),
-            "{\"name\":\"zerolith\",\"version\":\"0.1.0-alpha.9\"}",
+            format!("{{\"name\":\"zerolith\",\"version\":\"{OTHER}\"}}"),
         )
         .unwrap();
         assert_eq!(codes(&root).len(), 1);
