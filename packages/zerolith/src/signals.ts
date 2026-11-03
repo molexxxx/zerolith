@@ -124,7 +124,7 @@ interface Edge
 let consumer: Consumer | undefined;
 let owner: OwnerNode | undefined;
 let batchDepth = 0;
-let pending: Effect | undefined;
+let pending: Reaction | undefined;
 let rounds = 0;
 let globalVersion = 0;
 
@@ -144,7 +144,7 @@ function own(node: OwnerNode): OwnerNode | undefined
     return previous;
 }
 
-function enqueue(node: Effect): void
+function enqueue(node: Reaction): void
 {
     node.next = pending;
     pending = node;
@@ -328,12 +328,12 @@ function endBatch(): void
     let ran = 0;
     while (pending !== undefined)
     {
-        let node: Effect | undefined = pending;
+        let node: Reaction | undefined = pending;
         pending = undefined;
         rounds++;
         while (node !== undefined)
         {
-            const next: Effect | undefined = node.next;
+            const next: Reaction | undefined = node.next;
             node.next = undefined;
             node.flags &= ~NOTIFIED;
             if (!(node.flags & DISPOSED) && stale(node))
@@ -589,23 +589,32 @@ class Computed<T> implements ReadableSignal<T>, Source, Consumer
     }
 }
 
-class Effect implements Consumer, OwnerNode
+/**
+ * What effects and bindings share: each runs again when a source it read
+ * changes, owns what it creates while running, and disposes that before
+ * its next run and when it is disposed.
+ */
+abstract class Reaction implements Consumer, OwnerNode
 {
     flags = TRACKING;
     sources: Edge | undefined = undefined;
-    next: Effect | undefined = undefined;
+    next: Reaction | undefined = undefined;
     children: Disposable[] | undefined = undefined;
-    private fn: EffectFunction | undefined;
-    private cleanup: (() => void) | undefined = undefined;
+    protected cleanup: (() => void) | undefined = undefined;
 
-    constructor(fn: EffectFunction)
+    constructor()
     {
-        this.fn = fn;
         if (isInternal())
         {
             this.flags |= INTERNAL;
         }
     }
+
+    /** Does the reaction's work, with it as the consumer and the owner; returns what an effect function returned. */
+    protected abstract execute(): unknown;
+
+    /** Lets go of what the work refers to, once the reaction is disposed. */
+    protected abstract forget(): void;
 
     run(): void
     {
@@ -622,12 +631,12 @@ class Effect implements Consumer, OwnerNode
         const previousOwner = own(this);
         try
         {
-            if (this.fn !== undefined && !(this.flags & DISPOSED))
+            if (!(this.flags & DISPOSED))
             {
-                const cleanup = this.flags & INTERNAL ? internal(this.fn) : this.fn();
+                const cleanup = this.execute();
                 if (typeof cleanup === "function")
                 {
-                    this.cleanup = cleanup;
+                    this.cleanup = cleanup as () => void;
                 }
             }
         }
@@ -733,9 +742,86 @@ class Effect implements Consumer, OwnerNode
         {
             edge.source.unsubscribe(edge);
         }
-        this.fn = undefined;
+        this.forget();
         this.sources = undefined;
         this.settle();
+    }
+}
+
+class Effect extends Reaction
+{
+    private fn: EffectFunction | undefined;
+
+    constructor(fn: EffectFunction)
+    {
+        super();
+        this.fn = fn;
+    }
+
+    protected execute(): unknown
+    {
+        const fn = this.fn;
+        if (fn === undefined)
+        {
+            return undefined;
+        }
+        return this.flags & INTERNAL ? internal(fn) : fn();
+    }
+
+    protected forget(): void
+    {
+        this.fn = undefined;
+    }
+}
+
+/** Where a binding writes its signal's value: one of the runtime's parts. Internal to the runtime packages. */
+export interface Sink
+{
+    /** Takes the value, run as an effect's function runs: with the binding as the consumer and the owner of what taking it creates. */
+    receive(value: unknown): void;
+}
+
+/**
+ * An effect that reads one signal and writes its value to a sink, as the
+ * runtime binds a signal to the page. It holds the signal and the sink
+ * where an effect would hold a closure over both, so a binding costs one
+ * object.
+ */
+class Binding extends Reaction
+{
+    private source: ReadableSignal<unknown> | undefined;
+    private sink: Sink | undefined;
+
+    constructor(source: ReadableSignal<unknown>, sink: Sink)
+    {
+        super();
+        this.source = source;
+        this.sink = sink;
+    }
+
+    protected execute(): unknown
+    {
+        const { source, sink } = this;
+        if (source === undefined || sink === undefined)
+        {
+            return undefined;
+        }
+        if (this.flags & INTERNAL)
+        {
+            internal(() =>
+            {
+                sink.receive(source.get());
+            });
+            return undefined;
+        }
+        sink.receive(source.get());
+        return undefined;
+    }
+
+    protected forget(): void
+    {
+        this.source = undefined;
+        this.sink = undefined;
     }
 }
 
@@ -834,6 +920,24 @@ export function startEffect(fn: EffectFunction): Disposable
 {
     const node = new Effect(fn);
     trackNode(node, "effect", fn.name === "" ? undefined : fn.name, inspectEffect);
+    return start(node);
+}
+
+/**
+ * Binds `source` to `sink` as `startEffect(() => sink.receive(source.get()))`
+ * would, writing now and whenever the signal changes, without a closure.
+ * Internal to the runtime packages.
+ */
+export function startBinding(source: ReadableSignal<unknown>, sink: Sink): Disposable
+{
+    const node = new Binding(source, sink);
+    trackNode(node, "effect", undefined, inspectEffect);
+    return start(node);
+}
+
+/** Runs a new reaction for the first time and gives it to the current owner. */
+function start(node: Reaction): Disposable
+{
     try
     {
         measureRun("Signals", "effect", node);

@@ -11,7 +11,7 @@
 import { URL_ATTRIBUTES, describe, isNothing, isText, join, safeUrl } from "./binding.js";
 import { measure, trackRoot, untrackRoot } from "./devtools.js";
 import { diagnostic, fail, report } from "./diagnostics.js";
-import { type Disposable, type Owner, type ReadableSignal, type Signal, createOwner, isSignal, onDispose, signal, startEffect, untracked } from "./signals.js";
+import { type Disposable, type Owner, type ReadableSignal, type Signal, type Sink, createOwner, isSignal, onDispose, signal, startBinding, startEffect, untracked } from "./signals.js";
 import { ATTRIBUTE, BOOLEAN, CHILD, EVENT, type PartSpec, type Prepared, REF, prepare, trusted, walker } from "./template.js";
 
 /** Brand carried by every value the renderer accepts as a description of UI. */
@@ -466,11 +466,13 @@ function edgesOf(parts: readonly BoundPart[], parent: ParentNode | null): ChildP
 }
 
 /** A position between two nodes that displays one value. */
-class ChildPart implements BoundPart
+class ChildPart implements BoundPart, Sink
 {
     readonly count: number = 1;
     readonly anchor: Comment;
     private owner: Disposable | undefined = undefined;
+    /** The server-rendered node a bound signal's first value adopts, until that value is written. */
+    private pending: ChildNode | undefined = undefined;
     private instance: Instance | undefined = undefined;
     private text: Text | undefined = undefined;
     private node: ChildNode | undefined = undefined;
@@ -495,23 +497,11 @@ class ChildPart implements BoundPart
     {
         this.owner?.dispose();
         this.owner = undefined;
+        this.pending = undefined;
         if (isSignal(value))
         {
-            let adopt = cursor;
-            this.owner = startEffect(() =>
-            {
-                const current = value.get();
-                if (adopt !== undefined)
-                {
-                    const start = adopt;
-                    adopt = undefined;
-                    this.adopt(current, start);
-                }
-                else
-                {
-                    this.apply(current);
-                }
-            });
+            this.pending = cursor;
+            this.owner = startBinding(value, this);
             return;
         }
         if (isNothing(value) || isText(value))
@@ -539,6 +529,19 @@ class ChildPart implements BoundPart
                 this.apply(value);
             }
         });
+    }
+
+    /** Writes a bound signal's value: the first one adopts the server-rendered nodes when `set()` was given a cursor, every later one replaces what is displayed. */
+    receive(value: unknown): void
+    {
+        const start = this.pending;
+        if (start !== undefined)
+        {
+            this.pending = undefined;
+            this.adopt(value, start);
+            return;
+        }
+        this.apply(value);
     }
 
     /** Removes the displayed nodes. Effects are owned by `set()` and disposed there. */
@@ -807,7 +810,7 @@ interface HandlerObject
 }
 
 /** An attribute, boolean attribute, property, or event binding on one element. */
-class AttributePart implements BoundPart
+class AttributePart implements BoundPart, Sink
 {
     readonly count: number;
     private readonly element: Element;
@@ -843,10 +846,7 @@ class AttributePart implements BoundPart
             const value = values[offset];
             if (isSignal(value))
             {
-                this.owner = startEffect(() =>
-                {
-                    this.applyOne(value.get());
-                });
+                this.owner = startBinding(value, this);
                 return;
             }
             this.applyOne(value);
@@ -864,6 +864,12 @@ class AttributePart implements BoundPart
         {
             this.apply(own);
         }
+    }
+
+    /** Writes a bound signal's value to the one expression this part holds. */
+    receive(value: unknown): void
+    {
+        this.applyOne(value);
     }
 
     /** Applies the values of an attribute with several expressions. */
