@@ -25,7 +25,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 In order:
 
 1. Migrate the first production site onto zerolith, served buildless with a Lighthouse budget in CI.
-2. Submit the keyed entry to js-framework-benchmark, which is pinned to `0.1.0-alpha.7` and passes the benchmark's checks, and settle the per-row work that remains before the API is frozen. Held to one group of cores, the entry measures 1.08 of the vanilla entry, nearly all of it script: 4.8 ms against 1.7 to create 1,000 rows ([benchmarks](../benchmarks/README.md)). Bindings as effects of their own come first. `@` event bindings stay listeners on their own elements, with standard event semantics: a build that added no listener at all, the most delegating them to the root could save, measured within noise of one that does.
+2. Submit the keyed entry to js-framework-benchmark, which is pinned to `0.1.0-alpha.8` and passes the benchmark's checks, and settle the per-row work that remains before the API is frozen. Held to one group of cores, the entry measures 1.08 of the vanilla entry, nearly all of it script: 4.9 ms against 1.7 to create 1,000 rows ([benchmarks](../benchmarks/README.md)). Bindings as effects of their own come first. `@` event bindings stay listeners on their own elements, with standard event semantics: a build that added no listener at all, the most delegating them to the root could save, measured within noise of one that does.
 3. Review the core, templates, and router API through an RFC, with what the migration and the performance work found, and freeze it for 1.0. The router's part includes a way for components to build typed links without importing the router, whose module closes an import loop through the route table today.
 
 ## 1.0

@@ -2,9 +2,9 @@
  * Measures what a change does to rendering speed against the core built at
  * a base commit. Both builds load side by side in one page of a headless
  * Chromium, each in its own frame, so they share one renderer process and
- * meet the same load wherever the system runs it: a process can take 40%
- * longer on some of a processor's cores than on others, so two builds in
- * two processes measure where each was placed as much as the change. Every
+ * meet the same load wherever the system runs it: a process can take half
+ * again as long on some of a processor's cores as on others, so two builds
+ * in two processes measure where each was placed as much as the change. Every
  * iteration of every operation runs in both frames in alternating order,
  * so drift cancels. Halfway the builds trade frames, as one frame can run
  * some operations steadily faster than the other, and the second half runs
