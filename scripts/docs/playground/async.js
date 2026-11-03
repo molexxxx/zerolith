@@ -1,46 +1,41 @@
 /*
- * Async data: a resource loads from a signal and loads again when the
- * signal changes, aborting the request it replaces. Its status, its
- * error, and its last value are signals too, and the last value stays
- * on screen, dimmed, while the next one loads.
+ * Async data: a resource fetches a city from this site and fetches again
+ * when the selected city changes, aborting the request it replaces. Its
+ * status, its error, and its last value are signals too, and the last
+ * value stays on screen, dimmed, while the next one loads.
  *
- * Try: pick another city, then Atlantis, which fails, and Try again.
+ * Try: pick another city, then Atlantis, which the site has no record of,
+ * and Try again. To watch the loading state, slow the network down in
+ * your browser's developer tools.
  */
 import { computed, css, html, render, resource, signal, when } from "zerolith";
 
-/** A stand-in for fetch: the preview has no backend, so this waits. */
-function fetchWeather(city, abort)
+/** Fetches a city's record, a JSON file the site serves beside this page. */
+async function fetchCity(name, abort)
 {
-    return new Promise((resolve, reject) =>
+    const url = `cities/${name.toLowerCase()}.json`;
+    const response = await fetch(url, { signal: abort });
+    if (!response.ok)
     {
-        const timer = setTimeout(() =>
-        {
-            if (city === "Atlantis")
-            {
-                reject(new Error("No station in Atlantis."));
-            }
-            else
-            {
-                resolve({ city, celsius: 12 + city.length });
-            }
-        }, 600);
-        abort.addEventListener("abort", () => clearTimeout(timer));
-    });
+        throw new Error(`No record of ${name} (HTTP ${response.status}).`);
+    }
+    return response.json();
 }
 
 const city = signal("Lisbon");
-const weather = resource({
+const record = resource({
     params: () => city.get(),
-    loader: ({ params, abort }) => fetchWeather(params, abort)
+    loader: ({ params, abort }) => fetchCity(params, abort)
 });
 
-const loading = computed(() => weather.status.get() === "pending");
-const failed = computed(() => weather.status.get() === "error");
-const reason = computed(() => weather.error.get()?.message ?? "");
-const report = computed(() =>
+const loading = computed(() => record.status.get() === "pending");
+const failed = computed(() => record.status.get() === "error");
+const reason = computed(() => record.error.get()?.message ?? "");
+const place = computed(() => record.get()?.name ?? "");
+const details = computed(() =>
 {
-    const value = weather.get();
-    return value === undefined ? "" : `${value.city} ${value.celsius} °C`;
+    const value = record.get();
+    return value === undefined ? "" : `${value.country}, ${value.timeZone}`;
 });
 
 const panel = css`
@@ -59,13 +54,14 @@ const panel = css`
         letter-spacing: 0.06em;
         text-transform: uppercase;
     }
-    .reading {
-        min-height: 1.1em;
+    .record { min-height: 4.5em; }
+    .record[aria-busy="true"] { opacity: 0.4; }
+    .place {
         margin: 0;
         font: 600 40px/1.1 var(--font-display);
         letter-spacing: -0.03em;
     }
-    .reading[aria-busy="true"] { opacity: 0.4; }
+    .details { margin: 8px 0 0; color: var(--muted); }
     .status { margin: 0; color: var(--muted); font-family: var(--font-mono); }
     [role="alert"] {
         display: flex;
@@ -77,16 +73,20 @@ const panel = css`
     }
 `;
 
-function Report()
+function Record()
 {
-    return html`<p class="reading" aria-busy=${loading}>${report}</p>`;
+    return html`
+        <div class="record" aria-busy=${loading}>
+            <p class="place">${place}</p>
+            <p class="details">${details}</p>
+        </div>`;
 }
 
 function Failure()
 {
     return html`
         <p role="alert">${reason}
-            <button @click=${() => weather.reload()}>Try again</button>
+            <button @click=${() => record.reload()}>Try again</button>
         </p>`;
 }
 
@@ -99,9 +99,10 @@ render(html`
             <select @change=${choose}>
                 <option>Lisbon</option>
                 <option>Reykjavik</option>
+                <option>Nairobi</option>
                 <option>Atlantis</option>
             </select>
         </label>
-        ${when(failed, Failure, Report)}
-        <p class="status">status: ${weather.status}</p>
+        ${when(failed, Failure, Record)}
+        <p class="status">status: ${record.status}</p>
     </section>`, "#app");

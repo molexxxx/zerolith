@@ -1237,6 +1237,9 @@ main[tabindex="-1"]:focus
     position: absolute;
     width: 1px;
     height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
@@ -1767,8 +1770,8 @@ main[tabindex="-1"]:focus
 {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
-    height: calc(100vh - var(--docs-header) - var(--zl-rule));
-    height: calc(100dvh - var(--docs-header) - var(--zl-rule));
+    height: calc(100vh - var(--docs-header));
+    height: calc(100dvh - var(--docs-header));
 }
 
 .playground .bar

@@ -62,7 +62,7 @@ export function createStaticServer(root: string): Server
     {
         const answer = (status: number, text: string): void =>
         {
-            response.writeHead(status, { "content-type": "text/plain; charset=utf-8" });
+            response.writeHead(status, { "content-type": "text/plain; charset=utf-8", "access-control-allow-origin": "*" });
             response.end(text);
         };
         if (!loopback(request.headers.host))

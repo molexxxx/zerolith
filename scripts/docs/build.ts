@@ -687,7 +687,8 @@ async function copyAssets(production: string, core: Map<string, string>, router:
         ...siteScripts.map((name) => copyFile(join(root, "scripts", "docs", name), join(out, name))),
         ...place(routerBuild, "router", router),
         ...playgroundModules(root).map(({ from, to }) => cp(from, join(out, to), { recursive: true, filter: (source) => !source.endsWith(".map") && !source.endsWith(".d.ts") && !/[\\/]production$/.test(source) })),
-        cp(join(root, "skills"), join(out, "skills"), { recursive: true })
+        cp(join(root, "skills"), join(out, "skills"), { recursive: true }),
+        cp(join(root, "scripts", "docs", "playground", "cities"), join(out, "playground", "cities"), { recursive: true })
     ]);
     await Promise.all([
         readFile(join(root, "crates", "zerolith", "templates", "styles.css"), "utf8").then((css) => writeFile(join(out, "playground", "preview.css"), previewStyles(css))),
