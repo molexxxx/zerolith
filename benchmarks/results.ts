@@ -6,7 +6,7 @@
  * timed operations with the weights of the official results page, so 1.00
  * would be fastest everywhere.
  */
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 /** The nine timed operations, by the benchmark's ids, with their labels and the official results page's weights. */
@@ -179,11 +179,76 @@ export function checkRun(value: unknown, file: string): Run
     return run as unknown as Run;
 }
 
-/** Every run in `folder`, newest first, each checked by `checkRun`. */
+/** A version's three numbers and its prerelease identifiers. */
+function parseVersion(version: string): { core: number[]; prerelease: string[] }
+{
+    const dash = version.indexOf("-");
+    const core = dash === -1 ? version : version.slice(0, dash);
+    return { core: core.split(".").map(Number), prerelease: dash === -1 ? [] : version.slice(dash + 1).split(".") };
+}
+
+/** Two prerelease identifiers in semver order: numbers by value and before words, words by their characters. */
+function compareIdentifiers(a: string, b: string): number
+{
+    const numericA = /^\d+$/.test(a);
+    const numericB = /^\d+$/.test(b);
+    if (numericA && numericB)
+    {
+        return Number(a) - Number(b);
+    }
+    if (numericA !== numericB)
+    {
+        return numericA ? -1 : 1;
+    }
+    if (a === b)
+    {
+        return 0;
+    }
+    return a < b ? -1 : 1;
+}
+
+/** Two versions in semver precedence: negative when `a` is the earlier release, zero when they are one. */
+export function compareVersions(a: string, b: string): number
+{
+    const left = parseVersion(a);
+    const right = parseVersion(b);
+    for (let index = 0; index < 3; index += 1)
+    {
+        const difference = (left.core[index] ?? 0) - (right.core[index] ?? 0);
+        if (difference !== 0)
+        {
+            return difference;
+        }
+    }
+    if (left.prerelease.length === 0 || right.prerelease.length === 0)
+    {
+        return right.prerelease.length - left.prerelease.length;
+    }
+    for (let index = 0; index < Math.min(left.prerelease.length, right.prerelease.length); index += 1)
+    {
+        const difference = compareIdentifiers(left.prerelease[index] ?? "", right.prerelease[index] ?? "");
+        if (difference !== 0)
+        {
+            return difference;
+        }
+    }
+    return left.prerelease.length - right.prerelease.length;
+}
+
+/**
+ * Every run in `folder`, each checked by `checkRun`, the newest release
+ * first and a release's runs newest first, so a release measured again
+ * later stays among its own runs.
+ */
 export async function readRuns(folder: string): Promise<Run[]>
 {
-    const names = (await readdir(folder)).filter((name) => name.endsWith(".json")).toSorted().toReversed();
-    return Promise.all(names.map(async (name) => checkRun(JSON.parse(await readFile(join(folder, name), "utf8")), name)));
+    const names = (await readdir(folder)).filter((name) => name.endsWith(".json"));
+    const runs = await Promise.all(names.map(async (name) => checkRun(JSON.parse(await readFile(join(folder, name), "utf8")), name)));
+    return runs.toSorted((a, b) =>
+    {
+        const byVersion = compareVersions(b.zerolith, a.zerolith);
+        return byVersion === 0 ? b.date.localeCompare(a.date) : byVersion;
+    });
 }
 
 /** Each framework's weighted geometric mean in a run, by name: from its operation times when the run kept them, otherwise as published. */
@@ -227,17 +292,21 @@ function table(header: readonly string[], rows: readonly (readonly string[])[]):
 }
 
 /**
- * The README section the runs render, newest first: the newest run's
- * scores with a column for the run before it, its operations, its memory,
- * size, and first paint, then every run's scores.
+ * The README section the runs render, in the order `readRuns` gives them:
+ * the newest run's scores, with a column for the newest earlier release
+ * measured the same way when there is one, its operations, its memory,
+ * size, and first paint, then every run's scores. Runs taken another way
+ * are left out of the column, since a change of machine or method moves
+ * every framework's score.
  */
 export function renderResults(runs: readonly Run[]): string
 {
-    const [current, previous] = runs;
+    const [current] = runs;
     if (current === undefined)
     {
         throw new Error("no run to render");
     }
+    const previous = runs.find((run) => run.method === current.method && compareVersions(run.zerolith, current.zerolith) < 0);
     const currentScores = scores(current);
     const previousScores = previous === undefined ? undefined : scores(previous);
     const order = current.frameworks.toSorted((a, b) => (currentScores.get(a.name) ?? 0) - (currentScores.get(b.name) ?? 0));
@@ -245,7 +314,7 @@ export function renderResults(runs: readonly Run[]): string
     const lines: string[] = [];
     lines.push("## Results");
     lines.push("");
-    lines.push(`The newest release, zerolith ${current.zerolith}, measured on ${current.date} with ${current.method}, next to hand-written JavaScript and seven popular frameworks. The score is each framework's weighted geometric mean: every operation's time over the fastest framework's, combined with the weights of the official results page, so 1.00 would be fastest everywhere and lower is faster. ${previous === undefined ? "" : `The last column is the run before, ${label(previous)}, with ${previous.method}.`}`.trimEnd());
+    lines.push(`The newest release, zerolith ${current.zerolith}, measured on ${current.date} with ${current.method}, next to hand-written JavaScript and seven popular frameworks. The score is each framework's weighted geometric mean: every operation's time over the fastest framework's, combined with the weights of the official results page, so 1.00 would be fastest everywhere and lower is faster. ${previous === undefined ? "No earlier release was measured the same way, so there is no column to compare with; every run's scores are listed below." : `The last column is the newest earlier release measured the same way, ${label(previous)}.`}`);
     lines.push("");
     lines.push(table(
         ["Framework", "Entry", "Version", "Score", ...(previous === undefined ? [] : [label(previous)])],
@@ -286,7 +355,7 @@ export function renderResults(runs: readonly Run[]): string
     lines.push("");
     lines.push("### Every run");
     lines.push("");
-    lines.push("Each run's scores, newest first. A score compares frameworks within its own run, so a change in how the runs were taken moves every framework's score with it.");
+    lines.push("Each run's scores, the newest release first. A score compares frameworks within its own run, so a change in how the runs were taken moves every framework's score with it.");
     lines.push("");
     const history = runs.map((run) => ({ run, scores: scores(run) }));
     lines.push(table(
@@ -300,6 +369,59 @@ export function renderResults(runs: readonly Run[]): string
         lines.push(notes.map((run) => `${label(run)}: ${run.note}`).join(" "));
     }
     return `${SECTION_START}\n${lines.join("\n")}\n${SECTION_END}`;
+}
+
+/** A file's text with the one match of `pattern` replaced; throws when it holds none. */
+async function replacedOnce(path: string, pattern: RegExp, replacement: string): Promise<string>
+{
+    const before = await readFile(path, "utf8");
+    if (!pattern.test(before))
+    {
+        throw new Error(`${path} holds no ${pattern}`);
+    }
+    return before.replace(pattern, replacement);
+}
+
+/**
+ * Moves what names the measured release, under the repository at `root`:
+ * `benchmarks/baseline`, the js-framework-benchmark entry's pins of
+ * `zerolith` and `@zerolith/cli`, and the sentences in the roadmap and the
+ * entry's README that state the pin. The pin only moves forward: when the
+ * baseline names a later release, every file is left as it is and the
+ * result is false. Every file is read and checked before any is written,
+ * so a refusal changes none. The entry's lockfile is npm's to update.
+ */
+export async function pinRelease(version: string, root: string): Promise<boolean>
+{
+    if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/.test(version))
+    {
+        throw new Error(`${JSON.stringify(version)} is not a version`);
+    }
+    const baselinePath = join(root, "benchmarks", "baseline");
+    const pinned = /^zerolith@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)\n?$/.exec(await readFile(baselinePath, "utf8"))?.[1];
+    if (pinned === undefined)
+    {
+        throw new Error(`${baselinePath} names no zerolith release`);
+    }
+    if (compareVersions(version, pinned) < 0)
+    {
+        return false;
+    }
+    const entry = join(root, "benchmarks", "js-framework-benchmark");
+    const manifest = JSON.parse(await readFile(join(entry, "package.json"), "utf8")) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
+    manifest.dependencies["zerolith"] = version;
+    manifest.devDependencies["@zerolith/cli"] = version;
+    const files: [string, string][] = [
+        [baselinePath, `zerolith@${version}\n`],
+        [join(entry, "package.json"), `${JSON.stringify(manifest, null, 4)}\n`],
+        [join(root, "docs", "ROADMAP.md"), await replacedOnce(join(root, "docs", "ROADMAP.md"), /pinned to `[^`]+`/, `pinned to \`${version}\``)],
+        [join(entry, "README.md"), await replacedOnce(join(entry, "README.md"), /The entry pins \S+?,/, `The entry pins ${version},`)]
+    ];
+    for (const [path, content] of files)
+    {
+        await writeFile(path, content);
+    }
+    return true;
 }
 
 /** The README with its results section replaced by `section`; throws when the README holds no section to replace. */

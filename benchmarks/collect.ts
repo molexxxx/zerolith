@@ -3,10 +3,12 @@
  * benchmark's own result files, for every framework `frameworks.json`
  * lists: each timed operation's median duration and each memory, size, and
  * first paint result.
- *   node benchmarks/collect.ts <webdriver-ts/results> --date <YYYY-MM-DD> --zerolith <version> --method <text> --machine <text> [--note <text>]
+ *   node benchmarks/collect.ts <webdriver-ts/results> --date <YYYY-MM-DD> --zerolith <version> --method <text> --machine <text> [--note <text>] [--out <file>]
  * An entry's files are named for its folder and the version it ran; an
  * entry with files of several versions is refused, except zerolith, whose
- * version `--zerolith` names.
+ * version `--zerolith` names. `--out` writes the run to that file instead,
+ * as the benchmarks workflow does before `npm run bench:report -- --add`
+ * takes it into the folder.
  */
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -32,15 +34,16 @@ const { positionals, values: flags } = parseArgs({
         zerolith: { type: "string" },
         method: { type: "string" },
         machine: { type: "string" },
-        note: { type: "string" }
+        note: { type: "string" },
+        out: { type: "string" }
     },
     strict: true
 });
 const [folder] = positionals;
-const { date, zerolith, method, machine, note } = flags;
+const { date, zerolith, method, machine, note, out } = flags;
 if (folder === undefined || date === undefined || zerolith === undefined || method === undefined || machine === undefined || !/^\d{4}-\d{2}-\d{2}$/.test(date))
 {
-    throw new Error("usage: node benchmarks/collect.ts <webdriver-ts/results> --date <YYYY-MM-DD> --zerolith <version> --method <text> --machine <text> [--note <text>]");
+    throw new Error("usage: node benchmarks/collect.ts <webdriver-ts/results> --date <YYYY-MM-DD> --zerolith <version> --method <text> --machine <text> [--note <text>] [--out <file>]");
 }
 
 const here = fileURLToPath(new URL("./", import.meta.url));
@@ -99,6 +102,6 @@ const frameworks: FrameworkResult[] = await Promise.all(listed.frameworks.map(as
 }));
 
 const run: Run = { date, zerolith, commit: listed.commit.slice(0, 7), statistic: "median", method, machine, ...(note === undefined ? {} : { note }), frameworks };
-const target = join(here, "results", `${date}-${zerolith}.json`);
+const target = out ?? join(here, "results", `${date}-${zerolith}.json`);
 await writeFile(target, `${JSON.stringify(run, null, 4)}\n`);
 console.log(`wrote ${target}`);

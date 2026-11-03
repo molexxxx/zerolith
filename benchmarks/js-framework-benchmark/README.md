@@ -2,7 +2,7 @@
 
 The keyed zerolith implementation for [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark). The files here mirror `frameworks/keyed/zerolith/` in a checkout of that repository. `src/main.js` renders the page with signals, `each` keyed by row id, and a `Row` component that reads the id once and keeps the label and the class live through computed values. `package.json` pins `zerolith` and `@zerolith/cli` to exact versions and builds with `zerolith build`. The selection is one signal holding an id, each listener is bound in its template, and the code never touches the DOM itself, which keeps the entry clear of the notes the benchmark attaches to shortcuts (#772, #796, #800, #801).
 
-`npm run build-prod` writes `dist` with the base path the benchmark server serves it under, `/frameworks/keyed/zerolith/dist/`, and the `customURL` of `/dist` in `package.json` points the benchmark there. Both name the folder, so renaming it means changing both. After a release, set both versions in `package.json` to it and run `npm install` here to refresh `package-lock.json`.
+`npm run build-prod` writes `dist` with the base path the benchmark server serves it under, `/frameworks/keyed/zerolith/dist/`, and the `customURL` of `/dist` in `package.json` points the benchmark there. Both name the folder, so renaming it means changing both. After a release, the benchmarks workflow sets both versions in `package.json` to it and refreshes `package-lock.json`, in the commit that adds the release's run; by hand, `npm run bench:report -- --pin <version>` in the repository's root sets them, and `npm install` here refreshes the lockfile.
 
 ## Running it
 
@@ -21,4 +21,4 @@ When the root `npm ci` stops on a peer dependency conflict among the checkout's 
 
 ## Status
 
-The entry pins 0.1.0-alpha.8, whose `zerolith build` keeps the page's link to `/css/currentStyle.css`, the shared stylesheet the benchmark server serves from outside the entry, as written, with a warning, so `npm run build-prod` succeeds. [The benchmarks README](../README.md) has the results of a local run next to the popular frameworks.
+The entry pins 0.1.0-alpha.8, whose `zerolith build` keeps the page's link to `/css/currentStyle.css`, the shared stylesheet the benchmark server serves from outside the entry, as written, with a warning, so `npm run build-prod` succeeds. [The benchmarks README](../README.md) has the results of every release's run next to the popular frameworks.

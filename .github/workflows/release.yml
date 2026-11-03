@@ -25,8 +25,10 @@ name: Release
 # A release that publishes the core also rebuilds the documentation site
 # from the same commit and deploys it to GitHub Pages, and a release of
 # every package creates a GitHub release tagged zerolith@<version> with the
-# version's changelog section and the SBOM. Until a stable version exists,
-# each prerelease moves the latest dist-tag as well as its own.
+# version's changelog section and the SBOM, then starts the benchmarks
+# workflow, which measures the release on js-framework-benchmark and commits
+# its run. Until a stable version exists, each prerelease moves the latest
+# dist-tag as well as its own.
 #
 # @zerolith/cli carries no binary: one platform package per target does,
 # built here on the matching runner. Linux builds on Ubuntu 22.04 so the
@@ -374,6 +376,8 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+    outputs:
+      version: ${{ steps.release.outputs.version }}
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -391,6 +395,7 @@ jobs:
           name: sbom-${{ github.run_id }}
 
       - name: Create the release
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -404,6 +409,22 @@ jobs:
           esac
           # shellcheck disable=SC2086
           gh release create "zerolith@$version" sbom.cdx.json --target "$GITHUB_SHA" --title "$version" --notes-file release-notes.md $prerelease
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  benchmarks:
+    name: Benchmarks
+    needs: github-release
+    if: ${{ !cancelled() && needs.github-release.result == 'success' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+    steps:
+      - name: Measure the release on js-framework-benchmark
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.github-release.outputs.version }}
+        run: gh workflow run benchmarks.yml --ref main -f version="$VERSION"
 
   crate:
     name: crates.io

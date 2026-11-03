@@ -5,19 +5,19 @@ zerolith is measured on [js-framework-benchmark](https://github.com/krausest/js-
 <!-- results: written by `npm run bench:report` from benchmarks/results/ -->
 ## Results
 
-The newest release, zerolith 0.1.0-alpha.8, measured on 2026-11-02 with medians of 15 runs, held to one group of cores on an idle machine, next to hand-written JavaScript and seven popular frameworks. The score is each framework's weighted geometric mean: every operation's time over the fastest framework's, combined with the weights of the official results page, so 1.00 would be fastest everywhere and lower is faster. The last column is the run before, 0.1.0-alpha.6, 2026-11-01, with means of 10 runs, the cores left to the system.
+The newest release, zerolith 0.1.0-alpha.8, measured on 2026-11-02 with medians of 15 runs, held to one group of cores on an idle machine, next to hand-written JavaScript and seven popular frameworks. The score is each framework's weighted geometric mean: every operation's time over the fastest framework's, combined with the weights of the official results page, so 1.00 would be fastest everywhere and lower is faster. No earlier release was measured the same way, so there is no column to compare with; every run's scores are listed below.
 
-| Framework | Entry | Version | Score | 0.1.0-alpha.6, 2026-11-01 |
-| --- | --- | --- | --- | --- |
-| vanilla | `vanillajs` | hand-written | 1.00 | 1.01 |
-| Solid | `solid` | 1.9.3 | 1.07 | 1.14 |
-| zerolith | `zerolith` | 0.1.0-alpha.8 | 1.08 | 1.14 |
-| Svelte | `svelte` | 5.42.1 | 1.10 | 1.15 |
-| Lit | `lit` | 3.2.0 | 1.18 | 1.24 |
-| Vue | `vue` | 3.5.39 | 1.19 | 1.24 |
-| Preact | `preact-signals` | 11.0.0 + 2.3.1 | 1.27 | 1.34 |
-| Angular | `angular-cf-signals-nozone` | 22.2.2 | 1.29 | 1.38 |
-| React | `react-hooks` | 19.2.0 | 1.41 | 1.48 |
+| Framework | Entry | Version | Score |
+| --- | --- | --- | --- |
+| vanilla | `vanillajs` | hand-written | 1.00 |
+| Solid | `solid` | 1.9.3 | 1.07 |
+| zerolith | `zerolith` | 0.1.0-alpha.8 | 1.08 |
+| Svelte | `svelte` | 5.42.1 | 1.10 |
+| Lit | `lit` | 3.2.0 | 1.18 |
+| Vue | `vue` | 3.5.39 | 1.19 |
+| Preact | `preact-signals` | 11.0.0 + 2.3.1 | 1.27 |
+| Angular | `angular-cf-signals-nozone` | 22.2.2 | 1.29 |
+| React | `react-hooks` | 19.2.0 | 1.41 |
 
 ### Every operation
 
@@ -48,7 +48,7 @@ Each cell is the median duration in milliseconds, with the factor against the fa
 
 ### Every run
 
-Each run's scores, newest first. A score compares frameworks within its own run, so a change in how the runs were taken moves every framework's score with it.
+Each run's scores, the newest release first. A score compares frameworks within its own run, so a change in how the runs were taken moves every framework's score with it.
 
 | Run | vanilla | Solid | zerolith | Svelte | Lit | Vue | Preact | Angular | React | Measured |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -65,13 +65,15 @@ Every entry renders a table of rows and performs the same nine operations. The h
 
 Each framework is the keyed entry of the benchmark's repository at the commit [frameworks.json](frameworks.json) names, built from its own lockfile. zerolith is the entry in [js-framework-benchmark/](js-framework-benchmark/), pinned to the release and built with `npm run build-prod`; it updates rows by setting a new array, as the guides teach, so the keyed list compares all 1,000 keys to find the changed rows, where the Solid, Svelte, and Preact entries write to a signal in each changed row. The official results, measured by the benchmark's maintainer, are at https://krausest.github.io/js-framework-benchmark/; zerolith is not among them until the entry is accepted upstream.
 
-The benchmark's driver runs each framework in a browser process of its own. On a processor whose cores differ, such as the Ryzen 9 9950X3D these runs used, a process held to one half of the cores took 38 to 53% longer than one held to the other (see [npm run bench:compare](#npm-run-benchcompare)), so a run is taken with the runner held to one group of cores, which every browser it starts inherits, on an otherwise idle machine. The runs before 2026-11-02 left the cores to the system and took means of 10 runs, and every framework's score in them is higher for it.
+Every release is measured once it is published, by the [benchmarks workflow](../.github/workflows/benchmarks.yml), which the release workflow starts. On a GitHub-hosted runner, it builds and checks every entry, runs the benchmark in headless Chrome, and commits the run to [results/](results/) with the section above, so the results are always the newest release's. The job that builds and runs the other frameworks' code can change nothing in this repository; it hands on only the run's file, and a second job checks every field of it, that it measured the release, and that its frameworks are the ones frameworks.json lists, before it commits the run. A runner is a shared virtual machine, so its scores move more from run to run than an idle desktop's, and since a change of machine or method moves every framework's score, the last column only ever compares runs measured the same way.
+
+The runs from 2026-11-02 and before were taken on a desktop with a Ryzen 9 9950X3D, whose cores differ: a process held to one half of them took 38 to 53% longer than one held to the other (see [npm run bench:compare](#npm-run-benchcompare)), and the benchmark's driver runs each framework in a browser process of its own, so the 2026-11-02 run held the runner to one group of cores, which every browser it starts inherits, on an otherwise idle machine. The runs before it left the cores to the system and took means of 10 runs, and every framework's score in them is higher for it.
 
 ### Reproducing
 
 [js-framework-benchmark/README.md](js-framework-benchmark/README.md) lists the steps to run the entry from a checkout of the benchmark. To measure every framework the results show, pass their entries to the runner, held to one group of cores: from a Windows Command Prompt, `start "" /affinity FF /wait /b cmd /c npm run bench -- --headless --framework keyed/vanillajs keyed/zerolith keyed/solid keyed/svelte keyed/vue keyed/react-hooks keyed/angular-cf-signals-nozone keyed/preact-signals keyed/lit` keeps it on the first eight logical processors, and on Linux, `taskset -c 0-7` in front of the same `npm run bench` does the same.
 
-Then, in this repository, `npm run bench:collect -- <checkout>/webdriver-ts/results --date <YYYY-MM-DD> --zerolith <version> --method <text> --machine <text>` writes the run into [results/](results/), and `npm run bench:report` writes the results section above from every run there. A test fails while the section and the runs disagree.
+Then, in this repository, `npm run bench:collect -- <checkout>/webdriver-ts/results --date <YYYY-MM-DD> --zerolith <version> --method <text> --machine <text>` writes the run into [results/](results/), and `npm run bench:report` writes the results section above from every run there. A test fails while the section and the runs disagree. The workflow collects its run with `--out <file>` instead, and `npm run bench:report -- --add <file> --pin <version>` takes it in: the file is checked as every kept run is, and the baseline and the entry's pin move to the release unless they name a later one.
 
 ## npm run bench
 
@@ -81,7 +83,7 @@ It is a quick check that a change did not make rendering slower, not a substitut
 
 ### Newest: 0.1.0-alpha.8, 2026-11-02
 
-Windows 11, Chrome Headless Shell 156, 15 iterations, two runs on an otherwise idle machine. js-framework-benchmark itself measured the same release at 1.08 of vanilla ([Results](#results)), as this page does.
+Windows 11, Chrome Headless Shell 156, 15 iterations, two runs on an otherwise idle machine. On the same machine, js-framework-benchmark itself measured the same release at 1.08 of vanilla, as this page does: the 2026-11-02 run in [Results](#results).
 
 | Operation | Vanilla (ms) | zerolith (ms) | Ratio | Second run |
 | --- | --- | --- | --- | --- |
@@ -113,4 +115,4 @@ The runs before 2026-11-02 measured each page in a browser of its own, without t
 
 `npm run bench:compare` measures what a change does to the core's speed. It builds the core at a base commit in a temporary worktree, HEAD unless `--base` names another, then loads that build and the working tree's side by side in one page of a headless Chromium, a frame each, and times every iteration of every operation on both, alternating which goes first, so the two meet the same load and drift between runs cancels. The frames share one renderer process, since two tabs are two processes and where the system runs each shows in the result: with the same build in two tabs on a Ryzen 9 9950X3D, whose two halves of cores differ, a process held to one half took 48 to 53% longer than one held to the other with the machine otherwise idle, and 38 to 40% longer with a game running, up to 2.3 times as long on one operation, and with both held to the same half the tab opened second still took 1.4 to 3.7% longer. Halfway the builds trade frames, in a new page with a renderer process of its own, since in a page loaded after another in the same process one frame ran an operation up to 21% slower; a build's time for an operation is the geometric mean of its median in each frame, so a frame's own speed divides out, and each operation's factor is the change's time over the base's. With the same build on both sides, three runs gave overall factors of -0.4 to +0.4%, with single operations within 7%, so a change of a few percent in one operation needs more `--iterations` than the default 15. The small operations run under js-framework-benchmark's CPU slowdowns, so they take long enough to time. A pass crosses when their geometric mean is more than `--threshold` percent above 1, 5 by default, or one operation's factor is more than `--operation-threshold` percent above 1, 15 by default; a crossing pass is confirmed with fresh samples, and the run fails only when the confirming pass crosses too, so one noisy pass cannot fail a change. The base's build is kept in a cache folder, `ZEROLITH_BENCH_CACHE` or one in the temporary folder, so later runs against the same commit skip its install and build.
 
-CI runs it on every push and pull request against `--base baseline`, the commit [baseline](baseline) names, so slowdowns too small to fail one push cannot add up unnoticed: every push is measured against the same commit. The baseline moves only in a commit that says why: after each release, to the release's tag, and after a change that makes the core faster, to that change, so the gain is kept; a deliberate slowdown moves it with its reason.
+CI runs it on every push and pull request against `--base baseline`, the commit [baseline](baseline) names, so slowdowns too small to fail one push cannot add up unnoticed: every push is measured against the same commit. The baseline moves only in a commit that says why: after each release, to the release, in the benchmarks workflow's commit of its run, and after a change that makes the core faster, to that change, so the gain is kept; a deliberate slowdown moves it with its reason.

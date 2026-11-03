@@ -1,0 +1,228 @@
+name: Benchmarks
+
+# Measures a published release on js-framework-benchmark next to every
+# framework benchmarks/frameworks.json lists, on a GitHub-hosted runner, and
+# commits the run with the results section of benchmarks/README.md, the
+# baseline, and the entry's pin. The release workflow starts it once a
+# release is out; a manual run measures any published version again, and
+# with commit off checks the run and keeps it as an artifact only.
+#
+# Measuring builds the other frameworks' entries, which runs their packages
+# and build tools, so that job holds no write access and no secret and hands
+# on only the run's file. The job that commits checks every field of that
+# file, its version, and its frameworks, names it from what it holds, and
+# runs no code but this repository's own and npm resolving the entry's
+# lockfile with install scripts off.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published version to measure, such as 0.1.0-alpha.9
+        required: true
+      commit:
+        description: Commit the run to main
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmarks
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    name: Measure ${{ inputs.version }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Check the version
+        run: |
+          set -eu
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::$VERSION is not a version"
+            exit 1
+          fi
+
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Read the benchmark's commit and entries
+        id: upstream
+        run: |
+          set -eu
+          {
+            echo "repository=$(jq -r .repository benchmarks/frameworks.json)"
+            echo "commit=$(jq -r .commit benchmarks/frameworks.json)"
+            echo "entries=$(jq -r '[.frameworks[].entry | "keyed/" + .] | join(" ")' benchmarks/frameworks.json)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check out js-framework-benchmark
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ steps.upstream.outputs.repository }}
+          ref: ${{ steps.upstream.outputs.commit }}
+          path: jfb
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Install the benchmark
+        working-directory: jfb
+        run: |
+          set -eu
+          npm ci --legacy-peer-deps --no-audit --no-fund
+          npm run install-local
+          mkdir -p frameworks/non-keyed
+
+      # The benchmark's own checks start Chrome from the path it expects on
+      # Linux; the benchmark itself is given the path below.
+      - name: Point the benchmark at Chrome
+        run: |
+          set -eu
+          sudo mkdir -p /snap/bin
+          sudo ln -sf "$(command -v google-chrome)" /snap/bin/chromium
+          /snap/bin/chromium --version
+
+      - name: Pin the zerolith entry to the version
+        run: |
+          set -eu
+          entry=jfb/frameworks/keyed/zerolith
+          rm -rf "$entry"
+          mkdir -p "$entry"
+          cp -R benchmarks/js-framework-benchmark/index.html benchmarks/js-framework-benchmark/package.json benchmarks/js-framework-benchmark/package-lock.json benchmarks/js-framework-benchmark/src "$entry/"
+          cd "$entry"
+          npm pkg set "dependencies.zerolith=$VERSION" "devDependencies.@zerolith/cli=$VERSION"
+          # A release run starts this workflow right after publishing, before
+          # every package may be served at the version.
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if npm install --package-lock-only --ignore-scripts --no-audit --no-fund; then
+              exit 0
+            fi
+            echo "the registry does not serve $VERSION yet, attempt $attempt of 10"
+            sleep 60
+          done
+          exit 1
+
+      - name: Start the benchmark's server
+        working-directory: jfb
+        run: |
+          set -eu
+          nohup npm start > server.log 2>&1 &
+          for _ in $(seq 1 90); do
+            if curl -sf -o /dev/null http://localhost:8080/frameworks/keyed/vanillajs/index.html; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat server.log
+          exit 1
+
+      - name: Build and check each entry
+        working-directory: jfb
+        env:
+          ENTRIES: ${{ steps.upstream.outputs.entries }}
+        run: |
+          set -eu
+          for entry in $ENTRIES; do
+            npm run rebuild-ci -- "$entry"
+          done
+
+      - name: Run the benchmark
+        working-directory: jfb
+        env:
+          ENTRIES: ${{ steps.upstream.outputs.entries }}
+        run: |
+          set -eu
+          # shellcheck disable=SC2086
+          npm run bench -- --headless --chromeBinary "$(command -v google-chrome)" --framework $ENTRIES
+
+      # A run's text may hold only what checkRun in benchmarks/results.ts
+      # takes, so the CPU's name loses characters such as the @ before its
+      # clock speed.
+      - name: Collect the run
+        run: |
+          set -eu
+          cpu="$(lscpu | sed -n 's/^Model name:[[:space:]]*//p' | head -n 1)"
+          machine="$(printf '%s' "$cpu, $(nproc) vCPUs, $(lsb_release -ds), $(google-chrome --version) headless, Node $(node --version)" | tr -cd "A-Za-z0-9 .,;:()+/'-" | tr -s ' ')"
+          node benchmarks/collect.ts jfb/webdriver-ts/results --date "$(date -u +%F)" --zerolith "$VERSION" --method "medians of 15 runs on a GitHub-hosted runner" --machine "$machine" --out "$RUNNER_TEMP/run.json"
+          cat "$RUNNER_TEMP/run.json"
+
+      - name: Keep the run
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: benchmark-run
+          path: ${{ runner.temp }}/run.json
+          if-no-files-found: error
+          retention-days: 90
+
+  commit:
+    name: Check and commit the run
+    needs: measure
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Check the version
+        run: |
+          set -eu
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::$VERSION is not a version"
+            exit 1
+          fi
+
+      - name: Check out main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: ${{ inputs.commit }}
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Take the run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: benchmark-run
+          path: ${{ runner.temp }}/run
+
+      - name: Add the run and pin the release
+        run: |
+          set -eu
+          node benchmarks/report.ts --pin "$VERSION" --add "$RUNNER_TEMP/run/run.json"
+          cd benchmarks/js-framework-benchmark
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          git status --short
+          git diff -- ../README.md
+
+      - name: Commit and push
+        if: ${{ inputs.commit }}
+        run: |
+          set -eu
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add benchmarks/baseline benchmarks/README.md benchmarks/results benchmarks/js-framework-benchmark/package.json benchmarks/js-framework-benchmark/package-lock.json benchmarks/js-framework-benchmark/README.md docs/ROADMAP.md
+          git commit -m "Add the $VERSION js-framework-benchmark run" -m "The benchmarks workflow measured $VERSION on a GitHub-hosted runner, next to the frameworks benchmarks/frameworks.json lists. The baseline and the entry's pin follow the newest release measured."
+          for _ in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            git pull --rebase origin main
+          done
+          exit 1
