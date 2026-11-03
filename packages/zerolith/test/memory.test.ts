@@ -24,7 +24,17 @@ const page = `<!doctype html>
 <body><main id="app"></main></body>
 </html>`;
 
-const app = `import { each, html, render, signal, when } from "zerolith";
+const app = `import { each, effect, html, onDispose, render, scope, signal, when } from "zerolith";
+globalThis.retain = () =>
+{
+    const handle = scope(() =>
+    {
+        const large = new Array(1000000).fill(0);
+        onDispose(() => large.length);
+        globalThis.kept = effect(() => undefined);
+    });
+    handle.dispose();
+};
 const rows = signal([]);
 const open = signal(false);
 let next = 0;
@@ -113,6 +123,26 @@ describe("memory", () =>
         await tab.evaluate(() => (globalThis as unknown as { churn(rounds: number): void }).churn(40));
         const after = await heap();
         expect(after - settled).toBeLessThan(512 * 1024);
+        await tab.close();
+    });
+
+    it("lets go of what a disposed owner held while one of its children is still referenced", { timeout: 60000 }, async () =>
+    {
+        const tab = await browser.newPage();
+        await tab.goto(`${origin}/`);
+        await tab.waitForFunction(() => typeof (globalThis as { retain?: unknown }).retain === "function");
+        const session = await tab.context().newCDPSession(tab);
+        const heap = async (): Promise<number> =>
+        {
+            await session.send("HeapProfiler.collectGarbage");
+            const usage = await session.send("Runtime.getHeapUsage");
+            return usage.usedSize;
+        };
+        const before = await heap();
+        await tab.evaluate(() => (globalThis as unknown as { retain(): void }).retain());
+        const after = await heap();
+        expect(await tab.evaluate(() => typeof (globalThis as { kept?: unknown }).kept)).toBe("function");
+        expect(after - before).toBeLessThan(1024 * 1024);
         await tab.close();
     });
 });

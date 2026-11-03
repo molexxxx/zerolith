@@ -86,9 +86,16 @@ export interface Disposable
     dispose(): void;
 }
 
+/** A disposable an owner holds, linked to the child adopted before it, so an owner keeps its children without an array. */
+interface Child extends Disposable
+{
+    previous: Child | undefined;
+}
+
 interface OwnerNode
 {
-    children: Disposable[] | undefined;
+    /** The newest child, which links to the older ones. */
+    children: Child | undefined;
 }
 
 /**
@@ -594,12 +601,13 @@ class Computed<T> implements ReadableSignal<T>, Source, Consumer
  * changes, owns what it creates while running, and disposes that before
  * its next run and when it is disposed.
  */
-abstract class Reaction implements Consumer, OwnerNode
+abstract class Reaction implements Consumer, OwnerNode, Child
 {
     flags = TRACKING;
     sources: Edge | undefined = undefined;
     next: Reaction | undefined = undefined;
-    children: Disposable[] | undefined = undefined;
+    children: Child | undefined = undefined;
+    previous: Child | undefined = undefined;
     protected cleanup: (() => void) | undefined = undefined;
 
     constructor()
@@ -825,16 +833,19 @@ class Binding extends Reaction
     }
 }
 
-/** Disposes every child, newest first, and rethrows the first error once all are disposed, so one failing cleanup cannot leave its siblings running. */
-function disposeAll(children: Disposable[]): void
+/** Disposes `newest` and every child adopted before it, newest first, and rethrows the first error once all are disposed, so one failing cleanup cannot leave its siblings running. */
+function disposeAll(newest: Child): void
 {
     let error: unknown;
     let failed = false;
-    while (children.length > 0)
+    let child: Child | undefined = newest;
+    while (child !== undefined)
     {
+        const previous: Child | undefined = child.previous;
+        child.previous = undefined;
         try
         {
-            children.pop()?.dispose();
+            child.dispose();
         }
         catch (caught)
         {
@@ -844,6 +855,7 @@ function disposeAll(children: Disposable[]): void
                 failed = true;
             }
         }
+        child = previous;
     }
     if (failed)
     {
@@ -851,15 +863,12 @@ function disposeAll(children: Disposable[]): void
     }
 }
 
-function adopt(child: Disposable): void
+function adopt(child: Child): void
 {
     if (owner !== undefined)
     {
-        if (owner.children === undefined)
-        {
-            owner.children = [];
-        }
-        owner.children.push(child);
+        child.previous = owner.children;
+        owner.children = child;
     }
 }
 
@@ -1001,9 +1010,10 @@ export function createOwner(detached = false): Owner
 }
 
 /** An owner as one object, its children and its methods together, so creating one per row allocates once. */
-class OwnerScope implements Owner, OwnerNode, Disposable
+class OwnerScope implements Owner, OwnerNode, Child
 {
-    children: Disposable[] | undefined = undefined;
+    children: Child | undefined = undefined;
+    previous: Child | undefined = undefined;
     private readonly inside: boolean;
 
     constructor(inside: boolean)
@@ -1071,5 +1081,5 @@ export function onDispose(fn: () => void): void
     {
         throw fail("on_dispose_outside_scope");
     }
-    adopt({ dispose: fn });
+    adopt({ dispose: fn, previous: undefined });
 }
