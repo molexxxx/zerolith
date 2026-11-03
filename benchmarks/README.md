@@ -5,19 +5,19 @@ zerolith is measured on [js-framework-benchmark](https://github.com/krausest/js-
 <!-- results: written by `npm run bench:report` from benchmarks/results/ -->
 ## Results
 
-The newest release, zerolith 0.1.0-alpha.8, measured on 2026-11-02 with medians of 15 runs, held to one group of cores on an idle machine, next to hand-written JavaScript and seven popular frameworks. The score is each framework's weighted geometric mean: every operation's time over the fastest framework's, combined with the weights of the official results page, so 1.00 would be fastest everywhere and lower is faster. No earlier release was measured the same way, so there is no column to compare with; every run's scores are listed below.
+The newest release, zerolith 0.1.0-alpha.8, measured on 2026-11-03 with medians of 15 runs on a GitHub-hosted runner, next to hand-written JavaScript and seven popular frameworks. The score is each framework's weighted geometric mean: every operation's time over the fastest framework's, combined with the weights of the official results page, so 1.00 would be fastest everywhere and lower is faster. No earlier release was measured the same way, so there is no column to compare with; every run's scores are listed below.
 
 | Framework | Entry | Version | Score |
 | --- | --- | --- | --- |
-| vanilla | `vanillajs` | hand-written | 1.00 |
-| Solid | `solid` | 1.9.3 | 1.07 |
-| zerolith | `zerolith` | 0.1.0-alpha.8 | 1.08 |
-| Svelte | `svelte` | 5.42.1 | 1.10 |
-| Lit | `lit` | 3.2.0 | 1.18 |
-| Vue | `vue` | 3.5.39 | 1.19 |
-| Preact | `preact-signals` | 11.0.0 + 2.3.1 | 1.27 |
-| Angular | `angular-cf-signals-nozone` | 22.2.2 | 1.29 |
-| React | `react-hooks` | 19.2.0 | 1.41 |
+| vanilla | `vanillajs` | hand-written | 1.04 |
+| Solid | `solid` | 1.9.3 | 1.12 |
+| zerolith | `zerolith` | 0.1.0-alpha.8 | 1.14 |
+| Svelte | `svelte` | 5.42.1 | 1.17 |
+| Lit | `lit` | 3.2.0 | 1.27 |
+| Vue | `vue` | 3.5.39 | 1.29 |
+| Preact | `preact-signals` | 11.0.0 + 2.3.1 | 1.37 |
+| Angular | `angular-cf-signals-nozone` | 22.2.2 | 1.42 |
+| React | `react-hooks` | 19.2.0 | 1.48 |
 
 ### Every operation
 
@@ -25,26 +25,26 @@ Each cell is the median duration in milliseconds, with the factor against the fa
 
 | Operation | vanilla | Solid | zerolith | Svelte | Lit | Vue | Preact | Angular | React |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| create 1,000 rows | 28.5 (1.00) | 29.7 (1.04) | 31.9 (1.12) | 30.9 (1.08) | 33.2 (1.16) | 33.8 (1.19) | 38.8 (1.36) | 42.2 (1.48) | 34.6 (1.21) |
-| replace all 1,000 rows | 30.1 (1.00) | 32.3 (1.07) | 33.2 (1.10) | 33.3 (1.11) | 34.7 (1.15) | 35.8 (1.19) | 40.7 (1.35) | 41.5 (1.38) | 40.3 (1.34) |
-| update every 10th row (4x slowdown) | 12.3 (1.00) | 14.1 (1.15) | 14.4 (1.17) | 14.1 (1.15) | 14.8 (1.20) | 15.5 (1.26) | 14.1 (1.15) | 14.3 (1.16) | 17.8 (1.45) |
-| select a row (4x slowdown) | 6.0 (1.00) | 6.4 (1.07) | 6.0 (1.00) | 8.2 (1.37) | 8.7 (1.45) | 6.8 (1.13) | 6.6 (1.10) | 8.4 (1.40) | 8.8 (1.47) |
-| swap 2 rows (4x slowdown) | 15.4 (1.00) | 16.6 (1.08) | 16.2 (1.05) | 17.5 (1.14) | 20.2 (1.31) | 17.5 (1.14) | 18.9 (1.23) | 18.0 (1.17) | 127.3 (8.27) |
-| remove one row (2x slowdown) | 13.8 (1.01) | 14.1 (1.03) | 13.7 (1.00) | 14.3 (1.04) | 14.8 (1.08) | 16.7 (1.22) | 14.7 (1.07) | 15.1 (1.10) | 15.1 (1.10) |
-| create 10,000 rows | 306.0 (1.00) | 321.2 (1.05) | 337.9 (1.10) | 326.9 (1.07) | 349.3 (1.14) | 351.3 (1.15) | 408.4 (1.33) | 402.0 (1.31) | 418.7 (1.37) |
-| append 1,000 rows to 1,000 | 31.2 (1.00) | 31.6 (1.01) | 33.4 (1.07) | 32.4 (1.04) | 35.8 (1.15) | 35.3 (1.13) | 41.0 (1.31) | 41.5 (1.33) | 37.2 (1.19) |
-| clear 1,000 rows (4x slowdown) | 11.9 (1.00) | 14.5 (1.22) | 12.3 (1.03) | 13.3 (1.12) | 15.9 (1.34) | 15.3 (1.29) | 16.8 (1.41) | 15.1 (1.27) | 21.0 (1.76) |
+| create 1,000 rows | 56.4 (1.00) | 62.1 (1.10) | 67.9 (1.20) | 65.7 (1.16) | 69.5 (1.23) | 69.9 (1.24) | 80.9 (1.43) | 87.9 (1.56) | 70.6 (1.25) |
+| replace all 1,000 rows | 67.5 (1.00) | 78.7 (1.17) | 77.4 (1.15) | 82.5 (1.22) | 83.5 (1.24) | 88.1 (1.31) | 101.8 (1.51) | 99.1 (1.47) | 97.8 (1.45) |
+| update every 10th row (4x slowdown) | 45.0 (1.15) | 39.2 (1.00) | 48.2 (1.23) | 42.6 (1.09) | 50.6 (1.29) | 54.3 (1.39) | 42.4 (1.08) | 53.4 (1.36) | 52.3 (1.33) |
+| select a row (4x slowdown) | 8.0 (1.00) | 11.6 (1.45) | 9.3 (1.16) | 13.6 (1.70) | 15.6 (1.95) | 10.3 (1.29) | 12.7 (1.59) | 15.6 (1.95) | 16.5 (2.06) |
+| swap 2 rows (4x slowdown) | 53.0 (1.05) | 59.6 (1.18) | 57.8 (1.15) | 61.6 (1.22) | 71.3 (1.41) | 55.8 (1.11) | 66.9 (1.33) | 50.4 (1.00) | 353.2 (7.01) |
+| remove one row (2x slowdown) | 41.9 (1.06) | 40.9 (1.04) | 43.8 (1.11) | 44.7 (1.13) | 39.4 (1.00) | 53.4 (1.36) | 41.2 (1.05) | 43.4 (1.10) | 44.3 (1.12) |
+| create 10,000 rows | 652.1 (1.00) | 715.6 (1.10) | 750.5 (1.15) | 722.5 (1.11) | 777.9 (1.19) | 784.4 (1.20) | 907.9 (1.39) | 900.8 (1.38) | 934.5 (1.43) |
+| append 1,000 rows to 1,000 | 75.9 (1.00) | 77.0 (1.01) | 82.6 (1.09) | 79.0 (1.04) | 90.3 (1.19) | 87.4 (1.15) | 102.9 (1.36) | 100.8 (1.33) | 92.0 (1.21) |
+| clear 1,000 rows (4x slowdown) | 27.8 (1.07) | 36.0 (1.38) | 26.0 (1.00) | 33.8 (1.30) | 44.3 (1.70) | 41.2 (1.58) | 51.8 (1.99) | 50.2 (1.93) | 57.5 (2.21) |
 
 ### Memory, size, and first paint
 
 | Measure | vanilla | Solid | zerolith | Svelte | Lit | Vue | Preact | Angular | React |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| ready memory, after load (MB) | 0.57 | 0.59 | 0.72 | 0.66 | 0.72 | 0.86 | 0.69 | 1.14 | 1.18 |
-| run memory, with 1,000 rows (MB) | 2.03 | 2.84 | 3.39 | 3.03 | 2.98 | 4.07 | 5.04 | 3.76 | 4.57 |
-| after creating and clearing 1,000 rows 5 times (MB) | 0.65 | 0.78 | 0.96 | 0.97 | 0.87 | 1.18 | 8.94 | 1.70 | 1.97 |
-| size uncompressed (kB) | 11.7 | 11.5 | 27.1 | 26.6 | 22.1 | 64.3 | 23.3 | 110.6 | 190.3 |
+| ready memory, after load (MB) | 0.56 | 0.59 | 0.66 | 0.66 | 0.72 | 0.80 | 0.69 | 1.13 | 1.13 |
+| run memory, with 1,000 rows (MB) | 1.87 | 2.64 | 3.21 | 2.87 | 2.79 | 3.91 | 4.89 | 3.61 | 4.42 |
+| after creating and clearing 1,000 rows 5 times (MB) | 0.64 | 0.77 | 0.95 | 0.97 | 0.88 | 1.19 | 8.95 | 1.64 | 1.98 |
+| size uncompressed (kB) | 11.3 | 11.5 | 27.1 | 26.6 | 22.1 | 64.3 | 23.3 | 110.6 | 190.3 |
 | size compressed (kB) | 2.5 | 4.5 | 8.1 | 9.7 | 7.3 | 23.3 | 8.3 | 33.8 | 51.4 |
-| first paint (ms) | 125.4 | 124.4 | 127.1 | 128.3 | 121.4 | 127.1 | 132.3 | 136.8 | 213.6 |
+| first paint (ms) | 85.5 | 101.0 | 287.9 | 103.3 | 114.6 | 167.7 | 118.0 | 229.4 | 371.1 |
 
 ### Every run
 
@@ -52,6 +52,7 @@ Each run's scores, the newest release first. A score compares frameworks within 
 
 | Run | vanilla | Solid | zerolith | Svelte | Lit | Vue | Preact | Angular | React | Measured |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0.1.0-alpha.8, 2026-11-03 | 1.04 | 1.12 | 1.14 | 1.17 | 1.27 | 1.29 | 1.37 | 1.42 | 1.48 | medians of 15 runs on a GitHub-hosted runner |
 | 0.1.0-alpha.8, 2026-11-02 | 1.00 | 1.07 | 1.08 | 1.10 | 1.18 | 1.19 | 1.27 | 1.29 | 1.41 | medians of 15 runs, held to one group of cores on an idle machine |
 | 0.1.0-alpha.6, 2026-11-01 | 1.01 | 1.14 | 1.14 | 1.15 | 1.24 | 1.24 | 1.34 | 1.38 | 1.48 | means of 10 runs, the cores left to the system |
 | 0.1.0-alpha.5, 2026-10-31 | 1.00 | 1.11 | 1.12 | 1.14 | 1.23 | 1.26 | 1.34 | 1.42 | 1.44 | means of 10 runs, the cores left to the system |
