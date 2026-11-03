@@ -147,8 +147,8 @@ export interface RouterOptions
     fallback?: (url: URL) => unknown;
     /**
      * The head fields every page starts from, as an object or as a function of the URL and the matched route's name, undefined for the fallback.
-     * A route's `head` overrides them field by field, and the fallback shows them as they are. Once any route or this option declares a head,
-     * the document shows the merged head as a whole on every commit: a field neither gives clears the title or removes the description element.
+     * A route's `head` overrides them field by field, and the fallback shows them as they are. On every commit the document shows the merged
+     * head as a whole; a field neither gives goes back to what the document had when the router was created, as written in the page.
      */
     head?: Head | ((context: HeadContext) => Head);
     /** Called when a loader, a lazy import, or a route's `head` throws, or when the new page throws as it renders. Without it the error propagates from `navigate()`. */
@@ -476,20 +476,30 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         return { match: { name: compiled.name, params, url: target, data }, view, compiled };
     };
 
-    /** True once any route or the options declare a head; a router with none leaves the document's head alone. */
-    const managesHead = options.head !== undefined || compiledRoutes.some((entry) => entry.route.head !== undefined);
+    /** The title and description the document had when the router was created, as written in the page, which a page that gives neither goes back to. */
+    const loaded: Head = {};
+    if (win !== undefined)
+    {
+        loaded.title = win.document.title;
+        const written = win.document.querySelector<HTMLMetaElement>("meta[name=\"description\"]")?.content;
+        if (written !== undefined)
+        {
+            loaded.description = written;
+        }
+    }
 
-    /** Writes the merged head as a whole: the title, empty when it has none, and the description element, removed when it has none. */
+    /** Writes the merged head as a whole: the title and the description element, each the page's own where the merged head has none. */
     const applyHead = (value: Head): void =>
     {
-        if (win === undefined || !managesHead)
+        if (win === undefined)
         {
             return;
         }
         const doc = win.document;
-        doc.title = value.title ?? "";
+        doc.title = value.title ?? loaded.title ?? "";
+        const description = value.description ?? loaded.description;
         let meta = doc.querySelector<HTMLMetaElement>("meta[name=\"description\"]");
-        if (value.description === undefined)
+        if (description === undefined)
         {
             meta?.remove();
             return;
@@ -500,7 +510,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             meta.name = "description";
             doc.head.append(meta);
         }
-        meta.content = value.description;
+        meta.content = description;
     };
 
     /** Restores a saved position, or moves to the hash; failing both, to the top unless `top` is false, as on the first navigation, where the browser has placed the page. */

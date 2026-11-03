@@ -140,6 +140,6 @@ const router = createRouter(routes, {
 });
 ```
 
-A route's fields go over the defaults field by field, and the fallback shows the defaults; as a function, the option receives the URL and the matched route's name, undefined for the fallback, so the not-found page can have a title of its own. On every commit the document shows the merged head as a whole: a field that neither the defaults nor the route gives clears the title, or removes the description element, so a page never keeps the previous page's values. A router whose routes and options declare no head at all leaves the document's head alone.
+A route's fields go over the defaults field by field, and the fallback shows the defaults; as a function, the option receives the URL and the matched route's name, undefined for the fallback, so the not-found page can have a title of its own. On every commit the document shows the merged head as a whole, so a page never keeps the previous page's values: a field that neither the defaults nor the route gives goes back to what the page loaded with, the `<title>` and `<meta name="description">` written in `index.html`, which makes those the defaults of an application that sets only titles per route.
 
 The same metadata is `router.head`, a signal the server renders with `renderHead` from `@zerolith/router/server` (see [Server rendering](server-rendering.md)). `router.ready` settles once the initial navigation, loader included, has committed; await it before hydrating.

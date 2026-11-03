@@ -85,7 +85,7 @@ describe("router", () =>
         expect(diagnostic.cause).toContain("href()");
     });
 
-    it("applies the head as a whole on every commit: the router's defaults under a route's fields, cleared where neither gives one", async () =>
+    it("applies the head as a whole on every commit: the router's defaults under a route's fields, and the page's own where neither gives one", async () =>
     {
         history.replaceState(null, "", "/");
         document.title = "Before";
@@ -109,6 +109,7 @@ describe("router", () =>
         router.dispose();
 
         history.replaceState(null, "", "/");
+        document.querySelector("meta[name=\"description\"]")?.remove();
         router = createRouter(table(), { window, head: ({ name, url }) => ({ title: name === undefined ? `Not found ${url.pathname}` : "App" }), fallback: () => html`<p>missing</p>` });
         await settled(router);
         await router.navigate("/missing");
@@ -119,15 +120,24 @@ describe("router", () =>
         router.dispose();
 
         history.replaceState(null, "", "/");
-        router = createRouter(table(), { window });
+        document.title = "Page";
+        const own = document.createElement("meta");
+        own.name = "description";
+        own.content = "Page description";
+        document.head.append(own);
+        router = createRouter(table(), { window, fallback: () => html`<p>missing</p>` });
         await settled(router);
         expect(document.querySelector<HTMLMetaElement>("meta[name=\"description\"]")?.content).toBe("Home description");
         await router.navigate("/releases/v1");
         expect(document.title).toBe("One");
-        expect(document.querySelector("meta[name=\"description\"]")).toBeNull();
+        expect(document.querySelector<HTMLMetaElement>("meta[name=\"description\"]")?.content).toBe("Page description");
         await router.navigate("/docs/a");
-        expect(document.title).toBe("");
+        expect(document.title).toBe("Page");
+        await router.navigate("/missing");
+        expect(document.title).toBe("Page");
+        expect(document.querySelector<HTMLMetaElement>("meta[name=\"description\"]")?.content).toBe("Page description");
         router.dispose();
+        own.remove();
 
         history.replaceState(null, "", "/");
         document.title = "Kept";
@@ -135,6 +145,7 @@ describe("router", () =>
         await settled(router);
         await router.navigate("/other");
         expect(document.title).toBe("Kept");
+        expect(document.querySelector("meta[name=\"description\"]")).toBeNull();
     });
 
     it("keeps the page shown when a link or navigate() names its URL, following the link in the history and the scroll", async () =>
