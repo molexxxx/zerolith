@@ -4,7 +4,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 
 ## Where it stands
 
-`0.1.0-alpha.8` was published on 2026-11-02, the eighth alpha since `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, which writes a starter or the fullstack example, each with the zerolith skill for coding agents, and develops, bundles, and previews a project with no other build tool. It is on npm under the `alpha` dist-tag with provenance, published through trusted publishing with no npm token anywhere, on crates.io, and a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://zerolith.dev/) is published from the same commit, and redeployed from `main` when only the site changes. The API is not frozen, and minor versions may change it until 1.0.
+`0.1.0-alpha.9` was published on 2026-11-03, the ninth alpha since `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, which writes a starter or the fullstack example, each with the zerolith skill for coding agents, and develops, bundles, and previews a project with no other build tool. It is on npm under the `alpha` dist-tag with provenance, published through trusted publishing with no npm token anywhere, on crates.io, and a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://zerolith.dev/) is published from the same commit, and redeployed from `main` when only the site changes. The API is not frozen, and minor versions may change it until 1.0.
 
 | Area | State |
 | --- | --- |
@@ -25,7 +25,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 In order:
 
 1. Migrate the first production site onto zerolith, served buildless with a Lighthouse budget in CI.
-2. Submit the keyed entry to js-framework-benchmark, which is pinned to `0.1.0-alpha.8` and passes the benchmark's checks, and settle the per-row work that remains before the API is frozen. The [benchmarks](../benchmarks/README.md), measured again with every release, show where the entry stands; its gap to the vanilla entry is nearly all script, in the operations that create rows. Bindings as effects of their own come first. `@` event bindings stay listeners on their own elements, with standard event semantics: a build that added no listener at all, the most delegating them to the root could save, measured within noise of one that does.
+2. Submit the keyed entry to js-framework-benchmark, which is pinned to `0.1.0-alpha.8` and passes the benchmark's checks, and settle the per-row work that remains before the API is frozen. The [benchmarks](../benchmarks/README.md), measured again with every release, show where the entry stands; its gap to the vanilla entry is nearly all script, in the operations that create rows. Since 0.1.0-alpha.9 a binding holds its signal and its part without a closure; leaving out the marker where a binding is an element's only child comes next, for the comment node each such binding adds to a row. `@` event bindings stay listeners on their own elements, with standard event semantics: a build that added no listener at all, the most delegating them to the root could save, measured within noise of one that does.
 3. Review the core, templates, and router API through an RFC, with what the migration and the performance work found, and freeze it for 1.0. The router's part includes a way for components to build typed links without importing the router, whose module closes an import loop through the route table today.
 
 ## 1.0
@@ -56,7 +56,8 @@ In order:
 - [x] Templates prepared ahead of time by a build tool, with the scanner left out of the bundle.
 - [x] Keyed lists that create, append, replace, remove, and clear rows without the general diff, exchange two rows by moving only those two, keep matching rows at both ends without diffing them, update rows that keep their places without a set of keys, render template rows without markers, and create a row's index signal only for a row function that takes one.
 - [x] Templates cloned from a copy prepared once in the page's document, with bindings located by path and text bindings filling a text node the copy already holds; a template with a custom element or an element that fetches is imported on each use instead.
-- [ ] Bindings as effects of their own, without a closure each, and no marker where a binding is an element's only child, for the per-row allocation and node count that remain above hand-written DOM code.
+- [x] Bindings as reactions of their own that hold their signal and their part, without an effect function and its closure each.
+- [ ] No marker where a binding is an element's only child, for the per-row node count that remains above hand-written DOM code.
 - [ ] Streaming server rendering.
 - [ ] Islands as a public API: server-rendered pages that hydrate only their interactive parts. The docs search already runs this way.
 - [ ] Form-associated custom elements through `ElementInternals`.
