@@ -25,7 +25,7 @@ export const examples: Example[] = [
     { id: "counter", title: "Counter", summary: "A signal, a derived value, an effect, and an event handler." },
     { id: "list", title: "Packing list", summary: "A keyed list with `each`, a form that adds to it, and counts derived from the list." },
     { id: "conditions", title: "Conditions", summary: "Showing one view or another with `when`, and a branch that cleans up after itself with `onDispose`." },
-    { id: "async", title: "Async data", summary: "A `resource` that fetches JSON from this site, with loading, error, and reload, keeping its last value while the next one loads." },
+    { id: "async", title: "Async data", summary: "A `resource` that fetches a city's record from this site and formats every fact for your locale, with loading, error, and reload, keeping its last value while the next one loads." },
     { id: "forms", title: "Forms", summary: "A native form with `@zerolith/forms`: validation in the browser first, then field errors from the server." },
     { id: "styles", title: "Scoped styles", summary: "Component styles with the `css` tag, where they stop, and a value set through a custom property." },
     { id: "dialog", title: "Accessible dialog", summary: "A dialog with a focus trap, Escape to close, and an announcement from `@zerolith/a11y`." },

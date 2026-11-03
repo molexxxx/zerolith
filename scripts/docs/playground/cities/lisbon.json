@@ -1,1 +1,14 @@
-{ "name": "Lisbon", "country": "Portugal", "timeZone": "Europe/Lisbon" }
+{
+    "name": "Lisbon",
+    "country": "Portugal",
+    "timeZone": "Europe/Lisbon",
+    "population": 658236,
+    "populationYear": 2025,
+    "area": 100.05,
+    "latitude": 38.7253,
+    "longitude": -9.15,
+    "currency": "EUR",
+    "languages": ["pt"],
+    "callingCode": "+351",
+    "source": "Wikipedia, citing Statistics Portugal, retrieved 2026-11-03"
+}

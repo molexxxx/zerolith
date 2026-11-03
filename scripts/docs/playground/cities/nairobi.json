@@ -1,1 +1,14 @@
-{ "name": "Nairobi", "country": "Kenya", "timeZone": "Africa/Nairobi" }
+{
+    "name": "Nairobi",
+    "country": "Kenya",
+    "timeZone": "Africa/Nairobi",
+    "population": 4397073,
+    "populationYear": 2019,
+    "area": 696.1,
+    "latitude": -1.2864,
+    "longitude": 36.8172,
+    "currency": "KES",
+    "languages": ["sw", "en"],
+    "callingCode": "+254",
+    "source": "Wikipedia, citing the Kenya National Bureau of Statistics, retrieved 2026-11-03"
+}

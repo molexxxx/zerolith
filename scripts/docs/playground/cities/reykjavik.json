@@ -1,1 +1,14 @@
-{ "name": "Reykjavik", "country": "Iceland", "timeZone": "Atlantic/Reykjavik" }
+{
+    "name": "Reykjavik",
+    "country": "Iceland",
+    "timeZone": "Atlantic/Reykjavik",
+    "population": 138753,
+    "populationYear": 2026,
+    "area": 244,
+    "latitude": 64.1458,
+    "longitude": -21.9425,
+    "currency": "ISK",
+    "languages": ["is"],
+    "callingCode": "+354",
+    "source": "Wikipedia, citing Statistics Iceland, retrieved 2026-11-03"
+}
