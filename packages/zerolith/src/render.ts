@@ -251,13 +251,14 @@ class Instance
     readonly strings: TemplateStringsArray;
     /** What inserting a created instance puts in the page: its one top-level node, or a fragment holding several. */
     readonly content: Node | undefined;
-    readonly nodes: readonly ChildNode[];
+    /** The top-level nodes, when there are none or several; undefined when the one top-level node is `content`. */
+    readonly nodes: readonly ChildNode[] | undefined;
     private readonly parts: readonly BoundPart[];
     private cursors: ReadonlyMap<BoundPart, ChildNode> | undefined;
     /** The child parts among the template's top-level nodes, whose content `nodes` does not hold. */
     private readonly edges: readonly ChildPart[] | undefined;
 
-    constructor(strings: TemplateStringsArray, parts: readonly BoundPart[], nodes: readonly ChildNode[], content: Node | undefined, cursors: ReadonlyMap<BoundPart, ChildNode> | undefined, edges: readonly ChildPart[] | undefined)
+    constructor(strings: TemplateStringsArray, parts: readonly BoundPart[], nodes: readonly ChildNode[] | undefined, content: Node | undefined, cursors: ReadonlyMap<BoundPart, ChildNode> | undefined, edges: readonly ChildPart[] | undefined)
     {
         this.strings = strings;
         this.parts = parts;
@@ -275,7 +276,7 @@ class Instance
         const { master, parts: specs, paths, unmarked } = prepared;
         let top: Node;
         let from = 0;
-        let nodes: ChildNode[];
+        let nodes: ChildNode[] | undefined;
         let content: Node;
         let fragment: DocumentFragment | undefined;
         if (master !== undefined && master.nodeType !== 11)
@@ -283,7 +284,7 @@ class Instance
             const root = master.cloneNode(true) as ChildNode;
             top = root;
             from = 1;
-            nodes = [root];
+            nodes = undefined;
             content = root;
         }
         else
@@ -291,8 +292,16 @@ class Instance
             fragment = (master === undefined ? document.importNode(prepared.content, true) : master.cloneNode(true)) as DocumentFragment;
             top = fragment;
             const first = fragment.firstChild;
-            nodes = first === null ? [] : first.nextSibling === null ? [first] : Array.from(fragment.childNodes);
-            content = first !== null && nodes.length === 1 ? first : fragment;
+            if (first !== null && first.nextSibling === null)
+            {
+                nodes = undefined;
+                content = first;
+            }
+            else
+            {
+                nodes = Array.from(fragment.childNodes);
+                content = fragment;
+            }
         }
         const parts = new Array<BoundPart>(specs.length);
         let node: Node = top;
@@ -450,6 +459,11 @@ class Instance
             {
                 part.clear();
             }
+        }
+        if (this.nodes === undefined)
+        {
+            (this.content as ChildNode).remove();
+            return;
         }
         for (const node of this.nodes)
         {
@@ -1231,7 +1245,11 @@ interface Row<T>
     readonly key: unknown;
     /** The row's first node, which the rows before it are inserted ahead of. */
     readonly start: ChildNode;
-    /** A row that renders a template with no binding at its top level holds the template's own nodes, with no markers around them. */
+    /**
+     * A row that renders a template with no binding at its top level holds
+     * the template's own nodes, with no markers around them; undefined
+     * when that template has one node, which `start` alone holds.
+     */
     readonly nodes: readonly ChildNode[] | undefined;
     /** Any other row holds its view in a part between its start marker and the part's anchor. */
     readonly part: ChildPart | undefined;
@@ -1299,7 +1317,7 @@ function longestIncreasing(positions: readonly number[]): Set<number>
 /** The node right after a row's last node; the list's end marker follows every row, so there always is one. */
 function nodeAfter(row: Row<unknown>): Node
 {
-    const last = row.nodes === undefined ? (row.part as ChildPart).marker() : (row.nodes[row.nodes.length - 1] as ChildNode);
+    const last = row.part !== undefined ? row.part.marker() : row.nodes === undefined ? row.start : (row.nodes[row.nodes.length - 1] as ChildNode);
     return last.nextSibling as Node;
 }
 
@@ -1310,8 +1328,13 @@ function moveRow(row: Row<unknown>, before: Node): void
     {
         return;
     }
-    if (row.nodes !== undefined)
+    if (row.part === undefined)
     {
+        if (row.nodes === undefined)
+        {
+            parent.insertBefore(row.start, before);
+            return;
+        }
         for (const node of row.nodes)
         {
             parent.insertBefore(node, before);
@@ -1319,17 +1342,14 @@ function moveRow(row: Row<unknown>, before: Node): void
         return;
     }
     let node: ChildNode | null = row.start;
-    const end = row.part?.marker() ?? null;
+    const end = row.part.marker();
     while (node !== null && node !== end)
     {
         const next: ChildNode | null = node.nextSibling;
         parent.insertBefore(node, before);
         node = next;
     }
-    if (end !== null)
-    {
-        parent.insertBefore(end, before);
-    }
+    parent.insertBefore(end, before);
 }
 
 class Keyed<T> extends Directive
@@ -1401,7 +1421,7 @@ class Keyed<T> extends Directive
                         const instance = Instance.create(view.strings, prepared);
                         instance.update(view.values);
                         parent.insertBefore(instance.content as Node, before);
-                        return { key, start: instance.nodes[0] as ChildNode, nodes: instance.nodes, part: undefined, item, index: position, owner: rowOwner };
+                        return { key, start: (instance.nodes === undefined ? instance.content : instance.nodes[0]) as ChildNode, nodes: instance.nodes, part: undefined, item, index: position, owner: rowOwner };
                     }
                 }
                 const start = adopt?.start ?? parent.insertBefore(document.createComment(""), before);

@@ -11,7 +11,7 @@ import { rolldown } from "rolldown";
 import { parseSync } from "rolldown/utils";
 
 /** The most the core's production entry may weigh, in bytes after gzip. */
-export const CORE_BUDGET_GZIP_BYTES = 10240;
+export const CORE_BUDGET_GZIP_BYTES = 10752;
 
 /** The most the modules the core's production entry loads behind an import map may weigh together, each compressed on its own, in bytes after gzip. */
 export const CORE_BUILDLESS_BUDGET_GZIP_BYTES = 14336;

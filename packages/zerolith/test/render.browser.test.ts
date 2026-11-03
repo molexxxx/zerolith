@@ -586,6 +586,21 @@ describe("each", () =>
         expect(new Set(moved)).toEqual(new Set([before[1], before[4]]));
     });
 
+    it("moves, swaps, and removes rows of several top-level nodes, taking all of each row's nodes", () =>
+    {
+        const items = signal<Item[]>([{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }]);
+        const el = mount(html`<dl>${each(items, (item) => item.id, (item) => html`<dt>${item.get().id}</dt><dd>${computed(() => item.get().name)}</dd>`)}</dl>`);
+        const list = el.querySelector("dl") as HTMLDListElement;
+        const read = (): string[] => Array.from(list.children, (node) => node.textContent ?? "");
+        expect(read()).toEqual(["1", "a", "2", "b", "3", "c"]);
+        items.set([{ id: 3, name: "c" }, { id: 2, name: "B" }, { id: 1, name: "a" }]);
+        expect(read()).toEqual(["3", "c", "2", "B", "1", "a"]);
+        items.set([{ id: 2, name: "B" }, { id: 4, name: "d" }, { id: 3, name: "c" }]);
+        expect(read()).toEqual(["2", "B", "4", "d", "3", "c"]);
+        items.set([{ id: 3, name: "c" }]);
+        expect(read()).toEqual(["3", "c"]);
+    });
+
     it("creates the index signal only for a row function that takes it", () =>
     {
         const indexes: unknown[] = [];
