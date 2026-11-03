@@ -1,8 +1,8 @@
 name: Benchmarks
 
 # Measures a published release on js-framework-benchmark next to every
-# framework benchmarks/frameworks.json lists, on a GitHub-hosted runner, and
-# commits the run with the results section of benchmarks/README.md, the
+# framework benchmarks/frameworks.json lists, and next to the release before
+# it in the same session, on a GitHub-hosted runner, and commits the run with the results section of benchmarks/README.md, the
 # baseline, and the entry's pin, then deploys the docs site again so its
 # benchmarks page shows the run. The release workflow starts it on the
 # release's tag once the release is out; a manual run measures any published
@@ -131,6 +131,36 @@ jobs:
           cd "$entry"
           npm pkg set "dependencies.zerolith=$VERSION" "devDependencies.@zerolith/cli=$VERSION"
 
+      # The entry's pin names the release measured last. When it is earlier
+      # than this one, that release joins the run from its own tag's entry
+      # files, as zerolith-previous, so the two compare on one machine.
+      - name: Add the release before
+        id: previous
+        env:
+          ENTRIES: ${{ steps.entries.outputs.list }}
+        run: |
+          set -eu
+          previous="$(node -p "require('./benchmarks/js-framework-benchmark/package.json').dependencies.zerolith")"
+          if ! node --input-type=module -e 'const { compareVersions } = await import("./benchmarks/results.ts"); process.exit(compareVersions(process.argv[1], process.argv[2]) < 0 ? 0 : 1);' "$previous" "$VERSION"; then
+            echo "the entry pins $previous, no release before $VERSION, so the run measures $VERSION alone"
+            echo "entries=$ENTRIES" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch --no-tags --depth 1 origin "refs/tags/zerolith@$previous:refs/tags/zerolith@$previous"
+          mkdir -p "$RUNNER_TEMP/previous"
+          git archive "zerolith@$previous" benchmarks/js-framework-benchmark | tar -x -C "$RUNNER_TEMP/previous"
+          source="$RUNNER_TEMP/previous/benchmarks/js-framework-benchmark"
+          entry=jfb/frameworks/keyed/zerolith-previous
+          mkdir -p "$entry"
+          cp -R "$source/index.html" "$source/package.json" "$source/src" "$entry/"
+          cd "$entry"
+          build="$(npm pkg get scripts.build-prod | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).replaceAll("/frameworks/keyed/zerolith/", "/frameworks/keyed/zerolith-previous/")')"
+          npm pkg set "name=js-framework-benchmark-zerolith-previous" "scripts.build-prod=$build" "dependencies.zerolith=$previous" "devDependencies.@zerolith/cli=$previous"
+          {
+            echo "version=$previous"
+            echo "entries=$ENTRIES keyed/zerolith-previous"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Start the benchmark's server
         working-directory: jfb
         run: |
@@ -146,26 +176,25 @@ jobs:
           exit 1
 
       # Each entry installs from the lockfile the benchmark's repository
-      # keeps for it, but the zerolith entry, whose versions this run sets:
-      # the benchmark's rebuild installs it from its exact pins.
+      # keeps for it, but the zerolith entries, whose versions this run sets:
+      # the benchmark's rebuild installs them from their exact pins.
       - name: Build and check each entry
         working-directory: jfb
         env:
-          ENTRIES: ${{ steps.entries.outputs.list }}
+          ENTRIES: ${{ steps.previous.outputs.entries }}
         run: |
           set -eu
           for entry in $ENTRIES; do
-            if [ "$entry" = keyed/zerolith ]; then
-              npm run rebuild -- "$entry"
-            else
-              npm run rebuild-ci -- "$entry"
-            fi
+            case "$entry" in
+              keyed/zerolith | keyed/zerolith-previous) npm run rebuild -- "$entry" ;;
+              *) npm run rebuild-ci -- "$entry" ;;
+            esac
           done
 
       - name: Run the benchmark
         working-directory: jfb
         env:
-          ENTRIES: ${{ steps.entries.outputs.list }}
+          ENTRIES: ${{ steps.previous.outputs.entries }}
         run: |
           set -eu
           # shellcheck disable=SC2086
@@ -175,11 +204,17 @@ jobs:
       # takes, so the CPU's name loses characters such as the @ before its
       # clock speed.
       - name: Collect the run
+        env:
+          PREVIOUS: ${{ steps.previous.outputs.version }}
         run: |
           set -eu
           cpu="$(lscpu | sed -n 's/^Model name:[[:space:]]*//p' | head -n 1)"
           machine="$(printf '%s' "$cpu, $(nproc) vCPUs, $(lsb_release -ds), $(google-chrome --version) headless, Node $(node --version)" | tr -cd "A-Za-z0-9 .,;:()+/'-" | tr -s ' ')"
-          node benchmarks/collect.ts jfb/webdriver-ts/results --date "$(date -u +%F)" --zerolith "$VERSION" --method "medians of 15 runs on a GitHub-hosted runner" --machine "$machine" --out "$RUNNER_TEMP/run.json"
+          before=()
+          if [ -n "$PREVIOUS" ]; then
+            before=(--previous "$PREVIOUS")
+          fi
+          node benchmarks/collect.ts jfb/webdriver-ts/results --date "$(date -u +%F)" --zerolith "$VERSION" --method "medians of 15 runs on a GitHub-hosted runner" --machine "$machine" "${before[@]}" --out "$RUNNER_TEMP/run.json"
           cat "$RUNNER_TEMP/run.json"
 
       - name: Keep the run

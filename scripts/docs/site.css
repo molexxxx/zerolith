@@ -1770,39 +1770,6 @@ main[tabindex="-1"]:focus
     font-size: var(--zl-text-sm);
 }
 
-.scores .legend
-{
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--zl-space-2) var(--zl-space-6);
-    margin: 0 0 var(--zl-space-3);
-    color: var(--zl-text-muted);
-    font-family: var(--zl-font-mono);
-    font-size: var(--zl-text-xs);
-}
-
-.scores .legend > span
-{
-    display: inline-flex;
-    align-items: center;
-    gap: var(--zl-space-2);
-    white-space: nowrap;
-}
-
-.key-fill
-{
-    width: 16px;
-    height: 12px;
-    background: var(--zl-control-line);
-}
-
-.key-tick
-{
-    width: var(--zl-rule);
-    height: 16px;
-    background: var(--zl-text-muted);
-}
-
 .scores .number
 {
     text-align: right;
@@ -1918,16 +1885,6 @@ main[tabindex="-1"]:focus
     background: var(--zl-control-line);
 }
 
-.track .tick
-{
-    position: absolute;
-    top: calc(-1 * var(--zl-space-1));
-    bottom: calc(-1 * var(--zl-space-1));
-    width: var(--zl-rule);
-    margin-left: calc(-1 * var(--zl-rule) / 2);
-    background: var(--zl-text-muted);
-}
-
 .scores tr.ours,
 .frameworks .ours
 {
@@ -1939,9 +1896,10 @@ main[tabindex="-1"]:focus
     background: var(--zl-text);
 }
 
-.scores td.before
+.before .track .fill
 {
-    color: var(--zl-text-muted);
+    border: var(--zl-rule) solid var(--zl-text);
+    background: transparent;
 }
 
 .frameworks th,
@@ -2484,7 +2442,7 @@ main[tabindex="-1"]:focus
     {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
-        grid-template-areas: "name score" "name before" "bar bar";
+        grid-template-areas: "name score" "bar bar";
     }
 
     .scores tbody th
@@ -2495,22 +2453,6 @@ main[tabindex="-1"]:focus
     .scores tbody td.score
     {
         grid-area: score;
-    }
-
-    .scores tbody td.before
-    {
-        display: flex;
-        flex-direction: column;
-        grid-area: before;
-        align-items: flex-end;
-        padding-top: 0;
-        border-top: 0;
-        font-size: var(--zl-text-xs);
-    }
-
-    .scores td.before::before
-    {
-        content: attr(data-label);
     }
 
     .scores tbody td.bar

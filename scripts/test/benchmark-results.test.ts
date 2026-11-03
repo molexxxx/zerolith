@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { OPERATIONS, type Run, checkRun, compareVersions, pinRelease, readRuns, renderResults, replaceSection, scores } from "../../benchmarks/results.ts";
+import { type FrameworkResult, OPERATIONS, type Run, checkRun, compareVersions, pinRelease, previousScore, readRuns, renderResults, replaceSection, scores } from "../../benchmarks/results.ts";
 
 const folder = new URL("../../benchmarks/", import.meta.url);
 
@@ -128,26 +128,42 @@ describe("benchmarks/results", () =>
     });
 });
 
-describe("renderResults", () =>
+/** zerolith's release before, 0.1.0, taking `time` milliseconds at every operation, with any field replaced. */
+function releaseBefore(time: number, fields: Record<string, unknown> = {}): FrameworkResult
 {
-    it("compares the newest run with the newest earlier release measured the same way, past runs taken otherwise", () =>
+    return { name: "zerolith", entry: "zerolith", version: "0.1.0", operations: Object.fromEntries(OPERATIONS.map((operation) => [operation.id, time])), ...fields } as FrameworkResult;
+}
+
+describe("the release before", () =>
+{
+    it("scores against the fastest times of the run's frameworks, below 1.00 where it beats them all", () =>
     {
-        const rendered = renderResults([
-            taken({ zerolith: "0.3.0", date: "2026-03-01", method: "on a runner" }),
-            taken({ zerolith: "0.3.0", date: "2026-02-20", method: "on a runner" }),
-            taken({ zerolith: "0.2.0", date: "2026-02-01", method: "on a laptop" }),
-            taken({ zerolith: "0.1.0", date: "2026-01-01", method: "on a runner" })
-        ]);
-        expect(header(rendered)).toBe("| Framework | Entry | Version | Score | 0.1.0, 2026-01-01 |");
-        expect(rendered).toContain("The last column is the newest earlier release measured the same way, 0.1.0, 2026-01-01.");
+        expect(previousScore(taken({ zerolith: "0.2.0", previous: releaseBefore(12) }))).toBeCloseTo(1.2, 10);
+        expect(previousScore(taken({ zerolith: "0.2.0", previous: releaseBefore(9) }))).toBeCloseTo(0.9, 10);
+        expect(previousScore(taken({ zerolith: "0.2.0" }))).toBeUndefined();
     });
 
-    it("leaves the column out when no earlier release was measured the same way", () =>
+    it("ranks among the frameworks it ran with, and the section says it ran in the same session", () =>
     {
-        const rendered = renderResults([taken({ zerolith: "0.2.0", method: "on a runner" }), taken({ zerolith: "0.1.0", method: "on a laptop" })]);
+        const rendered = renderResults([taken({ zerolith: "0.2.0", previous: releaseBefore(12) })]);
+        const rows = rendered.split("\n").filter((line) => line.startsWith("| ") && !line.startsWith("| Framework") && !line.startsWith("| ---")).slice(0, 3);
+        expect(rows).toEqual(["| vanilla | `vanilla` | 1.0.0 | 1.00 |", "| zerolith | `zerolith` | 1.0.0 | 1.10 |", "| zerolith, the release before | `zerolith` | 0.1.0 | 1.20 |"]);
         expect(header(rendered)).toBe("| Framework | Entry | Version | Score |");
-        expect(rendered).toContain("No earlier release was measured the same way");
-        expect(rendered).toContain("| 0.1.0, 2026-01-01 |");
+        expect(rendered).toContain("The release before, zerolith 0.1.0, ran in the same session on the same machine");
+    });
+
+    it("leaves the section saying so when a run did not measure it", () =>
+    {
+        expect(renderResults([taken({ zerolith: "0.2.0" })])).toContain("This run did not measure the release before");
+    });
+
+    it("is taken only as zerolith at an earlier release, with its operation times", () =>
+    {
+        expect(checkRun({ ...valid(), zerolith: "0.2.0", previous: releaseBefore(12) }, "run.json").previous?.version).toBe("0.1.0");
+        expect(() => checkRun({ ...valid(), zerolith: "0.2.0", previous: releaseBefore(12, { name: "Solid" }) }, "run.json")).toThrow("is not zerolith with its operation times");
+        expect(() => checkRun({ ...valid(), zerolith: "0.2.0", previous: releaseBefore(12, { version: "0.2.0" }) }, "run.json")).toThrow("is not a release before 0.2.0");
+        expect(() => checkRun({ ...valid(), zerolith: "0.2.0", previous: releaseBefore(12, { operations: undefined, score: 1.2 }) }, "run.json")).toThrow("is not zerolith with its operation times");
+        expect(() => checkRun({ ...valid(), zerolith: "0.2.0", previous: releaseBefore(12, { script: "x" }) }, "run.json")).toThrow("holds \"script\"");
     });
 });
 
@@ -326,7 +342,7 @@ describe("npm run bench:report", () =>
             expect(await readFile(join(root, "benchmarks/baseline"), "utf8")).toBe("zerolith@9.9.9-alpha.1\n");
             const readme = await readFile(join(root, "benchmarks/README.md"), "utf8");
             expect(readme).toContain("The newest release, zerolith 9.9.9-alpha.1, measured on 2026-12-01");
-            expect(header(readme)).toBe("| Framework | Entry | Version | Score | 0.1.0-alpha.8, 2026-11-02 |");
+            expect(header(readme)).toBe("| Framework | Entry | Version | Score |");
         }
         finally
         {

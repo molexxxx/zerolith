@@ -67,6 +67,8 @@ export interface Run
     /** What a reader of the history needs to know about the run, if anything. */
     note?: string;
     frameworks: FrameworkResult[];
+    /** zerolith's release before, measured in the same session on the same machine, when the run took it. */
+    previous?: FrameworkResult;
 }
 
 /** The comment lines that hold the rendered section in the README. */
@@ -139,7 +141,7 @@ function numbers(value: unknown, where: string, ids: readonly string[], low: num
  */
 export function checkRun(value: unknown, file: string): Run
 {
-    const run = record(value, file, ["date", "zerolith", "commit", "statistic", "method", "machine", "note", "frameworks"], ["date", "zerolith", "commit", "statistic", "method", "machine", "frameworks"]);
+    const run = record(value, file, ["date", "zerolith", "commit", "statistic", "method", "machine", "note", "frameworks", "previous"], ["date", "zerolith", "commit", "statistic", "method", "machine", "frameworks"]);
     text(run["date"], `${file}.date`, /^\d{4}-\d{2}-\d{2}$/);
     text(run["zerolith"], `${file}.zerolith`, VERSION);
     text(run["commit"], `${file}.commit`, /^[0-9a-f]{7,40}$/);
@@ -157,29 +159,48 @@ export function checkRun(value: unknown, file: string): Run
     }
     frameworks.forEach((entry: unknown, index) =>
     {
-        const where = `${file}.frameworks[${index}]`;
-        const framework = record(entry, where, ["name", "entry", "version", "operations", "score", "measures"], ["name", "entry", "version"]);
-        text(framework["name"], `${where}.name`, /^[A-Za-z][A-Za-z0-9 .-]{0,30}$/);
-        text(framework["entry"], `${where}.entry`, /^[a-z0-9][a-z0-9-]{0,60}$/);
-        text(framework["version"], `${where}.version`, /^(hand-written|\d[0-9A-Za-z.+ -]{0,40})$/);
-        if (framework["operations"] === undefined && framework["score"] === undefined)
-        {
-            fail(where, "has neither operation times nor a score");
-        }
-        if (framework["operations"] !== undefined)
-        {
-            numbers(framework["operations"], `${where}.operations`, OPERATIONS.map((operation) => operation.id), 0.01);
-        }
-        if (framework["score"] !== undefined && (typeof framework["score"] !== "number" || !(framework["score"] >= 1 && framework["score"] <= 100)))
-        {
-            fail(`${where}.score`, `${JSON.stringify(framework["score"])} is not a score from 1 to 100`);
-        }
-        if (framework["measures"] !== undefined)
-        {
-            numbers(framework["measures"], `${where}.measures`, MEASURES.map((measure) => measure.id), 0);
-        }
+        checkFramework(entry, `${file}.frameworks[${index}]`);
     });
+    if (run["previous"] !== undefined)
+    {
+        const previous = checkFramework(run["previous"], `${file}.previous`);
+        if (previous["name"] !== "zerolith" || previous["operations"] === undefined)
+        {
+            fail(`${file}.previous`, "is not zerolith with its operation times");
+        }
+        const version = text(previous["version"], `${file}.previous.version`, VERSION);
+        if (compareVersions(version, run["zerolith"] as string) >= 0)
+        {
+            fail(`${file}.previous.version`, `${version} is not a release before ${String(run["zerolith"])}`);
+        }
+    }
     return run as unknown as Run;
+}
+
+/** One framework's results checked field by field, as a run's frameworks and its release before hold them. */
+function checkFramework(entry: unknown, where: string): Record<string, unknown>
+{
+    const framework = record(entry, where, ["name", "entry", "version", "operations", "score", "measures"], ["name", "entry", "version"]);
+    text(framework["name"], `${where}.name`, /^[A-Za-z][A-Za-z0-9 .-]{0,30}$/);
+    text(framework["entry"], `${where}.entry`, /^[a-z0-9][a-z0-9-]{0,60}$/);
+    text(framework["version"], `${where}.version`, /^(hand-written|\d[0-9A-Za-z.+ -]{0,40})$/);
+    if (framework["operations"] === undefined && framework["score"] === undefined)
+    {
+        fail(where, "has neither operation times nor a score");
+    }
+    if (framework["operations"] !== undefined)
+    {
+        numbers(framework["operations"], `${where}.operations`, OPERATIONS.map((operation) => operation.id), 0.01);
+    }
+    if (framework["score"] !== undefined && (typeof framework["score"] !== "number" || !(framework["score"] >= 1 && framework["score"] <= 100)))
+    {
+        fail(`${where}.score`, `${JSON.stringify(framework["score"])} is not a score from 1 to 100`);
+    }
+    if (framework["measures"] !== undefined)
+    {
+        numbers(framework["measures"], `${where}.measures`, MEASURES.map((measure) => measure.id), 0);
+    }
+    return framework;
 }
 
 /** A version's three numbers and its prerelease identifiers. */
@@ -254,33 +275,53 @@ export async function readRuns(folder: string): Promise<Run[]>
     });
 }
 
+/** The fastest time of each operation across a run's frameworks, in the order of `OPERATIONS`. */
+function fastestTimes(run: Run): number[]
+{
+    return OPERATIONS.map((operation) => Math.min(...run.frameworks.map((framework) => framework.operations?.[operation.id] ?? Infinity)));
+}
+
+/** A framework's weighted geometric mean against the fastest times: from its operation times when it has them, otherwise as published. */
+function score(framework: FrameworkResult, fastest: readonly number[], date: string): number
+{
+    const { operations } = framework;
+    if (operations === undefined)
+    {
+        if (framework.score === undefined)
+        {
+            throw new Error(`${date}: ${framework.name} has neither operation times nor a score`);
+        }
+        return framework.score;
+    }
+    const total = OPERATIONS.reduce((sum, operation) => sum + operation.weight, 0);
+    const sum = OPERATIONS.reduce((weighted, operation, index) =>
+    {
+        const time = operations[operation.id];
+        if (time === undefined)
+        {
+            throw new Error(`${date}: ${framework.name} has no time for ${operation.id}`);
+        }
+        return weighted + operation.weight * Math.log(time / (fastest[index] ?? time));
+    }, 0);
+    return Math.exp(sum / total);
+}
+
 /** Each framework's weighted geometric mean in a run, by name: from its operation times when the run kept them, otherwise as published. */
 export function scores(run: Run): Map<string, number>
 {
-    const fastest = OPERATIONS.map((operation) => Math.min(...run.frameworks.map((framework) => framework.operations?.[operation.id] ?? Infinity)));
-    const total = OPERATIONS.reduce((sum, operation) => sum + operation.weight, 0);
-    return new Map(run.frameworks.map((framework) =>
-    {
-        const { operations } = framework;
-        if (operations === undefined)
-        {
-            if (framework.score === undefined)
-            {
-                throw new Error(`${run.date}: ${framework.name} has neither operation times nor a score`);
-            }
-            return [framework.name, framework.score];
-        }
-        const sum = OPERATIONS.reduce((weighted, operation, index) =>
-        {
-            const time = operations[operation.id];
-            if (time === undefined)
-            {
-                throw new Error(`${run.date}: ${framework.name} has no time for ${operation.id}`);
-            }
-            return weighted + operation.weight * Math.log(time / (fastest[index] ?? time));
-        }, 0);
-        return [framework.name, Math.exp(sum / total)];
-    }));
+    const fastest = fastestTimes(run);
+    return new Map(run.frameworks.map((framework) => [framework.name, score(framework, fastest, run.date)]));
+}
+
+/**
+ * The score of zerolith's release before, measured in the same run,
+ * against the fastest times of the run's frameworks, so it compares with
+ * theirs; it can fall below 1.00 where it beats every framework. Undefined
+ * when the run did not take it.
+ */
+export function previousScore(run: Run): number | undefined
+{
+    return run.previous === undefined ? undefined : score(run.previous, fastestTimes(run), run.date);
 }
 
 const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
@@ -298,16 +339,25 @@ export function label(run: Run): string
     return `${run.zerolith}, ${run.date}`;
 }
 
-/**
- * The run the newest one is compared with, from runs in the order
- * `readRuns` gives them: the newest earlier release measured the same way,
- * or none, since a change of machine or method moves every framework's
- * score.
- */
-export function comparedRun(runs: readonly Run[]): Run | undefined
+/** A row of the ranked scores: a framework of the run, or zerolith's release before, measured with them. */
+export interface Ranked
 {
-    const [current] = runs;
-    return current === undefined ? undefined : runs.find((run) => run.method === current.method && compareVersions(run.zerolith, current.zerolith) < 0);
+    name: string;
+    entry: string;
+    version: string;
+    score: number;
+    /** Whether the row is zerolith's release before rather than a framework of the run. */
+    before: boolean;
+}
+
+/** The newest run's frameworks and, when the run took it, zerolith's release before, fastest first. */
+export function ranked(run: Run): Ranked[]
+{
+    const runScores = scores(run);
+    const rows: Ranked[] = run.frameworks.map((framework) => ({ name: framework.name, entry: framework.entry, version: framework.version, score: runScores.get(framework.name) ?? 1, before: false }));
+    const before = previousScore(run);
+    const added = run.previous === undefined || before === undefined ? rows : rows.concat([{ name: run.previous.name, entry: run.previous.entry, version: run.previous.version, score: before, before: true }]);
+    return added.toSorted((a, b) => a.score - b.score);
 }
 
 function table(header: readonly string[], rows: readonly (readonly string[])[]): string
@@ -317,11 +367,9 @@ function table(header: readonly string[], rows: readonly (readonly string[])[]):
 
 /**
  * The README section the runs render, in the order `readRuns` gives them:
- * the newest run's scores, with a column for the newest earlier release
- * measured the same way when there is one, its operations, its memory,
- * size, and first paint, then every run's scores. Runs taken another way
- * are left out of the column, since a change of machine or method moves
- * every framework's score.
+ * the newest run's scores, ranked with zerolith's release before when the
+ * run measured it on the same machine, its operations, its memory, size,
+ * and first paint, then every run's scores.
  */
 export function renderResults(runs: readonly Run[]): string
 {
@@ -330,25 +378,17 @@ export function renderResults(runs: readonly Run[]): string
     {
         throw new Error("no run to render");
     }
-    const previous = comparedRun(runs);
     const currentScores = scores(current);
-    const previousScores = previous === undefined ? undefined : scores(previous);
     const order = current.frameworks.toSorted((a, b) => (currentScores.get(a.name) ?? 0) - (currentScores.get(b.name) ?? 0));
-    const fastest = OPERATIONS.map((operation) => Math.min(...current.frameworks.map((framework) => framework.operations?.[operation.id] ?? Infinity)));
+    const fastest = fastestTimes(current);
     const lines: string[] = [];
     lines.push("## Results");
     lines.push("");
-    lines.push(`The newest release, zerolith ${current.zerolith}, measured on ${current.date} with ${current.method}, next to hand-written JavaScript and ${rivals(current)}. The score is each framework's weighted geometric mean: every operation's time over the fastest framework's, combined with the weights of the official results page, so 1.00 would be fastest everywhere and lower is faster. ${previous === undefined ? "No earlier release was measured the same way, so there is no column to compare with; every run's scores are listed below." : `The last column is the newest earlier release measured the same way, ${label(previous)}.`}`);
+    lines.push(`The newest release, zerolith ${current.zerolith}, measured on ${current.date} with ${current.method}, next to hand-written JavaScript and ${rivals(current)}. The score is each framework's weighted geometric mean: every operation's time over the fastest framework's, combined with the weights of the official results page, so 1.00 would be fastest everywhere and lower is faster. ${current.previous === undefined ? "This run did not measure the release before; every run's scores are listed below." : `The release before, zerolith ${current.previous.version}, ran in the same session on the same machine, so its row compares with the newest like for like.`}`);
     lines.push("");
     lines.push(table(
-        ["Framework", "Entry", "Version", "Score", ...(previous === undefined ? [] : [label(previous)])],
-        order.map((framework) => [
-            framework.name,
-            `\`${framework.entry}\``,
-            framework.version,
-            (currentScores.get(framework.name) ?? 0).toFixed(2),
-            ...(previousScores === undefined ? [] : [previousScores.has(framework.name) ? (previousScores.get(framework.name) ?? 0).toFixed(2) : "-"])
-        ])
+        ["Framework", "Entry", "Version", "Score"],
+        ranked(current).map((row) => [row.before ? `${row.name}, the release before` : row.name, `\`${row.entry}\``, row.version, row.score.toFixed(2)])
     ));
     if (current.frameworks.every((framework) => framework.operations !== undefined))
     {

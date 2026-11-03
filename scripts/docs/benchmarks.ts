@@ -1,13 +1,14 @@
 /**
  * The benchmarks page: the newest release's js-framework-benchmark scores
  * next to hand-written JavaScript and seven frameworks as a ranked figure,
- * then every operation's time, memory, size, and first paint, each run's
+ * with the release before when the run measured it alongside, then every
+ * operation's time, memory, size, and first paint, each run's
  * scores, and how the runs are taken, all rendered from the runs in
  * benchmarks/results/ when the site is built. The Markdown twin carries the
  * same results as the benchmarks README renders them.
  */
 import { type View, html } from "zerolith";
-import { MEASURES, OPERATIONS, type FrameworkResult, type Run, SECTION_END, SECTION_START, comparedRun, label, renderResults, rivals, scores } from "../../benchmarks/results.ts";
+import { MEASURES, OPERATIONS, type FrameworkResult, type Ranked, type Run, SECTION_END, SECTION_START, label, ranked, renderResults, rivals, scores } from "../../benchmarks/results.ts";
 import { repository } from "./layout.ts";
 
 /** What the page renders: the newest release's newest run first, as `readRuns` orders them. */
@@ -38,7 +39,7 @@ const contents = [
 const method: Array<Array<string | { text: string; href: string }>> = [
     ["js-framework-benchmark renders the same table of rows in every framework and times nine operations on it, from creating 1,000 rows to clearing them. Its driver clicks a button in Chrome and measures from the click to the end of the paint it causes, from Chrome's performance trace, so script, style, layout, and paint all count, and five of the operations run with the CPU slowed down, as the official runs do. Each time here is the median of a run's samples: 15 of each operation, and 25 of selecting a row."],
     ["Every framework is the keyed entry of the benchmark's repository at the commit ", { text: "frameworks.json", href: `${repository}/blob/main/benchmarks/frameworks.json` }, " names, built from its own lockfile, and zerolith is ", { text: "the entry in this repository", href: `${repository}/tree/main/benchmarks/js-framework-benchmark` }, ", pinned to the release. The memory results are what Chrome reports for the page after an action and a forced garbage collection, and the size results are the bytes of the entry's files; the benchmark takes one sample of each, so small differences there say little."],
-    ["Each release is measured once it is published, by ", { text: "the benchmarks workflow", href: `${repository}/blob/main/.github/workflows/benchmarks.yml` }, ", and the run is kept in the repository with the machine and method it used. A change of machine or method moves every framework's score, so the newest run is only ever compared with an earlier release measured the same way; Every run shows how each run was taken."],
+    ["Each release is measured once it is published, by ", { text: "the benchmarks workflow", href: `${repository}/blob/main/.github/workflows/benchmarks.yml` }, ", and the run is kept in the repository with the machine and method it used. A change of machine or method moves every framework's score, so each release's run also measures the release before in the same session on the same machine, and the two zerolith rows compare like for like; Every run shows the earlier runs, each with how it was taken."],
     ["These are this project's runs, not the official results, which the benchmark's maintainer measures and publishes at ", { text: "krausest.github.io/js-framework-benchmark", href: officialResults }, "; zerolith is not among them until its entry is accepted upstream. ", { text: "The benchmarks README", href: readme }, " has the full method and the steps to take a run yourself."]
 ];
 
@@ -71,59 +72,59 @@ function Paragraph(parts: Array<string | { text: string; href: string }>)
     return html`<p>${parts.map((part) => (typeof part === "string" ? part : html`<a href=${part.href}>${part.text}</a>`))}</p>`;
 }
 
-/** Each framework's score as the page prints it, to two decimals, so a bar never disagrees with its number. */
-function shown(run: Run): Map<string, number>
+/** A row's score as the page prints it, to two decimals, so its bar never disagrees with its number. */
+function printed(row: Ranked): number
 {
-    return new Map([...scores(run)].map(([name, score]) => [name, Number(score.toFixed(2))]));
+    return Number(row.score.toFixed(2));
+}
+
+/** The class of a row of the ranked figure: zerolith now, zerolith's release before, or another framework. */
+function rowClass(row: Ranked): string | null
+{
+    if (row.before)
+    {
+        return "before";
+    }
+    return row.name === "zerolith" ? "ours" : null;
 }
 
 /**
- * The ranked figure: one row per framework, with its score and a bar of
- * how much slower than the fastest it is. A score printed as 1.00 draws no
- * bar.
+ * The ranked figure: one row per framework, and one for zerolith's release
+ * before when the run measured it, each with its score and a bar of how
+ * much slower than the fastest it is. Bars follow the scores as printed, so
+ * a 1.00 draws no bar.
  */
-function Scores(run: Run, previous: Run | undefined)
+function Scores(run: Run)
 {
-    const runScores = shown(run);
-    const previousScores = previous === undefined ? undefined : shown(previous);
-    const order = ordered(run, scores(run));
-    const slowest = Math.max(...runScores.values(), ...(previousScores?.values() ?? []));
+    const rows = ranked(run);
+    const slowest = Math.max(...rows.map(printed));
     return html`
         <figure class="scores" id="scores">
-            <p class="key">Lower is faster. A score of 1.00 would be the fastest framework at every operation, and each bar is the extra time a framework takes over that.</p>
-            ${previous === undefined ? null : html`
-                <p class="legend"><span><span class="key-fill" aria-hidden="true"></span>${label(run)}</span><span><span class="key-tick" aria-hidden="true"></span>${label(previous)}</span></p>`}
+            <p class="key">Lower is faster. A score of 1.00 would be the fastest framework at every operation, and each bar is the extra time a framework takes over that.${run.previous === undefined ? "" : ` The outlined bar is zerolith ${run.previous.version}, the release before, measured in the same session on the same machine.`}</p>
             <div class="table">
                 <table>
                     <thead>
                         <tr>
                             <th scope="col">Framework</th>
                             <th scope="col" class="number">Score</th>
-                            ${previous === undefined ? null : html`<th scope="col" class="number">${previous.zerolith}</th>`}
                             <th scope="col" class="bar">Extra time over the fastest</th>
                         </tr>
                     </thead>
-                    <tbody>${order.map((framework) =>
-                    {
-                        const score = runScores.get(framework.name) ?? 1;
-                        const before = previousScores?.get(framework.name);
-                        return html`
-                            <tr class=${framework.name === "zerolith" ? "ours" : null}>
-                                <th scope="row"><span class="name">${framework.name}</span><span class="entry">${framework.entry} <span class="version">${framework.version}</span></span></th>
-                                <td class="number score">${score.toFixed(2)}</td>
-                                ${previous === undefined ? null : html`<td class="number before" data-label=${previous.zerolith}>${before === undefined ? "-" : before.toFixed(2)}</td>`}
-                                <td class="bar"><span class="track" aria-hidden="true">${score > 1 ? html`<span class="fill" style=${`width: ${length(score, slowest)}`}></span>` : null}${before === undefined ? null : html`<span class="tick" style=${`left: ${length(before, slowest)}`}></span>`}</span></td>
-                            </tr>`;
-                    })}</tbody>
+                    <tbody>${rows.map((row) => html`
+                        <tr class=${rowClass(row)}>
+                            <th scope="row"><span class="name">${row.name}</span><span class="entry">${row.entry} <span class="version">${row.version}</span>${row.before ? ", the release before" : ""}</span></th>
+                            <td class="number score">${printed(row).toFixed(2)}</td>
+                            <td class="bar"><span class="track" aria-hidden="true">${printed(row) > 1 ? html`<span class="fill" style=${`width: ${length(printed(row), slowest)}`}></span>` : null}</span></td>
+                        </tr>`)}</tbody>
                     <tfoot aria-hidden="true">
                         <tr>
-                            <td colspan=${previous === undefined ? 2 : 3}></td>
+                            <td colspan="2"></td>
                             <td class="bar"><span class="axis">${axis(slowest).map((tick) => html`<span style=${`left: ${tick.at}`}>${tick.text}</span>`)}</span></td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
-            <figcaption>Figure 1. The newest run, measured on ${run.date} with ${run.method}, on ${run.machine}. ${previous === undefined ? "" : `Each tick is the score in ${label(previous)}, the newest earlier release measured the same way. `}These are not the official results; <a href="#how-the-runs-are-measured">How the runs are measured</a> says how they are taken.</figcaption>
+            <figcaption>Figure 1. The newest run, measured on ${run.date} with ${run.method}, on ${run.machine}. These are not the official results; <a href="#how-the-runs-are-measured">How the runs are measured</a> says how they are taken.</figcaption>
         </figure>`;
 }
 
@@ -156,7 +157,6 @@ export function Benchmarks(data: BenchmarksData): View
     {
         throw new Error("benchmarks/results/ holds no run to show");
     }
-    const previous = comparedRun(data.runs);
     const order = ordered(current, scores(current));
     const fastest = new Map(OPERATIONS.map((operation) => [operation.id, Math.min(...current.frameworks.map((framework) => framework.operations?.[operation.id] ?? Infinity))]));
     const history = data.runs.map((run) => ({ run, scores: scores(run) }));
@@ -169,7 +169,7 @@ export function Benchmarks(data: BenchmarksData): View
                 <nav class="contents" aria-label="On this page">${contents.map((entry) => html`<a href=${`#${entry.id}`}>${entry.title}</a>`)}</nav>
             </div>
         </section>
-        ${Scores(current, previous)}
+        ${Scores(current)}
         <section class="band" id="every-operation">
             <h2>Every operation</h2>
             <p>Each cell is the median time in milliseconds, over its factor against the fastest framework at that operation. The operations marked with a slowdown run with Chrome slowing the CPU by that factor.</p>

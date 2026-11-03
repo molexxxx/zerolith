@@ -29,18 +29,17 @@ function render(runs: Run[]): string
     return renderToString(Benchmarks({ runs })).replace(/<!--\/?zl:p-->/g, "");
 }
 
-/** The rows of the scores figure, each as its framework, score, bar width or "no bar", and tick position. */
+/** The rows of the scores figure, each as its class, framework, score, and bar width or "no bar". */
 function rows(markup: string): string[]
 {
     const body = markup.slice(markup.indexOf("<tbody>", markup.indexOf("<figure class=\"scores\"")), markup.indexOf("</tbody>"));
     return body.split("</tr>").filter((row) => row.includes("<tr")).map((row) =>
     {
-        const ours = row.includes("<tr class=\"ours\">") ? "ours " : "";
+        const kind = /<tr class="([^"]+)">/.exec(row)?.[1];
         const name = /<span class="name">([^<]+)</.exec(row)?.[1];
         const score = /<td class="number score">([^<]+)</.exec(row)?.[1];
         const bar = /class="fill" style="width: ([^"]+)"/.exec(row)?.[1] ?? "no bar";
-        const tick = /class="tick" style="left: ([^"]+)"/.exec(row)?.[1];
-        return `${ours}${name} ${score} ${bar}${tick === undefined ? "" : ` tick ${tick}`}`;
+        return `${kind === undefined ? "" : `${kind} `}${name} ${score} ${bar}`;
     });
 }
 
@@ -52,21 +51,21 @@ describe("the benchmarks page", () =>
     {
         const markup = render([newest]);
         expect(rows(markup)).toEqual(["vanilla 1.00 no bar", "ours zerolith 1.10 20.00%", "Slow 1.50 100.00%"]);
-        expect(markup).not.toContain("class=\"legend\"");
+        expect(markup.slice(markup.indexOf("<figure class=\"scores\""), markup.indexOf("</figure>"))).not.toContain("the release before");
         expect(markup).toContain("The newest run, measured on 2026-12-01 with on a runner, on a test machine.");
         const ticks = markup.slice(markup.indexOf("<span class=\"axis\">"), markup.indexOf("</tfoot>"));
         expect([...ticks.matchAll(/left: ([^"]+)">([^<]+)</g)].map((match) => `${match[2]} at ${match[1]}`)).toEqual(["0% at 0.00%", "+10% at 20.00%", "+20% at 40.00%", "+30% at 60.00%", "+40% at 80.00%", "+50% at 100.00%"]);
     });
 
-    it("marks each score of the newest earlier release measured the same way, and passes over runs taken another way", () =>
+    it("ranks the release before, measured in the same run, as its own outlined row, and never compares across runs", () =>
     {
-        const compared = run("0.1.0", "2026-11-01", "on a runner", { vanilla: 1, zerolith: 1.25, Slow: 2 });
-        const otherwise = run("0.1.5", "2026-11-15", "on a laptop", { vanilla: 1, zerolith: 1.9, Slow: 1.2 });
-        const markup = render([newest, otherwise, compared]);
-        expect(rows(markup)).toEqual(["vanilla 1.00 no bar tick 0.00%", "ours zerolith 1.10 10.00% tick 25.00%", "Slow 1.50 50.00% tick 100.00%"]);
-        expect(markup).toContain("<span class=\"key-tick\" aria-hidden=\"true\"></span>0.1.0, 2026-11-01");
-        expect(markup).toContain("<td class=\"number before\" data-label=\"0.1.0\">1.25</td>");
-        expect(markup).not.toContain("0.1.5, 2026-11-15</p>");
+        const before = run("0.1.0", "2026-12-01", "on a runner", { zerolith: 2 }).frameworks[0];
+        const earlier = run("0.1.0", "2026-11-01", "on a runner", { vanilla: 1, zerolith: 1.25, Slow: 2 });
+        const markup = render([{ ...newest, previous: { ...before, version: "0.1.0" } as Run["frameworks"][number] }, earlier]);
+        expect(rows(markup)).toEqual(["vanilla 1.00 no bar", "ours zerolith 1.10 10.00%", "Slow 1.50 50.00%", "before zerolith 2.00 100.00%"]);
+        expect(markup).toContain("The outlined bar is zerolith 0.1.0, the release before, measured in the same session on the same machine.");
+        expect(markup).toContain("<span class=\"version\">0.1.0</span>, the release before</span>");
+        expect(markup.slice(markup.indexOf("<figure class=\"scores\""), markup.indexOf("</figure>"))).not.toContain("1.25");
     });
 
     it("draws no bar for a score printed as 1.00, and ranks scores that print alike by their exact values", () =>
