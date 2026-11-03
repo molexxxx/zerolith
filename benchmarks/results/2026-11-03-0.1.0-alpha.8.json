@@ -1,0 +1,227 @@
+{
+    "date": "2026-11-03",
+    "zerolith": "0.1.0-alpha.8",
+    "commit": "ca8715d",
+    "statistic": "median",
+    "method": "medians of 15 runs on a GitHub-hosted runner",
+    "machine": "AMD EPYC 9V74 80-Core Processor, 4 vCPUs, Ubuntu 24.04.5 LTS, Google Chrome 156.0.8078.47 headless, Node v24.22.1",
+    "passes": 5,
+    "frameworks": [
+        {
+            "name": "vanilla",
+            "entry": "vanillajs",
+            "version": "hand-written",
+            "operations": {
+                "01_run1k": 56.5,
+                "02_replace1k": 62.7,
+                "03_update10th1k_x16": 32.7,
+                "04_select1k": 7.3,
+                "05_swap1k": 37,
+                "06_remove-one-1k": 29,
+                "07_create10k": 629.1,
+                "08_create1k-after1k_x2": 64,
+                "09_clear1k_x8": 25.2
+            },
+            "measures": {
+                "21_ready-memory": 0.5595331192016602,
+                "22_run-memory": 1.869156837463379,
+                "25_run-clear-memory": 0.6430835723876953,
+                "41_size-uncompressed": 11.3,
+                "42_size-compressed": 2.5,
+                "43_first-paint": 91.9
+            }
+        },
+        {
+            "name": "zerolith",
+            "entry": "zerolith",
+            "version": "0.1.0-alpha.8",
+            "operations": {
+                "01_run1k": 65.1,
+                "02_replace1k": 72.7,
+                "03_update10th1k_x16": 34.5,
+                "04_select1k": 7.5,
+                "05_swap1k": 41.5,
+                "06_remove-one-1k": 30.2,
+                "07_create10k": 752.2,
+                "08_create1k-after1k_x2": 71.1,
+                "09_clear1k_x8": 30.9
+            },
+            "measures": {
+                "21_ready-memory": 0.7122468948364258,
+                "22_run-memory": 3.2178878784179688,
+                "25_run-clear-memory": 0.9489412307739258,
+                "41_size-uncompressed": 27.1,
+                "42_size-compressed": 8.1,
+                "43_first-paint": 115.8
+            }
+        },
+        {
+            "name": "Solid",
+            "entry": "solid",
+            "version": "1.9.3",
+            "operations": {
+                "01_run1k": 61.6,
+                "02_replace1k": 69.2,
+                "03_update10th1k_x16": 43.2,
+                "04_select1k": 8.7,
+                "05_swap1k": 43.5,
+                "06_remove-one-1k": 30.2,
+                "07_create10k": 693,
+                "08_create1k-after1k_x2": 69.6,
+                "09_clear1k_x8": 32.3
+            },
+            "measures": {
+                "21_ready-memory": 0.5906896591186523,
+                "22_run-memory": 2.6761999130249023,
+                "25_run-clear-memory": 0.7684326171875,
+                "41_size-uncompressed": 11.5,
+                "42_size-compressed": 4.5,
+                "43_first-paint": 90
+            }
+        },
+        {
+            "name": "Svelte",
+            "entry": "svelte",
+            "version": "5.42.1",
+            "operations": {
+                "01_run1k": 63,
+                "02_replace1k": 73.9,
+                "03_update10th1k_x16": 43.5,
+                "04_select1k": 12.5,
+                "05_swap1k": 44.8,
+                "06_remove-one-1k": 32.3,
+                "07_create10k": 698.3,
+                "08_create1k-after1k_x2": 69.1,
+                "09_clear1k_x8": 29.8
+            },
+            "measures": {
+                "21_ready-memory": 0.6637887954711914,
+                "22_run-memory": 2.8681726455688477,
+                "25_run-clear-memory": 0.9751129150390625,
+                "41_size-uncompressed": 26.6,
+                "42_size-compressed": 9.7,
+                "43_first-paint": 114.2
+            }
+        },
+        {
+            "name": "Lit",
+            "entry": "lit",
+            "version": "3.2.0",
+            "operations": {
+                "01_run1k": 64.6,
+                "02_replace1k": 74.6,
+                "03_update10th1k_x16": 43.5,
+                "04_select1k": 13.9,
+                "05_swap1k": 51.1,
+                "06_remove-one-1k": 34.3,
+                "07_create10k": 735.6,
+                "08_create1k-after1k_x2": 85.4,
+                "09_clear1k_x8": 35.5
+            },
+            "measures": {
+                "21_ready-memory": 0.7143344879150391,
+                "22_run-memory": 2.792818069458008,
+                "25_run-clear-memory": 0.8770666122436523,
+                "41_size-uncompressed": 22.1,
+                "42_size-compressed": 7.3,
+                "43_first-paint": 106.3
+            }
+        },
+        {
+            "name": "Vue",
+            "entry": "vue",
+            "version": "3.5.39",
+            "operations": {
+                "01_run1k": 71,
+                "02_replace1k": 80.4,
+                "03_update10th1k_x16": 39.3,
+                "04_select1k": 9.7,
+                "05_swap1k": 43.1,
+                "06_remove-one-1k": 39.8,
+                "07_create10k": 779.4,
+                "08_create1k-after1k_x2": 76.3,
+                "09_clear1k_x8": 40.9
+            },
+            "measures": {
+                "21_ready-memory": 0.8057899475097656,
+                "22_run-memory": 3.9039344787597656,
+                "25_run-clear-memory": 1.1856555938720703,
+                "41_size-uncompressed": 64.3,
+                "42_size-compressed": 23.3,
+                "43_first-paint": 179.3
+            }
+        },
+        {
+            "name": "Preact",
+            "entry": "preact-signals",
+            "version": "11.0.0 + 2.3.1",
+            "operations": {
+                "01_run1k": 78,
+                "02_replace1k": 87.8,
+                "03_update10th1k_x16": 41.9,
+                "04_select1k": 10.5,
+                "05_swap1k": 47.1,
+                "06_remove-one-1k": 34.6,
+                "07_create10k": 865,
+                "08_create1k-after1k_x2": 101.3,
+                "09_clear1k_x8": 43.7
+            },
+            "measures": {
+                "21_ready-memory": 0.6859760284423828,
+                "22_run-memory": 4.89302921295166,
+                "25_run-clear-memory": 8.95248794555664,
+                "41_size-uncompressed": 23.3,
+                "42_size-compressed": 8.3,
+                "43_first-paint": 107
+            }
+        },
+        {
+            "name": "Angular",
+            "entry": "angular-cf-signals-nozone",
+            "version": "22.2.2",
+            "operations": {
+                "01_run1k": 86.2,
+                "02_replace1k": 88.6,
+                "03_update10th1k_x16": 41.9,
+                "04_select1k": 13.3,
+                "05_swap1k": 43.2,
+                "06_remove-one-1k": 38.9,
+                "07_create10k": 854.1,
+                "08_create1k-after1k_x2": 93.6,
+                "09_clear1k_x8": 41.3
+            },
+            "measures": {
+                "21_ready-memory": 1.130422592163086,
+                "22_run-memory": 3.6077213287353516,
+                "25_run-clear-memory": 1.6835193634033203,
+                "41_size-uncompressed": 110.6,
+                "42_size-compressed": 33.8,
+                "43_first-paint": 243.8
+            }
+        },
+        {
+            "name": "React",
+            "entry": "react-hooks",
+            "version": "19.2.0",
+            "operations": {
+                "01_run1k": 71.4,
+                "02_replace1k": 85.4,
+                "03_update10th1k_x16": 52.1,
+                "04_select1k": 14.6,
+                "05_swap1k": 295.3,
+                "06_remove-one-1k": 33.3,
+                "07_create10k": 915.1,
+                "08_create1k-after1k_x2": 80.4,
+                "09_clear1k_x8": 48.9
+            },
+            "measures": {
+                "21_ready-memory": 1.1763591766357422,
+                "22_run-memory": 4.421067237854004,
+                "25_run-clear-memory": 1.9709062576293945,
+                "41_size-uncompressed": 190.3,
+                "42_size-compressed": 51.4,
+                "43_first-paint": 386.3
+            }
+        }
+    ]
+}
