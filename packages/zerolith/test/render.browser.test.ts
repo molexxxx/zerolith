@@ -24,6 +24,18 @@ function mount(view: unknown): HTMLElement
     return host;
 }
 
+/** The comments inside `node`, which only part markers put there. */
+function comments(node: Node): Comment[]
+{
+    const found: Comment[] = [];
+    const walk = document.createTreeWalker(node, NodeFilter.SHOW_COMMENT);
+    while (walk.nextNode() !== null)
+    {
+        found.push(walk.currentNode as Comment);
+    }
+    return found;
+}
+
 afterEach(() =>
 {
     root?.dispose();
@@ -349,6 +361,86 @@ describe("attribute bindings", () =>
         expect(el.querySelector("input")).toBe(mounted);
         expect(input.get()).toBe(mounted);
         expect(log).toEqual(["setup P", "cleanup", "setup P"]);
+    });
+});
+
+describe("a binding that is its element's only child", () =>
+{
+    it("shows text and nothing in the one text node it starts with, with no marker", () =>
+    {
+        const value = signal<string | null>("first");
+        const el = mount(html`<p>${value}</p>`);
+        const p = el.querySelector("p") as HTMLParagraphElement;
+        const text = p.firstChild;
+        expect(text?.nodeType).toBe(Node.TEXT_NODE);
+        expect(p.childNodes.length).toBe(1);
+        expect(p.textContent).toBe("first");
+        value.set(null);
+        expect(p.childNodes.length).toBe(1);
+        expect(p.matches(":empty")).toBe(true);
+        value.set("again");
+        expect(p.firstChild).toBe(text);
+        expect(p.textContent).toBe("again");
+        expect(comments(p)).toEqual([]);
+    });
+
+    it("adds its marker when it first shows a template, a list, or a node, and keeps every later value before it", () =>
+    {
+        const value = signal<unknown>("text");
+        const el = mount(html`<div>${value}</div>`);
+        const div = el.querySelector("div") as HTMLDivElement;
+        expect(comments(div)).toEqual([]);
+        value.set(html`<b>bold</b>`);
+        const marker = div.lastChild;
+        expect(marker?.nodeType).toBe(Node.COMMENT_NODE);
+        expect(div.querySelector("b")?.textContent).toBe("bold");
+        value.set(["a", "b"]);
+        expect(div.textContent).toBe("ab");
+        const node = document.createElement("i");
+        value.set(node);
+        expect(node.nextSibling).toBe(marker);
+        value.set("back");
+        expect(div.textContent).toBe("back");
+        expect(div.lastChild).toBe(marker);
+        value.set(null);
+        expect(Array.from(div.childNodes)).toEqual([marker]);
+        value.set(html`<b>again</b>`);
+        expect(div.querySelector("b")?.nextSibling).toBe(marker);
+        expect(comments(div)).toEqual([marker]);
+    });
+
+    it("keeps the marker of a binding beside other nodes", () =>
+    {
+        const value = signal("b");
+        const el = mount(html`<p>a ${value}</p>`);
+        const p = el.querySelector("p") as HTMLParagraphElement;
+        expect(comments(p).length).toBe(1);
+        value.set("c");
+        expect(p.textContent).toBe("a c");
+    });
+
+    it("has no marker in a template imported for each use, as one with a form control is", () =>
+    {
+        const value = signal("first");
+        const el = mount(html`<div><span>${value}</span><input></div>`);
+        const span = el.querySelector("span") as HTMLSpanElement;
+        expect(span.childNodes.length).toBe(1);
+        value.set("second");
+        expect(span.textContent).toBe("second");
+        expect(comments(span)).toEqual([]);
+    });
+
+    it("leaves no marker in keyed rows whose bindings are their elements' only children", () =>
+    {
+        const items = signal([{ id: 1, name: "a" }, { id: 2, name: "b" }]);
+        const el = mount(html`<table><tbody>${each(items, (item) => item.id, (item) => html`<tr><td>${item.get().id}</td><td>${computed(() => item.get().name)}</td></tr>`)}</tbody></table>`);
+        const body = el.querySelector("tbody") as HTMLTableSectionElement;
+        expect(comments(body).length).toBe(1);
+        items.set([{ id: 2, name: "B" }, { id: 1, name: "a" }, { id: 3, name: "c" }]);
+        expect(Array.from(body.querySelectorAll("tr")).map((row) => row.textContent)).toEqual(["2B", "1a", "3c"]);
+        expect(comments(body).length).toBe(1);
+        items.set([]);
+        expect(body.childNodes.length).toBe(1);
     });
 });
 

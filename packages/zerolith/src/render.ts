@@ -272,7 +272,7 @@ class Instance
     {
         const firstChild = firstChildOf ??= getter("firstChild");
         const nextSibling = nextSiblingOf ??= getter("nextSibling");
-        const { master, parts: specs, paths } = prepared;
+        const { master, parts: specs, paths, unmarked } = prepared;
         let top: Node;
         let from = 0;
         let nodes: ChildNode[];
@@ -314,7 +314,18 @@ class Instance
                 last = path;
             }
             const spec = specs[next] as PartSpec;
-            parts[next] = spec.kind === CHILD ? new ChildPart(node as Comment, node.previousSibling as Text) : new AttributePart(node as Element, spec);
+            if (spec.kind !== CHILD)
+            {
+                parts[next] = new AttributePart(node as Element, spec);
+            }
+            else if (unmarked[next] === true)
+            {
+                parts[next] = new ChildPart(null, node as Text);
+            }
+            else
+            {
+                parts[next] = new ChildPart(node as Comment, node.previousSibling as Text);
+            }
         }
         return new Instance(strings, parts, nodes, content, undefined, prepared.edges && fragment !== undefined ? edgesOf(parts, fragment) : undefined);
     }
@@ -333,7 +344,7 @@ class Instance
         }
         const parts: BoundPart[] = [];
         const cursors = new Map<BoundPart, ChildNode>();
-        const expected = walker(prepared.content);
+        const expected = walker(prepared.model);
         let index = 0;
         let next = 0;
         let broken = false;
@@ -462,14 +473,20 @@ function getter(name: "firstChild" | "nextSibling"): Step
 /** The child parts whose anchors are direct children of `parent`. */
 function edgesOf(parts: readonly BoundPart[], parent: ParentNode | null): ChildPart[]
 {
-    return parts.filter((part): part is ChildPart => part instanceof ChildPart && part.anchor.parentNode === parent);
+    return parts.filter((part): part is ChildPart => part instanceof ChildPart && part.anchor !== null && part.anchor.parentNode === parent);
 }
 
-/** A position between two nodes that displays one value. */
+/**
+ * A position that displays one value, before its marker comment. A part
+ * that is its element's only child has no marker while it shows text or
+ * nothing, which it does in the one text node it starts with, and adds the
+ * marker after that node when it first shows anything else.
+ */
 class ChildPart implements BoundPart, Sink
 {
     readonly count: number = 1;
-    readonly anchor: Comment;
+    /** The comment the content sits before; null while the part has no marker. */
+    anchor: Comment | null;
     private owner: Disposable | undefined = undefined;
     /** The server-rendered node a bound signal's first value adopts, until that value is written. */
     private pending: ChildNode | undefined = undefined;
@@ -480,11 +497,25 @@ class ChildPart implements BoundPart, Sink
     private items: ChildPart[] | undefined = undefined;
     private controller: Controller | undefined = undefined;
 
-    /** With `text`, the part starts with that empty text node before the anchor, which a text value fills. */
-    constructor(anchor: Comment, text?: Text)
+    /** With `text`, the part starts with that empty text node, before the anchor or, without one, as its element's only child, which a text value fills. */
+    constructor(anchor: Comment | null, text?: Text)
     {
         this.anchor = anchor;
         this.text = text;
+    }
+
+    /** The comment the content sits before, added after the part's text node when the part has none. */
+    marker(): Comment
+    {
+        let anchor = this.anchor;
+        if (anchor === null)
+        {
+            const text = this.text as Text;
+            anchor = document.createComment("");
+            text.parentNode?.insertBefore(anchor, text.nextSibling);
+            this.anchor = anchor;
+        }
+        return anchor;
     }
 
     bind(values: readonly unknown[], offset: number): void
@@ -544,7 +575,7 @@ class ChildPart implements BoundPart, Sink
         this.apply(value);
     }
 
-    /** Removes the displayed nodes. Effects are owned by `set()` and disposed there. */
+    /** Removes the displayed nodes; a part with no marker empties its text node instead, which keeps its place. Effects are owned by `set()` and disposed there. */
     clear(): void
     {
         if (this.controller !== undefined)
@@ -557,7 +588,7 @@ class ChildPart implements BoundPart, Sink
             for (const item of this.items)
             {
                 item.clear();
-                item.anchor.remove();
+                item.anchor?.remove();
             }
             this.items = undefined;
         }
@@ -581,8 +612,15 @@ class ChildPart implements BoundPart, Sink
         }
         if (this.text !== undefined)
         {
-            this.text.remove();
-            this.text = undefined;
+            if (this.anchor === null)
+            {
+                this.text.data = "";
+            }
+            else
+            {
+                this.text.remove();
+                this.text = undefined;
+            }
         }
     }
 
@@ -592,13 +630,13 @@ class ChildPart implements BoundPart, Sink
         this.owner?.dispose();
         this.owner = undefined;
         this.clear();
-        this.anchor.remove();
+        this.anchor?.remove();
     }
 
     /** Takes over the server-rendered nodes from `cursor` to the anchor for `value`, repairing any disagreement. */
     private adopt(value: unknown, cursor: ChildNode): void
     {
-        const { anchor } = this;
+        const anchor = this.marker();
         if (isNothing(value))
         {
             if (cursor !== anchor)
@@ -731,9 +769,10 @@ class ChildPart implements BoundPart, Sink
                 this.text.data = text;
                 return;
             }
+            const anchor = this.marker();
             this.clear();
             this.text = document.createTextNode(text);
-            this.anchor.parentNode?.insertBefore(this.text, this.anchor);
+            anchor.parentNode?.insertBefore(this.text, anchor);
             return;
         }
         if (value instanceof TemplateResult)
@@ -743,29 +782,32 @@ class ChildPart implements BoundPart, Sink
                 this.instance.update(value.values);
                 return;
             }
+            const anchor = this.marker();
             this.clear();
             const instance = Instance.create(value.strings, prepare(value.strings));
             instance.update(value.values);
             if (instance.content !== undefined)
             {
-                this.anchor.parentNode?.insertBefore(instance.content, this.anchor);
+                anchor.parentNode?.insertBefore(instance.content, anchor);
             }
             this.instance = instance;
             return;
         }
         if (value instanceof Directive)
         {
+            this.marker();
             this.clear();
             this.controller = value.mount(this);
             return;
         }
         if (value instanceof RawHtml)
         {
+            const anchor = this.marker();
             this.clear();
             const template = document.createElement("template");
             template.innerHTML = trusted(value.markup);
             const nodes = Array.from(template.content.childNodes);
-            this.anchor.parentNode?.insertBefore(template.content, this.anchor);
+            anchor.parentNode?.insertBefore(template.content, anchor);
             this.raw = nodes;
             return;
         }
@@ -779,18 +821,20 @@ class ChildPart implements BoundPart, Sink
         }
         if (typeof Node !== "undefined" && value instanceof Node)
         {
+            const anchor = this.marker();
             this.clear();
-            this.anchor.parentNode?.insertBefore(value, this.anchor);
+            anchor.parentNode?.insertBefore(value, anchor);
             this.node = value as ChildNode;
             return;
         }
         if (typeof value === "object" && Symbol.iterator in value)
         {
+            const anchor = this.marker();
             this.clear();
             const items: ChildPart[] = [];
             for (const item of value as Iterable<unknown>)
             {
-                const part = new ChildPart(anchorBefore(this.anchor));
+                const part = new ChildPart(anchorBefore(anchor));
                 items.push(part);
                 part.set(item);
             }
@@ -1255,7 +1299,7 @@ function longestIncreasing(positions: readonly number[]): Set<number>
 /** The node right after a row's last node; the list's end marker follows every row, so there always is one. */
 function nodeAfter(row: Row<unknown>): Node
 {
-    const last = row.nodes === undefined ? (row.part as ChildPart).anchor : (row.nodes[row.nodes.length - 1] as ChildNode);
+    const last = row.nodes === undefined ? (row.part as ChildPart).marker() : (row.nodes[row.nodes.length - 1] as ChildNode);
     return last.nextSibling as Node;
 }
 
@@ -1275,7 +1319,7 @@ function moveRow(row: Row<unknown>, before: Node): void
         return;
     }
     let node: ChildNode | null = row.start;
-    const end = row.part?.anchor ?? null;
+    const end = row.part?.marker() ?? null;
     while (node !== null && node !== end)
     {
         const next: ChildNode | null = node.nextSibling;
@@ -1323,7 +1367,7 @@ class Keyed<T> extends Directive
         const owner = createOwner();
         const rows = new Map<unknown, Row<T>>();
         let order: Row<T>[] = [];
-        const end = part.anchor;
+        const end = part.marker();
         owner.run(() =>
         {
             onDispose(() =>
@@ -1700,6 +1744,7 @@ class Conditional extends Directive
 
     override mount(part: ChildPart, cursor?: ChildNode): Controller
     {
+        const end = part.marker();
         const owner = createOwner();
         let inner: ChildPart;
         let shown: boolean | undefined;
@@ -1721,20 +1766,20 @@ class Conditional extends Directive
                     inner.set(shown ? this.whenTrue() : this.whenFalse?.(), cursor.nextSibling ?? innerEnd);
                 });
             });
-            if (innerEnd.nextSibling !== part.anchor)
+            if (innerEnd.nextSibling !== end)
             {
                 mismatch("extra", "", innerEnd.nextSibling?.nodeName ?? "");
-                removeUntil(innerEnd.nextSibling as ChildNode, part.anchor);
+                removeUntil(innerEnd.nextSibling as ChildNode, end);
             }
         }
         else
         {
             if (cursor !== undefined)
             {
-                mismatch("missing", "branch", cursor === part.anchor ? "" : cursor.nodeName);
-                removeUntil(cursor, part.anchor);
+                mismatch("missing", "branch", cursor === end ? "" : cursor.nodeName);
+                removeUntil(cursor, end);
             }
-            inner = new ChildPart(anchorBefore(part.anchor));
+            inner = new ChildPart(anchorBefore(end));
         }
         owner.run(() =>
         {

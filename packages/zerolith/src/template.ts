@@ -15,8 +15,21 @@ export { scan } from "./scan.js";
 /** A parsed template and the parts to bind on each clone. */
 export interface Prepared
 {
+    /**
+     * What instances are made of: the scan's markup with an empty text node
+     * before each child part's marker, and no marker for a child part that
+     * is its element's only child.
+     */
     content: DocumentFragment;
+    /**
+     * The template with every child part's marker, which hydration walks in
+     * step with the server's markup; `content` itself when every child part
+     * keeps its marker.
+     */
+    model: DocumentFragment;
     parts: readonly PartSpec[];
+    /** Per part, whether it is a child part with no marker, so the node at its path is the empty text node it fills. */
+    unmarked: readonly boolean[];
     /**
      * The child indexes from `content` down to each part's node, in the order
      * of `parts`, one array shared by the parts of an element. A template
@@ -156,7 +169,9 @@ function pathsOf(parts: readonly PartSpec[], targets: ReadonlyMap<PartSpec, Node
 /**
  * Parses a template literal's strings once and locates its parts. Each
  * child part's marker gets an empty text node before it, which the part
- * fills when its value is text instead of creating and inserting one.
+ * fills when its value is text instead of creating and inserting one. A
+ * marker that is its element's only child is removed, so the copies hold
+ * no comment for it, and its part is located by that text node instead.
  */
 export function prepare(strings: TemplateStringsArray): Prepared
 {
@@ -174,7 +189,7 @@ export function prepare(strings: TemplateStringsArray): Prepared
     let child = 0;
     let edges = false;
     const targets = new Map<PartSpec, Node>();
-    const markers: Node[] = [];
+    const markers: Array<{ node: ChildNode; spec: PartSpec | undefined }> = [];
     for (let node = walk.nextNode(); node !== null; node = walk.nextNode(), index++)
     {
         if (node.nodeType === 1)
@@ -205,7 +220,6 @@ export function prepare(strings: TemplateStringsArray): Prepared
             {
                 edges = true;
             }
-            markers.push(node);
             while (child < parts.length && parts[child]?.kind !== CHILD)
             {
                 child++;
@@ -216,12 +230,26 @@ export function prepare(strings: TemplateStringsArray): Prepared
                 spec.index = index;
                 targets.set(spec, node);
             }
+            markers.push({ node: node as ChildNode, spec });
             child++;
         }
     }
-    for (const marker of markers)
+    const lone: Array<{ node: ChildNode; text: Text; spec: PartSpec }> = [];
+    for (const { node, spec } of markers)
     {
-        marker.parentNode?.insertBefore(document.createTextNode(""), marker);
+        const parent = node.parentNode;
+        const text = document.createTextNode("");
+        parent?.insertBefore(text, node);
+        if (spec !== undefined && parent !== null && parent !== template.content && text.previousSibling === null && node.nextSibling === null)
+        {
+            lone.push({ node, text, spec });
+        }
+    }
+    const model = lone.length === 0 ? template.content : template.content.cloneNode(true) as DocumentFragment;
+    for (const { node, text, spec } of lone)
+    {
+        node.remove();
+        targets.set(spec, text);
     }
     parts.sort((a, b) => a.index - b.index);
     const paths = pathsOf(parts, targets, template.content);
@@ -231,7 +259,10 @@ export function prepare(strings: TemplateStringsArray): Prepared
         const copy = document.importNode(template.content, true);
         master = copy.firstChild !== null && copy.firstChild.nextSibling === null ? copy.firstChild : copy;
     }
-    const result: Prepared = paths === undefined ? { content: template.content, parts: [], paths: [], edges, master } : { content: template.content, parts, paths, edges, master };
+    const unmarked = parts.map((spec) => targets.get(spec)?.nodeType === 3);
+    const result: Prepared = paths === undefined
+        ? { content: template.content, model, parts: [], unmarked: [], paths: [], edges, master }
+        : { content: template.content, model, parts, unmarked, paths, edges, master };
     templates.set(strings, result);
     return result;
 }

@@ -84,6 +84,29 @@ describe("hydrate", () =>
         expect(el.querySelector("p")?.textContent).toBe("hidden");
     });
 
+    it("keeps the server's markers around an adopted only child, adds none to rows the client creates, and updates both", () =>
+    {
+        const items = signal([{ id: 1, name: "a" }]);
+        const view = () => html`<ul>${each(items, (item) => item.id, (item) => html`<li>${computed(() => item.get().name)}</li>`)}</ul>`;
+
+        const el = serverThenClient(view());
+        expect(result?.mismatches).toEqual([]);
+        const adopted = el.querySelector("li") as HTMLLIElement;
+        const served = adopted.childNodes.length;
+        expect(served).toBeGreaterThan(1);
+
+        items.set([{ id: 1, name: "A" }, { id: 2, name: "b" }]);
+        const created = el.querySelectorAll("li")[1] as HTMLLIElement;
+        expect(adopted.textContent).toBe("A");
+        expect(adopted.childNodes.length).toBe(served);
+        expect(created.textContent).toBe("b");
+        expect(created.childNodes.length).toBe(1);
+
+        items.set([{ id: 1, name: "A" }, { id: 2, name: "B" }]);
+        expect(created.textContent).toBe("B");
+        expect(withoutComments(el.innerHTML)).toBe("<ul><li>A</li><li>B</li></ul>");
+    });
+
     it("removes an adopted branch's edge bindings with the branch", () =>
     {
         const show = signal(true);
