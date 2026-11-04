@@ -126,7 +126,7 @@ With a build step, the same template can be spelled as JSX in a `.jsx` or `.tsx`
 | `<>...</>` | a template with no root element |
 | `<div />`, `<path d="..." />` | `<div></div>`, `<path d="..."></path>`: closed, except a void element such as `<br />` or `<input />`, which becomes `<br>` |
 
-Lists and conditions are `each` and `when`, called as functions, exactly as in a template; there is no `<For>` or `<Show>`. Spread attributes on an element are refused, because a template cannot express an unknown set of attributes; spread onto a component is plain object spread. A `tsconfig` with `"jsx": "react-jsx"` and `"jsxImportSource": "zerolith"` types the elements and the namespaces.
+Lists and conditions are `each` and `when`, called as functions, exactly as in a template; there is no `<For>` or `<Show>`. Spread attributes on an element are refused, because a template cannot express an unknown set of attributes; spread onto a component is plain object spread. A `tsconfig` with `"jsx": "react-jsx"` and `"jsxImportSource": "zerolith"` types the elements and the namespaces: `prop:` against the element's own property types, `on:` against the DOM's event map with `currentTarget` typed as the element, so `event.currentTarget.value` reads on an input and not on a div, `bool:` as a boolean, and `ref` as a function of the element or a writable signal, each of the first three taking a signal of the value as well. A plain attribute takes any value, written as text, and an element TypeScript does not know, such as a custom element, takes any property, handler, and flag.
 
 > [!NOTE]
 > JSX needs a build step, and the browser never sees it. A page that loads its modules as they are, from an import map, writes `html`.

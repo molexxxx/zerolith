@@ -62,7 +62,7 @@ In order:
 - [ ] Streaming server rendering.
 - [ ] Islands as a public API: server-rendered pages that hydrate only their interactive parts. The docs search already runs this way.
 - [ ] Form-associated custom elements through `ElementInternals`.
-- [ ] Attribute checking inside `html` templates through template literal types, as a bounded experiment. JSX already checks attributes.
+- [ ] Attribute checking inside `html` templates through template literal types, as a bounded experiment. JSX checks the `prop:`, `on:`, and `bool:` namespaces and `ref` against the element.
 
 ## Router
 
