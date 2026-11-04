@@ -33,6 +33,7 @@ Every package in this repository is released together and carries the same versi
 - Docs site: the first page hands its title and description to the router as its head, since the router now applies the head as a whole.
 - Docs: the deploying guide's unbundled section and the command line guide's `importmap` section show `blocking="render"` on the entry module script, which holds a browser-rendered page's first paint until the application is in it, so the static shell no longer paints first and shifts; the browsers that honor it and the ones that ignore it are named.
 - Repository: the scaffold check ends a project's command that runs past `SCAFFOLDS_TIMEOUT` seconds, 600 by default, with every process it started and fails the project with its log, where a test run that never exited had held the whole check.
+- Repository: the renderer and the router are each a module with a folder of private parts beside it, `render.ts` with `render/` and `router.ts` with `router/`, where each had been one file; the production build bundles a module's folder into it, so a page behind an import map loads the same modules as before, and a module that imports into another's folder fails the build. The public surface, the API reports, and the hot paths are unchanged; the three view classes carry their brand on the prototype, where each instance had carried its own.
 - Fullstack example and `zerolith new --example fullstack`: Harbor's sign-in page navigates to the page shown with `reload`, so it loads for the signed-in session.
 
 ## 0.1.0-alpha.9 (2026-11-03)

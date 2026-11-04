@@ -11,7 +11,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { SourceMap } from "node:module";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseSync } from "rolldown/utils";
 import { describe, expect, it } from "vitest";
@@ -63,14 +63,16 @@ function readable(name: string, path: string): string
     return readFileSync(join(dist, existsSync(join(dist, sibling)) ? sibling : path), "utf8");
 }
 
-/** The compiled modules a production build is made from, as paths under `dist/`: every module except a production sibling and a command's entry, judged by the file the build reads. */
+/** The compiled modules a production build is made from, as paths under `dist/`: every module except a production sibling, a command's entry, judged by the file the build reads, and a module in the folder beside another, which that module is bundled with. */
 function compiled(name: string): string[]
 {
-    return readdirSync(join(packages, name, "dist"), { recursive: true })
+    const modules = readdirSync(join(packages, name, "dist"), { recursive: true })
         .map((path) => String(path).replaceAll("\\", "/"))
         .filter((path) => path.endsWith(".js") && !path.endsWith(".production.js") && !path.startsWith("production/"))
         .filter((path) => !readable(name, path).startsWith("#!"))
         .toSorted();
+    const folders = modules.map((path) => path.replace(/\.js$/, "/"));
+    return modules.filter((path) => !folders.some((folder) => path.startsWith(folder)));
 }
 
 function parse(file: string, code: string): { program: Node; comments: { value: string }[] }
@@ -235,6 +237,25 @@ function fixture(complete: boolean): string
     return folder;
 }
 
+/** Adds `a/inner.js` and `a/deep/leaf.js` to the fixture, with `a.js` importing `inner`, `inner` importing `leaf` and `../b.js`, and the sources and maps of each. */
+function withFolder(folder: string): void
+{
+    mkdirSync(join(folder, "dist", "a", "deep"), { recursive: true });
+    mkdirSync(join(folder, "src", "a", "deep"), { recursive: true });
+    const modules: [string, string, string][] = [
+        ["a.js", "a.ts", "import { inner } from \"./a/inner.js\";\nexport const a = inner + 1;\nexport { leaf } from \"./a/deep/leaf.js\";\n"],
+        ["a/inner.js", "a/inner.ts", "import { leaf } from \"./deep/leaf.js\";\nimport { b } from \"../b.js\";\nexport const inner = leaf + b;\n"],
+        ["a/deep/leaf.js", "a/deep/leaf.ts", "export const leaf = \"a leaf of its own\";\n"]
+    ];
+    for (const [path, source, code] of modules)
+    {
+        const up = "../".repeat(path.split("/").length);
+        writeFileSync(join(folder, "src", source), code);
+        writeFileSync(join(folder, "dist", path), `${code}//# sourceMappingURL=${basename(path)}.map\n`);
+        writeFileSync(join(folder, "dist", `${path}.map`), JSON.stringify({ version: 3, file: basename(path), sources: [`${up}src/${source}`], names: [], mappings: "AAAA;AACA;AACA" }));
+    }
+}
+
 /** Runs the production build script in a package folder and returns its exit code. */
 function runProduction(folder: string): number
 {
@@ -304,6 +325,47 @@ describe("the production build script", () =>
             rmSync(folder, { recursive: true, force: true });
         }
     });
+
+    it("bundles a module with the folder beside it into one module, imports from outside the folder left as they are, mapped to every source", () =>
+    {
+        const folder = fixture(true);
+        try
+        {
+            withFolder(folder);
+            expect(runProduction(folder)).toBe(0);
+            expect(readdirSync(join(folder, "dist", "production"), { recursive: true }).map(String).toSorted()).toEqual(["a.js", "a.js.map", "b.js", "b.js.map"]);
+            const code = readFileSync(join(folder, "dist", "production", "a.js"), "utf8");
+            expect(code).toContain("a leaf of its own");
+            expect(code).toMatch(/from"\.\/b\.js"/);
+            expect(code).not.toContain("inner.js");
+            expect(exportNames(parse("a.js", code).program)).toEqual(["a", "leaf"]);
+            const map = JSON.parse(readFileSync(join(folder, "dist", "production", "a.js.map"), "utf8")) as Payload;
+            expect(map.sources.toSorted()).toEqual(["../../src/a.ts", "../../src/a/deep/leaf.ts", "../../src/a/inner.ts"]);
+            expect(map.sourcesContent?.map((text) => text.length)).toEqual(map.sources.map((source) => readFileSync(resolve(folder, "dist", "production", source), "utf8").length));
+        }
+        finally
+        {
+            rmSync(folder, { recursive: true, force: true });
+        }
+    });
+
+    it("refuses a module that imports into the folder beside another, before it writes anything", () =>
+    {
+        const folder = fixture(true);
+        try
+        {
+            withFolder(folder);
+            writeFileSync(join(folder, "dist", "b.js"), "export { leaf as b } from \"./a/deep/leaf.js\";\n//# sourceMappingURL=b.js.map\n");
+            const result = spawnSync(process.execPath, [productionScript], { cwd: folder, encoding: "utf8" });
+            expect(result.status).not.toBe(0);
+            expect(result.stderr).toContain("b.js imports a/deep/leaf.js, which only a.js and its folder may");
+            expect(readFileSync(join(folder, "dist", "production", "a.js"), "utf8")).toBe("the previous build");
+        }
+        finally
+        {
+            rmSync(folder, { recursive: true, force: true });
+        }
+    });
 });
 
 describe.each(PUBLISHED)("the production build of %s", (name) =>
@@ -355,9 +417,11 @@ describe.each(PUBLISHED)("the production build of %s", (name) =>
             });
             const lookup = new SourceMap({ ...map, sourceRoot: "", sourcesContent: map.sourcesContent ?? [] });
             const starts = lineStarts(code);
-            for (const { value, start } of stringsOf(parse(path, code).program).strings)
+            const { program } = parse(path, code);
+            const specifiers = new Set((program["body"] as Node[]).map((statement) => (statement["source"] as Node | null | undefined)?.start));
+            for (const { value, start } of stringsOf(program).strings)
             {
-                if (value.length < 6)
+                if (value.length < 6 || specifiers.has(start))
                 {
                     continue;
                 }

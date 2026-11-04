@@ -60,9 +60,15 @@
             }
         },
         {
-            "files": ["packages/zerolith/src/render.ts"],
+            "files": ["packages/zerolith/src/render/instance.ts", "packages/zerolith/src/render/each.ts"],
             "rules": {
                 "unicorn/no-new-array": "off"
+            }
+        },
+        {
+            "files": ["packages/zerolith/src/render/view.ts"],
+            "rules": {
+                "typescript/no-unsafe-declaration-merging": "off"
             }
         }
     ],

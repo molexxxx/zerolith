@@ -14,7 +14,7 @@ Thank you for considering a contribution. This page covers the mechanics; [GOVER
 1. Install Node 24 or newer (Node 26 is the active LTS line) and npm 11, and Rust through rustup for the command line.
 2. `npm ci` installs the dev toolchain. The runtime itself has no dependencies.
 3. `npx playwright install chromium` once, for the browser test projects.
-4. `npm run build` compiles every package from TypeScript into its `dist/` folder, the readable build the examples and the tests load, and writes each browser package's production build, minified one module at a time with source maps, into `dist/production/`. It bundles no application.
+4. `npm run build` compiles every package from TypeScript into its `dist/` folder, the readable build the examples and the tests load, and writes each browser package's production build, minified one module at a time with source maps, into `dist/production/`. A module with a folder of the same name beside it, such as `render.ts` and `render/`, is one module to the production build: the folder holds its private parts, which only it imports, and they are bundled into it. It bundles no application.
 5. `cargo build --release` builds the `zerolith` command line into `target/release`, which the examples run on.
 6. `npm run check` runs everything the Node jobs in CI run, and `npm run test:cli` what the Rust job adds.
 
@@ -58,7 +58,7 @@ Each example's README walks through what it shows and what the build writes.
 
 | Command | What it does |
 | --- | --- |
-| `npm run build` | Compile every package to `dist/` with `tsc`, and write the browser packages' minified production builds to `dist/production/` with `scripts/production.ts` |
+| `npm run build` | Compile every package to `dist/` with `tsc`, and write the browser packages' minified production builds to `dist/production/` with `scripts/production.ts`, each module's private folder bundled into it |
 | `npm run typecheck` | Type-check sources, tests, and configs without emitting |
 | `npm run lint` | Lint with oxlint |
 | `npm test` | Run the Node test project |
