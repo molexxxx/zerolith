@@ -58,6 +58,17 @@ Content, attributes, boolean attributes, and properties take a plain value or a 
 
 Values are always inserted as text. `<b>Ada</b>` above shows as those characters, not as bold text, in both the input and the paragraph, so there is nothing to escape by hand and no way for data to turn into markup by accident.
 
+A `ref` runs when the element is created, before its template is in the document, as Solid's refs do. Measuring the element or moving focus into it waits a microtask, by which time the template has been inserted; `focusTrap` from `@zerolith/a11y` waits that way.
+
+Each content binding is a text node of its own, and a browser kerns within one text node, not across two, so two bindings in one run of text, as `${first}${last}`, can set the glyphs at the seam a fraction of a pixel apart from the same text written once. Where that shows, bind the run as one value, as `${computed(() => first.get() + last.get())}`.
+
+Markup the page already holds, such as a server-written header that stays as it is for a reader without JavaScript, has no template to bind. An effect that writes to the elements in the page gives it the same live behavior:
+
+```js
+const menu = document.querySelector(".menu-toggle");
+effect(() => menu?.setAttribute("aria-expanded", String(open.get())));
+```
+
 ## Lists
 
 `each` renders one row per item of an array or a signal of an array. It takes three things: the items, a key function that names each row, and a row function that builds it.

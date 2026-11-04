@@ -82,7 +82,7 @@ Every effect belongs to an owner, and disposing the owner stops all of its effec
 
 ## Async values
 
-`resource` loads data from signals. Its `params` function reads the signals the request depends on, and its `loader` receives those params and an abort signal. Whenever the params change, the previous request is aborted and the loader runs again; when `params` returns `undefined`, the resource waits, idle.
+`resource` loads data from signals. Its `params` function reads the signals the request depends on, and its `loader` receives those params and an abort signal. Whenever the params change, the previous request is aborted and the loader runs again; when `params` returns `undefined`, the resource waits, idle. `params` runs as an effect's function does: once when the resource is created, and again whenever a signal it read changes, whatever it returns. Params that read no signal load once; params that read a flag the component sets later, as `() => (ready.get() ? { id } : undefined)`, wait idle and load on the first change.
 
 @include packages/zerolith/test/examples/signals.example.test.ts#resource
 
