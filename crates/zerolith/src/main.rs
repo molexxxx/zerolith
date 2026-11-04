@@ -81,9 +81,9 @@ enum Command {
         /// Use the development entries (diagnostic text and the inspector) instead of the production ones.
         #[arg(long)]
         development: bool,
-        /// An HTML file whose import map and preload links are replaced or inserted.
+        /// An HTML file whose import map and preload links are replaced or inserted; give it once per page of the site, so every page follows the vendored files.
         #[arg(long)]
-        html: Option<PathBuf>,
+        html: Vec<PathBuf>,
     },
     /// Write the zerolith skill for coding agents into a project, describing this version: into .agents/skills, which Codex, Cursor, GitHub Copilot, Gemini CLI, and most other agents read, and .claude/skills, which Claude Code reads. Run it again after upgrading zerolith.
     Skill {
@@ -244,7 +244,7 @@ async fn main() -> ExitCode {
             out,
             development,
             html,
-        } => importmap::run(&root, &out, development, html.as_deref()),
+        } => importmap::run(&root, &out, development, &html),
         Command::Doctor { root, json } => return doctor::run(&root, json),
         Command::Skill { root } => skill::run(&root),
         Command::Build {

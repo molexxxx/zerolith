@@ -506,7 +506,7 @@ pub fn build(
         graphs.push(graph);
     }
     let vendored = if packages.join("zerolith").is_dir() {
-        let vendored = vendor_from(
+        Some(vendor_from(
             &packages,
             &out_dir,
             Path::new("vendor"),
@@ -514,13 +514,7 @@ pub fn build(
             prepare_templates,
             true,
             Some(&every),
-        )?;
-        if every.reaches_nothing() {
-            for graph in &mut graphs {
-                graph.open_to(&vendored.map);
-            }
-        }
-        Some(vendored)
+        )?)
     } else {
         None
     };
@@ -989,10 +983,7 @@ mod tests {
             home.contains("\"zerolith/ssr\":\"/vendor/zerolith/dist/ssr.js\""),
             "{home}"
         );
-        assert!(
-            home.contains("href=\"/vendor/zerolith/dist/ssr.js\" integrity=\"sha256-"),
-            "{home}"
-        );
+        assert!(!home.contains("modulepreload"), "{home}");
         let _ = fs::remove_dir_all(&root);
     }
 
