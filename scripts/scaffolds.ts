@@ -8,9 +8,12 @@
  * each example.
  *   ZEROLITH_BINARY_PATH=target/release/zerolith node scripts/scaffolds.ts [name...]
  * Names filter the projects, such as `tsx-vite` or `fullstack`. Exits with 1
- * when a project fails, after printing the end of its log.
+ * when a project fails, after printing the end of its log. A command that
+ * runs longer than SCAFFOLDS_TIMEOUT seconds, 600 by default, is ended with
+ * every process it started and fails its project, so a test run that never
+ * exits shows where it stopped instead of holding the whole check.
  */
-import { spawn, spawnSync } from "node:child_process";
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -35,6 +38,8 @@ const windows = process.platform === "win32";
 /** npm's own entry when this runs under `npm run`, so npm starts without a shell on Windows. */
 const npmCli = process.env["npm_execpath"];
 const parallel = wholeNumber("SCAFFOLDS_PARALLEL", process.env["SCAFFOLDS_PARALLEL"] ?? "3");
+/** The seconds one command may run before it is ended. */
+const limit = wholeNumber("SCAFFOLDS_TIMEOUT", process.env["SCAFFOLDS_TIMEOUT"] ?? "600");
 
 /** The values `zerolith new --help` lists for a flag. */
 function possibleValues(help: string, flag: string): string[]
@@ -67,23 +72,57 @@ function projects(help: string): Project[]
     return all;
 }
 
-/** Runs a command in a folder, appending its output to the log, and resolves with its exit code. */
+/** Runs a command in a folder, appending its output to the log, and resolves with its exit code, or with 1 once the command ran past the time limit and was ended. */
 function run(command: string, args: string[], cwd: string, log: string[]): Promise<number>
 {
     return new Promise((finish) =>
     {
         log.push(`$ ${command} ${args.join(" ")}`);
         const direct = command === "npm" && npmCli !== undefined;
-        const child = spawn(direct ? process.execPath : command, direct ? [npmCli, ...args] : args, { cwd, shell: windows && command === "npm" && !direct, env: { ...process.env, CI: "true", NO_COLOR: "1", FORCE_COLOR: "0", ZEROLITH_BINARY_PATH: binary } });
+        const child = spawn(direct ? process.execPath : command, direct ? [npmCli, ...args] : args, { cwd, shell: windows && command === "npm" && !direct, detached: !windows, env: { ...process.env, CI: "true", NO_COLOR: "1", FORCE_COLOR: "0", ZEROLITH_BINARY_PATH: binary } });
+        let ended = false;
+        const timer = setTimeout(() =>
+        {
+            ended = true;
+            log.push(`\n${command} ${args.join(" ")} ran for ${limit} s without exiting and was ended with every process it started; raise SCAFFOLDS_TIMEOUT if it needs longer\n`);
+            endTree(child);
+        }, limit * 1000);
+        const done = (code: number): void =>
+        {
+            clearTimeout(timer);
+            finish(ended ? 1 : code);
+        };
         child.stdout.on("data", (chunk: Buffer) => log.push(chunk.toString()));
         child.stderr.on("data", (chunk: Buffer) => log.push(chunk.toString()));
-        child.on("close", (code) => finish(code ?? 1));
+        child.on("close", (code) => done(code ?? 1));
         child.on("error", (error) =>
         {
             log.push(String(error));
-            finish(1);
+            done(1);
         });
     });
+}
+
+/** Ends a command with every process it started: through taskkill's tree flag on Windows, and elsewhere through the process group the command leads, since it is spawned detached. */
+function endTree(child: ChildProcess): void
+{
+    if (child.pid === undefined)
+    {
+        return;
+    }
+    if (windows)
+    {
+        spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+        return;
+    }
+    try
+    {
+        process.kill(-child.pid, "SIGKILL");
+    }
+    catch
+    {
+        child.kill("SIGKILL");
+    }
 }
 
 /** Points a project's zerolith packages at the packed tarballs, as dependencies and as overrides. */

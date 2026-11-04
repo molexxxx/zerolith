@@ -212,3 +212,11 @@ zerolith needs neither `unsafe-eval` nor inline scripts, so a strict policy such
 
 > [!NOTE]
 > The unbundled output is served from the root; an application under a path needs the bundled build.
+
+A page that renders its application in the browser paints its static shell first, then the application replaces it, which moves the layout, and a page that does this on every load scores a layout shift every time. `blocking="render"` on the entry module script, which must be in the document's head to block anything, holds the first paint until the module ran, so the page paints once, with the application in it:
+
+```html
+<script type="module" src="/src/main.js" blocking="render"></script>
+```
+
+Chrome and Edge from 105 and Safari from 18.2 honor the attribute; Firefox did not at the time of writing, and a browser that does not know it ignores it and paints the shell as before, so nothing breaks. The wait is the time the module and its imports take to load and run, which the preload links `zerolith importmap --html` writes keep to one round trip. A page the server renders needs none of this, since its first paint already holds the application.
