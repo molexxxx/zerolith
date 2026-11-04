@@ -351,6 +351,13 @@ fn plan_reachable(
     Ok(())
 }
 
+/// The names a package's license file goes by; the first one found is copied next to `VERSION`, since redistributing the files asks for a copy of the license.
+const LICENSE_FILES: [&str; 3] = ["LICENSE", "LICENSE.md", "LICENSE.txt"];
+
+/// Git settings written at the top of the vendor folder: no line ending conversion, since a converted module fails its integrity hash, and the `dist/` folders kept in commits, which a project's own `dist/` rule would leave out.
+const GIT_ATTRIBUTES: &str = "# Written by zerolith importmap. The vendored modules carry integrity hashes, which line ending conversion would break.\n* -text\n";
+const GIT_IGNORE: &str = "# Written by zerolith importmap. The vendored packages keep their dist/ folders in commits, whatever the project's own rules say.\n!**/dist/\n";
+
 /// What a run writes for one package: its files by their path in the package folder, and its version.
 struct PackagePlan {
     package: &'static str,
@@ -438,6 +445,12 @@ fn plan(
             &mut writes,
             prepare,
         )?;
+        if let Some(name) = LICENSE_FILES
+            .iter()
+            .find(|name| folder.join(name).is_file())
+        {
+            writes.insert((*name).to_string(), fs::read(folder.join(name))?);
+        }
         planned.packages.push(PackagePlan {
             package,
             version: manifest.version,
@@ -570,7 +583,30 @@ pub fn vendor_from(
             serde_json::to_string_pretty(&vendored.map).map_err(io::Error::other)?
         ),
     )?;
+    fs::write(destination.join(".gitattributes"), GIT_ATTRIBUTES)?;
+    fs::write(destination.join(".gitignore"), GIT_IGNORE)?;
     Ok(vendored)
+}
+
+/// Where the first module script starts, inline or with a `src`, so an import map can go before it, since a browser ignores a map that comes after a module script.
+fn first_module_script(html: &str) -> Option<usize> {
+    let lower = html.to_ascii_lowercase();
+    let mut from = 0;
+    while let Some(at) = lower[from..].find("<script") {
+        let start = from + at;
+        let end = lower[start..]
+            .find('>')
+            .map_or(lower.len(), |close| start + close);
+        let tag = &lower[start..end];
+        if tag.contains("type=\"module\"")
+            || tag.contains("type='module'")
+            || tag.contains("type=module")
+        {
+            return Some(start);
+        }
+        from = end;
+    }
+    None
 }
 
 /// The text of the first import map in an HTML document, found as the build finds it: past comments, and whatever the element's other attributes, such as a `nonce`.
@@ -648,8 +684,19 @@ fn tags(map: &ImportMap, modules: &[String]) -> String {
     out
 }
 
-/// Replaces the import map and the previously generated preload links in an HTML document, or inserts them before `</head>`.
+/// Replaces the import map and the previously generated preload links in an HTML document, or inserts them before the first module script, which a map has to precede, or else before `</head>`. A page with CRLF line endings keeps them, so a checkout that converts line endings does not see every run as a change.
 pub fn update_html(html: &str, tags: &str) -> String {
+    let crlf = html.contains("\r\n");
+    let result = update_lf(&html.replace("\r\n", "\n"), tags);
+    if crlf {
+        result.replace('\n', "\r\n")
+    } else {
+        result
+    }
+}
+
+/// `update_html` over a document with LF line endings.
+fn update_lf(html: &str, tags: &str) -> String {
     let stripped: String = html
         .lines()
         .filter(|line| {
@@ -679,7 +726,9 @@ pub fn update_html(html: &str, tags: &str) -> String {
     result.push_str(&stripped[from..]);
     let replaced = !maps.is_empty();
     if !replaced {
-        match result.find("</head>") {
+        let head_end = result.find("</head>");
+        let script = first_module_script(&result).filter(|&at| head_end.is_none_or(|end| at < end));
+        match script.or(head_end) {
             Some(index) => result.insert_str(index, tags),
             None => result.insert_str(0, tags),
         }
@@ -832,6 +881,7 @@ mod tests {
         let core = root.join("node_modules/zerolith");
         fs::create_dir_all(core.join("dist/production")).unwrap();
         fs::write(core.join("package.json"), r#"{"name":"zerolith","version":"0.0.0","exports":{".":{"development":"./dist/index.js","default":"./dist/production/index.js"},"./package.json":"./package.json"}}"#).unwrap();
+        fs::write(core.join("LICENSE"), "Apache License\n").unwrap();
         fs::write(core.join("dist/index.js"), "export const dev = 1;").unwrap();
         fs::write(
             core.join("dist/production/index.js"),
@@ -844,8 +894,30 @@ mod tests {
         )
         .unwrap();
         fs::write(root.join("index.html"), "<html><head><script type=\"importmap\">{}</script>\n<link rel=\"modulepreload\" href=\"/old.js\" data-zerolith-preload>\n</head><body></body></html>").unwrap();
+        fs::create_dir_all(root.join("vendor/zerolith")).unwrap();
+        fs::write(root.join("vendor/zerolith/VERSION"), "0.0.0\n").unwrap();
+        fs::write(
+            root.join("vendor/zerolith/stale.js"),
+            "left by an earlier run",
+        )
+        .unwrap();
 
         let vendored = vendor(&root, std::path::Path::new("vendor"), false, true).unwrap();
+        assert_eq!(
+            fs::read_to_string(root.join("vendor/zerolith/LICENSE")).unwrap(),
+            "Apache License\n"
+        );
+        assert!(!root.join("vendor/zerolith/stale.js").exists());
+        assert!(
+            fs::read_to_string(root.join("vendor/.gitattributes"))
+                .unwrap()
+                .contains("\n* -text\n")
+        );
+        assert!(
+            fs::read_to_string(root.join("vendor/.gitignore"))
+                .unwrap()
+                .contains("\n!**/dist/\n")
+        );
         assert_eq!(
             vendored.map.imports.get("zerolith"),
             Some(&"/vendor/zerolith/dist/production/index.js".to_string())
@@ -898,6 +970,30 @@ mod tests {
             &html_tags(&Vendored::default()),
         );
         assert!(inserted.contains("<script type=\"importmap\">"));
+        let before_script = update_html(
+            "<html><head><title>x</title>\n<script type=\"module\" src=\"/app.js\"></script>\n</head><body></body></html>",
+            &html_tags(&Vendored::default()),
+        );
+        assert!(
+            before_script.find("<script type=\"importmap\">").unwrap()
+                < before_script.find("<script type=\"module\"").unwrap(),
+            "{before_script}"
+        );
+        let body_script = update_html(
+            "<html><head><title>x</title></head><body><script type=\"module\">1</script></body></html>",
+            &html_tags(&Vendored::default()),
+        );
+        assert!(
+            body_script.find("<script type=\"importmap\">").unwrap()
+                < body_script.find("</head>").unwrap(),
+            "{body_script}"
+        );
+        let crlf = update_html(
+            "<html>\r\n<head>\r\n<script type=\"importmap\">{}</script>\r\n<link rel=\"modulepreload\" href=\"/old.js\" data-zerolith-preload>\r\n</head>\r\n</html>\r\n",
+            &html_tags(&vendored),
+        );
+        assert!(!crlf.replace("\r\n", "").contains('\n'), "{crlf:?}");
+        assert!(crlf.contains("<script type=\"importmap\">") && !crlf.contains("/old.js"));
         let _ = fs::remove_dir_all(&root);
     }
 
@@ -1166,7 +1262,15 @@ mod tests {
             fs::read_to_string(root.join("vendor/zerolith/dist/index.js")).unwrap(),
             "export const later=()=>import(`./lazy.js`);\n"
         );
-        assert_eq!(fs::read_dir(root.join("vendor")).unwrap().count(), 2);
+        let mut names: Vec<String> = fs::read_dir(root.join("vendor"))
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        assert_eq!(
+            names,
+            vec![".gitattributes", ".gitignore", "importmap.json", "zerolith"]
+        );
         let _ = fs::remove_dir_all(&root);
     }
 
