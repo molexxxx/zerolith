@@ -129,6 +129,87 @@ describe("resource", () =>
         expect(user.get()).toBe("two");
     });
 
+    it("fails the load when params throw, and recovers when they stop throwing", async () =>
+    {
+        const broken = signal(true);
+        const loader = vi.fn(async ({ params }: { params: number }) => params * 2);
+        const result = scope(() =>
+            resource({
+                params: () =>
+                {
+                    if (broken.get())
+                    {
+                        throw new Error("no params");
+                    }
+                    return 21;
+                },
+                loader
+            })).value;
+        expect(result.status.get()).toBe("error");
+        expect((result.error.get() as Error).message).toBe("no params");
+        expect(loader).not.toHaveBeenCalled();
+        broken.set(false);
+        await settle();
+        expect(result.status.get()).toBe("resolved");
+        expect(result.get()).toBe(42);
+        expect(result.error.get()).toBeUndefined();
+        broken.set(true);
+        expect(result.status.get()).toBe("error");
+        expect(result.get()).toBe(42);
+    });
+
+    it("does nothing on reload once its owner is disposed, and aborts the request a reload replaces", async () =>
+    {
+        const loader = vi.fn(({ abort }: { params: number; abort: AbortSignal }) =>
+            new Promise<number>((resolve, reject) =>
+            {
+                abort.addEventListener("abort", () => reject(new Error("aborted")));
+                setTimeout(() => resolve(1), 0);
+            }));
+        const owner = scope(() => resource({ params: () => 1, loader }));
+        const result = owner.value;
+        const first = loader.mock.calls[0]?.[0].abort;
+        result.reload();
+        expect(first?.aborted).toBe(true);
+        expect(loader).toHaveBeenCalledTimes(2);
+        owner.dispose();
+        expect(loader.mock.calls[1]?.[0].abort.aborted).toBe(true);
+        result.reload();
+        expect(loader).toHaveBeenCalledTimes(2);
+        expect(result.status.get()).toBe("pending");
+        await settle();
+        expect(result.get()).toBeUndefined();
+    });
+
+    it("keeps the previous value after a failed load and goes idle when params become undefined", async () =>
+    {
+        const ready = signal<number | undefined>(1);
+        let fails = false;
+        const result = scope(() =>
+            resource({
+                params: () => ready.get(),
+                loader: async ({ params }: { params: number }) =>
+                {
+                    if (fails)
+                    {
+                        throw new Error("failed");
+                    }
+                    return params;
+                }
+            })).value;
+        await settle();
+        expect(result.get()).toBe(1);
+        fails = true;
+        ready.set(2);
+        await settle();
+        expect(result.status.get()).toBe("error");
+        expect(result.get()).toBe(1);
+        ready.set(undefined);
+        expect(result.status.get()).toBe("idle");
+        expect(result.get()).toBe(1);
+        expect(result.error.get()).toBeUndefined();
+    });
+
     it("is reactive as a whole and aborts when its scope is disposed", async () =>
     {
         const id = signal(1);

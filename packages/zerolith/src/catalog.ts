@@ -19,15 +19,15 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
         cause: "A computed value read itself, directly or through other computed values.",
         fix: "Break the cycle, for example by reading the previous value inside untracked()."
     },
-    effect_cycle:
-    {
-        cause: "An effect was triggered synchronously while it was already running.",
-        fix: "Do not write to a signal the effect reads from inside its own cleanup function."
-    },
     effect_loop:
     {
-        cause: "Effects kept re-triggering each other for more than 100 rounds in one batch.",
+        cause: "Effects kept re-triggering each other for more than 100 rounds in one batch; the effect that was writing is disposed.",
         fix: "Find the effect that writes a signal it also reads and make the write conditional."
+    },
+    effect_async:
+    {
+        cause: "An effect function returned a promise, so the signals it reads after its first await are not tracked and the promise is not a cleanup.",
+        fix: "Keep the effect function synchronous: start the asynchronous work inside it and return the function that stops it."
     },
     on_dispose_outside_scope:
     {

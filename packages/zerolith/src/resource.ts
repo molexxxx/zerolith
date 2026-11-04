@@ -37,7 +37,7 @@ export interface Resource<T> extends ReadableSignal<T | undefined>
     readonly pending: ReadableSignal<boolean>;
     /** The rejection of the latest request, or undefined. */
     readonly error: ReadableSignal<unknown>;
-    /** Runs the loader again with the current params. */
+    /** Runs the loader again with the current params; does nothing once the owner is disposed. */
     reload(): void;
 }
 
@@ -114,20 +114,43 @@ export function resource<P, T>(options: ResourceOptions<P, T>): Resource<T>
         );
     };
 
+    let disposed = false;
+    const stop = (): void =>
+    {
+        disposed = true;
+        generation++;
+        controller?.abort();
+        controller = undefined;
+    };
     effect(() =>
     {
-        const params = options.params();
+        disposed = false;
+        let params: P | undefined;
+        try
+        {
+            params = options.params();
+        }
+        catch (thrown)
+        {
+            generation++;
+            controller?.abort();
+            controller = undefined;
+            untracked(() =>
+            {
+                batch(() =>
+                {
+                    error.set(thrown);
+                    status.set("error");
+                });
+            });
+            return stop;
+        }
         current = params;
         untracked(() =>
         {
             load(params);
         });
-        return () =>
-        {
-            generation++;
-            controller?.abort();
-            controller = undefined;
-        };
+        return stop;
     });
 
     return Object.assign(computed(() => value.get()), {
@@ -136,7 +159,10 @@ export function resource<P, T>(options: ResourceOptions<P, T>): Resource<T>
         error,
         reload: (): void =>
         {
-            load(current);
+            if (!disposed)
+            {
+                load(current);
+            }
         }
     });
 }

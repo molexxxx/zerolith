@@ -110,7 +110,7 @@ pub(crate) fn lint_sources(root: &Path) -> Vec<Finding> {
             findings.push(warning(
                 finding.code,
                 format!("{shown}:{line}:{column}: {}", finding.message),
-                format!("See {DIAGNOSTIC_URL}{}", finding.code),
+                format!("See {DIAGNOSTIC_URL}{}/", finding.code),
             ));
         }
     }
@@ -453,7 +453,7 @@ export const view = html`<p>${count.get()}</p>`;
             "{shown:?}"
         );
         assert!(findings.iter().all(|finding| finding.severity == "warning"));
-        assert!(findings[0].fix.ends_with("/e/template_frozen_read"));
+        assert!(findings[0].fix.ends_with("/e/template_frozen_read/"));
         let _ = fs::remove_dir_all(&root);
     }
 

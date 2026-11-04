@@ -81,7 +81,7 @@ describe("router", () =>
         const { diagnostic } = thrown as ZerolithError;
         expect(diagnostic.code).toBe("route_name_unknown");
         expect(diagnostic.args).toEqual({ name: "nope" });
-        expect(diagnostic.url).toBe("https://zerolith.dev/e/route_name_unknown?name=nope");
+        expect(diagnostic.url).toBe("https://zerolith.dev/e/route_name_unknown/?name=nope");
         expect(diagnostic.cause).toContain("href()");
     });
 

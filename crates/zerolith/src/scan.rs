@@ -47,8 +47,8 @@ pub struct ScanError {
 impl fmt::Display for ScanError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.detail {
-            Some(detail) => write!(f, "{} ({detail}) {DIAGNOSTIC_URL}{}", self.code, self.code),
-            None => write!(f, "{} {DIAGNOSTIC_URL}{}", self.code, self.code),
+            Some(detail) => write!(f, "{} ({detail}) {DIAGNOSTIC_URL}{}/", self.code, self.code),
+            None => write!(f, "{} {DIAGNOSTIC_URL}{}/", self.code, self.code),
         }
     }
 }

@@ -3,17 +3,7 @@
  *
  * The public surface is assembled here.
  */
-export type {
-    Applicability,
-    Diagnostic,
-    DiagnosticArgs,
-    DiagnosticCode,
-    DiagnosticListener,
-    DiagnosticLocation,
-    DiagnosticSeverity,
-    DiagnosticSuggestion,
-    DiagnosticText
-} from "./diagnostics.js";
+export type { Diagnostic, DiagnosticArgs, DiagnosticCode, DiagnosticListener, DiagnosticSeverity, DiagnosticText } from "./diagnostics.js";
 export { DIAGNOSTIC_URL, ZerolithError, onDiagnostic } from "./diagnostics.js";
 export { diagnosticCatalog } from "./catalog.js";
 

@@ -13,6 +13,6 @@ export function checkCoreVersion(own: string = version, core: string = installed
 {
     if (core !== own)
     {
-        throw new Error(`zerolith: package_version_mismatch: @zerolith/vite ${own} requires zerolith ${own}, and zerolith ${core} is installed. Install one version of both, with npm install @zerolith/vite@${core} or npm install zerolith@${own}. ${DIAGNOSTIC_URL}package_version_mismatch`);
+        throw new Error(`zerolith: package_version_mismatch: @zerolith/vite ${own} requires zerolith ${own}, and zerolith ${core} is installed. Install one version of both, with npm install @zerolith/vite@${core} or npm install zerolith@${own}. ${DIAGNOSTIC_URL}package_version_mismatch/`);
     }
 }

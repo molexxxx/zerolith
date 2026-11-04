@@ -14,7 +14,7 @@
  * sources' subscriber lists.
  */
 import { internal, isInternal, measureRun, trackFlush, trackNode } from "./devtools.js";
-import { fail } from "./diagnostics.js";
+import { ZerolithError, diagnostic, fail, report } from "./diagnostics.js";
 
 const RUNNING = 1;
 const NOTIFIED = 2;
@@ -33,7 +33,7 @@ export interface SignalOptions<T>
 {
     /** Defaults to `Object.is`. */
     equals?: Equals<T>;
-    /** A label for the dev tools; `zerolith dev` and the Vite plugin also keep a named signal's value across an edit. */
+    /** A label for the dev tools; `zerolith dev` and the Vite plugin also keep the value of a `signal` with a name across an edit, while a computed value is computed again. */
     name?: string;
 }
 
@@ -134,6 +134,8 @@ let owner: OwnerNode | undefined;
 let batchDepth = 0;
 let pending: Reaction | undefined;
 let rounds = 0;
+/** How many computed functions are running, so a write inside one is refused whatever tracking state `untracked` or a nested effect sets. */
+let computing = 0;
 let globalVersion = 0;
 
 /** Makes `node` the running consumer and returns the one it replaces. */
@@ -414,7 +416,7 @@ class State<T> implements Signal<T>, Source
 
     set(value: T): void
     {
-        if (consumer instanceof Computed)
+        if (computing > 0)
         {
             throw fail("signal_written_inside_computed");
         }
@@ -532,6 +534,7 @@ class Computed<T> implements ReadableSignal<T>, Source, Consumer
             return true;
         }
         const previous = enter(this);
+        computing++;
         try
         {
             prepareSources(this);
@@ -549,6 +552,7 @@ class Computed<T> implements ReadableSignal<T>, Source, Consumer
             this.flags |= HAS_ERROR;
             this.version++;
         }
+        computing--;
         consumer = previous;
         cleanupSources(this);
         this.flags &= ~RUNNING;
@@ -610,6 +614,8 @@ abstract class Reaction implements Consumer, OwnerNode, Child
     children: Child | undefined = undefined;
     previous: Child | undefined = undefined;
     protected cleanup: (() => void) | undefined = undefined;
+    /** True after a run whose own function threw, as opposed to a run whose flush threw for another effect. */
+    failed = false;
 
     constructor()
     {
@@ -627,10 +633,6 @@ abstract class Reaction implements Consumer, OwnerNode, Child
 
     run(): void
     {
-        if (this.flags & RUNNING)
-        {
-            throw fail("effect_cycle");
-        }
         this.flags |= RUNNING;
         this.flags &= ~DISPOSED;
         this.settle();
@@ -638,6 +640,8 @@ abstract class Reaction implements Consumer, OwnerNode, Child
         batchDepth++;
         const previousConsumer = enter(this);
         const previousOwner = own(this);
+        let failure: unknown;
+        let failed = false;
         try
         {
             if (!(this.flags & DISPOSED))
@@ -647,20 +651,31 @@ abstract class Reaction implements Consumer, OwnerNode, Child
                 {
                     this.cleanup = cleanup as () => void;
                 }
+                else if (isThenable(cleanup))
+                {
+                    report(diagnostic("effect_async", "warning"));
+                }
             }
         }
-        finally
+        catch (caught)
         {
-            consumer = previousConsumer;
-            owner = previousOwner;
-            cleanupSources(this);
-            this.flags &= ~RUNNING;
-            if (this.flags & DISPOSED)
-            {
-                this.release();
-            }
-            endBatch();
+            failure = caught;
+            failed = true;
         }
+        consumer = previousConsumer;
+        owner = previousOwner;
+        cleanupSources(this);
+        this.flags &= ~RUNNING;
+        this.failed = failed;
+        if (failed && failure instanceof ZerolithError && failure.diagnostic.code === "effect_loop")
+        {
+            this.flags |= DISPOSED;
+        }
+        if (this.flags & DISPOSED)
+        {
+            this.release();
+        }
+        finish(failed, failure);
     }
 
     notify(): void
@@ -695,54 +710,43 @@ abstract class Reaction implements Consumer, OwnerNode, Child
         batchDepth++;
         const previous = consumer;
         consumer = undefined;
-        try
+        let failure: unknown;
+        let failed = false;
+        if (children !== undefined)
         {
-            let error: unknown;
-            let failed = false;
-            if (children !== undefined)
+            try
             {
-                try
+                disposeAll(children);
+            }
+            catch (caught)
+            {
+                failure = caught;
+                failed = true;
+            }
+        }
+        if (cleanup !== undefined)
+        {
+            try
+            {
+                cleanup();
+            }
+            catch (caught)
+            {
+                if (!failed)
                 {
-                    disposeAll(children);
-                }
-                catch (caught)
-                {
-                    error = caught;
+                    failure = caught;
                     failed = true;
                 }
             }
-            if (cleanup !== undefined)
-            {
-                try
-                {
-                    cleanup();
-                }
-                catch (caught)
-                {
-                    if (!failed)
-                    {
-                        error = caught;
-                        failed = true;
-                    }
-                }
-            }
-            if (failed)
-            {
-                throw error;
-            }
         }
-        catch (error)
+        if (failed)
         {
             this.flags &= ~RUNNING;
             this.flags |= DISPOSED;
             this.release();
-            throw error;
         }
-        finally
-        {
-            consumer = previous;
-            endBatch();
-        }
+        consumer = previous;
+        finish(failed, failure);
     }
 
     private release(): void
@@ -945,7 +949,7 @@ export function startBinding(source: ReadableSignal<unknown>, sink: Sink): Dispo
     return start(node);
 }
 
-/** Runs a new reaction for the first time and gives it to the current owner. */
+/** Runs a new reaction for the first time and gives it to the current owner. A reaction whose own function threw is disposed and the error rethrown; one whose first run only flushed another effect's error is kept, given to the owner, and the error rethrown. */
 function start(node: Reaction): Disposable
 {
     try
@@ -954,11 +958,43 @@ function start(node: Reaction): Disposable
     }
     catch (error)
     {
-        node.dispose();
+        if (node.failed)
+        {
+            node.dispose();
+            throw error;
+        }
+        adopt(node);
         throw error;
     }
     adopt(node);
     return node;
+}
+
+/** Ends the batch a run, a settling, or `batch` opened, then throws what failed: the function's error, the flush's, or both as one `AggregateError`, so a flush error never hides the function's. */
+function finish(failed: boolean, failure: unknown): void
+{
+    try
+    {
+        endBatch();
+    }
+    catch (flushError)
+    {
+        if (failed)
+        {
+            throw new AggregateError([failure, flushError], "zerolith: the function threw, and so did an effect its writes triggered");
+        }
+        throw flushError;
+    }
+    if (failed)
+    {
+        throw failure;
+    }
+}
+
+/** True for a promise or another thenable, which an effect function must not return. */
+function isThenable(value: unknown): boolean
+{
+    return value !== null && typeof value === "object" && typeof (value as { then?: unknown }).then === "function";
 }
 
 /** Applies several writes and runs the affected effects once, after `fn` returns. */
@@ -969,14 +1005,20 @@ export function batch<T>(fn: () => T): T
         return fn();
     }
     batchDepth++;
+    let result: T | undefined;
+    let failure: unknown;
+    let failed = false;
     try
     {
-        return fn();
+        result = fn();
     }
-    finally
+    catch (caught)
     {
-        endBatch();
+        failure = caught;
+        failed = true;
     }
+    finish(failed, failure);
+    return result as T;
 }
 
 /** Runs `fn` without subscribing the running computed value or effect to the signals it reads. */

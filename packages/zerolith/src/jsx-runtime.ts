@@ -78,7 +78,7 @@ export const Fragment: unique symbol = Symbol("zerolith.fragment");
 /** Reached only when JSX was not lowered; throws a diagnostic. */
 export function jsx(): never
 {
-    throw fail("jsx_not_lowered", {});
+    throw fail("jsx_not_lowered");
 }
 
 /** The same as `jsx`. */

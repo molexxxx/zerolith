@@ -14,6 +14,6 @@ export function checkCoreVersion(own: string = version, core: string = installed
 {
     if (core !== own)
     {
-        throw new Error(`zerolith: package_version_mismatch: @zerolith/devtools ${own} requires zerolith ${own}, and zerolith ${core} is installed. Install one version of both, with npm install @zerolith/devtools@${core} or npm install zerolith@${own}. ${DIAGNOSTIC_URL}package_version_mismatch`);
+        throw new Error(`zerolith: package_version_mismatch: @zerolith/devtools ${own} requires zerolith ${own}, and zerolith ${core} is installed. Install one version of both, with npm install @zerolith/devtools@${core} or npm install zerolith@${own}. ${DIAGNOSTIC_URL}package_version_mismatch/`);
     }
 }

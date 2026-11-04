@@ -64,15 +64,15 @@ Cause: The key function passed to each() returned undefined for an item.
 
 Fix: Return a stable string or number per item, such as its id.
 
-## effect_cycle
+## effect_async
 
-Cause: An effect was triggered synchronously while it was already running.
+Cause: An effect function returned a promise, so the signals it reads after its first await are not tracked and the promise is not a cleanup.
 
-Fix: Do not write to a signal the effect reads from inside its own cleanup function.
+Fix: Keep the effect function synchronous: start the asynchronous work inside it and return the function that stops it.
 
 ## effect_loop
 
-Cause: Effects kept re-triggering each other for more than 100 rounds in one batch.
+Cause: Effects kept re-triggering each other for more than 100 rounds in one batch; the effect that was writing is disposed.
 
 Fix: Find the effect that writes a signal it also reads and make the write conditional.
 

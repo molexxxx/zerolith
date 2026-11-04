@@ -7,42 +7,8 @@
 import { diagnosticCatalog } from "./catalog.js";
 import { printUnheard, trackDiagnostic } from "./devtools.js";
 
-/**
- * How safely a suggestion can be applied without a human reading it,
- * following the grades rustc uses for its own suggestions.
- */
-export type Applicability =
-    | "machine_applicable"
-    | "maybe_incorrect"
-    | "has_placeholders"
-    | "unspecified";
-
 /** The weight of a diagnostic. Deprecations are their own class so tooling can count them separately. */
 export type DiagnosticSeverity = "error" | "warning" | "deprecation" | "info";
-
-/** Where a diagnostic points. Source positions are 1-based; `selector` locates a DOM node at runtime. */
-export interface DiagnosticLocation
-{
-    /** The source file the diagnostic points into. */
-    file?: string;
-    /** The 1-based line within `file`. */
-    line?: number;
-    /** The 1-based column within `line`. */
-    column?: number;
-    /** A CSS selector that finds the node in the page the diagnostic is about, for a diagnostic raised at runtime. */
-    selector?: string;
-}
-
-/** A concrete change that would resolve the diagnostic. */
-export interface DiagnosticSuggestion
-{
-    /** One sentence describing the change. */
-    description: string;
-    /** The replacement source text, when the change is textual. */
-    replacement?: string;
-    /** Whether a tool may make the change unreviewed: `machine_applicable` says it may, while `maybe_incorrect` and `has_placeholders` need a person to check or complete it. */
-    applicability: Applicability;
-}
 
 /** Values interpolated into a diagnostic's text, kept separately so tools can render their own. */
 export type DiagnosticArgs = Readonly<Record<string, string | number | boolean>>;
@@ -50,7 +16,7 @@ export type DiagnosticArgs = Readonly<Record<string, string | number | boolean>>
 /** A diagnostic as emitted by any part of zerolith. */
 export interface Diagnostic
 {
-    /** Stable snake_case identifier, for example `signal_written_inside_computed`. Codes are public API; message text is not. */
+    /** Stable snake_case identifier, for example `signal_written_inside_computed`. Codes are public API; message text is not. The runtime's own codes are `DiagnosticCode`; the type is `string` since the command line reports codes of its own in the same shape. */
     code: string;
     /** The diagnostic's weight; the runtime throws an `error` as a `ZerolithError` and passes every other severity to the `onDiagnostic` listeners. */
     severity: DiagnosticSeverity;
@@ -58,12 +24,8 @@ export interface Diagnostic
     cause: string;
     /** One sentence naming what to do about it. Empty in production builds. */
     fix: string;
-    /** Documentation page for the code, with the arguments encoded in the query string. */
+    /** Documentation page for the code, `DIAGNOSTIC_URL` followed by the code and a slash, with the arguments encoded in the query string. */
     url: string;
-    /** Where the diagnostic points, when the emitter knows: a position in the source or a node in the page. */
-    location?: DiagnosticLocation;
-    /** A change that would resolve the diagnostic, when the emitter can name one. */
-    suggestion?: DiagnosticSuggestion;
     /** The values the diagnostic is about, such as the name of a refused attribute, kept apart so a tool can word its own text; `url` carries them in its query string. */
     args?: DiagnosticArgs;
 }
@@ -84,8 +46,8 @@ export const DIAGNOSTIC_URL: string = "https://zerolith.dev/e/";
 export type DiagnosticCode =
     | "signal_written_inside_computed"
     | "computed_cycle"
-    | "effect_cycle"
     | "effect_loop"
+    | "effect_async"
     | "on_dispose_outside_scope"
     | "binding_in_tag_position"
     | "binding_in_comment"
@@ -118,27 +80,24 @@ export type DiagnosticCode =
     | "route_name_unknown";
 
 /** Builds the full diagnostic record for a catalog code. */
-export function diagnostic(code: DiagnosticCode, severity: DiagnosticSeverity, args?: DiagnosticArgs, location?: DiagnosticLocation): Diagnostic
+export function diagnostic(code: DiagnosticCode, severity: DiagnosticSeverity, args?: DiagnosticArgs): Diagnostic
 {
     const text = diagnosticCatalog[code];
-    let url = DIAGNOSTIC_URL + code;
-    if (args !== undefined)
+    let url = DIAGNOSTIC_URL + code + "/";
+    const keys = args === undefined ? [] : Object.keys(args);
+    if (args !== undefined && keys.length > 0)
     {
         const query = new URLSearchParams();
-        for (const key of Object.keys(args))
+        for (const key of keys)
         {
             query.set(key, String(args[key]));
         }
         url += "?" + query.toString();
     }
     const record: Diagnostic = { code, severity, cause: text?.cause ?? "", fix: text?.fix ?? "", url };
-    if (args !== undefined)
+    if (args !== undefined && keys.length > 0)
     {
         record.args = args;
-    }
-    if (location !== undefined)
-    {
-        record.location = location;
     }
     return record;
 }
@@ -160,9 +119,9 @@ export class ZerolithError extends Error
 }
 
 /** Builds an error for a catalog code. */
-export function fail(code: DiagnosticCode, args?: DiagnosticArgs, location?: DiagnosticLocation): ZerolithError
+export function fail(code: DiagnosticCode, args?: DiagnosticArgs): ZerolithError
 {
-    const record = diagnostic(code, "error", args, location);
+    const record = diagnostic(code, "error", args);
     trackDiagnostic(record);
     return new ZerolithError(record);
 }

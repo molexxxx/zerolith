@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { ZerolithError, batch, computed, effect, onDispose, scope, signal, untracked } from "zerolith";
+import { type EffectFunction, ZerolithError, batch, computed, effect, onDiagnostic, onDispose, scope, signal, untracked } from "zerolith";
+import { diagnostic } from "../src/diagnostics.ts";
+import { jsx } from "../src/jsx-runtime.ts";
+
+/** An effect function written `async`, which TypeScript refuses and JavaScript cannot. */
+const asyncEffect = (fn: () => Promise<void>): EffectFunction => fn as unknown as EffectFunction;
 
 function codeOf(fn: () => unknown): string | undefined
 {
@@ -57,6 +62,38 @@ describe("signal", () =>
 
 describe("computed", () =>
 {
+    it("refuses a write inside its function whatever tracking the write runs under", () =>
+    {
+        const a = signal(1);
+        const direct = computed(() => a.set(2));
+        expect(codeOf(() => direct.get())).toBe("signal_written_inside_computed");
+        const hidden = computed(() => untracked(() => a.set(3)));
+        expect(codeOf(() => hidden.get())).toBe("signal_written_inside_computed");
+        const through = computed(() =>
+        {
+            effect(() => a.set(4));
+        });
+        expect(codeOf(() => through.get())).toBe("signal_written_inside_computed");
+        expect(a.get()).toBe(1);
+        const reads = computed(() => untracked(() => a.get()) + 1);
+        expect(reads.get()).toBe(2);
+    });
+
+    it("takes an equality option as signals do", () =>
+    {
+        const a = signal(1);
+        const parity = computed(() => a.get() % 2, { equals: (previous, next) => previous === next });
+        const seen = vi.fn(() =>
+        {
+            parity.get();
+        });
+        effect(seen);
+        a.set(3);
+        expect(seen).toHaveBeenCalledTimes(1);
+        a.set(4);
+        expect(seen).toHaveBeenCalledTimes(2);
+    });
+
     it("is lazy and memoized", () =>
     {
         const a = signal(1);
@@ -319,10 +356,136 @@ describe("effect", () =>
         a.set(-1);
         expect(runs).toHaveBeenCalledTimes(calls);
     });
+
+    it("disposes an effect that starts looping on a later run", () =>
+    {
+        const a = signal(0);
+        const loop = signal(false);
+        const runs = vi.fn(() =>
+        {
+            if (loop.get())
+            {
+                a.set(a.get() + 1);
+            }
+        });
+        effect(runs);
+        expect(codeOf(() => loop.set(true))).toBe("effect_loop");
+        const calls = runs.mock.calls.length;
+        a.set(-1);
+        loop.set(false);
+        expect(runs).toHaveBeenCalledTimes(calls);
+    });
+
+    it("keeps a new effect whose first run only made another effect throw", () =>
+    {
+        const a = signal(0);
+        effect(() =>
+        {
+            if (a.get() === 1)
+            {
+                throw new Error("other");
+            }
+        });
+        const runs = vi.fn(() =>
+        {
+            a.set(1);
+        });
+        expect(() => effect(runs)).toThrow("other");
+        expect(runs).toHaveBeenCalledTimes(1);
+        a.set(2);
+        a.set(3);
+        expect(runs).toHaveBeenCalledTimes(1);
+        const kept = signal(0);
+        const follows = vi.fn(() =>
+        {
+            kept.get();
+            if (untracked(() => a.get()) === 1)
+            {
+                return;
+            }
+            a.set(1);
+        });
+        expect(() => effect(follows)).toThrow("other");
+        expect(follows).toHaveBeenCalledTimes(1);
+        kept.set(1);
+        expect(follows).toHaveBeenCalledTimes(2);
+    });
+
+    it("throws both errors when its own function and a triggered effect throw", () =>
+    {
+        const a = signal(0);
+        effect(() =>
+        {
+            if (a.get() === 1)
+            {
+                throw new Error("other");
+            }
+        });
+        let caught: unknown;
+        try
+        {
+            effect(() =>
+            {
+                a.set(1);
+                throw new Error("own");
+            });
+        }
+        catch (error)
+        {
+            caught = error;
+        }
+        expect(caught).toBeInstanceOf(AggregateError);
+        expect((caught as AggregateError).errors.map((error) => (error as Error).message)).toEqual(["own", "other"]);
+    });
+
+    it("warns when the effect function returns a promise", () =>
+    {
+        const seen: string[] = [];
+        const stop = onDiagnostic((record) => seen.push(record.code));
+        const a = signal(0);
+        effect(asyncEffect(async () =>
+        {
+            a.get();
+        }));
+        stop();
+        expect(seen).toEqual(["effect_async"]);
+    });
 });
 
 describe("batch", () =>
 {
+    it("throws the function's error, with the flush's beside it when an effect throws too", () =>
+    {
+        const a = signal(0);
+        effect(() =>
+        {
+            if (a.get() === 1)
+            {
+                throw new Error("effect error");
+            }
+        });
+        expect(() =>
+            batch(() =>
+            {
+                throw new Error("caller error");
+            })).toThrow("caller error");
+        let caught: unknown;
+        try
+        {
+            batch(() =>
+            {
+                a.set(1);
+                throw new Error("caller error");
+            });
+        }
+        catch (error)
+        {
+            caught = error;
+        }
+        expect(caught).toBeInstanceOf(AggregateError);
+        expect((caught as AggregateError).errors.map((error) => (error as Error).message)).toEqual(["caller error", "effect error"]);
+    });
+
     it("coalesces writes into one effect run", () =>
     {
         const a = signal(1);
@@ -535,10 +698,44 @@ describe("diagnostics", () =>
             expect(diagnostic.severity).toBe("error");
             expect(diagnostic.cause).toMatch(/onDispose/);
             expect(diagnostic.fix.length).toBeGreaterThan(0);
-            expect(diagnostic.url).toBe("https://zerolith.dev/e/on_dispose_outside_scope");
+            expect(diagnostic.url).toBe("https://zerolith.dev/e/on_dispose_outside_scope/");
             expect((error as Error).message).toContain("on_dispose_outside_scope");
             return;
         }
         throw new Error("expected a ZerolithError");
+    });
+
+    it("builds the page address, with a query only for arguments it has", () =>
+    {
+        let record: ZerolithError | undefined;
+        try
+        {
+            jsx();
+        }
+        catch (error)
+        {
+            record = error as ZerolithError;
+        }
+        expect(record?.diagnostic.url).toBe("https://zerolith.dev/e/jsx_not_lowered/");
+        expect(record?.diagnostic.args).toBeUndefined();
+        const empty = diagnostic("jsx_not_lowered", "warning", {});
+        expect(empty.url).toBe("https://zerolith.dev/e/jsx_not_lowered/");
+        expect(empty.args).toBeUndefined();
+        expect(diagnostic("jsx_not_lowered", "warning", { at: "x" }).url).toBe("https://zerolith.dev/e/jsx_not_lowered/?at=x");
+    });
+
+    it("stops delivering to a listener that was stopped", () =>
+    {
+        const seen: string[] = [];
+        const stop = onDiagnostic((record) => seen.push(record.code));
+        const a = signal(0);
+        effect(asyncEffect(async () =>
+        {
+            a.get();
+        }));
+        expect(seen).toEqual(["effect_async"]);
+        stop();
+        a.set(1);
+        expect(seen).toEqual(["effect_async"]);
     });
 });

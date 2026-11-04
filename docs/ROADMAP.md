@@ -49,7 +49,7 @@ In order:
 - [x] Fine-grained rendering with no virtual DOM, under Trusted Types and a strict CSP.
 - [x] Server rendering to strings and hydration with mismatch repair and reporting.
 - [x] Coded diagnostics with a cause, a fix, and a page per code, with warnings printed to the console in development while no listener takes them.
-- [ ] Diagnostics that point and suggest: each emitter fills `location` with the source position or the page node it is about, and `suggestion` with a change graded by how safely a tool can apply it, which the `Diagnostic` type already carries and no emitter fills yet.
+- [ ] Diagnostics that point and suggest: a `location` with the source position or the page node the diagnostic is about, and a `suggestion` graded by how safely a tool can apply it, added to `Diagnostic` when the first emitter fills them; the fields left the 1.0 surface until then, since no emitter filled them.
 - [x] Custom elements with attributes and properties as signals (`zerolith/element`).
 - [x] JSX as an alternative spelling of `html`.
 - [x] Mounting by element or CSS selector, and with a function that returns the view, called inside the root's owner so components own their cleanups.

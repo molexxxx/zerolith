@@ -308,7 +308,7 @@ function unknownRoute(name: string): ZerolithError
 {
     const code = "route_name_unknown";
     const text = diagnosticCatalog[code];
-    return new ZerolithError({ code, severity: "error", cause: text?.cause ?? "", fix: text?.fix ?? "", url: `${DIAGNOSTIC_URL}${code}?${new URLSearchParams({ name }).toString()}`, args: { name } });
+    return new ZerolithError({ code, severity: "error", cause: text?.cause ?? "", fix: text?.fix ?? "", url: `${DIAGNOSTIC_URL}${code}/?${new URLSearchParams({ name }).toString()}`, args: { name } });
 }
 
 /** A fragment percent-decoded, or as it is when its escapes are malformed, as in `#100%`. */

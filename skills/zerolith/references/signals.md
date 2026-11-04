@@ -33,7 +33,7 @@ point.set({ x: 1 });                    // ignored: `equals` says it is equal
 
 | Option | Default | What it does |
 | --- | --- | --- |
-| `name` | None | Labels the signal in the inspector; `zerolith dev` and the Vite plugin keep a named signal's value across an edit |
+| `name` | None | Labels the signal in the inspector; `zerolith dev` and the Vite plugin keep the value of a named `signal` across an edit, while a computed value is computed again |
 | `equals` | `Object.is` | Decides whether a new value counts as a change; a value it calls equal notifies nothing |
 
 > [!TIP]
@@ -85,7 +85,9 @@ Effects are for the world outside the graph: the document title, storage, a time
 > [!NOTE]
 > The page itself rarely needs one. A template binding already follows its signal, so an effect that copies a signal into the DOM duplicates what `${signal}` does.
 
-An effect that keeps changing what it reads would run forever; after 100 rounds it fails with `effect_loop`.
+An effect that keeps changing what it reads would run forever; after 100 rounds it fails with `effect_loop` and is disposed, whichever run looped. An effect whose function throws on its first run is disposed, and the error reaches the caller of `effect`; one that throws on a later run keeps running, and the error reaches whoever wrote the signal, after the other effects of that update ran. When a function and an effect its writes triggered both throw, the two arrive together as one `AggregateError`, as several effects throwing in one update already do. Cleanup runs newest first: the effects and scopes an effect created, then the function it returned.
+
+An effect function is synchronous. One written `async` is tracked only up to its first `await`, and the promise it returns is not a cleanup, which `effect_async` warns about; start the asynchronous work inside the function and return what stops it.
 
 ## Reading without subscribing
 
@@ -151,7 +153,7 @@ tick.set(2);                            // prints nothing: the effect is gone
 
 ## Async values
 
-`resource` loads data from signals. Its `params` function reads the signals the request depends on, and its `loader` receives those params and an abort signal. Whenever the params change, the previous request is aborted and the loader runs again; when `params` returns `undefined`, the resource waits, idle. `params` runs as an effect's function does: once when the resource is created, and again whenever a signal it read changes, whatever it returns. Params that read no signal load once; params that read a flag the component sets later, as `() => (ready.get() ? { id } : undefined)`, wait idle and load on the first change.
+`resource` loads data from signals. Its `params` function reads the signals the request depends on, and its `loader` receives those params and an abort signal. Whenever the params change, the previous request is aborted and the loader runs again; when `params` returns `undefined`, the resource waits, idle. `params` runs as an effect's function does: once when the resource is created, and again whenever a signal it read changes, whatever it returns. Params that read no signal load once; params that read a flag the component sets later, as `() => (ready.get() ? { id } : undefined)`, wait idle and load on the first change. A `params` function that throws fails the load as a loader does: `status` is `error` and `error` holds what it threw, until the signals it read change. `reload()` after the resource's owner is disposed does nothing.
 
 ```ts
 import { resource, signal } from "zerolith";
