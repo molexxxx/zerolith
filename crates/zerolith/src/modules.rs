@@ -288,8 +288,19 @@ impl Pipeline {
         })
     }
 
-    /// A script as the browser gets it, cached until the file changes.
+    /// True for a file under a folder `zerolith importmap` wrote, which its `importmap.json` marks: the page's import map names such a module with an integrity hash, so it is served as it is, since a rewritten import would fail the hash.
+    fn vendored(&self, file: &Path) -> bool {
+        file.ancestors()
+            .skip(1)
+            .take_while(|folder| folder.starts_with(&self.root) && *folder != self.root)
+            .any(|folder| folder.join("importmap.json").is_file())
+    }
+
+    /// A script as the browser gets it, cached until the file changes; a vendored module as it is.
     pub fn module(&self, file: &Path) -> Result<String, TransformError> {
+        if self.vendored(file) {
+            return fs::read_to_string(file).map_err(|error| fail(file, &error.to_string()));
+        }
         let metadata = fs::metadata(file).map_err(|error| fail(file, &error.to_string()))?;
         let modified = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
         if let Ok(cache) = self.cache.lock()
@@ -572,6 +583,32 @@ mod tests {
         }
         let app = crate::css::canonical(&top.join("app")).unwrap();
         (top, app)
+    }
+
+    #[test]
+    fn serves_a_vendored_module_as_it_is_so_its_integrity_hash_holds() {
+        let (top, app) = workspace("vendored");
+        let source = "import{html}from\"zerolith\";export const page=html`<p>${import.meta.env.MODE}</p>`;\n";
+        for (path, text) in [
+            ("app/vendor/importmap.json", "{\"imports\":{}}"),
+            ("app/vendor/zerolith/VERSION", "0.0.0\n"),
+            ("app/vendor/zerolith/dist/production/index.js", source),
+            ("app/src/vendored.js", source),
+        ] {
+            let file = top.join(path);
+            fs::create_dir_all(file.parent().unwrap()).unwrap();
+            fs::write(file, text).unwrap();
+        }
+        let pipeline = Pipeline::new(app.clone(), "development", "/");
+        assert_eq!(
+            pipeline
+                .module(&app.join("vendor/zerolith/dist/production/index.js"))
+                .unwrap(),
+            source
+        );
+        let error = pipeline.module(&app.join("src/vendored.js")).unwrap_err();
+        assert!(error.message.contains("\"zerolith\""), "{}", error.message);
+        let _ = fs::remove_dir_all(&top);
     }
 
     #[test]

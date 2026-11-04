@@ -13,6 +13,7 @@ Every package in this repository is released together and carries the same versi
 ### Changed
 
 - `@zerolith/cli` and the `zerolith` crate: `zerolith importmap` and `zerolith build --unbundled` copy each package's `LICENSE` next to its `VERSION` file, since a site that commits and deploys `vendor/` redistributes the packages, and write `vendor/.gitattributes`, which turns line ending conversion off so a checkout on Windows does not fail the modules' integrity hashes, and `vendor/.gitignore`, which keeps the packages' `dist/` folders in commits whatever the project's own `dist/` rule says. A page gets its import map before its first module script, where it had gone before `</head>`, after a module script already there, which the browser then ignored the map for; and a page with CRLF line endings keeps them, where every run had marked it changed.
+- `@zerolith/cli` and the `zerolith` crate: `zerolith dev` and `serve` serve a module under a folder `zerolith importmap` wrote as it is, so the integrity hash the page's import map gives it holds; they had rewritten its imports as they rewrite the project's own, which failed the hash on every load.
 - Docs site: the first page hands its title and description to the router as its head, since the router now applies the head as a whole.
 - Fullstack example and `zerolith new --example fullstack`: Harbor's sign-in page navigates to the page shown with `reload`, so it loads for the signed-in session.
 
