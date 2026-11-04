@@ -2,7 +2,7 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
-## 0.1.0-alpha.10
+## 0.1.0-alpha.10 (2026-11-04)
 
 ### Breaking changes
 
