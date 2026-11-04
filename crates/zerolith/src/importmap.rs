@@ -1069,11 +1069,10 @@ fn update_lf(html: &str, tags: &str) -> String {
         if index == 0 {
             let element = &stripped[start..end];
             let opening = &element[..element.find('>').map_or(element.len(), |at| at + 1)];
-            result.push_str(
-                &tags
-                    .trim_end()
-                    .replacen("<script type=\"importmap\">", opening, 1),
-            );
+            let replaced = tags
+                .trim_end()
+                .replacen("<script type=\"importmap\">", opening, 1);
+            result.push_str(&indented(&replaced, &indentation(&stripped, start)));
         }
         from = end;
         if stripped[from..].starts_with('\n') && result.ends_with('\n') {
@@ -1085,12 +1084,37 @@ fn update_lf(html: &str, tags: &str) -> String {
     if !replaced {
         let head_end = result.find("</head>");
         let script = first_module_script(&result).filter(|&at| head_end.is_none_or(|end| at < end));
-        match script.or(head_end) {
-            Some(index) => result.insert_str(index, tags),
-            None => result.insert_str(0, tags),
-        }
+        let index = script.or(head_end).unwrap_or(0);
+        let indent = indentation(&result, index);
+        let inserted = format!("{}{indent}", indented(tags, &indent));
+        result.insert_str(index, &inserted);
     }
     result
+}
+
+/// The whitespace that starts the line `at` is on, when nothing but whitespace precedes `at` on it; otherwise nothing, since the tags then follow other markup on the line.
+fn indentation(text: &str, at: usize) -> String {
+    let line_start = text[..at].rfind('\n').map_or(0, |index| index + 1);
+    let before = &text[line_start..at];
+    if before.trim().is_empty() {
+        before.to_string()
+    } else {
+        String::new()
+    }
+}
+
+/// The tags with every line after the first indented like the first, which sits where the page already indents it, so the preload links line up under the map.
+fn indented(tags: &str, indentation: &str) -> String {
+    if indentation.is_empty() {
+        return tags.to_string();
+    }
+    let mut lines = tags.split_inclusive('\n');
+    let mut out = lines.next().unwrap_or_default().to_string();
+    for line in lines {
+        out.push_str(indentation);
+        out.push_str(line);
+    }
+    out
 }
 
 /// Runs the `importmap` command.
@@ -1405,6 +1429,36 @@ export const a = () => import(LAZY);",
         );
         assert!(!crlf.replace("\r\n", "").contains('\n'), "{crlf:?}");
         assert!(crlf.contains("<script type=\"importmap\">") && !crlf.contains("/old.js"));
+        let replaced = update_html(
+            "<html>\n<head>\n    <meta charset=\"utf-8\">\n    <script type=\"importmap\">{}</script>\n<link rel=\"modulepreload\" href=\"/old.js\" data-zerolith-preload>\n</head>\n</html>\n",
+            &html_tags(&vendored),
+        );
+        assert_eq!(
+            replaced,
+            format!(
+                "<html>\n<head>\n    <meta charset=\"utf-8\">\n    <script type=\"importmap\">{}</script>\n    <link rel=\"modulepreload\" href=\"/vendor/zerolith/dist/production/index.js\" integrity=\"{hash}\" data-zerolith-preload>\n    <link rel=\"modulepreload\" href=\"/vendor/zerolith/dist/production/inner.js\" integrity=\"{}\" data-zerolith-preload>\n</head>\n</html>\n",
+                serde_json::to_string(&vendored.map).unwrap(),
+                vendored.map.integrity["/vendor/zerolith/dist/production/inner.js"]
+            )
+        );
+        let indented = update_html(
+            "<html>\n<head>\n    <title>x</title>\n    <script type=\"module\" src=\"/app.js\"></script>\n</head>\n</html>\n",
+            &html_tags(&vendored),
+        );
+        assert!(
+            indented.contains("</script>\n    <link rel=\"modulepreload\" href=\"/vendor/zerolith/dist/production/index.js\"")
+                && indented.contains("data-zerolith-preload>\n    <script type=\"module\" src=\"/app.js\">"),
+            "{indented}"
+        );
+        let inline = update_html(
+            "<html><head><title>x</title><script type=\"module\" src=\"/app.js\"></script></head></html>",
+            &html_tags(&vendored),
+        );
+        assert!(
+            inline.contains("</script>\n<link rel=\"modulepreload\"")
+                && inline.contains("data-zerolith-preload>\n<script type=\"module\""),
+            "{inline}"
+        );
         let _ = fs::remove_dir_all(&root);
     }
 
