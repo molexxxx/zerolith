@@ -6,7 +6,7 @@ import { DIAGNOSTIC_URL } from "zerolith";
 import { version as installed } from "zerolith/internal";
 
 /** The version of this package, which the version script keeps equal to its manifest's. */
-export const version: string = "0.1.0-alpha.9";
+export const version: string = "0.1.0-alpha.10";
 
 /** Throws `package_version_mismatch` when the installed zerolith is not the plugin's own version. */
 export function checkCoreVersion(own: string = version, core: string = installed): void

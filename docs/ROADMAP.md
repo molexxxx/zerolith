@@ -4,7 +4,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 
 ## Where it stands
 
-`0.1.0-alpha.9` was published on 2026-11-03, the ninth alpha since `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, which writes a starter or the fullstack example, each with the zerolith skill for coding agents, and develops, bundles, and previews a project with no other build tool. It is on npm under the `alpha` dist-tag with provenance, published through trusted publishing with no npm token anywhere, on crates.io, and a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://zerolith.dev/) is published from the same commit, and redeployed from `main` when only the site changes. The API is not frozen, and minor versions may change it until 1.0.
+`0.1.0-alpha.10` was published on 2026-11-04, the tenth alpha since `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, which writes a starter or the fullstack example, each with the zerolith skill for coding agents, and develops, bundles, and previews a project with no other build tool. It is on npm under the `alpha` dist-tag with provenance, published through trusted publishing with no npm token anywhere, on crates.io, and a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://zerolith.dev/) is published from the same commit, and redeployed from `main` when only the site changes. The API is not frozen, and minor versions may change it until 1.0.
 
 | Area | State |
 | --- | --- |
