@@ -325,4 +325,10 @@ jobs:
             echo "the site was deployed from $deployed, not from $released, so its next deploy takes this run"
             exit 0
           fi
-          gh workflow run docs.yml --ref "zerolith@$VERSION"
+          if [ "$(git rev-parse HEAD~1)" != "$released" ]; then
+            echo "main holds commits after the release besides this run, so its next deploy takes the run"
+            exit 0
+          fi
+          # Pages serves nothing new for a deployment of the commit already live, so the site is deployed from
+          # main, which holds the release and this run's commit alone.
+          gh workflow run docs.yml --ref main
