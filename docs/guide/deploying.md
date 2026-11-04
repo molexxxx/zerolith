@@ -61,13 +61,15 @@ While developing, the application and its backend usually run as two servers, su
 ```json
 {
     "proxy": {
-        "/api": "http://127.0.0.1:3000",
+        "/api": { "target": "http://127.0.0.1:3000", "run": "npm run api" },
         "/auth": { "target": "http://127.0.0.1:4000", "stripPrefix": true }
     }
 }
 ```
 
 A request whose path starts with a prefix goes to that backend with its path and query, the longest prefix first; `stripPrefix` removes the prefix, so `/auth/login` reaches the second backend as `/login`. Request and response bodies stream through, server-sent events included, and WebSocket connections are joined end to end. The backend receives its own address as `Host`, with the original request in `X-Forwarded-Host`, `X-Forwarded-Proto`, and `X-Forwarded-For`, and a redirect it sends to its own address comes back as a path on the dev server. When the backend is down, the request answers 502 and the terminal says why. `zerolith preview` forwards the same paths, and `--proxy /api=http://127.0.0.1:3000` adds a path for one run. The proxy forwards to `http://` addresses only for now.
+
+`run` names the command that starts a backend, `npm run api` here: `zerolith dev` runs it in the project folder through the shell when it starts, shows its output in the same terminal, and stops it with every process it started when the server stops, so one command runs an app and its backend; `serve` and `preview` do the same. The same command under several prefixes starts once, and `--no-backends` leaves every backend to you, as when one runs under a debugger. Until the backend listens, a request to its path gets a 502 that says it is out of reach, and a backend that ends on its own is reported under the banner. On Unix a terminal that closes stops the server and its backends as Ctrl+C does.
 
 The [fullstack example](https://github.com/molexxxx/zerolith/tree/main/examples/fullstack) runs this setup end to end: Harbor, an application under `/app/` with a Node backend that answers its API under `/api`, with a session cookie and a live stream of server-sent events, both through the proxy. `zerolith new my-app --example fullstack` starts a project of your own from it.
 

@@ -50,6 +50,10 @@
                                 "type": "boolean",
                                 "default": false,
                                 "description": "Remove the matched prefix before forwarding, so /api/notes reaches the backend as /notes."
+                            },
+                            "run": {
+                                "type": "string",
+                                "description": "A command that starts the backend, such as npm run api: dev, serve, and preview run it in the project folder through the shell when they start and stop it with themselves; the same command under several prefixes starts once."
                             }
                         }
                     }

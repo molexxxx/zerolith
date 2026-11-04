@@ -12,7 +12,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 | Performance | Measured on js-framework-benchmark next to seven popular frameworks and hand-written JavaScript, with the results in [benchmarks](../benchmarks/README.md); the keyed entry is ready to submit |
 | Router, forms, typed client | Feature-complete for 1.0; real-time data follows 1.0 |
 | Build path | Template preparation with static hoisting, the split check, and the template lint, in the Vite plugin and the command line alike |
-| Command line | Published with prebuilt binaries for six targets; writes a starter or the fullstack example with the zerolith skill, develops, bundles, and previews a project on its own, forwards an API to its backend, and serves under a base path |
+| Command line | Published with prebuilt binaries for six targets; writes a starter or the fullstack example with the zerolith skill, develops, bundles, and previews a project on its own, forwards an API to its backend, which it starts and stops with itself, and serves under a base path |
 | Dev tools and testing | Shipped; the browser extension adapter remains |
 | Accessibility, i18n, observability | Shipped; the conformance report and the MessageFormat 1 import remain |
 | Docs | Published at https://zerolith.dev/ by each release, and run as a single-page application on `@zerolith/router` over prerendered pages: a home page that runs and measures zerolith, a tutorial, a playground, the guides, the reference, and a page per diagnostic, every example run as a test |
@@ -123,7 +123,7 @@ See the [command line guide](guide/command-line.md).
 - [x] `new --example fullstack` writes the fullstack example as a project of its own, an app with its Node backend, with tests of both and a README on developing with two processes and on deploying. The example is now Harbor, a team's projects and tasks, which shows how a larger application is put together: sessions, shared types and validation, a typed client, live updates, and a lazy route.
 - [x] `new` writes the zerolith skill for coding agents into `.agents/skills` and `.claude/skills` for its version, `skill` writes or updates it in any project, and `doctor` reports a copy written for another version.
 - [x] A proxy from `dev`, `serve`, and `preview` to backends, streaming bodies and joining WebSocket connections, a base path for all three and the router, and `zerolith.json` for the settings they share, with a schema.
-- [ ] `dev` and `preview` start the backend a proxy rule names, as `"run": "npm run api"` beside its target, and stop it with themselves, so one command runs an app and its backend.
+- [x] `dev`, `serve`, and `preview` start the backend a proxy rule names, as `"run": "npm run api"` beside its target, and stop it with themselves, so one command runs an app and its backend; `--no-backends` leaves it to you.
 - [ ] A proxy to `https://` backends.
 - [ ] `zerolith migrate`, with codemods between versions.
 - [ ] A musl binary for Alpine and other musl distributions.

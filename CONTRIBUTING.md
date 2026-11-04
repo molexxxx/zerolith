@@ -30,7 +30,7 @@ Each example runs on this checkout's command line through a script, which finds 
 | `npm run tasks` | The tasks example on Vite, with its API mounted on the dev server |
 | `npm run tasks:build` | `zerolith build examples/tasks`: its production build in `examples/tasks/dist` |
 | `npm run tasks:preview` | Serves that build with the API next to it, as a backend would, at http://127.0.0.1:4173/ |
-| `npm run fullstack:api` | The fullstack example's backend in watch mode: its API at http://127.0.0.1:3001/api/ |
+| `npm run fullstack:api` | The fullstack example's backend in watch mode, its API at http://127.0.0.1:3001/api/, which `npm run fullstack` starts itself |
 | `npm run fullstack` | `zerolith dev examples/fullstack`: the app under `/app/`, forwarding `/api` to that backend |
 | `npm run fullstack:build` | `zerolith build examples/fullstack`: its production build for `/app/` in `examples/fullstack/dist` |
 | `npm run fullstack:serve` | The backend serving the API and that build at http://127.0.0.1:3001/app/ |

@@ -2,6 +2,6 @@
     "$schema": "./node_modules/@zerolith/cli/zerolith.schema.json",
     "base": "/app/",
     "proxy": {
-        "/api": "http://127.0.0.1:3001"
+        "/api": { "target": "http://127.0.0.1:3001", "run": "npm run api" }
     }
 }

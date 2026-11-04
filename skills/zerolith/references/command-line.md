@@ -89,7 +89,10 @@ When the default port is taken, as 8080 often is on Windows, the command takes t
 | `--port <number>` | Listens on that port |
 | `--base /app/` | Serves the application under a path, as a backend or a reverse proxy will: the site root redirects there, paths under it load the project with the same route fallback, and `import.meta.env.BASE_URL` carries it for the router |
 | `--proxy /api=http://127.0.0.1:3000` | Forwards every request under `/api` to a backend, so the page reaches its API on its own origin; repeat it for more paths |
+| `--no-backends` | Starts none of the backends the proxy rules name with `run`, for one that already runs, as under a debugger |
 | `--out <folder>` | For `preview`: the folder to serve |
+
+A proxy rule in `zerolith.json` can name the command that starts its backend, as `"run": "npm run api"` beside its `target`: the server runs it in the project folder through the shell when it starts, shows its output in the same terminal, and stops it with every process it started when the server stops, so one command runs an app and its backend. The same command under several prefixes starts once, and a `--proxy` flag for a prefix replaces the file's rule, its command included. Until the backend listens, a request to its path gets a 502 that says it is out of reach, and a backend that ends on its own, as one whose port is taken does, is reported under the banner, with its paths answering 502 until it runs again.
 
 [Building and serving](deploying.md) describes the proxy in full. On loopback, the server also answers `/.well-known/appspecific/com.chrome.devtools.json`, which lets Chrome DevTools edit the project's files in place.
 
@@ -105,7 +108,7 @@ The settings the commands share live in `zerolith.json` next to `index.html`, so
     "$schema": "./node_modules/@zerolith/cli/zerolith.schema.json",
     "base": "/app/",
     "proxy": {
-        "/api": "http://127.0.0.1:3000",
+        "/api": { "target": "http://127.0.0.1:3000", "run": "npm run api" },
         "/auth": { "target": "http://127.0.0.1:4000", "stripPrefix": true }
     },
     "dev": { "port": 5000 },
@@ -117,7 +120,7 @@ The settings the commands share live in `zerolith.json` next to `index.html`, so
 | Key | Used by | What it sets |
 | --- | --- | --- |
 | `base` | `dev`, `build`, `preview` | The path the application is served under |
-| `proxy` | `dev`, `serve`, `preview` | Path prefixes forwarded to backends: an `http://` address, or an object with `target` and `stripPrefix` |
+| `proxy` | `dev`, `serve`, `preview` | Path prefixes forwarded to backends: an `http://` address, or an object with `target`, `stripPrefix`, and `run`, the command that starts the backend with the server and stops with it |
 | `allowedHosts` | `dev`, `serve`, `preview` | Host names answered besides localhost and IP addresses; one starting with a dot allows every name under it |
 | `dev.port` | `dev`, `serve` | The port, used as it is |
 | `preview.port` | `preview` | The port, used as it is |

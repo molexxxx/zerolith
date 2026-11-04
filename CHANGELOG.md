@@ -6,6 +6,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Added
 
+- `@zerolith/cli`: a proxy rule in `zerolith.json` takes `run`, a command such as `npm run api` that starts its backend: `dev`, `serve`, and `preview` run it in the project folder through the shell when they start, show its output in the same terminal, and stop it with every process it started when they stop, so one command runs an app and its backend; the same command under several prefixes starts once, and `--no-backends` leaves the backends to you, as when one runs under a debugger. A backend that ends on its own is reported under the banner, and a termination signal or a hangup stops the server as Ctrl+C does, backends included. The fullstack example and the project `zerolith new --example fullstack` writes name `npm run api` this way, so `npm run dev` runs both, and in this repository `npm run fullstack` does.
 - `@zerolith/a11y`: `inertOutside(element)` makes everything outside an element inert, the siblings of the element and of each ancestor up to the body, through a shadow tree's host, and returns what undoes it, so a drawer or a menu that slides over the page keeps the page behind it from focus, clicks, and assistive technology while an effect holds it open. An element inert on its own is left alone, one two holds share stays inert until the last lets go, and an element given before its template is in the page is held once it is; a native `<dialog>` opened with `showModal()` needs none of it.
 
 ### Changed

@@ -102,7 +102,7 @@ const TOOL_VERSIONS: &str = include_str!("../versions.json");
 /// The favicon from `brand/app-icon`, copied into the crate so the published crate carries it; a test keeps the two in step.
 const FAVICON: &str = include_str!("../templates/favicon.svg");
 
-/// The files of `examples/fullstack`, its tests among them, copied into the crate so the published crate carries them. The example's README and its end-to-end test, which runs this repository's build of the command line, stay behind; the scaffold writes its own README. A test keeps the copy in step with the example, apart from the schema path in `zerolith.json`, which points into `node_modules` in a project of its own.
+/// The files of `examples/fullstack`, its tests among them, copied into the crate so the published crate carries them. The example's README and its end-to-end test, which runs this repository's build of the command line, stay behind; the scaffold writes its own README. A test keeps the copy in step with the example, apart from `zerolith.json`, whose schema path points into `node_modules` in a project of its own and whose backend command is the project's own `npm run api`.
 const FULLSTACK_FILES: [(&str, &str); 29] = [
     (
         "index.html",
@@ -1239,31 +1239,25 @@ The commands below are the project's npm scripts: `dev` and `build` run the zero
 
 ## Develop
 
-While you develop, two processes run side by side, started in either order. Start the backend in one terminal:
-
-```
-npm run api
-```
-
-It serves the API at http://127.0.0.1:3001/api/ in watch mode: a change to a file under `server/` or `shared/` restarts it, and its data, which lives in memory, starts over. Then start the app in a second terminal:
-
 ```
 npm run dev
 ```
 
-`zerolith dev` serves the app at http://127.0.0.1:8080/app/ with live reload, or on the next free port when 8080 is taken, as its banner says, and the site root redirects to `/app/`. If the app comes up before the backend, the page says the backend is out of reach and asks again every two seconds, so it opens as soon as `npm run api` answers. It forwards every request under `/api` to the backend, as `zerolith.json` says, so the app calls the API on its own origin, with no CORS to configure, and the session cookie works as it will in production:
+`zerolith dev` starts the backend with the app, since `zerolith.json` names `npm run api` beside the `/api` proxy: the backend answers the API at http://127.0.0.1:3001/api/ in watch mode, restarting when a file under `server/` or `shared/` changes, with its data, which lives in memory, starting over, and the app is served at http://127.0.0.1:8080/app/ with live reload, or on the next free port when 8080 is taken, as the banner says, with the site root redirecting to `/app/`. Both write to the one terminal, and Ctrl+C stops both. If the app comes up before the backend, the page says the backend is out of reach and asks again every two seconds, so it opens as soon as the API answers. Every request under `/api` is forwarded to the backend, so the app calls the API on its own origin, with no CORS to configure, and the session cookie works as it will in production:
 
 ```json
 {
     "$schema": "./node_modules/@zerolith/cli/zerolith.schema.json",
     "base": "/app/",
     "proxy": {
-        "/api": "http://127.0.0.1:3001"
+        "/api": { "target": "http://127.0.0.1:3001", "run": "npm run api" }
     }
 }
 ```
 
-Sign in as `ada@harbor.test` with the password `analytical`. In a second window, sign in as `grace@harbor.test` with `compiler`, and what one member does appears on the other's dashboard as it happens. To run the backend on another port, set `PORT`, as in `PORT=4000 npm run api`, and point the proxy at it.
+To run the backend on its own, as under a debugger, `npm run api` starts it and `npx zerolith dev --no-backends` serves the app without starting it. To run it on another port, set `PORT`, as in `PORT=4000 npm run api`, and point the proxy at it.
+
+Sign in as `ada@harbor.test` with the password `analytical`. In a second window, sign in as `grace@harbor.test` with `compiler`, and what one member does appears on the other's dashboard as it happens.
 
 ## Build
 
@@ -1281,7 +1275,7 @@ npm start
 
 `npm start` runs `node server/main.ts --production`: one server answers the API and serves `dist/` under `/app/`, at http://127.0.0.1:3001/app/. The hashed files under `assets/` are cached for a year, and every other path under `/app/` gets `index.html`, uncached, so a route such as `/app/projects/1` loads directly and a new build is picked up at once.
 
-To check the build without the backend serving it, `npx zerolith preview` serves `dist/` under the same base and forwards `/api` the same way, with `npm run api` running.
+To check the build without the backend serving it, `npx zerolith preview` serves `dist/` under the same base and forwards `/api` the same way, starting the backend as `dev` does.
 
 ## Deploy
 
@@ -1337,7 +1331,7 @@ A zerolith application with its own backend, written from the fullstack example:
 
 ## Commands
 
-- Development runs two processes, in either order: `npm run api` starts the backend on port 3001 and restarts it when `server/` or `shared/` changes, and `npm run dev` serves the app under `/app/` with live reload, forwarding `/api` to the backend as `zerolith.json` says. While the backend is down, the page says so and asks again every two seconds.
+- `npm run dev` runs both: it starts the backend, `npm run api`, which answers on port 3001 and restarts when `server/` or `shared/` changes, and serves the app under `/app/` with live reload, forwarding `/api` to the backend as `zerolith.json` says; `npx zerolith dev --no-backends` serves the app alone when the backend runs elsewhere. While the backend is down, the page says so and asks again every two seconds.
 - `npm run build` writes `dist/` for the base `/app/`; `npm start` serves the API and `dist/` from the backend.
 - `npm run check` is the gate: typecheck, lint, the backend's tests in Node and the pages' in Chromium, and the build.
 - Sign in as `ada@harbor.test` with the password `analytical`.
@@ -1969,12 +1963,8 @@ fn next_steps(choice: Choice) -> Vec<(String, &'static str)> {
     if choice.start == Start::Fullstack {
         return vec![
             (
-                "npm run api".to_string(),
-                "start the backend, which answers /api",
-            ),
-            (
                 "npm run dev".to_string(),
-                "in a second terminal, serve the app and forward /api to the backend",
+                "serve the app and start the backend, which answers /api",
             ),
             (
                 "npm run build".to_string(),
@@ -2479,7 +2469,7 @@ mod tests {
         assert!(readme.contains("npm run api") && readme.contains("npm run dev"));
         let agents = fs::read_to_string(root.join("AGENTS.md")).unwrap();
         assert!(agents.starts_with("# My Harbor: guide for coding agents\n"));
-        assert!(agents.contains("two processes"));
+        assert!(agents.contains("runs both") && agents.contains("--no-backends"));
         assert!(scaffold(&root, "My Harbor", Choice::FULLSTACK).is_err());
         let _ = fs::remove_dir_all(&root);
     }
@@ -2490,11 +2480,18 @@ mod tests {
         if !example.is_dir() {
             return;
         }
-        let adaptations = [(
-            "zerolith.json",
-            "\"../../packages/cli/zerolith.schema.json\"",
-            "\"./node_modules/@zerolith/cli/zerolith.schema.json\"",
-        )];
+        let adaptations = [
+            (
+                "zerolith.json",
+                "\"../../packages/cli/zerolith.schema.json\"",
+                "\"./node_modules/@zerolith/cli/zerolith.schema.json\"",
+            ),
+            (
+                "zerolith.json",
+                "\"npm run fullstack:api\"",
+                "\"npm run api\"",
+            ),
+        ];
         let mut found = Vec::new();
         files_under(&example, "", &mut found);
         found.retain(|relative| {

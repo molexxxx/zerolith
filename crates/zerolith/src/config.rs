@@ -66,6 +66,9 @@ pub struct DetailedProxy {
     /// Remove the matched prefix before forwarding, so `/api/notes` reaches the backend as `/notes`.
     #[serde(default)]
     pub strip_prefix: bool,
+    /// A command that starts the backend, such as `npm run api`: `dev`, `serve`, and `preview` run it in the project folder through the shell when they start and stop it with themselves; the same command under several prefixes starts once.
+    #[serde(default)]
+    pub run: Option<String>,
 }
 
 impl Config {
@@ -83,6 +86,28 @@ impl Config {
                 format!("{}: {error}", path.display()),
             )
         })
+    }
+
+    /// The commands that start the backends the proxy rules name with `run`, each once, in prefix order; a rule a `--proxy` flag replaces, by its prefix, is left out with its command.
+    pub fn backends(&self, flags: &[String]) -> Vec<String> {
+        let replaced: Vec<&str> = flags
+            .iter()
+            .filter_map(|flag| flag.split_once('=').map(|(prefix, _)| prefix))
+            .collect();
+        let mut commands: Vec<String> = Vec::new();
+        for (prefix, entry) in &self.proxy {
+            if replaced.contains(&prefix.as_str()) {
+                continue;
+            }
+            if let ProxyEntry::Detailed(detailed) = entry
+                && let Some(command) = detailed.run.as_deref().map(str::trim)
+                && !command.is_empty()
+                && !commands.iter().any(|known| known == command)
+            {
+                commands.push(command.to_string());
+            }
+        }
+        commands
     }
 
     /// The proxy rules: the file's entries with the command line's `--proxy` values over them, longest prefix first.
@@ -341,9 +366,37 @@ mod tests {
         assert_eq!(keys(&schema["properties"]["preview"]), ["port"]);
         assert_eq!(keys(&schema["properties"]["build"]), ["out"]);
         let detailed = &schema["properties"]["proxy"]["additionalProperties"]["oneOf"][1];
-        assert_eq!(keys(detailed), ["stripPrefix", "target"]);
-        let everything = r#"{ "$schema": "x", "base": "/", "proxy": { "/a": "http://h:1", "/b": { "target": "http://h:2", "stripPrefix": true } }, "dev": { "port": 1 }, "preview": { "port": 2 }, "build": { "out": "dist" } }"#;
-        serde_json::from_str::<Config>(everything).unwrap();
+        assert_eq!(keys(detailed), ["run", "stripPrefix", "target"]);
+        let everything = r#"{ "$schema": "x", "base": "/", "proxy": { "/a": "http://h:1", "/b": { "target": "http://h:2", "stripPrefix": true, "run": "npm run api" } }, "dev": { "port": 1 }, "preview": { "port": 2 }, "build": { "out": "dist" } }"#;
+        let parsed = serde_json::from_str::<Config>(everything).unwrap();
+        assert_eq!(parsed.backends(&[]), vec!["npm run api"]);
+    }
+
+    #[test]
+    fn lists_each_backend_command_once_in_prefix_order() {
+        let config: Config = serde_json::from_str(
+            r#"{ "proxy": {
+                "/events": { "target": "http://127.0.0.1:3000", "run": "npm run api" },
+                "/api": { "target": "http://127.0.0.1:3000", "run": " npm run api " },
+                "/auth": { "target": "http://127.0.0.1:4000", "run": "node auth.js" },
+                "/blank": { "target": "http://127.0.0.1:5000", "run": "" },
+                "/plain": "http://127.0.0.1:6000"
+            } }"#,
+        )
+        .unwrap();
+        assert_eq!(config.backends(&[]), vec!["npm run api", "node auth.js"]);
+        assert_eq!(
+            config.backends(&["/api=http://127.0.0.1:1".to_string()]),
+            vec!["node auth.js", "npm run api"]
+        );
+        assert_eq!(
+            config.backends(&[
+                "/api=http://127.0.0.1:1".to_string(),
+                "/events=http://127.0.0.1:2".to_string()
+            ]),
+            vec!["node auth.js"]
+        );
+        assert!(Config::default().backends(&[]).is_empty());
     }
 
     #[test]

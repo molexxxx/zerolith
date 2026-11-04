@@ -53,21 +53,20 @@ index.html            the page: the stylesheet and the entry module
 {
     "base": "/app/",
     "proxy": {
-        "/api": "http://127.0.0.1:3001"
+        "/api": { "target": "http://127.0.0.1:3001", "run": "npm run fullstack:api" }
     }
 }
 ```
 
 ## Develop
 
-From a clone of the repository, after `npm ci` and `npm run build`, start the backend in one terminal and the app in another:
+From a clone of the repository, after `npm ci` and `npm run build`:
 
 ```
-npm run fullstack:api
 npm run fullstack
 ```
 
-The first runs the backend in watch mode, at http://127.0.0.1:3001/api/, and restarts it when a file under `server/` or `shared/` changes; its data lives in memory, so a restart starts it over. The second runs `zerolith dev examples/fullstack`, which serves the app at http://127.0.0.1:8080/app/ and forwards `/api` to the backend, so the page calls the API on its own origin, with no CORS to configure, and the session cookie works as it will in production.
+It runs `zerolith dev examples/fullstack`, which starts the backend, since `zerolith.json` names `npm run fullstack:api`, a script of the repository's `package.json`, beside the `/api` proxy; the project `zerolith new my-app --example fullstack` writes names its own `npm run api` there: the backend serves http://127.0.0.1:3001/api/ in watch mode, restarting when a file under `server/` or `shared/` changes, with its data, which lives in memory, starting over; the app is served at http://127.0.0.1:8080/app/ and `/api` is forwarded to the backend, so the page calls the API on its own origin, with no CORS to configure, and the session cookie works as it will in production. Both write to the one terminal, and Ctrl+C stops both. `npm run fullstack:api` runs the backend on its own, and `node scripts/zerolith.ts dev examples/fullstack --no-backends` serves the app without starting it.
 
 Open http://127.0.0.1:8080/, which redirects to `/app/`, and sign in as `ada@harbor.test` with the password `analytical`. Open a second window as `grace@harbor.test`, password `compiler`, and what one member does appears on the other's dashboard as it happens.
 
@@ -101,4 +100,4 @@ npm run fullstack:serve
 
 This runs `node examples/fullstack/server/main.ts --production`, which serves the API and `dist/` from one server at http://127.0.0.1:3001/app/. The hashed files under `assets/` are cached for a year, and every other path under `/app/` gets `index.html`, uncached, so a route such as `/app/projects/1` loads directly and a new build is picked up at once.
 
-To check the build without the backend serving it, `zerolith preview examples/fullstack` serves `dist/` under the same base and forwards `/api` the same way, with the backend from `npm run fullstack:api` running.
+To check the build without the backend serving it, `zerolith preview examples/fullstack` serves `dist/` under the same base, starts the backend as `dev` does, and forwards `/api` the same way.

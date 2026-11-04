@@ -8,6 +8,7 @@
 //! mistakes that are easy to make, and `new` writes the standard
 //! application layout.
 
+mod backend;
 mod build;
 mod config;
 mod css;
@@ -171,6 +172,9 @@ struct ServerFlags {
     /// Forward a path to a backend, such as --proxy /api=http://127.0.0.1:3000; repeat it for more paths.
     #[arg(long, value_name = "PATH=URL")]
     proxy: Vec<String>,
+    /// Start none of the backends the proxy rules name with `run`, for one that already runs, as under a debugger.
+    #[arg(long)]
+    no_backends: bool,
 }
 
 /// Which server command runs, with the output folder `preview` serves.
@@ -219,6 +223,12 @@ impl ServerFlags {
             proxy,
             port_fixed,
             allowed_hosts: config.allowed_hosts.clone(),
+            project: root.to_path_buf(),
+            backends: if self.no_backends {
+                Vec::new()
+            } else {
+                config.backends(&self.proxy)
+            },
         })
     }
 }

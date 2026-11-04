@@ -1,10 +1,10 @@
-import { type ChildProcess, spawn, spawnSync } from "node:child_process";
+import { type ChildProcess, spawnSync } from "node:child_process";
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Browser, chromium } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { zerolithBinary } from "../../../scripts/zerolith.ts";
+import { binary, startServer } from "./helpers.ts";
 
 /**
  * Writes the starter `zerolith new` writes by default, TypeScript with JSX
@@ -19,37 +19,12 @@ const root = join(repository, "target", `starter-${process.pid}`);
 const servers: ChildProcess[] = [];
 let browser: Browser;
 
-function binary(): string
+/** Starts a zerolith server on a free port, keeps its process for the cleanup, and resolves with its origin. */
+async function start(args: string[]): Promise<string>
 {
-    const found = zerolithBinary();
-    if (found === undefined)
-    {
-        throw new Error("No zerolith binary: run cargo build, or set ZEROLITH_BINARY_PATH");
-    }
-    return found;
-}
-
-/** Starts a zerolith server on a free port and resolves with its origin once it listens. */
-function start(args: string[]): Promise<string>
-{
-    return new Promise((resolve, reject) =>
-    {
-        const child = spawn(binary(), [...args, "--port", "0"], { stdio: ["ignore", "pipe", "pipe"] });
-        servers.push(child);
-        let output = "";
-        const read = (chunk: Buffer): void =>
-        {
-            output += chunk.toString();
-            const origin = /http:\/\/127\.0\.0\.1:\d+/.exec(output)?.[0];
-            if (origin !== undefined)
-            {
-                resolve(origin);
-            }
-        };
-        child.stdout?.on("data", read);
-        child.stderr?.on("data", read);
-        child.on("exit", (code) => reject(new Error(`zerolith exited with ${String(code)}: ${output}`)));
-    });
+    const started = await startServer(args);
+    servers.push(started.child);
+    return started.origin;
 }
 
 /** Goes through the three pages and the fallback, returning what a user would check and the errors seen. */

@@ -7,7 +7,7 @@
 
 use std::net::{Ipv4Addr, SocketAddr};
 use std::path::{Component, Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use axum::Router;
 use axum::body::Body;
@@ -22,6 +22,7 @@ use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::BroadcastStream;
 
+use crate::backend::{self, Backend, Backends, Guard};
 use crate::config::ProxyRule;
 use crate::css;
 use crate::mime::content_type;
@@ -45,6 +46,10 @@ pub struct Options {
     pub port_fixed: bool,
     /// Host names the server answers besides localhost and IP addresses, from `allowedHosts` in `zerolith.json`.
     pub allowed_hosts: Vec<String>,
+    /// The project folder, where the backends run.
+    pub project: PathBuf,
+    /// The commands that start the backends the proxy rules name with `run`, started once the port is bound and stopped with the server.
+    pub backends: Vec<String>,
 }
 
 struct AppState {
@@ -539,6 +544,7 @@ fn log_changes(sender: &broadcast::Sender<Change>) {
 }
 
 /// Serves `options.root` until the process is interrupted.
+/// Serves until Ctrl+C, or on Unix a termination signal or a hangup, stopping the backends as soon as the signal arrives, since a stream one of them answers would keep the graceful shutdown waiting, and through the guard on any other way out.
 pub async fn run(options: Options) -> std::io::Result<()> {
     let started = std::time::Instant::now();
     let root = css::canonical(&options.root)?;
@@ -587,6 +593,12 @@ pub async fn run(options: Options) -> std::io::Result<()> {
         }
     };
     let address = listener.local_addr()?;
+    let backends: Backends = Arc::new(Mutex::new(start_backends(
+        &options.backends,
+        &options.project,
+    )?));
+    let guard = Guard(backends.clone());
+    let watching = tokio::spawn(backend::watch(backends.clone()));
     let title = match (options.reload, options.modules) {
         (true, _) => "dev server",
         (false, true) => "server",
@@ -634,6 +646,16 @@ pub async fn run(options: Options) -> std::io::Result<()> {
             term::row(if index == 0 { "Proxy" } else { "" }, term::label, shown)
         );
     }
+    for (index, command) in options.backends.iter().enumerate() {
+        anstream::println!(
+            "{}",
+            term::row(
+                if index == 0 { "Backend" } else { "" },
+                term::label,
+                command
+            )
+        );
+    }
     if options.reload {
         anstream::println!(
             "{}",
@@ -660,12 +682,63 @@ pub async fn run(options: Options) -> std::io::Result<()> {
         )
         .into_make_service_with_connect_info::<SocketAddr>(),
     )
-    .with_graceful_shutdown(async {
-        let _ = tokio::signal::ctrl_c().await;
+    .with_graceful_shutdown(async move {
+        shutdown().await;
+        let held = backends
+            .lock()
+            .map(|mut list| std::mem::take(&mut *list))
+            .unwrap_or_default();
+        let _ = tokio::task::spawn_blocking(move || backend::stop_all(held)).await;
     })
     .await;
+    watching.abort();
+    drop(guard);
     drop(watcher);
     result
+}
+
+/// Starts each backend command in order; when one fails to start, the ones before it are stopped and the error names the command.
+fn start_backends(commands: &[String], project: &Path) -> std::io::Result<Vec<Backend>> {
+    let mut started = Vec::new();
+    for command in commands {
+        match Backend::start(command, project) {
+            Ok(backend) => started.push(backend),
+            Err(error) => {
+                for backend in started {
+                    backend.stop();
+                }
+                return Err(error);
+            }
+        }
+    }
+    Ok(started)
+}
+
+/// Resolves on Ctrl+C, and on Unix on a termination signal or a hangup too, as a process manager, a test, or a closed terminal stops the server, so the backends are stopped either way.
+async fn shutdown() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+        match (
+            signal(SignalKind::terminate()),
+            signal(SignalKind::hangup()),
+        ) {
+            (Ok(mut terminate), Ok(mut hangup)) => {
+                tokio::select! {
+                    _ = tokio::signal::ctrl_c() => {}
+                    _ = terminate.recv() => {}
+                    _ = hangup.recv() => {}
+                }
+            }
+            _ => {
+                let _ = tokio::signal::ctrl_c().await;
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
 }
 
 #[cfg(test)]
