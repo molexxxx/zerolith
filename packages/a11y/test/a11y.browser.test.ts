@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { html } from "zerolith";
+import { effect, html, signal } from "zerolith";
 import { cleanup, mount, settle } from "@zerolith/test";
-import { createAnnouncer, focusOrigin, focusTrap, focusables, mediaQuery, rovingTabindex, visuallyHidden } from "@zerolith/a11y";
+import { createAnnouncer, focusOrigin, focusTrap, focusables, inertOutside, mediaQuery, rovingTabindex, visuallyHidden } from "@zerolith/a11y";
 
 afterEach(() =>
 {
@@ -12,6 +12,12 @@ afterEach(() =>
 function press(target: Element, key: string, init: KeyboardEventInit = {}): boolean
 {
     return target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init }));
+}
+
+/** The ids of every inert element in the page, sorted. */
+function inertIds(): string[]
+{
+    return [...document.querySelectorAll("[inert]")].map((element) => element.id).toSorted();
 }
 
 describe("focusTrap", () =>
@@ -81,6 +87,116 @@ describe("focusTrap", () =>
         mount(html`<div ref=${focusTrap({ initial: false })}><button>one</button></div>`);
         await settle();
         expect(document.activeElement).toBe(outsideButton);
+    });
+
+    it("acts while its element is rendered, so a closed dialog or a hidden drawer neither acts nor stands in the way of an older trap", async () =>
+    {
+        const older = mount(html`<div ref=${focusTrap()}><button id="older">older</button></div>`);
+        await settle();
+        const hidden = mount(html`<div hidden ref=${focusTrap()}><button id="hidden">hidden</button></div>`);
+        await settle();
+        expect(document.activeElement?.id).toBe("older");
+        expect(hidden.container.firstElementChild?.hasAttribute("tabindex")).toBe(false);
+        const outside = mount(html`<button id="outside">outside</button>`);
+        (outside.container.querySelector("button") as HTMLButtonElement).focus();
+        expect(document.activeElement?.id).toBe("older");
+        hidden.unmount();
+        older.unmount();
+    });
+
+    it("acts on a native dialog only while it is open", async () =>
+    {
+        const older = mount(html`<div ref=${focusTrap()}><button id="older">older</button></div>`);
+        await settle();
+        const outside = mount(html`<button id="outside">outside</button>`);
+        const outsideButton = outside.container.querySelector("button") as HTMLButtonElement;
+        const trapped = mount(html`<dialog ref=${focusTrap({ restore: false })}><button id="inside">inside</button></dialog>`);
+        const dialog = trapped.container.firstElementChild as HTMLDialogElement;
+        const inside = dialog.querySelector("button") as HTMLButtonElement;
+        await settle();
+        expect(document.activeElement?.id).toBe("older");
+
+        outsideButton.focus();
+        expect(document.activeElement?.id).toBe("older");
+        expect(press(document.activeElement as Element, "Tab")).toBe(false);
+        expect(document.activeElement?.id).toBe("older");
+
+        dialog.show();
+        inside.focus();
+        expect(document.activeElement).toBe(inside);
+        outsideButton.focus();
+        expect(document.activeElement).toBe(inside);
+        expect(press(inside, "Tab")).toBe(false);
+        expect(document.activeElement).toBe(inside);
+
+        dialog.close();
+        outsideButton.focus();
+        expect(document.activeElement?.id).toBe("older");
+        older.unmount();
+        outsideButton.focus();
+        expect(document.activeElement).toBe(outsideButton);
+    });
+});
+
+describe("inertOutside", () =>
+{
+    it("makes the siblings of the element and of its ancestors inert, leaves what was inert alone, and undoes only what it did", () =>
+    {
+        const page = mount(html`<main><p id="before">before</p><section><nav id="menu"><a href="/">home</a></nav><p id="aside" inert>aside</p></section><p id="after">after</p></main>`);
+        const main = page.container.firstElementChild as HTMLElement;
+        const menu = main.querySelector("#menu") as HTMLElement;
+        const sibling = document.createElement("p");
+        sibling.id = "sibling";
+        document.body.append(sibling);
+        expect(inertIds()).toEqual(["aside"]);
+
+        const restore = inertOutside(menu);
+        expect(inertIds()).toEqual(["after", "aside", "before", "sibling"]);
+        expect(page.container.hasAttribute("inert")).toBe(false);
+        expect(main.hasAttribute("inert")).toBe(false);
+        expect(menu.hasAttribute("inert")).toBe(false);
+        expect(menu.querySelector("a")?.hasAttribute("inert")).toBe(false);
+
+        restore();
+        expect(inertIds()).toEqual(["aside"]);
+        expect(page.container.hasAttribute("inert")).toBe(false);
+        sibling.remove();
+    });
+
+    it("holds an element given before it is in the page once it is, and keeps what two holds share until the last lets go", async () =>
+    {
+        const open = signal(true);
+        const page = mount(html`<main><p id="before">before</p><nav id="menu" ref=${(nav: Element) => effect(() => (open.get() ? inertOutside(nav) : undefined))}><a href="/">home</a></nav><p id="after">after</p></main>`);
+        expect(inertIds()).toEqual([]);
+        await settle();
+        expect(inertIds()).toEqual(["after", "before"]);
+
+        page.container.id = "first";
+        const second = mount(html`<main><p id="other">other</p><aside id="panel">panel</aside></main>`);
+        const panel = second.container.querySelector("#panel") as HTMLElement;
+        const release = inertOutside(panel);
+        expect(inertIds()).toEqual(["after", "before", "first", "other"]);
+        open.set(false);
+        await settle();
+        expect(inertIds()).toEqual(["first", "other"]);
+        release();
+        expect(inertIds()).toEqual([]);
+    });
+
+    it("reaches past a shadow tree to its host's siblings", () =>
+    {
+        const page = mount(html`<main><p id="before">before</p><div id="host"></div><p id="after">after</p></main>`);
+        const host = page.container.querySelector("#host") as HTMLElement;
+        const root = host.attachShadow({ mode: "open" });
+        root.innerHTML = "<p id=\"shadow-before\">x</p><nav id=\"menu\"><a href=\"/\">home</a></nav>";
+        const menu = root.querySelector("#menu") as HTMLElement;
+        const release = inertOutside(menu);
+        expect(inertIds()).toEqual(["after", "before"]);
+        expect(root.querySelector("#shadow-before")?.hasAttribute("inert")).toBe(true);
+        expect(host.hasAttribute("inert")).toBe(false);
+        release();
+        expect(inertIds()).toEqual([]);
+        expect(root.querySelector("#shadow-before")?.hasAttribute("inert")).toBe(false);
     });
 });
 

@@ -1,8 +1,8 @@
 // Executed examples for the accessibility guide.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { html, render, signal, when } from "zerolith";
+import { computed, effect, html, render, signal, when } from "zerolith";
 import { settle } from "@zerolith/test";
-import { createAnnouncer, focusTrap, reducedMotion, rovingTabindex, visuallyHidden } from "@zerolith/a11y";
+import { createAnnouncer, focusTrap, inertOutside, reducedMotion, rovingTabindex, visuallyHidden } from "@zerolith/a11y";
 
 let host: HTMLElement;
 
@@ -42,6 +42,38 @@ describe("accessibility guide", () =>
         expect(document.activeElement?.textContent).toBe("Cancel");
         (document.activeElement as HTMLButtonElement).click();
         expect(document.activeElement).toBe(trigger);
+    });
+
+    it("drawer", async () =>
+    {
+        // #region drawer
+        const open = signal(false);
+
+        /** Holds the page behind the menu inert while the menu is open. */
+        function holdPage(nav: Element): void
+        {
+            effect(() => (open.get() ? inertOutside(nav) : undefined));
+        }
+
+        render(html`
+            <button @click=${() => open.set(!open.get())}>Menu</button>
+            <nav ?hidden=${computed(() => !open.get())} ref=${holdPage}>
+                <a href="/docs">Docs</a>
+            </nav>
+            <main><a href="/">Home</a></main>`, "#app");
+        // #endregion drawer
+        const button = host.querySelector("button") as HTMLButtonElement;
+        const main = host.querySelector("main") as HTMLElement;
+        expect(main.hasAttribute("inert")).toBe(false);
+        button.click();
+        await settle();
+        expect(main.hasAttribute("inert")).toBe(true);
+        expect(button.hasAttribute("inert")).toBe(true);
+        expect(host.querySelector("nav")?.hasAttribute("inert")).toBe(false);
+        button.click();
+        await settle();
+        expect(main.hasAttribute("inert")).toBe(false);
+        expect(button.hasAttribute("inert")).toBe(false);
     });
 
     it("tabs", () =>

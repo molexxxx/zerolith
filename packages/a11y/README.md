@@ -12,7 +12,8 @@ html`<span class=${visuallyHidden}>Opens in a new window</span>`;
 createAnnouncer().announce("Saved");
 ```
 
-- `focusTrap` keeps Tab inside an element, moves focus in on attach, and returns it on removal.
+- `focusTrap` keeps Tab inside an element, moves focus in on attach, and returns it on removal; on a native `<dialog>` it acts while the dialog is open.
+- `inertOutside` makes everything outside an element inert, for a drawer or a menu, and returns what undoes it.
 - `rovingTabindex` makes one item of a composite widget tabbable and moves between items with the arrow keys, Home, and End.
 - `createAnnouncer` speaks messages through a live region.
 - `focusOrigin` tells keyboard focus from pointer focus, as a signal and as a `data-focus-origin` attribute on the root element for styling.

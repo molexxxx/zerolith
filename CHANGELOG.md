@@ -4,7 +4,13 @@ Every package in this repository is released together and carries the same versi
 
 ## 0.1.0-alpha.11
 
+### Added
+
+- `@zerolith/a11y`: `inertOutside(element)` makes everything outside an element inert, the siblings of the element and of each ancestor up to the body, through a shadow tree's host, and returns what undoes it, so a drawer or a menu that slides over the page keeps the page behind it from focus, clicks, and assistive technology while an effect holds it open. An element inert on its own is left alone, one two holds share stays inert until the last lets go, and an element given before its template is in the page is held once it is; a native `<dialog>` opened with `showModal()` needs none of it.
+
 ### Changed
+
+- `@zerolith/a11y`: a focus trap acts only while its element is rendered, and its initial focus waits for that; the trap of a closed native `<dialog>` or of a `hidden` drawer had pulled focus into the hidden element, stamped a `tabindex` on it, and stood in the way of an older trap.
 
 - Docs: the benchmark scores measure every framework against hand-written JavaScript, which is 1.00 by definition, so a score says how many times its time a framework takes and a cell below 1.00 is faster than it; they had measured against the fastest framework at each operation, as the official results page does, which put hand-written JavaScript at 1.01 whenever another framework was faster at one operation. The ranking does not change, since every score moves by the same factor.
 

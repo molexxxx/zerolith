@@ -5,6 +5,8 @@
 export type { FocusOrigin, FocusOriginMonitor, FocusTrapOptions, RovingOptions } from "./focus.js";
 export { focusOrigin, focusTrap, focusables, rovingTabindex } from "./focus.js";
 
+export { inertOutside } from "./inert.js";
+
 export type { Announcer, Politeness } from "./announce.js";
 export { createAnnouncer, visuallyHidden } from "./announce.js";
 

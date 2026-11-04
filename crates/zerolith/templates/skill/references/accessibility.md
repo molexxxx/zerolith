@@ -7,6 +7,7 @@ A framework cannot make an application accessible, but it can refuse to leave th
 | Primitive | For | How it is used |
 | --- | --- | --- |
 | `focusTrap()` | Modal dialogs | A `ref` on the dialog |
+| `inertOutside()` | Drawers, menus, and dialogs that are not native modals | Called with the element, returned from an effect |
 | `rovingTabindex()` | Tabs, menus, listboxes, radio groups, trees, and grids | A `ref` on the container |
 | `createAnnouncer()` | Messages read aloud without moving focus | Call `announce` |
 | `visuallyHidden` | Text that only assistive technology reads | Bound as a `class` |
@@ -36,12 +37,38 @@ render(html`
         </div>`)}`, "#app");
 ```
 
-Focus that lands outside the dialog, by script or by a click, is pulled back in. When a dialog opens another, such as a confirmation, only the newest trap acts; closing it hands focus and control back to the dialog below.
+Focus that lands outside the dialog, by script or by a click, is pulled back in. When a dialog opens another, such as a confirmation, only the newest trap acts; closing it hands focus and control back to the dialog below. A trap acts while its element is rendered: on a native `<dialog>` that stays in the page while closed, or a drawer that is `hidden`, it holds nothing until the element shows, and its initial focus waits for that too, while `restore` runs when the template is removed; `showModal()` makes the page behind a dialog inert itself and moves focus in and back on its own, and the trap adds the wrap at both ends of Tab.
 
 | Option | Default | What it does |
 | --- | --- | --- |
 | `initial` | The first focusable element inside, or the dialog itself | Where focus goes on open: a selector inside the dialog, an element, or `false` to leave focus alone |
 | `restore` | `true` | Returns focus to the element that had it before the dialog opened |
+
+## Drawers and menus: inert outside
+
+A drawer or a menu that slides over the page is not a native modal, so the page behind it still takes focus, clicks, and reading by assistive technology. `inertOutside` makes everything outside the element inert, the siblings of the element and of each ancestor up to the body, and returns what undoes it; returned from an effect that reads the open state, it holds while the drawer is open and lets go when it closes or the template is removed:
+
+```ts
+import { computed, effect, html, render, signal } from "zerolith";
+import { inertOutside } from "@zerolith/a11y";
+
+const open = signal(false);
+
+/** Holds the page behind the menu inert while the menu is open. */
+function holdPage(nav: Element): void
+{
+    effect(() => (open.get() ? inertOutside(nav) : undefined));
+}
+
+render(html`
+    <button @click=${() => open.set(!open.get())}>Menu</button>
+    <nav ?hidden=${computed(() => !open.get())} ref=${holdPage}>
+        <a href="/docs">Docs</a>
+    </nav>
+    <main><a href="/">Home</a></main>`, "#app");
+```
+
+An element inert on its own is left as it is, and one that two holds share stays inert until the last lets go, so two drawers at once undo only what each added; an element inside a shadow tree reaches past its host to the rest of the page. An element given before its template is in the page, as a `ref` does, is held once it is. A native `<dialog>` opened with `showModal()` needs none of this.
 
 ## Composite widgets: roving tabindex
 

@@ -34,8 +34,28 @@ export function focusables(root: Element): HTMLElement[]
     return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(reachable);
 }
 
-/** The elements with an attached focus trap, newest last. Only the newest acts, so a dialog opened from another keeps focus, and removing it hands control back. */
+/** The elements with an attached focus trap, newest last. Only the newest that holds focus acts, so a dialog opened from another keeps focus, and removing or closing it hands control back. */
 const traps: Element[] = [];
+
+/** True while a trapped element can hold focus: it is in the document and rendered, which a closed `<dialog>`, a `hidden` drawer, or anything under `display: none` is not. */
+function holds(element: Element): boolean
+{
+    return element.isConnected && element.getClientRects().length > 0;
+}
+
+/** The trap that acts: the newest whose element holds focus. */
+function acting(): Element | undefined
+{
+    for (let index = traps.length - 1; index >= 0; index--)
+    {
+        const element = traps[index] as Element;
+        if (holds(element))
+        {
+            return element;
+        }
+    }
+    return undefined;
+}
 
 /** Options for `focusTrap`. */
 export interface FocusTrapOptions
@@ -51,7 +71,12 @@ export interface FocusTrapOptions
  * when it lands outside, moves focus in once the element is in the document,
  * and returns it where it came from when the element's template is removed.
  * With traps on several elements, as when a dialog opens a confirmation,
- * only the newest acts until its template is removed.
+ * only the newest acts until its template is removed. A trap acts while
+ * its element is rendered: a closed native `<dialog>`, or a drawer that is
+ * `hidden`, neither acts nor stands in the way of an older trap, and its
+ * initial focus waits until the element is rendered as well, while
+ * `restore` runs when the template is removed; `showModal()` makes the
+ * page behind a dialog inert itself and moves focus in and back on its own.
  */
 export function focusTrap(options: FocusTrapOptions = {}): (element: Element) => void
 {
@@ -77,7 +102,7 @@ export function focusTrap(options: FocusTrapOptions = {}): (element: Element) =>
         const initial = options.initial;
         const focusInitial = (): void =>
         {
-            if (disposed || !element.isConnected || initial === false)
+            if (disposed || !holds(element) || initial === false)
             {
                 return;
             }
@@ -98,7 +123,7 @@ export function focusTrap(options: FocusTrapOptions = {}): (element: Element) =>
         const onKeydown = (event: Event): void =>
         {
             const key = event as KeyboardEvent;
-            if (key.key !== "Tab" || traps.at(-1) !== element)
+            if (key.key !== "Tab" || acting() !== element)
             {
                 return;
             }
@@ -124,7 +149,7 @@ export function focusTrap(options: FocusTrapOptions = {}): (element: Element) =>
         };
         const onFocusIn = (event: Event): void =>
         {
-            if (traps.at(-1) === element && !element.contains(event.target as Node))
+            if (acting() === element && !element.contains(event.target as Node))
             {
                 fallback().focus();
             }

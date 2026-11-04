@@ -8,6 +8,7 @@ function focusables(root: Element): HTMLElement[]
 function focusOrigin(doc?: Document): FocusOriginMonitor
 function focusTrap(options?: FocusTrapOptions): (element: Element) => void
 function forcedColors(): ReadableSignal<boolean>
+function inertOutside(element: Element): () => void
 function mediaQuery(query: string): ReadableSignal<boolean>
 function reducedMotion(): ReadableSignal<boolean>
 function rovingTabindex(options?: RovingOptions): (element: Element) => void

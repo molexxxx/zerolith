@@ -142,7 +142,7 @@ See the [command line guide](guide/command-line.md).
 
 ## Accessibility, i18n, and observability
 
-- [x] `@zerolith/a11y`: focus trap, roving tabindex, live announcer, focus origin, visually hidden styles, and media query signals.
+- [x] `@zerolith/a11y`: focus trap, roving tabindex, inert outside an element, live announcer, focus origin, visually hidden styles, and media query signals.
 - [x] Warnings for images without alt text, unnamed buttons, and untitled frames.
 - [x] `@zerolith/i18n`: locale negotiation, direction, `Intl` formatters, and MessageFormat 2 catalogs compiled to typed modules.
 - [x] `@zerolith/otel`: navigation, hydration, and request spans through `@opentelemetry/api`.
