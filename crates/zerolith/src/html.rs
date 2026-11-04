@@ -28,6 +28,8 @@ pub struct Page {
     pub import_maps: Vec<(usize, usize)>,
     /// The module scripts of every kind, inline ones and remote ones included.
     pub modules: usize,
+    /// The byte range of each inline module script's code, in document order, which runs as a module of the page's own.
+    pub inline_modules: Vec<(usize, usize)>,
 }
 
 /// The link relations whose `href` names a file the page loads; others, such as `canonical` and `alternate`, name pages.
@@ -245,6 +247,12 @@ pub fn scan(html: &str) -> Page {
                 }
                 Some("module") => {
                     page.modules += 1;
+                    if attribute(html, &attributes, "src").is_none() {
+                        let body_end = lower[end..close]
+                            .rfind("</script")
+                            .map_or(close, |offset| end + offset);
+                        page.inline_modules.push((end, body_end));
+                    }
                     page.scripts.extend(local(html, &attributes, "src", tag));
                 }
                 Some("text/javascript" | "application/javascript") | None => {
@@ -395,6 +403,26 @@ mod tests {
                 && !is_local("//x/a.js")
                 && !is_local("data:text/css,a")
         );
+    }
+
+    #[test]
+    fn reads_the_code_of_inline_module_scripts() {
+        let html = "<script type=\"module\">import \"zerolith\";</script><script type=\"module\" src=\"/a.js\"></script><SCRIPT TYPE=\"module\">\nimport x from \"./x.js\";\n</SCRIPT><script>var classic;</script><!-- <script type=\"module\">import \"commented\";</script> --><script type=\"module\">export {}";
+        let page = scan(html);
+        let bodies: Vec<&str> = page
+            .inline_modules
+            .iter()
+            .map(|(start, end)| &html[*start..*end])
+            .collect();
+        assert_eq!(
+            bodies,
+            [
+                "import \"zerolith\";",
+                "\nimport x from \"./x.js\";\n",
+                "export {}"
+            ]
+        );
+        assert_eq!(page.modules, 4);
     }
 
     #[test]

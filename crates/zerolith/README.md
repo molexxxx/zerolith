@@ -20,7 +20,7 @@ Install it from npm as `@zerolith/cli`, which carries a prebuilt binary for Linu
 
 `zerolith.json` next to `index.html` holds what `dev`, `serve`, `build`, and `preview` share: `base`, `proxy`, `dev.port`, `preview.port`, and `build.out`. Flags override it, and `@zerolith/cli` ships its JSON schema.
 
-`importmap` copies the installed `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, `@zerolith/a11y`, `@zerolith/i18n`, and `@zerolith/devtools` modules into a vendor folder and writes an import map whose `integrity` entries hold the SRI hash of every module, plus `modulepreload` links that carry the same hashes; with `--html` it replaces or inserts them in the page.
+`importmap` copies the installed `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, `@zerolith/a11y`, `@zerolith/i18n`, and `@zerolith/devtools` modules into a vendor folder and writes an import map whose `integrity` entries hold the SRI hash of every module, plus `modulepreload` links that carry the same hashes; with `--html` it follows the page's module scripts, maps and vendors the entries they import, and replaces or inserts the map and the preload links for the page's own modules in the page.
 
 `doctor` reports coded findings: a missing index or module script and, for a page with an import map, map targets that do not exist, integrity mismatches, preload links without their module's hash, and vendored packages older than the installed ones. It then runs the Vite plugin's template lint over the project's sources and reports the same warnings, with the file, line, and column.
 

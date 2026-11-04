@@ -14,7 +14,9 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::importmap::{ImportMap, covers, page_map, page_tags, update_html, vendor_from};
+use crate::importmap::{
+    ImportMap, PageGraph, covers, page_graph, page_map, page_tags, update_html, vendor_from,
+};
 use crate::transform;
 use crate::{css, env, modules, prepare, term};
 
@@ -456,26 +458,50 @@ pub fn build(
         .map(|folder| folder.join("node_modules"))
         .find(|folder| folder.join("zerolith").is_dir())
         .unwrap_or_else(|| root.join("node_modules"));
+    let mut graphs = Vec::new();
+    let mut every = PageGraph::default();
+    for path in &built.pages {
+        let url = format!(
+            "/{}",
+            path.strip_prefix(&out_dir)
+                .map_err(io::Error::other)?
+                .to_string_lossy()
+                .replace('\\', "/")
+        );
+        let graph = page_graph(&out_dir, &url, &fs::read_to_string(path)?)?;
+        every.extend(&graph);
+        graphs.push(graph);
+    }
     let vendored = if packages.join("zerolith").is_dir() {
-        Some(vendor_from(
+        let vendored = vendor_from(
             &packages,
             &out_dir,
             Path::new("vendor"),
             false,
             prepare_templates,
             true,
-        )?)
+            Some(&every),
+        )?;
+        if every.reaches_nothing() {
+            for graph in &mut graphs {
+                graph.open_to(&vendored.map);
+            }
+        }
+        Some(vendored)
     } else {
         None
     };
     let mut mapped = ImportMap::default();
-    for path in &built.pages {
+    for (path, graph) in built.pages.iter().zip(&graphs) {
         let current = fs::read_to_string(path)?;
         if let Some(map) = page_map(&current) {
             mapped.imports.extend(map.imports);
         }
         if let Some(vendored) = &vendored {
-            fs::write(path, update_html(&current, &page_tags(vendored, &current)))?;
+            fs::write(
+                path,
+                update_html(&current, &page_tags(vendored, &current, Some(graph))),
+            )?;
         }
     }
     if let Some(vendored) = &vendored {
@@ -768,6 +794,84 @@ mod tests {
             "{public}"
         );
         assert!(public.contains("by its URL, /logo.svg,"), "{public}");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn preloads_each_pages_own_modules_and_vendors_what_the_pages_reach() {
+        let root =
+            std::env::temp_dir().join(format!("zerolith-unbundled-graph-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::create_dir_all(root.join("about")).unwrap();
+        fs::create_dir_all(root.join("node_modules/zerolith/dist")).unwrap();
+        fs::write(
+            root.join("node_modules/zerolith/package.json"),
+            "{\"name\":\"zerolith\",\"version\":\"0.0.0\",\"exports\":{\".\":\"./dist/index.js\",\"./ssr\":\"./dist/ssr.js\"}}",
+        )
+        .unwrap();
+        fs::write(
+            root.join("node_modules/zerolith/dist/index.js"),
+            "export const html = 1;",
+        )
+        .unwrap();
+        fs::write(
+            root.join("node_modules/zerolith/dist/ssr.js"),
+            "export const render = 1;",
+        )
+        .unwrap();
+        fs::write(
+            root.join("src/main.ts"),
+            "import { html } from \"zerolith\";\nimport { app } from \"./app.ts\";\nexport const main = html + app;\n",
+        )
+        .unwrap();
+        fs::write(root.join("src/app.ts"), "export const app: number = 1;\n").unwrap();
+        fs::write(root.join("about/about.ts"), "export const about = 1;\n").unwrap();
+        fs::write(
+            root.join("index.html"),
+            "<!doctype html><head></head><script type=\"module\" src=\"/src/main.ts\"></script>",
+        )
+        .unwrap();
+        fs::write(
+            root.join("about/index.html"),
+            "<!doctype html><head></head><script type=\"module\" src=\"about.ts\"></script>",
+        )
+        .unwrap();
+        let (out, _, warnings) = build(&root, Path::new("dist"), false, false).unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert!(!out.join("vendor/zerolith/dist/ssr.js").exists());
+        let home = fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(
+            home.contains(
+                "<link rel=\"modulepreload\" href=\"/src/app.js\" data-zerolith-preload>"
+            ),
+            "{home}"
+        );
+        assert!(
+            home.contains("<link rel=\"modulepreload\" href=\"/vendor/zerolith/dist/index.js\" integrity=\"sha256-"),
+            "{home}"
+        );
+        assert!(!home.contains("href=\"/src/main.js\""), "{home}");
+        let about = fs::read_to_string(out.join("about/index.html")).unwrap();
+        assert!(
+            about.contains("\"zerolith\":\"/vendor/zerolith/dist/index.js\""),
+            "{about}"
+        );
+        assert!(!about.contains("modulepreload"), "{about}");
+        assert!(about.contains("src=\"about.js\""), "{about}");
+
+        fs::write(root.join("src/main.ts"), "export const main = 1;\n").unwrap();
+        let (out, _, _) = build(&root, Path::new("dist"), false, false).unwrap();
+        assert!(out.join("vendor/zerolith/dist/ssr.js").is_file());
+        let home = fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(
+            home.contains("\"zerolith/ssr\":\"/vendor/zerolith/dist/ssr.js\""),
+            "{home}"
+        );
+        assert!(
+            home.contains("href=\"/vendor/zerolith/dist/ssr.js\" integrity=\"sha256-"),
+            "{home}"
+        );
         let _ = fs::remove_dir_all(&root);
     }
 
