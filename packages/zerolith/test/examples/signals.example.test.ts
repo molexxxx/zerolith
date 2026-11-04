@@ -173,6 +173,6 @@ describe("signals guide", () =>
         }
         stop();
         // #endregion diagnostics
-        expect(printed).toEqual([["on_dispose_outside_scope"], [`${DIAGNOSTIC_URL}on_dispose_outside_scope`]]);
+        expect(printed).toEqual([["on_dispose_outside_scope"], [`${DIAGNOSTIC_URL}on_dispose_outside_scope/`]]);
     });
 });

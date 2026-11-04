@@ -981,7 +981,7 @@ function finish(failed: boolean, failure: unknown): void
     {
         if (failed)
         {
-            throw new AggregateError([failure, flushError], "zerolith: the function threw, and so did an effect its writes triggered");
+            throw new AggregateError([failure, flushError], "zerolith: the function threw, and so did an effect its writes triggered", { cause: flushError });
         }
         throw flushError;
     }

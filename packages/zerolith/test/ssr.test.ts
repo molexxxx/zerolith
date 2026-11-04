@@ -94,7 +94,7 @@ describe("renderToString", () =>
         {
             plain(html`<a href=${"javascript:alert(1)"}>x</a>`);
             expect(warn).toHaveBeenCalledTimes(1);
-            expect(String(warn.mock.calls[0]?.[0])).toMatch(/^\[zerolith\] unsafe_url_blocked: .+https:\/\/\S+\/e\/unsafe_url_blocked\?/);
+            expect(String(warn.mock.calls[0]?.[0])).toMatch(/^\[zerolith\] unsafe_url_blocked: .+https:\/\/\S+\/e\/unsafe_url_blocked\/\?/);
             warn.mockClear();
             const off = onDiagnostic(() => undefined);
             plain(html`<a href=${"javascript:alert(1)"}>x</a>`);

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { type EffectFunction, ZerolithError, batch, computed, effect, onDiagnostic, onDispose, scope, signal, untracked } from "zerolith";
-import { diagnostic } from "../src/diagnostics.ts";
+import { diagnostic as buildRecord } from "../src/diagnostics.ts";
 import { jsx } from "../src/jsx-runtime.ts";
 
 /** An effect function written `async`, which TypeScript refuses and JavaScript cannot. */
@@ -707,21 +707,21 @@ describe("diagnostics", () =>
 
     it("builds the page address, with a query only for arguments it has", () =>
     {
-        let record: ZerolithError | undefined;
+        let thrown: ZerolithError | undefined;
         try
         {
             jsx();
         }
         catch (error)
         {
-            record = error as ZerolithError;
+            thrown = error as ZerolithError;
         }
-        expect(record?.diagnostic.url).toBe("https://zerolith.dev/e/jsx_not_lowered/");
-        expect(record?.diagnostic.args).toBeUndefined();
-        const empty = diagnostic("jsx_not_lowered", "warning", {});
+        expect(thrown?.diagnostic.url).toBe("https://zerolith.dev/e/jsx_not_lowered/");
+        expect(thrown?.diagnostic.args).toBeUndefined();
+        const empty = buildRecord("jsx_not_lowered", "warning", {});
         expect(empty.url).toBe("https://zerolith.dev/e/jsx_not_lowered/");
         expect(empty.args).toBeUndefined();
-        expect(diagnostic("jsx_not_lowered", "warning", { at: "x" }).url).toBe("https://zerolith.dev/e/jsx_not_lowered/?at=x");
+        expect(buildRecord("jsx_not_lowered", "warning", { at: "x" }).url).toBe("https://zerolith.dev/e/jsx_not_lowered/?at=x");
     });
 
     it("stops delivering to a listener that was stopped", () =>
