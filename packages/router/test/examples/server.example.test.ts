@@ -1,6 +1,6 @@
 // Executed examples for the server rendering guide: a routed application answering a Request.
 import { describe, expect, it } from "vitest";
-import { html } from "zerolith";
+import { type View, html } from "zerolith";
 import { renderStyles, renderToString } from "zerolith/ssr";
 import { type RouteTable, type Router, createRouter, defineRoutes, route } from "@zerolith/router";
 import { renderHead, renderRouteState } from "@zerolith/router/server";
@@ -21,7 +21,7 @@ const routes = defineRoutes({
     })
 });
 
-function App(router: Router<RouteTable>): unknown
+function App(router: Router<RouteTable>): View
 {
     return html`<main>${router.outlet()}</main>`;
 }

@@ -152,6 +152,7 @@ pub fn scan(strings: &[String]) -> Result<Scanned, ScanError> {
     let mut segment = 0usize;
     let mut bound: Option<Bound> = None;
     let mut raw = String::new();
+    let mut templates: usize = 0;
 
     for (i, s) in strings.iter().enumerate() {
         let chars: Vec<char> = s.chars().collect();
@@ -225,10 +226,15 @@ pub fn scan(strings: &[String]) -> Result<Scanned, ScanError> {
                                 if tag == "script" {
                                     return Err(refuse("script_in_template"));
                                 }
+                                if tag == "template" {
+                                    templates += 1;
+                                }
                                 if RAW_TAGS.contains(&tag.as_str()) {
                                     state = State::Raw;
                                     raw = tag.clone();
                                 }
+                            } else if tag == "template" {
+                                templates = templates.saturating_sub(1);
                             }
                         } else if is_space(c) || c == '/' {
                         } else {
@@ -283,6 +289,9 @@ pub fn scan(strings: &[String]) -> Result<Scanned, ScanError> {
                     if markup.ends_with('<') {
                         return Err(refuse("binding_in_tag_position"));
                     }
+                    if templates > 0 {
+                        return Err(refuse("binding_in_template_element"));
+                    }
                     markup.push_str(CHILD_MARKER);
                     parts.push(Part {
                         kind: CHILD,
@@ -291,11 +300,17 @@ pub fn scan(strings: &[String]) -> Result<Scanned, ScanError> {
                     });
                 }
                 State::Equals => {
+                    if templates > 0 {
+                        return Err(refuse("binding_in_template_element"));
+                    }
                     state = State::Unquoted;
                     segment = markup.len();
                     bind(&markup, &mut bound, &attr, attr_start, &mut segment);
                 }
                 State::Double | State::Single | State::Unquoted => {
+                    if templates > 0 {
+                        return Err(refuse("binding_in_template_element"));
+                    }
                     bind(&markup, &mut bound, &attr, attr_start, &mut segment);
                 }
                 State::Comment => return Err(refuse("binding_in_comment")),
@@ -416,6 +431,15 @@ mod tests {
         assert_eq!(code(&["<!-- ", " -->"]), "binding_in_comment");
         assert_eq!(code(&["<style>", "</style>"]), "binding_in_raw_text");
         assert_eq!(code(&["<script></script>"]), "script_in_template");
+        assert_eq!(
+            code(&["<template><p>", "</p></template>"]),
+            "binding_in_template_element"
+        );
+        assert_eq!(
+            code(&["<template><p class=\"", "\"></p></template>"]),
+            "binding_in_template_element"
+        );
+        assert!(scan(&strings(&["<template><b>x</b></template><p>", "</p>"])).is_ok());
         assert_eq!(code(&["<p"]), "template_unclosed_tag");
         assert_eq!(code(&["<p ?a=\"x", "\"></p>"]), "binding_not_single");
         assert_eq!(

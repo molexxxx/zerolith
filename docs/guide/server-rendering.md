@@ -25,6 +25,7 @@ Each part of a template renders the way the browser would show it at that moment
 | `.name=${value}`, `@event=${handler}`, `ref=${signal}` | Nothing; the browser attaches them when it hydrates |
 | `each` and `when` | Their current rows or branch |
 | `unsafeHtml(markup)` | The markup as it is |
+| A node as content | Fails with `unrenderable_value`; a node exists only in a browser |
 
 Effects created while rendering, inside `each` rows, `when` branches, and computed values, are disposed before the string is returned. Given a function that returns the view, as `renderToString(() => App(router))`, the component runs inside that scope too, so its effects and cleanups end with the render. A component called before `renderToString` runs outside it, exactly as in the browser, and nothing disposes an effect it starts.
 
@@ -51,6 +52,8 @@ Where the markup and the view disagree, the differing part is rendered on the cl
 | `extra` | Nodes the view did not expect were present |
 | `structure` | A template's nodes did not line up |
 | `root` | No server-rendered part was found |
+
+An attribute, a property, or raw markup the server wrote differently is rewritten on the client without a report.
 
 Without any server-rendered markup in the target, `hydrate` falls back to `render`.
 

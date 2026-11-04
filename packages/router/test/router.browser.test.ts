@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Root, ZerolithError, effect, html, onDispose, render, signal } from "zerolith";
+import { type Renderable, type Root, ZerolithError, effect, html, onDispose, render, signal } from "zerolith";
 import { type RouteTable, type Router, createRouter, defineRoutes, lazy, route } from "@zerolith/router";
 
 let root: Root | undefined;
 let host: HTMLElement | undefined;
 let router: Router<RouteTable> | undefined;
 
-function mount(view: unknown): HTMLElement
+function mount(view: Renderable | (() => Renderable)): HTMLElement
 {
     host = document.createElement("div");
     document.body.append(host);

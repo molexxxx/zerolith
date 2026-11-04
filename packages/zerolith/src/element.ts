@@ -5,7 +5,7 @@
  * another framework owns. The content lives in light DOM, like every other
  * zerolith view, so scoped styles and design tokens apply unchanged.
  */
-import { type Root, hasServerMarkup, hydrate, render } from "./render.js";
+import { type Renderable, type Root, hasServerMarkup, hydrate, render } from "./render.js";
 import { type ReadableSignal, type Signal, signal } from "./signals.js";
 
 /** The signals an element's view receives, one per declared prop. */
@@ -17,7 +17,7 @@ export interface ElementOptions<Props extends readonly string[]>
     /** The attribute and property names the element exposes. An attribute arrives as a string or undefined; a property keeps its value. */
     props: Props;
     /** Renders the element's content from the prop signals; `host` is the element, for events and measurements. */
-    view: (props: ElementProps<Props>, host: HTMLElement) => unknown;
+    view: (props: ElementProps<Props>, host: HTMLElement) => Renderable;
 }
 
 const stores: WeakMap<HTMLElement, Record<string, Signal<unknown>>> = new WeakMap();
@@ -87,7 +87,7 @@ export function define<const Props extends readonly string[]>(name: string, opti
             {
                 return;
             }
-            const view = (): unknown => options.view(store(this, props) as unknown as ElementProps<Props>, this);
+            const view = (): Renderable => options.view(store(this, props) as unknown as ElementProps<Props>, this);
             roots.set(this, hasServerMarkup(this) ? hydrate(view, this) : render(view, this));
         }
 

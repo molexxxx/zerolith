@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Diagnostic, type Root, ZerolithError, computed, each, effect, html, onDiagnostic, onDispose, render, signal, when } from "zerolith";
+import { type Diagnostic, type Renderable, type Root, type View, ZerolithError, computed, each, effect, html, onDiagnostic, onDispose, render, signal, unsafeHtml, when } from "zerolith";
 import { type DevtoolsHook, devtoolsInternal, prepared, scan } from "zerolith/internal";
 
 let root: Root | undefined;
@@ -11,12 +11,12 @@ function notRenderable(): unknown
 }
 
 /** A component that takes props, for the check that one passed uncalled is refused. */
-function Greeting({ name }: { name: string }): unknown
+function Greeting({ name }: { name: string }): View
 {
     return html`<p>Hello, ${name}</p>`;
 }
 
-function mount(view: unknown): HTMLElement
+function mount(view: Renderable | (() => Renderable)): HTMLElement
 {
     host = document.createElement("div");
     document.body.append(host);
@@ -25,9 +25,15 @@ function mount(view: unknown): HTMLElement
 }
 
 /** A row function whose computed value carries `name`, to find it among the development tools' nodes. */
-function namedRow(name: string): (item: { get(): { id: number } }) => unknown
+function namedRow(name: string): (item: { get(): { id: number } }) => Renderable
 {
     return (item) => html`<li>${computed(() => item.get().id, { name })}</li>`;
+}
+
+/** A paragraph whose ref is the value given, the same strings on every call. */
+function referenced(ref: unknown): View
+{
+    return html`<p ref=${ref}></p>`;
 }
 
 /** A template of one bold element, the same strings on every call. */
@@ -216,7 +222,7 @@ describe("render with a function", () =>
     it("calls the function inside the root's owner, so its cleanups end with the root", () =>
     {
         let cleaned = 0;
-        function Panel(): unknown
+        function Panel(): View
         {
             onDispose(() =>
             {
@@ -235,14 +241,14 @@ describe("render with a function", () =>
 
     it("calls a function that returns such a function, as a build tool's wrapper does", () =>
     {
-        const el = mount(() => () => html`<p>wrapped</p>`);
+        const el = mount((() => () => html`<p>wrapped</p>`) as unknown as Renderable);
         expect(el.textContent).toBe("wrapped");
     });
 
     it("refuses a component passed instead of called, naming it", () =>
     {
-        expect(() => mount(Greeting)).toThrow(/mount_component_uncalled.*name=Greeting/);
-        expect(() => mount(() => Greeting)).toThrow(/mount_component_uncalled/);
+        expect(() => mount(Greeting as unknown as Renderable)).toThrow(/mount_component_uncalled.*name=Greeting/);
+        expect(() => mount((() => Greeting) as unknown as Renderable)).toThrow(/mount_component_uncalled/);
     });
 });
 
@@ -321,6 +327,84 @@ describe("attribute bindings", () =>
     it("rejects a ref target that is neither a signal nor a function", () =>
     {
         expect(() => mount(html`<p ref=${"x"}></p>`)).toThrow(/ref_not_assignable/);
+    });
+
+    it("hands the element to nothing for a null or undefined ref, and releases a ref a signal replaces", () =>
+    {
+        const target = signal<Element | null | undefined>(undefined);
+        const holder = signal<Element | undefined>(undefined);
+        const el = mount(html`<p ref=${target}></p><i ref=${null}></i><b ref=${undefined}></b>`);
+        expect(target.get()).toBe(el.querySelector("p"));
+        expect(el.querySelectorAll("i, b")).toHaveLength(2);
+        const current = signal<unknown>(holder);
+        const second = mount(html`${computed(() => referenced(current.get()))}`);
+        expect(holder.get()).toBe(second.querySelector("p"));
+        current.set(null);
+        expect(holder.get()).toBeUndefined();
+        current.set(undefined);
+        current.set(holder);
+        expect(holder.get()).toBe(second.querySelector("p"));
+    });
+
+    it("shows a fragment's nodes as content and replaces them with the next value", () =>
+    {
+        const content = signal<unknown>(undefined);
+        const fragment = document.createDocumentFragment();
+        fragment.append(document.createElement("b"), document.createTextNode("two"));
+        const el = mount(html`<p>${content}</p>`);
+        content.set(fragment);
+        expect(el.querySelector("p")?.innerHTML).toContain("<b></b>two");
+        content.set("plain");
+        expect(el.querySelector("p")?.textContent).toBe("plain");
+        expect(el.querySelector("b")).toBeNull();
+        content.set(fragment);
+        expect(el.querySelector("p")?.textContent).toBe("");
+    });
+
+    it("adds a handler object with its options and swaps it for a function", () =>
+    {
+        const calls: string[] = [];
+        const object = {
+            handleEvent(event: Event): void
+            {
+                calls.push(`object:${event.type}`);
+            },
+            once: true
+        };
+        const handler = signal<unknown>(object);
+        const el = mount(html`${computed(() => html`<button @click=${handler.get()}>go</button>`)}`);
+        const button = el.querySelector("button") as HTMLButtonElement;
+        button.click();
+        button.click();
+        expect(calls).toEqual(["object:click"]);
+        handler.set(() => calls.push("function"));
+        button.click();
+        expect(calls).toEqual(["object:click", "function"]);
+    });
+
+    it("renders into a fragment and keeps it live, and renders raw markup as it is", () =>
+    {
+        const fragment = document.createDocumentFragment();
+        const count = signal(1);
+        const into = render(html`<p>${count}</p>${unsafeHtml("<i>raw &amp; <b>bold</b></i>")}`, fragment);
+        expect(into.container).toBe(fragment);
+        host = document.createElement("div");
+        document.body.append(host);
+        host.append(fragment);
+        expect(host.querySelector("p")?.textContent).toBe("1");
+        count.set(2);
+        expect(host.querySelector("p")?.textContent).toBe("2");
+        expect(host.querySelector("i")?.innerHTML).toBe("raw &amp; <b>bold</b>");
+        into.dispose();
+        expect(host.querySelector("p")).toBeNull();
+        expect(host.querySelector("i")).toBeNull();
+    });
+
+    it("takes plain values for when and each, read once", () =>
+    {
+        const el = mount(html`<p>${when(true, () => "yes", () => "no")}${when(0, () => "yes", () => "no")}</p><ul>${each([{ id: 1 }, { id: 2 }], (item) => item.id, (item) => html`<li>${computed(() => item.get().id)}</li>`)}</ul>`);
+        expect(el.querySelector("p")?.textContent).toBe("yesno");
+        expect(Array.from(el.querySelectorAll("li"), (li) => li.textContent)).toEqual(["1", "2"]);
     });
 
     it("blocks scriptable URLs and reports a warning", () =>

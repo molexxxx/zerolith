@@ -25,7 +25,7 @@ interface Entry
 
 interface Mounted
 {
-    factory: () => unknown;
+    factory: () => core.Renderable;
     root: core.Root;
     container: Element | DocumentFragment;
     /** The call that mounted it, as the plugin names it: the module and the call's place among the module's `render` and `hydrate` calls. */
@@ -106,7 +106,7 @@ function replace(target: core.MountTarget, site: string | undefined): void
  * is replaced, which is what happens when the entry module itself is
  * re-executed; roots from other calls stay, as they do in production.
  */
-export function render(factory: () => unknown, target: core.MountTarget, site?: string): core.Root
+export function render(factory: () => core.Renderable, target: core.MountTarget, site?: string): core.Root
 {
     replace(target, site);
     const root = core.render(factory, target);
@@ -117,7 +117,7 @@ export function render(factory: () => unknown, target: core.MountTarget, site?: 
 }
 
 /** The `hydrate` counterpart of `render`: hydrates once, then re-renders on updates. */
-export function hydrate(factory: () => unknown, target: core.MountTarget, site?: string): core.HydrateResult
+export function hydrate(factory: () => core.Renderable, target: core.MountTarget, site?: string): core.HydrateResult
 {
     replace(target, site);
     const result = core.hydrate(factory, target);

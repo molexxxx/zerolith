@@ -3,10 +3,10 @@
 Every export of `@zerolith/router` with its signature, generated from the source by `npm run api`. The docs build fails while the exports differ from this file, so a change to the public API shows up here in review.
 
 ```ts
-function createRouter<T extends RouteTable>(routes: T, options?: RouterOptions): Router<T>
+function createRouter<const T extends RouteTable>(routes: T, options?: RouterOptions): Router<T>
 function defineRoutes<T extends RouteTable>(routes: T): T
 function lazy<Params, Data>(loader: () => Promise<RouteView<Params, Data>>): LazyView<Params, Data>
-function route<Path extends string, Data = undefined>(definition: RouteDefinition<Path, Data>): RouteDefinition<Path, Data>
+function route<const Path extends string, Data = undefined>(definition: RouteDefinition<Path, Data>): RouteDefinition<Path, Data>
 
 interface AnyRoute
 {
@@ -96,7 +96,7 @@ interface Router<T extends RouteTable>
 
 interface RouterOptions
 {
-    fallback?: (url: URL) => unknown
+    fallback?: (url: URL) => Renderable
     head?: Head | ((context: HeadContext) => Head)
     onError?: (error: unknown, url: URL) => void
     scroll?: boolean
@@ -108,7 +108,7 @@ interface RouterOptions
 type HrefArgs<Path extends string> = Record<string, never> extends ParamsOf<Path> ? [] : [ParamsOf<Path>]
 type ParamsOf<Path extends string> = Path extends `${infer Head}/${infer Rest}` ? ParamsOf<Head> & ParamsOf<Rest> : Path extends `:${infer Name}` ? { [K in Name]: string } : Path extends `*${infer Name}` ? { [K in Name]: string } : {}
 type RouteTable = Readonly<Record<string, AnyRoute>>
-type RouteView<Params, Data> = (context: RouteContext<Params, Data>) => unknown
+type RouteView<Params, Data> = (context: RouteContext<Params, Data>) => Renderable
 
 const ROUTE_STATE_SELECTOR: string
 ```

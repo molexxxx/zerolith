@@ -1,15 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import { type Diagnostic, computed, css, each, effect, html, onDiagnostic, onDispose, signal, when } from "zerolith";
+import { type Diagnostic, type Renderable, type View, computed, css, each, effect, html, onDiagnostic, onDispose, signal, unsafeHtml, when } from "zerolith";
 import { renderStyles, renderToString } from "zerolith/ssr";
 
 /** A component that takes props, for the check that one passed uncalled is refused. */
-function Greeting({ name }: { name: string }): unknown
+function Greeting({ name }: { name: string }): View
 {
     return html`<p>Hello, ${name}</p>`;
 }
 
 /** The rendered markup without the hydration markers, for assertions about content. */
-function plain(view: unknown): string
+function plain(view: Renderable | (() => Renderable)): string
 {
     return renderToString(view).replace(/<!--\/?zl:p-->/g, "");
 }
@@ -20,6 +20,31 @@ describe("renderToString", () =>
     {
         const out = plain(html`<p>${"text"} ${1} ${html`<em>nested</em>`} ${[html`<i>a</i>`, "b"]}${true}${null}</p>`);
         expect(out).toBe("<p>text 1 <em>nested</em> <i>a</i>b</p>");
+    });
+
+    it("leaves text and attribute values that read like a marker alone", () =>
+    {
+        const out = plain(html`<p title=${"t"} data-note="zl$0 kept">price zl$0 here ${"bound"}</p>`);
+        expect(out).toBe("<p title=\"t\" data-note=\"zl$0 kept\">price zl$0 here bound</p>");
+    });
+
+    it("hands a row function its index signal only when it takes two parameters, as the browser does", () =>
+    {
+        const seen: unknown[] = [];
+        renderToString(html`<ul>${each([1, 2], (item) => item, (item, index) => {
+            seen.push(index?.get());
+            return html`<li>${item}</li>`;
+        })}${each([3], (item) => item, (...args) => {
+            seen.push(args[1]);
+            return "x";
+        })}</ul>`);
+        expect(seen).toEqual([0, 1, undefined]);
+    });
+
+    it("renders raw markup as it is, and refuses a node", () =>
+    {
+        expect(plain(html`<div>${unsafeHtml("<i>raw &amp; <b>bold</b></i>")}</div>`)).toBe("<div><i>raw &amp; <b>bold</b></i></div>");
+        expect(() => renderToString(html`<p>${{ nodeType: 1 } as unknown as Node}</p>`)).toThrow(/unrenderable_value/);
     });
 
     it("wraps every child part, item, and branch in hydration markers", () =>
@@ -110,7 +135,7 @@ describe("renderToString", () =>
     it("calls a function that returns the view inside the render's scope", () =>
     {
         let cleaned = 0;
-        function Panel(): unknown
+        function Panel(): View
         {
             onDispose(() =>
             {
@@ -120,7 +145,7 @@ describe("renderToString", () =>
         }
         expect(renderToString(() => Panel())).toContain("<p>panel</p>");
         expect(cleaned).toBe(1);
-        expect(() => renderToString(Greeting)).toThrow(/mount_component_uncalled/);
+        expect(() => renderToString(Greeting as unknown as Renderable)).toThrow(/mount_component_uncalled/);
     });
 
     it("renders each and when for the current state and checks keys", () =>

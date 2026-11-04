@@ -26,6 +26,8 @@ The view's second argument is the host element, for what a boundary needs, such 
 > [!TIP]
 > Name props in lowercase. HTML lowercases attribute names, so a camelCase prop such as `maxCount` is reachable as a property but never as an attribute.
 
+A prop named like a property every element has, such as `title`, `hidden`, or `id`, replaces that property on the element: the attribute still feeds the signal, and assigning the property writes the signal instead of the native value, so the browser no longer reflects it to the attribute. Choose another name where the native behavior matters.
+
 ## Its life on the page
 
 | When | What happens |

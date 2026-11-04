@@ -22,6 +22,12 @@ Cause: An expression appears where a tag or attribute name is expected.
 
 Fix: Bind values only as element content or inside an attribute value; tag and attribute names must be static.
 
+## binding_in_template_element
+
+Cause: A binding sits inside a <template> element, whose content the browser does not render, so the client could not bind it while the server would render it.
+
+Fix: Move the binding out of the <template> element, or build that content with html when it is needed.
+
 ## binding_not_single
 
 Cause: A boolean attribute, property, or event binding has more than one expression or extra text.

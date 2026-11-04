@@ -92,6 +92,7 @@ export function scan(strings: readonly string[]): Scanned
     let segment = 0;
     let bound: Bound | undefined;
     let raw = "";
+    let templates = 0;
 
     const finish = (end: number): void =>
     {
@@ -108,6 +109,10 @@ export function scan(strings: readonly string[]): Scanned
 
     const bind = (): void =>
     {
+        if (templates > 0)
+        {
+            throw fail("binding_in_template_element");
+        }
         if (bound === undefined)
         {
             bound = { name: attr, strings: [], start: attrStart };
@@ -200,11 +205,19 @@ export function scan(strings: readonly string[]): Scanned
                             {
                                 throw fail("script_in_template");
                             }
+                            if (tag === "template")
+                            {
+                                templates++;
+                            }
                             if (RAW_TAGS.has(tag))
                             {
                                 state = RAW;
                                 raw = tag;
                             }
+                        }
+                        else if (tag === "template" && templates > 0)
+                        {
+                            templates--;
                         }
                         break;
                     }
@@ -272,6 +285,10 @@ export function scan(strings: readonly string[]): Scanned
                     if (markup.endsWith("<"))
                     {
                         throw fail("binding_in_tag_position");
+                    }
+                    if (templates > 0)
+                    {
+                        throw fail("binding_in_template_element");
                     }
                     markup += CHILD_MARKER;
                     parts.push({ kind: CHILD, index: -1, name: "", strings: [], count: 1 });

@@ -136,7 +136,7 @@ describe("hydrationMismatches", () =>
         const tick = signal(0);
         const stopped: string[] = [];
         let runs = 0;
-        const Ticker = (): unknown =>
+        const Ticker = (): View =>
         {
             effect(() =>
             {

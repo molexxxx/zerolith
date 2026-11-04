@@ -5,8 +5,8 @@ Every export of `@zerolith/test` with its signature, generated from the source b
 ```ts
 function accessibilityIssues(container: ParentNode): AccessibilityIssue[]
 function cleanup(): void
-function hydrationMismatches(view: () => unknown): HydrationMismatch[]
-function mount(view: unknown, options?: MountOptions): Mounted
+function hydrationMismatches(view: () => Renderable): HydrationMismatch[]
+function mount(view: Renderable | (() => Renderable), options?: MountOptions): Mounted
 function settle(rounds?: number): Promise<void>
 
 interface AccessibilityIssue

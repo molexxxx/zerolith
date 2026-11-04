@@ -24,6 +24,9 @@ export interface View
     readonly [VIEW]: true;
 }
 
+/** What a view function returns and a content binding shows: a `View`, text, a number, a bigint, a boolean, `null`, `undefined`, a node, a signal of one of these, or an iterable of them. */
+export type Renderable = View | string | number | bigint | boolean | null | undefined | Node | ReadableSignal<Renderable> | Iterable<Renderable>;
+
 /** The handle returned by `render()`. */
 export interface Root
 {
@@ -765,6 +768,16 @@ class ChildPart implements BoundPart, Sink
             this.items = items;
             return;
         }
+        if (typeof Node !== "undefined" && value instanceof Node)
+        {
+            mismatch("structure", "node", cursor === anchor ? "" : cursor.nodeName);
+            if (cursor !== anchor)
+            {
+                removeUntil(cursor, anchor);
+            }
+            this.apply(value);
+            return;
+        }
         throw fail("unrenderable_value", { type: describe(value) });
     }
 
@@ -837,6 +850,13 @@ class ChildPart implements BoundPart, Sink
         {
             const anchor = this.marker();
             this.clear();
+            if (value.nodeType === 11)
+            {
+                const nodes = Array.from(value.childNodes);
+                anchor.parentNode?.insertBefore(value, anchor);
+                this.raw = nodes;
+                return;
+            }
             anchor.parentNode?.insertBefore(value, anchor);
             this.node = value as ChildNode;
             return;
@@ -1008,8 +1028,9 @@ class RefPart implements BoundPart
     }
 
     /**
-     * Hands the element to a writable signal or a callback; the signal is
-     * reset when the element's template is removed. When the owner around
+     * Hands the element to a writable signal or a callback, or to nothing
+     * for `null` or `undefined`, as a `null` handler adds no listener; the
+     * signal is reset when the element's template is removed. When the owner around
      * the binding is disposed while the element stays, as when a signal
      * applies the template again, the next bind hands the element over again.
      */
@@ -1021,6 +1042,11 @@ class RefPart implements BoundPart
         }
         this.owner?.dispose();
         this.target = target;
+        if (target === null || target === undefined)
+        {
+            this.owner = undefined;
+            return;
+        }
         const owner = createOwner();
         this.owner = owner;
         owner.run(() =>
@@ -1164,7 +1190,7 @@ export function produce(view: unknown): unknown
  * the root's owner, so effects and `onDispose` cleanups the component
  * registers belong to the root and end with `dispose()`.
  */
-export function render(view: unknown, target: MountTarget): Root
+export function render(view: Renderable | (() => Renderable), target: MountTarget): Root
 {
     const container = resolveTarget(target);
     const anchor = document.createComment("");
@@ -1203,12 +1229,14 @@ export function render(view: unknown, target: MountTarget): Root
 /**
  * Attaches a view to markup the server rendered into `target`, an element
  * or a selector for one, with `renderToString`, reusing the nodes and
- * binding signals, listeners, properties, and refs. Any disagreement is
- * repaired on the client and returned in `mismatches`. Without
- * server-rendered markup it falls back to `render`. As with `render`, a
- * function that returns the view is called inside the root's owner.
+ * binding signals, listeners, properties, and refs. A disagreement in the
+ * nodes, the text, or the structure is repaired on the client and returned
+ * in `mismatches`; an attribute, a property, or raw markup the server wrote
+ * differently is rewritten without a report. Without server-rendered markup
+ * it falls back to `render`. As with `render`, a function that returns the
+ * view is called inside the root's owner.
  */
-export function hydrate(view: unknown, target: MountTarget): HydrateResult
+export function hydrate(view: Renderable | (() => Renderable), target: MountTarget): HydrateResult
 {
     const container = resolveTarget(target);
     const found: HydrationMismatch[] = [];
@@ -1281,7 +1309,7 @@ function read<T>(value: ReadableSignal<T> | T): T
 export type KeyOf<T> = (item: T, index: number) => string | number | bigint | boolean | symbol | object;
 
 /** The row renderer for `each()`. The item is a signal that updates in place; the index is a signal too, created only when the function declares a second parameter. */
-export type RowOf<T> = (item: ReadableSignal<T>, index: ReadableSignal<number>) => unknown;
+export type RowOf<T> = (item: ReadableSignal<T>, index: ReadableSignal<number>) => Renderable;
 
 /** A row of `each`, which is also the owner of what its view creates, so a row allocates one object for both. */
 class Row<T> extends OwnerScope
@@ -1778,7 +1806,7 @@ class Keyed<T> extends Directive
         return list.map((value, index) =>
         {
             this.keyOf(value, index, keys);
-            return this.row(signal(value), signal(index));
+            return this.row(signal(value), (this.row.length > 1 ? signal(index) : undefined) as ReadableSignal<number>);
         });
     }
 }
@@ -1895,7 +1923,7 @@ class Conditional extends Directive
  * would always count as true. Branches are created lazily and disposed
  * when hidden.
  */
-export function when(condition: unknown, then: () => unknown, otherwise?: () => unknown): View
+export function when(condition: unknown, then: () => Renderable, otherwise?: () => Renderable): View
 {
     if (typeof condition === "function")
     {

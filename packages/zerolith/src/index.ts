@@ -13,7 +13,7 @@ export { batch, computed, effect, onDispose, scope, signal, untracked } from "./
 export type { LoaderContext, Resource, ResourceOptions, ResourceStatus } from "./resource.js";
 export { resource } from "./resource.js";
 
-export type { HydrateResult, HydrationMismatch, KeyOf, MountTarget, Root, RowOf, View } from "./render.js";
+export type { HydrateResult, HydrationMismatch, KeyOf, MountTarget, Renderable, Root, RowOf, View } from "./render.js";
 export { each, html, hydrate, render, unsafeHtml, when } from "./render.js";
 
 export type { Styles } from "./css.js";

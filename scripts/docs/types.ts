@@ -156,8 +156,8 @@ export function propertyName(name: string): string
     return /^[A-Za-z_$][\w$]*$|^\d+$|^\[/.test(name) ? name : JSON.stringify(name);
 }
 
-/** The text for a type parameter list, including the angle brackets, or an empty string. */
-export function typeParamsText(params: TypeParam[] | undefined): string
+/** The text for a type parameter list, including the angle brackets, or an empty string; `constNames` are the parameters declared `const`, which the doc JSON does not record. */
+export function typeParamsText(params: TypeParam[] | undefined, constNames: ReadonlySet<string> = new Set()): string
 {
     if (params === undefined || params.length === 0)
     {
@@ -165,7 +165,7 @@ export function typeParamsText(params: TypeParam[] | undefined): string
     }
     return "<" + params.map((param) =>
     {
-        let text = param.name;
+        let text = (constNames.has(param.name) ? "const " : "") + param.name;
         if (param.constraint !== undefined)
         {
             text += ` extends ${typeText(param.constraint)}`;

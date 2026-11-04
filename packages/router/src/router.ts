@@ -3,7 +3,7 @@
  * through the History API, delegated handling of plain anchors, loaders
  * that run before the URL changes, head metadata, and scroll restoration.
  */
-import { DIAGNOSTIC_URL, type ReadableSignal, type View, ZerolithError, batch, computed, diagnosticCatalog, each, signal, untracked } from "zerolith";
+import { DIAGNOSTIC_URL, type ReadableSignal, type Renderable, type View, ZerolithError, batch, computed, diagnosticCatalog, each, signal, untracked } from "zerolith";
 import { type ParamsOf, type Pattern, build, compile, match } from "./match.js";
 
 /** Document metadata a route contributes. */
@@ -38,7 +38,7 @@ export interface RouteContext<Params, Data>
 }
 
 /** Renders a route. Called once per navigation to that route. */
-export type RouteView<Params, Data> = (context: RouteContext<Params, Data>) => unknown;
+export type RouteView<Params, Data> = (context: RouteContext<Params, Data>) => Renderable;
 
 /** A view resolved on first navigation, created with `lazy()`. */
 export interface LazyView<Params, Data>
@@ -144,7 +144,7 @@ export interface HeadContext
 export interface RouterOptions
 {
     /** Renders when no route matches. */
-    fallback?: (url: URL) => unknown;
+    fallback?: (url: URL) => Renderable;
     /**
      * The head fields every page starts from, as an object or as a function of the URL and the matched route's name, undefined for the fallback.
      * A route's `head` overrides them field by field, and the fallback shows them as they are. On every commit the document shows the merged

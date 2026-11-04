@@ -1,6 +1,6 @@
 // Executed examples for the server rendering guide: hydrating a routed application.
 import { afterEach, describe, expect, it } from "vitest";
-import { type Root, html, hydrate } from "zerolith";
+import { type Root, type View, html, hydrate } from "zerolith";
 import { renderToString } from "zerolith/ssr";
 import { type RouteTable, type Router, createRouter, defineRoutes, route } from "@zerolith/router";
 import { renderRouteState } from "@zerolith/router/server";
@@ -20,7 +20,7 @@ const routes = defineRoutes({
     })
 });
 
-function App(router: Router<RouteTable>): unknown
+function App(router: Router<RouteTable>): View
 {
     return html`<main>${router.outlet()}</main>`;
 }

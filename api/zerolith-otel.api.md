@@ -4,7 +4,7 @@ Every export of `@zerolith/otel` with its signature, generated from the source b
 
 ```ts
 function navigationObserver(tracer?: Tracer): (event: NavigationEvent) => void
-function tracedHydrate(view: unknown, container: MountTarget, tracer?: Tracer): HydrateResult
+function tracedHydrate(view: Renderable | (() => Renderable), container: MountTarget, tracer?: Tracer): HydrateResult
 function tracedTransport(transport: Transport | undefined, tracer?: Tracer): Transport
 function traceparent(active?: Context): string | undefined
 ```

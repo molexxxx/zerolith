@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { type Root, css, html, render } from "zerolith";
+import { type Renderable, type Root, css, html, render } from "zerolith";
 import { styleFile } from "zerolith/internal";
 
 let root: Root | undefined;
 let host: HTMLElement | undefined;
 
-function mount(view: unknown): HTMLElement
+function mount(view: Renderable | (() => Renderable)): HTMLElement
 {
     host = document.createElement("div");
     document.body.append(host);

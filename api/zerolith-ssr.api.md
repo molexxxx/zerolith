@@ -6,5 +6,5 @@ Every export of `zerolith/ssr` with its signature, generated from the source by 
 function escapeAttribute(text: string): string
 function escapeText(text: string): string
 function renderStyles(): string
-function renderToString(view: unknown): string
+function renderToString(view: Renderable | (() => Renderable)): string
 ```

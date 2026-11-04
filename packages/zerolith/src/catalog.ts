@@ -49,6 +49,11 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
         cause: "An expression appears inside an element whose content is raw text.",
         fix: "Set the content of style, textarea, and title elements through a .textContent or .value property binding instead."
     },
+    binding_in_template_element:
+    {
+        cause: "A binding sits inside a <template> element, whose content the browser does not render, so the client could not bind it while the server would render it.",
+        fix: "Move the binding out of the <template> element, or build that content with html when it is needed."
+    },
     binding_not_single:
     {
         cause: "A boolean attribute, property, or event binding has more than one expression or extra text.",

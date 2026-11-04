@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { effect, html, resource, scope, signal, when } from "zerolith";
+import { type View, effect, html, resource, scope, signal, when } from "zerolith";
 import { renderToString } from "zerolith/ssr";
 
 function deferred<T>(): PromiseWithResolvers<T>
@@ -55,7 +55,7 @@ describe("resource", () =>
     {
         const pending = deferred<string>();
         const user = resource({ params: () => 1, loader: () => pending.promise });
-        const view = (): unknown => html`<p>${user}</p>${when(user, () => "loaded", () => "loading")}`;
+        const view = (): View => html`<p>${user}</p>${when(user, () => "loaded", () => "loading")}`;
         expect("set" in user).toBe(false);
         expect(renderToString(view()).replace(/<!--\/?zl:p-->/g, "")).toBe("<p></p>loading");
 

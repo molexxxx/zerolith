@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Diagnostic, type HydrateResult, type Signal, computed, each, html, hydrate, onDiagnostic, signal, when } from "zerolith";
+import { type Diagnostic, type HydrateResult, type Renderable, type Signal, computed, each, html, hydrate, onDiagnostic, signal, unsafeHtml, when } from "zerolith";
 import { renderToString } from "zerolith/ssr";
 import { withoutComments } from "./markup.js";
 
@@ -7,7 +7,7 @@ let host: HTMLElement | undefined;
 let result: HydrateResult | undefined;
 
 /** Server-renders `view` into a fresh host, then hydrates `clientView` (the same view by default) into it. */
-function serverThenClient(view: unknown, clientView: unknown = view): HTMLElement
+function serverThenClient(view: Renderable | (() => Renderable), clientView: Renderable | (() => Renderable) = view): HTMLElement
 {
     host = document.createElement("div");
     host.innerHTML = renderToString(view);
@@ -190,6 +190,30 @@ describe("hydrate", () =>
     {
         const el = serverThenClient(html`<p>${"server"}</p>`, html`<p>${["x", "y"]}</p>`);
         expect(el.querySelector("p")?.textContent).toBe("xy");
+    });
+
+    it("repairs a node bound as content with a structure mismatch, and reports missing and extra nodes by kind", () =>
+    {
+        const strong = document.createElement("strong");
+        strong.textContent = "node";
+        const el = serverThenClient(html`<p>${"server"}</p>`, html`<p>${strong}</p>`);
+        expect(el.querySelector("strong")).toBe(strong);
+        expect(el.querySelector("p")?.textContent).toBe("node");
+        expect(result?.mismatches.map((m) => m.kind)).toEqual(["structure"]);
+        result?.dispose();
+        const items = serverThenClient(html`<p>${["a"]}</p>`, html`<p>${["a", "b"]}</p>`);
+        expect(items.querySelector("p")?.textContent).toBe("ab");
+        expect(result?.mismatches.map((m) => m.kind)).toEqual(["missing"]);
+        result?.dispose();
+        serverThenClient(html`<p>${["a", "b"]}</p>`, html`<p>${["a"]}</p>`);
+        expect(result?.mismatches.map((m) => m.kind)).toEqual(["extra"]);
+    });
+
+    it("adopts raw markup the server wrote and keeps it", () =>
+    {
+        const el = serverThenClient(html`<div>${unsafeHtml("<i>raw</i>")}</div>`);
+        expect(el.querySelector("i")?.textContent).toBe("raw");
+        expect(result?.mismatches).toEqual([]);
     });
 
     it("repairs a structural difference by rendering that part on the client", () =>

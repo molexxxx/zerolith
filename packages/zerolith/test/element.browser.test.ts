@@ -119,6 +119,22 @@ describe("define", () =>
         expect(seen).toEqual([]);
     });
 
+    it("feeds a prop named like a native property into its signal, replacing the native one", () =>
+    {
+        define("zl-titled", {
+            props: ["title"],
+            view: ({ title }) => html`<span>${computed(() => `${String(title.get() ?? "none")}`)}</span>`
+        });
+        const element = document.createElement("zl-titled");
+        document.body.append(element);
+        element.setAttribute("title", "from attribute");
+        expect(element.querySelector("span")?.textContent).toBe("from attribute");
+        (element as HTMLElement & { title: unknown }).title = "from property";
+        expect(element.querySelector("span")?.textContent).toBe("from property");
+        expect(element.getAttribute("title")).toBe("from attribute");
+        element.remove();
+    });
+
     it("ignores a second definition of the same name", () =>
     {
         define("zl-greeting", { props: [], view: () => html`<i>other</i>` });

@@ -52,6 +52,7 @@ export type DiagnosticCode =
     | "binding_in_tag_position"
     | "binding_in_comment"
     | "binding_in_raw_text"
+    | "binding_in_template_element"
     | "binding_not_single"
     | "script_in_template"
     | "template_unclosed_tag"

@@ -5,8 +5,10 @@
  * exist.
  */
 import { execFile } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { type Param, type TsType, type TypeParam, paramsText, propertyName, typeParamsText, typeText } from "./types.ts";
 
@@ -62,6 +64,7 @@ interface Member extends Signature
     optional?: boolean;
     readonly?: boolean;
     isStatic?: boolean;
+    computed?: boolean;
     tsType?: TsType;
     functionDef?: Signature;
     jsDoc?: JsDoc;
@@ -124,6 +127,43 @@ function docText(jsDoc: JsDoc | undefined, name: string): string
     return elementsAsCode((jsDoc?.doc ?? "").trim());
 }
 
+const sources = new Map<string, string[]>();
+
+/** The names of a declaration's `const` type parameters, read from the source, since the doc JSON drops the modifier: the text from the declaration's line to its first parenthesis or brace. */
+function constTypeParams(declaration: Declaration): ReadonlySet<string>
+{
+    let file: string;
+    try
+    {
+        file = fileURLToPath(declaration.location.filename);
+    }
+    catch
+    {
+        return new Set();
+    }
+    let lines = sources.get(file);
+    if (lines === undefined)
+    {
+        try
+        {
+            lines = readFileSync(file, "utf8").split("\n");
+        }
+        catch
+        {
+            lines = [];
+        }
+        sources.set(file, lines);
+    }
+    const head = lines.slice(declaration.location.line - 1, declaration.location.line + 7).join("\n");
+    const stop = head.search(/[({]/);
+    const names = new Set<string>();
+    for (const match of (stop === -1 ? head : head.slice(0, stop)).matchAll(/\bconst\s+([A-Za-z_$][\w$]*)/g))
+    {
+        names.add(match[1] ?? "");
+    }
+    return names;
+}
+
 function signatureOf(name: string, declaration: Declaration): string
 {
     const def = declaration.def;
@@ -134,7 +174,7 @@ function signatureOf(name: string, declaration: Declaration): string
             const params = def["params"] as Param[] | undefined;
             const typeParams = def["typeParams"] as TypeParam[] | undefined;
             const returnType = def["returnType"] as TsType | undefined;
-            return `${def["isAsync"] === true ? "async " : ""}function ${name}${typeParamsText(typeParams)}(${paramsText(params)}): ${typeText(returnType)}`;
+            return `${def["isAsync"] === true ? "async " : ""}function ${name}${typeParamsText(typeParams, constTypeParams(declaration))}(${paramsText(params)}): ${typeText(returnType)}`;
         }
         case "interface":
         {
@@ -165,7 +205,7 @@ function signatureOf(name: string, declaration: Declaration): string
 function memberSignature(member: Member, methodLike: boolean): string
 {
     const modifier = member.isStatic === true ? "static " : "";
-    const key = `${propertyName(member.name)}${member.optional === true ? "?" : ""}`;
+    const key = `${member.computed === true ? `[${member.name}]` : propertyName(member.name)}${member.optional === true ? "?" : ""}`;
     if (!methodLike)
     {
         return `${modifier}${member.readonly === true ? "readonly " : ""}${key}: ${typeText(member.tsType)}`;

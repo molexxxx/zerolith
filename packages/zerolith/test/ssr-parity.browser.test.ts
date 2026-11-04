@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { type Root, computed, each, html, render, signal, when } from "zerolith";
+import { type Renderable, type Root, computed, each, html, render, signal, when } from "zerolith";
 import { renderToString } from "zerolith/ssr";
 import { withoutComments } from "./markup.js";
 
@@ -15,7 +15,7 @@ afterEach(() =>
 });
 
 /** The browser's markup with the renderer's own comment anchors removed. */
-function browserMarkup(view: unknown): string
+function browserMarkup(view: Renderable | (() => Renderable)): string
 {
     host = document.createElement("div");
     document.body.append(host);

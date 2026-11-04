@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { html, signal } from "zerolith";
+import { type View, html, signal } from "zerolith";
 import { type HotContext, accept, component, hydrate, render, save } from "@zerolith/vite/runtime";
 
 let host: HTMLElement;
@@ -92,7 +92,7 @@ describe("roots", () =>
     it("renders every root again on accept and hands saved values to named signals", async () =>
     {
         let renders = 0;
-        function Counter(): unknown
+        function Counter(): View
         {
             renders += 1;
             const count = signal(0, { name: "hmr-count" });
@@ -149,7 +149,7 @@ describe("an entry module that re-executes", () =>
     it("renders its root once and keeps the restored value through the accept that follows", () =>
     {
         let renders = 0;
-        function Draft(): unknown
+        function Draft(): View
         {
             renders += 1;
             const text = signal("", { name: "hmr-draft" });

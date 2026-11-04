@@ -4,7 +4,7 @@
  * a view's server markup against hydration, and find the accessibility
  * defects a test can catch.
  */
-import { type HydrationMismatch, type Root, hydrate, render } from "zerolith";
+import { type HydrationMismatch, type Renderable, type Root, hydrate, render } from "zerolith";
 import { renderToString } from "zerolith/ssr";
 
 /** What `mount` returns. */
@@ -39,7 +39,7 @@ const mounted: Mounted[] = [];
  * `render` does. A container `mount` created is removed even when
  * rendering throws.
  */
-export function mount(view: unknown, options: MountOptions = {}): Mounted
+export function mount(view: Renderable | (() => Renderable), options: MountOptions = {}): Mounted
 {
     const container = options.container ?? document.createElement("div");
     if (options.container === undefined && options.attach !== false)
@@ -131,7 +131,7 @@ export function settle(rounds = 2): Promise<void>
  * before the helper returns. An empty array means the component hydrates
  * cleanly; the container is discarded afterwards.
  */
-export function hydrationMismatches(view: () => unknown): HydrationMismatch[]
+export function hydrationMismatches(view: () => Renderable): HydrationMismatch[]
 {
     const container = document.createElement("div");
     container.innerHTML = renderToString(view);

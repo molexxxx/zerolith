@@ -9,17 +9,17 @@ function css(strings: TemplateStringsArray, ...values: ReadonlyArray<number | St
 function each<T>(items: ReadableSignal<readonly T[]> | readonly T[], key: KeyOf<T>, row: RowOf<T>): View
 function effect(fn: EffectFunction): () => void
 function html(strings: TemplateStringsArray, ...values: unknown[]): View
-function hydrate(view: unknown, target: MountTarget): HydrateResult
+function hydrate(view: Renderable | (() => Renderable), target: MountTarget): HydrateResult
 function isProblem(value: unknown): value is Problem
 function onDiagnostic(listener: DiagnosticListener): () => void
 function onDispose(fn: () => void): void
-function render(view: unknown, target: MountTarget): Root
+function render(view: Renderable | (() => Renderable), target: MountTarget): Root
 function resource<P, T>(options: ResourceOptions<P, T>): Resource<T>
 function scope<T>(fn: () => T): Scope<T>
 function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T>
 function unsafeHtml(markup: string): View
 function untracked<T>(fn: () => T): T
-function when(condition: unknown, then: () => unknown, otherwise?: () => unknown): View
+function when(condition: unknown, then: () => Renderable, otherwise?: () => Renderable): View
 
 class ZerolithError extends Error
 {
@@ -123,11 +123,11 @@ interface Styles
 
 interface View
 {
-    readonly VIEW: true
+    readonly [VIEW]: true
 }
 
 type DiagnosticArgs = Readonly<Record<string, string | number | boolean>>
-type DiagnosticCode = "signal_written_inside_computed" | "computed_cycle" | "effect_loop" | "effect_async" | "on_dispose_outside_scope" | "binding_in_tag_position" | "binding_in_comment" | "binding_in_raw_text" | "binding_not_single" | "script_in_template" | "template_unclosed_tag" | "unsafe_property_binding" | "unsafe_attribute_binding" | "unsafe_url_blocked" | "unrenderable_value" | "each_items_function" | "event_handler_not_function" | "when_condition_function" | "mount_component_uncalled" | "each_key_undefined" | "each_key_duplicate" | "css_value_not_allowed" | "ref_not_assignable" | "hydration_mismatch" | "jsx_not_lowered" | "template_frozen_read" | "image_without_alt" | "button_without_name" | "frame_without_title" | "mount_target_missing" | "template_not_prepared" | "lazy_module_not_split" | "package_version_mismatch" | "route_name_unknown"
+type DiagnosticCode = "signal_written_inside_computed" | "computed_cycle" | "effect_loop" | "effect_async" | "on_dispose_outside_scope" | "binding_in_tag_position" | "binding_in_comment" | "binding_in_raw_text" | "binding_in_template_element" | "binding_not_single" | "script_in_template" | "template_unclosed_tag" | "unsafe_property_binding" | "unsafe_attribute_binding" | "unsafe_url_blocked" | "unrenderable_value" | "each_items_function" | "event_handler_not_function" | "when_condition_function" | "mount_component_uncalled" | "each_key_undefined" | "each_key_duplicate" | "css_value_not_allowed" | "ref_not_assignable" | "hydration_mismatch" | "jsx_not_lowered" | "template_frozen_read" | "image_without_alt" | "button_without_name" | "frame_without_title" | "mount_target_missing" | "template_not_prepared" | "lazy_module_not_split" | "package_version_mismatch" | "route_name_unknown"
 type DiagnosticListener = (diagnostic: Diagnostic) => void
 type DiagnosticSeverity = "error" | "warning" | "deprecation" | "info"
 type EffectFunction = () => void | (() => void)
@@ -135,8 +135,9 @@ type Equals<T> = (previous: T, next: T) => boolean
 type FieldErrors = Readonly<Record<string, readonly string[]>>
 type KeyOf<T> = (item: T, index: number) => string | number | bigint | boolean | symbol | object
 type MountTarget = Element | DocumentFragment | string
+type Renderable = View | string | number | bigint | boolean | null | undefined | Node | ReadableSignal<Renderable> | Iterable<Renderable>
 type ResourceStatus = "idle" | "pending" | "resolved" | "error"
-type RowOf<T> = (item: ReadableSignal<T>, index: ReadableSignal<number>) => unknown
+type RowOf<T> = (item: ReadableSignal<T>, index: ReadableSignal<number>) => Renderable
 
 const DIAGNOSTIC_URL: string
 const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, DiagnosticText>>>

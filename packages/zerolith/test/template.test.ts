@@ -70,6 +70,9 @@ describe("scan", () =>
         expect(codeOf(() => scan(["<!-- ", " -->"]))).toBe("binding_in_comment");
         expect(codeOf(() => scan(["<style>", "</style>"]))).toBe("binding_in_raw_text");
         expect(codeOf(() => scan(["<script>alert(1)</script>"]))).toBe("script_in_template");
+        expect(codeOf(() => scan(["<template><p>", "</p></template>"]))).toBe("binding_in_template_element");
+        expect(codeOf(() => scan(["<template><p class=\"", "\"></p></template>"]))).toBe("binding_in_template_element");
+        expect(codeOf(() => scan(["<div><template><b>x</b></template><p>", "</p></div>"]))).toBeUndefined();
         expect(codeOf(() => scan(["<div class=\"a"]))).toBe("template_unclosed_tag");
     });
 
