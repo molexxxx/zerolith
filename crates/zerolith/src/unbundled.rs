@@ -21,15 +21,7 @@ use crate::transform;
 use crate::{css, env, modules, prepare, term};
 
 /// Folders never copied into the output.
-const SKIPPED: [&str; 7] = [
-    "node_modules",
-    "vendor",
-    "dist",
-    "target",
-    ".git",
-    "test",
-    "tests",
-];
+const SKIPPED: [&str; 6] = ["node_modules", "dist", "target", ".git", "test", "tests"];
 
 /// Files that belong to development, not to the served output.
 const DEVELOPMENT_FILES: [&str; 6] = [
@@ -59,7 +51,11 @@ fn is_development_file(name: &str) -> bool {
 /// What `build` wrote.
 #[derive(Debug, Default)]
 pub struct Built {
+    /// The files copied as they are.
     pub copied: usize,
+    /// The modules written: sources transformed to JavaScript, JavaScript modules with their imports rewritten, and the modules that serve other files.
+    pub modules: usize,
+    /// The modules among them transformed from `.ts`, `.tsx`, `.jsx`, or `.mts`.
     pub transformed: usize,
     pub html: usize,
     /// The pages written, wherever they are in the output, each of which gets the import map.
@@ -323,6 +319,10 @@ fn walk(
             if SKIPPED.contains(&name.as_str()) || name.starts_with('.') || path == out {
                 continue;
             }
+            if path.join("importmap.json").is_file() {
+                copy_vendored(root, &path, out, built, path == root.join("vendor"))?;
+                continue;
+            }
             walk(root, &path, out, built, prepare_templates, defines, imports)?;
             continue;
         }
@@ -362,6 +362,7 @@ fn walk(
                 .and_then(|code| prepared(code, prepare_templates))
                 .map_err(|error| io::Error::other(format!("{}: {error}", relative.display())))?;
             fs::write(target.with_extension("js"), code)?;
+            built.modules += 1;
             built.transformed += 1;
         } else if extension == "js" || extension == "mjs" {
             claim(built, &target)?;
@@ -371,7 +372,7 @@ fn walk(
                 .and_then(|code| prepared(code, prepare_templates))
                 .map_err(|error| io::Error::other(format!("{}: {error}", relative.display())))?;
             fs::write(&target, code)?;
-            built.copied += 1;
+            built.modules += 1;
         } else if extension == "html" || extension == "htm" {
             claim(built, &target)?;
             fs::write(&target, rewrite_html(&read(&path)?))?;
@@ -382,6 +383,38 @@ fn walk(
             fs::copy(&path, &target)?;
             built.copied += 1;
         }
+    }
+    Ok(())
+}
+
+/// Copies a folder `zerolith importmap` wrote, which its `importmap.json` marks, as it is, since the page's import map names its modules with integrity hashes that a rewritten byte would fail. Hidden files are left out, and so are, at the top of the project's own `vendor/` folder, `importmap.json` and the zerolith packages, which the build writes anew into the output's.
+fn copy_vendored(
+    root: &Path,
+    folder: &Path,
+    out: &Path,
+    built: &mut Built,
+    own: bool,
+) -> io::Result<()> {
+    for entry in fs::read_dir(folder)? {
+        let entry = entry?;
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with('.')
+            || (own && ["importmap.json", "zerolith", "@zerolith"].contains(&name.as_str()))
+        {
+            continue;
+        }
+        if path.is_dir() {
+            copy_vendored(root, &path, out, built, false)?;
+            continue;
+        }
+        let target = out.join(path.strip_prefix(root).map_err(io::Error::other)?);
+        built.claim(root, out, &target, &path)?;
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::copy(&path, &target)?;
+        built.copied += 1;
     }
     Ok(())
 }
@@ -451,7 +484,7 @@ pub fn build(
     }
     for ((file, form), importer) in &imports.files {
         write_import(&root, &out_dir, file, *form, importer)?;
-        built.transformed += 1;
+        built.modules += 1;
     }
     let packages = root
         .ancestors()
@@ -538,7 +571,10 @@ pub fn run(
         term::row(
             "Modules",
             term::label,
-            format!("{} transformed", built.transformed)
+            format!(
+                "{} written, {} transformed from TypeScript or JSX",
+                built.modules, built.transformed
+            )
         )
     );
     anstream::println!(
@@ -621,7 +657,10 @@ mod tests {
         let (out, built, warnings) =
             build(&root, std::path::Path::new("dist"), true, false).unwrap();
         assert!(warnings.is_empty(), "{warnings:?}");
-        assert_eq!((built.transformed, built.copied, built.html), (2, 2, 1));
+        assert_eq!(
+            (built.modules, built.transformed, built.copied, built.html),
+            (3, 2, 1, 1)
+        );
         assert!(
             fs::read_to_string(out.join("src/main.js"))
                 .unwrap()
@@ -794,6 +833,88 @@ mod tests {
             "{public}"
         );
         assert!(public.contains("by its URL, /logo.svg,"), "{public}");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn copies_the_projects_vendored_folders_as_they_are_and_writes_the_packages_anew() {
+        let root = std::env::temp_dir().join(format!(
+            "zerolith-unbundled-vendored-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let lenis = "export const lenis = () => import(\"./inner.js\");\nconsole.log(import.meta.env.MODE);\n";
+        let page = "<!doctype html><head><script type=\"importmap\">{\"imports\":{\"lenis\":\"/vendor/lenis/lenis.js\"},\"integrity\":{\"/vendor/lenis/lenis.js\":\"sha256-lenis\"}}</script></head><script type=\"module\" src=\"/src/main.ts\"></script>";
+        for (path, text) in [
+            ("index.html", page),
+            (
+                "src/main.ts",
+                "import { html } from \"zerolith\";\nimport { lenis } from \"lenis\";\nexport const main = [html, lenis];\n",
+            ),
+            (
+                "node_modules/zerolith/package.json",
+                "{\"name\":\"zerolith\",\"version\":\"0.0.0\",\"exports\":{\".\":\"./dist/index.js\"}}",
+            ),
+            (
+                "node_modules/zerolith/dist/index.js",
+                "export const html = 1;",
+            ),
+            ("vendor/importmap.json", "{\"imports\":{}}"),
+            ("vendor/.gitattributes", "* -text\n"),
+            ("vendor/lenis/lenis.js", lenis),
+            ("vendor/lenis/lenis.css", ".lenis { height: auto; }\n"),
+            ("vendor/lenis/package.json", "{\"name\":\"lenis\"}"),
+            ("vendor/zerolith/VERSION", "0.0.0\n"),
+            ("vendor/zerolith/dist/stale.js", "export const stale = 1;"),
+            ("vendor/@zerolith/router/VERSION", "0.0.0\n"),
+            (
+                "vendor/@zerolith/router/dist/old.js",
+                "export const old = 1;",
+            ),
+            ("lib/importmap.json", "{\"imports\":{\"x\":\"/lib/x.js\"}}"),
+            ("lib/x.js", lenis),
+            ("lib/zerolith/kept.js", "export const kept = 1;"),
+        ] {
+            let file = root.join(path);
+            fs::create_dir_all(file.parent().unwrap()).unwrap();
+            fs::write(file, text).unwrap();
+        }
+        let (out, built, warnings) = build(&root, Path::new("dist"), false, false).unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert_eq!(
+            fs::read_to_string(out.join("vendor/lenis/lenis.js")).unwrap(),
+            lenis
+        );
+        assert!(out.join("vendor/lenis/lenis.css").is_file());
+        assert!(out.join("vendor/lenis/package.json").is_file());
+        assert_eq!(fs::read_to_string(out.join("lib/x.js")).unwrap(), lenis);
+        assert!(out.join("lib/importmap.json").is_file());
+        assert!(out.join("lib/zerolith/kept.js").is_file());
+        for absent in [
+            "vendor/zerolith/dist/stale.js",
+            "vendor/@zerolith/router/dist/old.js",
+            "vendor/@zerolith",
+        ] {
+            assert!(!out.join(absent).exists(), "{absent} was copied");
+        }
+        assert!(out.join("vendor/zerolith/dist/index.js").is_file());
+        assert!(
+            fs::read_to_string(out.join("vendor/importmap.json"))
+                .unwrap()
+                .contains("\"zerolith\": \"/vendor/zerolith/dist/index.js\"")
+        );
+        assert!(
+            fs::read_to_string(out.join("vendor/.gitattributes"))
+                .unwrap()
+                .contains("-text")
+        );
+        let written = fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(
+            written.contains("\"lenis\":\"/vendor/lenis/lenis.js\"")
+                && written.contains("\"/vendor/lenis/lenis.js\":\"sha256-lenis\""),
+            "{written}"
+        );
+        assert_eq!((built.modules, built.transformed, built.copied), (1, 1, 6));
         let _ = fs::remove_dir_all(&root);
     }
 
