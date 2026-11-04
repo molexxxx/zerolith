@@ -25,7 +25,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 In order:
 
 1. Migrate the first production site onto zerolith, served buildless with a Lighthouse budget in CI.
-2. Submit the keyed entry to js-framework-benchmark, which is pinned to `0.1.0-alpha.9` and passes the benchmark's checks, and settle the per-row work that remains before the API is frozen. The [benchmarks](../benchmarks/README.md), measured again with every release, show where the entry stands; its gap to the vanilla entry is nearly all script, in the operations that create rows. A binding now holds its signal and its part without a closure, an owner keeps what it owns without an array, and a binding that is its element's only child adds no marker, so a row holds the vanilla entry's nodes; the memory that remains above it is the objects a row's live values cost. `@` event bindings stay listeners on their own elements, with standard event semantics: a build that added no listener at all, the most delegating them to the root could save, measured within noise of one that does.
+2. Settle the per-row work that remains before the API is frozen; the keyed entry is submitted to js-framework-benchmark, pinned to `0.1.0-alpha.9`, and passes the benchmark's checks. The [benchmarks](../benchmarks/README.md), measured again with every release, show where the entry stands; its gap to the vanilla entry is nearly all script, in the operations that create rows. A binding now holds its signal and its part without a closure, an owner keeps what it owns without an array, and a binding that is its element's only child adds no marker, so a row holds the vanilla entry's nodes; the memory that remains above it is the objects a row's live values cost. `@` event bindings stay listeners on their own elements, with standard event semantics: a build that added no listener at all, the most delegating them to the root could save, measured within noise of one that does.
 3. Review the core, templates, and router API through an RFC, with what the migration and the performance work found, and freeze it for 1.0. The router's part includes a way for components to build typed links without importing the router, whose module closes an import loop through the route table today.
 
 ## 1.0
@@ -35,7 +35,7 @@ In order:
 - [ ] The API of the core, templates, and router is frozen through an RFC.
 - [x] The docs site is live at a permanent address, https://zerolith.dev/, built with zerolith itself, and every diagnostic code's page resolves there.
 - [ ] A production site runs on zerolith, served buildless with an import map and integrity hashes, with a Lighthouse budget enforced in CI.
-- [ ] A keyed entry is submitted to js-framework-benchmark, with the core inside its 10.5 kB compressed budget.
+- [x] A keyed entry is submitted to js-framework-benchmark, with the core inside its 10.5 kB compressed budget: [pull request 2146](https://github.com/krausest/js-framework-benchmark/pull/2146), opened 2026-11-04 at `0.1.0-alpha.9`. The public results show the version pinned in that repository when a round runs, so a release moves the pin there by a pull request.
 - [x] Every npm package publishes through trusted publishing with provenance, and the canary channel runs.
 - [x] The test suite passes unbundled under a CSP without `unsafe-eval` and bundled with Vite.
 - [x] Every docs example is a test, so a broken example fails CI.
@@ -184,7 +184,8 @@ See the [command line guide](guide/command-line.md).
 - [ ] The first production site moves onto zerolith, served buildless.
 - [ ] An Electron desktop application adopts zerolith view by view: custom elements inside its existing React tree, the typed client over its IPC bridge, and state bridged to signals.
 - [ ] A showcase of applications built with zerolith, and named design partners.
-- [ ] zero-query, the predecessor, moves to maintenance and later retires.
+- [x] zero-query, the predecessor, is in maintenance since 2026-11-04: security and correctness fixes only, as its README and its VS Code extension's say.
+- [ ] zero-query retires once its three gates hold: this 1.0, the WebRTC decision, and its dependents settled.
 
 ## Project and supply chain
 
