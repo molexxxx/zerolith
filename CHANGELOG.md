@@ -2,6 +2,12 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
 
+## 0.1.0-alpha.11
+
+### Changed
+
+- Docs: the benchmark scores measure every framework against hand-written JavaScript, which is 1.00 by definition, so a score says how many times its time a framework takes and a cell below 1.00 is faster than it; they had measured against the fastest framework at each operation, as the official results page does, which put hand-written JavaScript at 1.01 whenever another framework was faster at one operation. The ranking does not change, since every score moves by the same factor.
+
 ## 0.1.0-alpha.10 (2026-11-04)
 
 ### Breaking changes

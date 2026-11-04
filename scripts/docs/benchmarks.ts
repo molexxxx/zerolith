@@ -8,7 +8,7 @@
  * same results as the benchmarks README renders them.
  */
 import { type View, html } from "zerolith";
-import { MEASURES, OPERATIONS, type FrameworkResult, type Ranked, type Run, SECTION_END, SECTION_START, label, measuresNote, noneFastest, ranked, renderResults, rivals, scores } from "../../benchmarks/results.ts";
+import { MEASURES, OPERATIONS, type FrameworkResult, type Ranked, type Run, SECTION_END, SECTION_START, label, measuresNote, ranked, referenceTimes, renderResults, rivals, scores } from "../../benchmarks/results.ts";
 import { repository } from "./layout.ts";
 
 /** What the page renders: the newest release's newest run first, as `readRuns` orders them. */
@@ -91,8 +91,8 @@ function rowClass(row: Ranked): string | null
 /**
  * The ranked figure: one row per framework, and one for zerolith's release
  * before when the run measured it, each with its score and a bar of how
- * much slower than the fastest it is. Bars follow the scores as printed, so
- * a 1.00 draws no bar.
+ * much slower than hand-written JavaScript it is. Bars follow the scores as
+ * printed, so a 1.00 draws no bar, and a score below it draws none either.
  */
 function Scores(run: Run)
 {
@@ -100,14 +100,14 @@ function Scores(run: Run)
     const slowest = Math.max(...rows.map(printed));
     return html`
         <figure class="scores" id="scores">
-            <p class="key">Lower is faster. A score of 1.00 would be the fastest framework at every operation, and each bar is the extra time a framework takes over that.${noneFastest(run)}${run.previous === undefined ? "" : ` The outlined bar is zerolith ${run.previous.version}, the release before, measured in the same session on the same machine.`}</p>
+            <p class="key">Lower is faster. Hand-written JavaScript is 1.00, and each bar is the extra time a framework takes over it across the nine operations.${run.previous === undefined ? "" : ` The outlined bar is zerolith ${run.previous.version}, the release before, measured in the same session on the same machine.`}</p>
             <div class="table">
                 <table>
                     <thead>
                         <tr>
                             <th scope="col">Framework</th>
                             <th scope="col" class="number">Score</th>
-                            <th scope="col" class="bar">Extra time over the fastest</th>
+                            <th scope="col" class="bar">Extra time over hand-written JavaScript</th>
                         </tr>
                     </thead>
                     <tbody>${rows.map((row) => html`
@@ -158,7 +158,7 @@ export function Benchmarks(data: BenchmarksData): View
         throw new Error("benchmarks/results/ holds no run to show");
     }
     const order = ordered(current, scores(current));
-    const fastest = new Map(OPERATIONS.map((operation) => [operation.id, Math.min(...current.frameworks.map((framework) => framework.operations?.[operation.id] ?? Infinity))]));
+    const reference = new Map(referenceTimes(current).map((time, index) => [OPERATIONS[index]?.id ?? "", time]));
     const history = data.runs.map((run) => ({ run, scores: scores(run) }));
     const notes = data.runs.filter((run) => run.note !== undefined);
     return html`
@@ -172,12 +172,12 @@ export function Benchmarks(data: BenchmarksData): View
         ${Scores(current)}
         <section class="band" id="every-operation">
             <h2>Every operation</h2>
-            <p>Each cell is the median time in milliseconds, over its factor against the fastest framework at that operation. The operations marked with a slowdown run with Chrome slowing the CPU by that factor.</p>
+            <p>Each cell is the median time in milliseconds, over its factor against hand-written JavaScript at that operation; below 1.00 is faster than it. The operations marked with a slowdown run with Chrome slowing the CPU by that factor.</p>
             ${FrameworkTable(order, "Operation", OPERATIONS, (operation) => operation.label, (operation, framework) =>
             {
                 const time = framework.operations?.[operation.id];
-                const best = fastest.get(operation.id) ?? Infinity;
-                return time === undefined ? "-" : html`<span class="time">${time.toFixed(1)}</span><span class="factor">${(time / best).toFixed(2)}</span>`;
+                const against = reference.get(operation.id) ?? Infinity;
+                return time === undefined ? "-" : html`<span class="time">${time.toFixed(1)}</span><span class="factor">${(time / against).toFixed(2)}</span>`;
             })}
         </section>
         <section class="band" id="memory-size-and-first-paint">

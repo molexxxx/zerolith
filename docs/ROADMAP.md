@@ -35,7 +35,7 @@ In order:
 - [ ] The API of the core, templates, and router is frozen through an RFC.
 - [x] The docs site is live at a permanent address, https://zerolith.dev/, built with zerolith itself, and every diagnostic code's page resolves there.
 - [ ] A production site runs on zerolith, served buildless with an import map and integrity hashes, with a Lighthouse budget enforced in CI.
-- [x] A keyed entry is submitted to js-framework-benchmark, with the core inside its 10.5 kB compressed budget: [pull request 2146](https://github.com/krausest/js-framework-benchmark/pull/2146), opened 2026-11-04 at `0.1.0-alpha.9`. The public results show the version pinned in that repository when a round runs, so a release moves the pin there by a pull request.
+- [x] A keyed entry is submitted to js-framework-benchmark, with the core inside its 10.5 kB compressed budget: [pull request 2146](https://github.com/krausest/js-framework-benchmark/pull/2146), opened 2026-11-04 at `0.1.0-alpha.9` and moved to `0.1.0-alpha.10` the same day. The public results show the version pinned in that repository when a round runs, so a release moves the pin there by a pull request.
 - [x] Every npm package publishes through trusted publishing with provenance, and the canary channel runs.
 - [x] The test suite passes unbundled under a CSP without `unsafe-eval` and bundled with Vite.
 - [x] Every docs example is a test, so a broken example fails CI.

@@ -2,9 +2,10 @@
  * The js-framework-benchmark runs kept in `benchmarks/results/`, one file a
  * run, how the benchmark scores them, and the README section they render.
  * A framework's score is its weighted geometric mean: each operation's time
- * over the fastest framework's in the same run, combined over the nine
- * timed operations with the weights of the official results page, so 1.00
- * would be fastest everywhere.
+ * over hand-written JavaScript's in the same run, combined over the nine
+ * timed operations with the weights of the official results page, so
+ * hand-written JavaScript is 1.00 and a score says how many times its time
+ * a framework takes; below 1.00 is faster than it.
  */
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -282,14 +283,15 @@ export async function readRuns(folder: string): Promise<Run[]>
     });
 }
 
-/** The fastest time of each operation across a run's frameworks, in the order of `OPERATIONS`. */
-function fastestTimes(run: Run): number[]
+/** The time every score is measured against for each operation, in the order of `OPERATIONS`: hand-written JavaScript's in the run, or the fastest framework's for a run without the `vanilla` entry's times. */
+export function referenceTimes(run: Run): number[]
 {
-    return OPERATIONS.map((operation) => Math.min(...run.frameworks.map((framework) => framework.operations?.[operation.id] ?? Infinity)));
+    const vanilla = run.frameworks.find((framework) => framework.name === "vanilla")?.operations;
+    return OPERATIONS.map((operation) => vanilla?.[operation.id] ?? Math.min(...run.frameworks.map((framework) => framework.operations?.[operation.id] ?? Infinity)));
 }
 
-/** A framework's weighted geometric mean against the fastest times: from its operation times when it has them, otherwise as published. */
-function score(framework: FrameworkResult, fastest: readonly number[], date: string): number
+/** A framework's weighted geometric mean against the reference times: from its operation times when it has them, otherwise as published. */
+function score(framework: FrameworkResult, reference: readonly number[], date: string): number
 {
     const { operations } = framework;
     if (operations === undefined)
@@ -308,7 +310,7 @@ function score(framework: FrameworkResult, fastest: readonly number[], date: str
         {
             throw new Error(`${date}: ${framework.name} has no time for ${operation.id}`);
         }
-        return weighted + operation.weight * Math.log(time / (fastest[index] ?? time));
+        return weighted + operation.weight * Math.log(time / (reference[index] ?? time));
     }, 0);
     return Math.exp(sum / total);
 }
@@ -316,19 +318,18 @@ function score(framework: FrameworkResult, fastest: readonly number[], date: str
 /** Each framework's weighted geometric mean in a run, by name: from its operation times when the run kept them, otherwise as published. */
 export function scores(run: Run): Map<string, number>
 {
-    const fastest = fastestTimes(run);
-    return new Map(run.frameworks.map((framework) => [framework.name, score(framework, fastest, run.date)]));
+    const reference = referenceTimes(run);
+    return new Map(run.frameworks.map((framework) => [framework.name, score(framework, reference, run.date)]));
 }
 
 /**
  * The score of zerolith's release before, measured in the same run,
- * against the fastest times of the run's frameworks, so it compares with
- * theirs; it can fall below 1.00 where it beats every framework. Undefined
- * when the run did not take it.
+ * against the same reference times as the run's frameworks, so it compares
+ * with theirs. Undefined when the run did not take it.
  */
 export function previousScore(run: Run): number | undefined
 {
-    return run.previous === undefined ? undefined : score(run.previous, fastestTimes(run), run.date);
+    return run.previous === undefined ? undefined : score(run.previous, referenceTimes(run), run.date);
 }
 
 const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
@@ -346,12 +347,6 @@ export function measuresNote(run: Run): string
     return run.passes === undefined
         ? "The benchmark takes one sample of each, so a small difference here says little."
         : `Each value is the median of ${run.passes} passes, since the benchmark takes one sample of each a pass.`;
-}
-
-/** The sentence saying why no score is 1.00, with a leading space, when no framework was fastest at every operation; empty otherwise. */
-export function noneFastest(run: Run): string
-{
-    return Number(Math.min(...scores(run).values()).toFixed(2)) > 1 ? " No framework was fastest at every operation in this run, so none scores 1.00: each operation's fastest framework sets that operation's 1.00." : "";
 }
 
 /** A run's label in a table: its zerolith version and day. */
@@ -401,11 +396,11 @@ export function renderResults(runs: readonly Run[]): string
     }
     const currentScores = scores(current);
     const order = current.frameworks.toSorted((a, b) => (currentScores.get(a.name) ?? 0) - (currentScores.get(b.name) ?? 0));
-    const fastest = fastestTimes(current);
+    const reference = referenceTimes(current);
     const lines: string[] = [];
     lines.push("## Results");
     lines.push("");
-    lines.push(`The newest release, zerolith ${current.zerolith}, measured on ${current.date} with ${current.method}, next to hand-written JavaScript and ${rivals(current)}. The score is each framework's weighted geometric mean: every operation's time over the fastest framework's, combined with the weights of the official results page, so 1.00 would be fastest everywhere and lower is faster.${noneFastest(current)} ${current.previous === undefined ? "This run did not measure the release before; every run's scores are listed below." : `The release before, zerolith ${current.previous.version}, ran in the same session on the same machine, so its row compares with the newest like for like.`}`);
+    lines.push(`The newest release, zerolith ${current.zerolith}, measured on ${current.date} with ${current.method}, next to hand-written JavaScript and ${rivals(current)}. The score is each framework's weighted geometric mean: every operation's time over hand-written JavaScript's, combined with the weights of the official results page, so hand-written JavaScript is 1.00, a score of 1.10 takes 10% longer than it over the nine operations, and lower is faster. ${current.previous === undefined ? "This run did not measure the release before; every run's scores are listed below." : `The release before, zerolith ${current.previous.version}, ran in the same session on the same machine, so its row compares with the newest like for like.`}`);
     lines.push("");
     lines.push(table(
         ["Framework", "Entry", "Version", "Score"],
@@ -416,14 +411,14 @@ export function renderResults(runs: readonly Run[]): string
         lines.push("");
         lines.push("### Every operation");
         lines.push("");
-        lines.push(`Each cell is the ${current.statistic} duration in milliseconds, with the factor against the fastest framework for that operation in parentheses.`);
+        lines.push(`Each cell is the ${current.statistic} duration in milliseconds, with the factor against hand-written JavaScript for that operation in parentheses; below 1.00 is faster than it.`);
         lines.push("");
         lines.push(table(
             ["Operation", ...order.map((framework) => framework.name)],
             OPERATIONS.map((operation, index) => [operation.label].concat(order.map((framework) =>
             {
                 const time = framework.operations?.[operation.id] ?? 0;
-                return `${time.toFixed(1)} (${(time / (fastest[index] ?? time)).toFixed(2)})`;
+                return `${time.toFixed(1)} (${(time / (reference[index] ?? time)).toFixed(2)})`;
             })))
         ));
     }

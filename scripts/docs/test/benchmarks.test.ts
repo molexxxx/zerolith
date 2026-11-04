@@ -3,7 +3,7 @@ import { renderToString } from "zerolith/ssr";
 import { MEASURES, OPERATIONS, type Run, SECTION_START } from "../../../benchmarks/results.ts";
 import { Benchmarks, benchmarksMarkdown } from "../benchmarks.ts";
 
-/** A run in which each framework takes `factor` times the fastest time at every operation. */
+/** A run in which each framework takes `factor` times hand-written JavaScript's time at every operation, `vanilla` among the names with a factor of 1. */
 function run(zerolith: string, date: string, method: string, factors: Record<string, number>): Run
 {
     return {

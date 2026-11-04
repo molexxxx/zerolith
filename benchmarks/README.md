@@ -5,7 +5,7 @@ zerolith is measured on [js-framework-benchmark](https://github.com/krausest/js-
 <!-- results: written by `npm run bench:report` from benchmarks/results/ -->
 ## Results
 
-The newest release, zerolith 0.1.0-alpha.10, measured on 2026-11-04 with medians of 15 runs on a GitHub-hosted runner, next to hand-written JavaScript and seven popular frameworks. The score is each framework's weighted geometric mean: every operation's time over the fastest framework's, combined with the weights of the official results page, so 1.00 would be fastest everywhere and lower is faster. The release before, zerolith 0.1.0-alpha.9, ran in the same session on the same machine, so its row compares with the newest like for like.
+The newest release, zerolith 0.1.0-alpha.10, measured on 2026-11-04 with medians of 15 runs on a GitHub-hosted runner, next to hand-written JavaScript and seven popular frameworks. The score is each framework's weighted geometric mean: every operation's time over hand-written JavaScript's, combined with the weights of the official results page, so hand-written JavaScript is 1.00, a score of 1.10 takes 10% longer than it over the nine operations, and lower is faster. The release before, zerolith 0.1.0-alpha.9, ran in the same session on the same machine, so its row compares with the newest like for like.
 
 | Framework | Entry | Version | Score |
 | --- | --- | --- | --- |
@@ -22,7 +22,7 @@ The newest release, zerolith 0.1.0-alpha.10, measured on 2026-11-04 with medians
 
 ### Every operation
 
-Each cell is the median duration in milliseconds, with the factor against the fastest framework for that operation in parentheses.
+Each cell is the median duration in milliseconds, with the factor against hand-written JavaScript for that operation in parentheses; below 1.00 is faster than it.
 
 | Operation | vanilla | zerolith | Solid | Svelte | Vue | Lit | Preact | Angular | React |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -56,10 +56,10 @@ Each run's scores, the newest release first. A score compares frameworks within 
 | Run | vanilla | zerolith | Solid | Svelte | Vue | Lit | Preact | Angular | React | Measured |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0.1.0-alpha.10, 2026-11-04 | 1.00 | 1.13 | 1.13 | 1.16 | 1.26 | 1.27 | 1.40 | 1.41 | 1.53 | medians of 15 runs on a GitHub-hosted runner |
-| 0.1.0-alpha.9, 2026-11-03 | 1.01 | 1.14 | 1.10 | 1.15 | 1.31 | 1.25 | 1.37 | 1.42 | 1.47 | medians of 15 runs on a GitHub-hosted runner |
+| 0.1.0-alpha.9, 2026-11-03 | 1.00 | 1.13 | 1.10 | 1.14 | 1.30 | 1.24 | 1.36 | 1.41 | 1.46 | medians of 15 runs on a GitHub-hosted runner |
 | 0.1.0-alpha.8, 2026-11-03 | 1.00 | 1.13 | 1.14 | 1.18 | 1.29 | 1.27 | 1.40 | 1.43 | 1.50 | medians of 15 runs on a GitHub-hosted runner |
-| 0.1.0-alpha.8, 2026-11-02 | 1.00 | 1.08 | 1.07 | 1.10 | 1.19 | 1.18 | 1.27 | 1.29 | 1.41 | medians of 15 runs, held to one group of cores on an idle machine |
-| 0.1.0-alpha.6, 2026-11-01 | 1.01 | 1.14 | 1.14 | 1.15 | 1.24 | 1.24 | 1.34 | 1.38 | 1.48 | means of 10 runs, the cores left to the system |
+| 0.1.0-alpha.8, 2026-11-02 | 1.00 | 1.08 | 1.07 | 1.10 | 1.19 | 1.18 | 1.27 | 1.29 | 1.40 | medians of 15 runs, held to one group of cores on an idle machine |
+| 0.1.0-alpha.6, 2026-11-01 | 1.00 | 1.13 | 1.13 | 1.14 | 1.23 | 1.23 | 1.33 | 1.37 | 1.47 | means of 10 runs, the cores left to the system |
 | 0.1.0-alpha.5, 2026-10-31 | 1.00 | 1.12 | 1.11 | 1.14 | 1.26 | 1.23 | 1.34 | 1.42 | 1.44 | means of 10 runs, the cores left to the system |
 
 0.1.0-alpha.6, 2026-11-01: 0.1.0-alpha.7 builds the same bundle byte for byte, so this run stands for it too.

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { type FrameworkResult, OPERATIONS, type Run, checkRun, compareVersions, measuresNote, noneFastest, pinRelease, previousScore, readRuns, renderResults, replaceSection, scores } from "../../benchmarks/results.ts";
+import { type FrameworkResult, OPERATIONS, type Run, checkRun, compareVersions, measuresNote, pinRelease, previousScore, readRuns, referenceTimes, renderResults, replaceSection, scores } from "../../benchmarks/results.ts";
 
 const folder = new URL("../../benchmarks/", import.meta.url);
 
@@ -36,11 +36,23 @@ function header(markdown: string): string | undefined
 
 describe("benchmark scores", () =>
 {
-    it("gives the framework fastest at every operation 1.00, one twice as slow everywhere 2.00", () =>
+    it("gives hand-written JavaScript 1.00, a framework twice as slow everywhere 2.00, and one twice as fast 0.50", () =>
     {
-        const result = scores(run(["fast", "slow"], (name) => (name === "fast" ? 10 : 20)));
-        expect(result.get("fast")).toBeCloseTo(1, 10);
+        const result = scores(run(["vanilla", "slow", "quick"], (name) => (name === "slow" ? 20 : name === "quick" ? 5 : 10)));
+        expect(result.get("vanilla")).toBeCloseTo(1, 10);
         expect(result.get("slow")).toBeCloseTo(2, 10);
+        expect(result.get("quick")).toBeCloseTo(0.5, 10);
+    });
+
+    it("measures against hand-written JavaScript even where another framework is faster at an operation, and against the fastest times without it", () =>
+    {
+        const split = run(["vanilla", "zerolith"], (name, operation) => ((name === "vanilla") === (operation === "01_run1k") ? 10 : 12));
+        expect(scores(split).get("vanilla")).toBeCloseTo(1, 10);
+        expect(scores(split).get("zerolith")).toBeLessThan(1);
+        expect(referenceTimes(split)).toEqual(OPERATIONS.map((operation) => (operation.id === "01_run1k" ? 10 : 12)));
+        const without = run(["fast", "slow"], (name) => (name === "fast" ? 10 : 20));
+        expect(referenceTimes(without)).toEqual(OPERATIONS.map(() => 10));
+        expect(scores(without).get("fast")).toBeCloseTo(1, 10);
     });
 
     it("weighs each operation as the official results page does", () =>
@@ -51,9 +63,9 @@ describe("benchmark scores", () =>
         expect(total).toBeCloseTo(4.1580, 3);
     });
 
-    it("reproduces the published scores of the 2026-11-01 run from its operation times", async () =>
+    it("scores the 2026-11-01 run from its operation times against hand-written JavaScript", async () =>
     {
-        const published = { vanilla: "1.01", Solid: "1.14", zerolith: "1.14", Svelte: "1.15", Lit: "1.24", Vue: "1.24", Preact: "1.34", Angular: "1.38", React: "1.48" };
+        const published = { vanilla: "1.00", Solid: "1.13", zerolith: "1.13", Svelte: "1.14", Lit: "1.23", Vue: "1.23", Preact: "1.33", Angular: "1.37", React: "1.47" };
         const recorded = (await readRuns(fileURLToPath(new URL("results/", folder)))).find((one) => one.date === "2026-11-01");
         expect(recorded).toBeDefined();
         const result = scores(recorded as Run);
@@ -136,13 +148,16 @@ function releaseBefore(time: number, fields: Record<string, unknown> = {}): Fram
 
 describe("what a run says about itself", () =>
 {
-    it("says why no score is 1.00 when no framework was fastest at every operation, and nothing when one was", () =>
+    it("says that hand-written JavaScript is 1.00 and that a cell below 1.00 is faster than it, and prints such a cell", () =>
     {
         const split = run(["vanilla", "zerolith"], (name, operation) => ((name === "vanilla") === (operation === "01_run1k") ? 10 : 12));
-        expect(noneFastest(split)).toContain("No framework was fastest at every operation in this run, so none scores 1.00");
-        expect(renderResults([split])).toContain("so none scores 1.00");
-        expect(noneFastest(taken({}))).toBe("");
-        expect(renderResults([taken({})])).not.toContain("none scores 1.00");
+        const rendered = renderResults([split]);
+        expect(rendered).toContain("so hand-written JavaScript is 1.00, a score of 1.10 takes 10% longer than it over the nine operations, and lower is faster.");
+        expect(rendered).toContain("with the factor against hand-written JavaScript for that operation in parentheses; below 1.00 is faster than it.");
+        expect(rendered).toContain("| zerolith | `zerolith` | 1.0.0 | 0.");
+        expect(rendered).toContain("| create 1,000 rows | 12.0 (1.20) | 10.0 (1.00) |");
+        expect(rendered).toContain("| replace all 1,000 rows | 10.0 (0.83) | 12.0 (1.00) |");
+        expect(rendered).not.toContain("fastest");
     });
 
     it("says how many passes its memory, size, and first paint results are the median of, and takes only a count from 2 to 20", () =>
@@ -159,7 +174,7 @@ describe("what a run says about itself", () =>
 
 describe("the release before", () =>
 {
-    it("scores against the fastest times of the run's frameworks, below 1.00 where it beats them all", () =>
+    it("scores against hand-written JavaScript as the run's frameworks do, below 1.00 where it beats it", () =>
     {
         expect(previousScore(taken({ zerolith: "0.2.0", previous: releaseBefore(12) }))).toBeCloseTo(1.2, 10);
         expect(previousScore(taken({ zerolith: "0.2.0", previous: releaseBefore(9) }))).toBeCloseTo(0.9, 10);
