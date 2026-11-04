@@ -109,7 +109,7 @@ Three example applications show it end to end: [notes](examples/notes), plain Ja
 
 ## Where it's going
 
-Next come the first production site, the js-framework-benchmark entry, already measured next to seven popular frameworks in [benchmarks](benchmarks/README.md), and a frozen API for the core, templates, and router. After 1.0 come the application utilities, signals kept in storage, undo, sensors, retry, and transitions among them, signals the server can push, richer dev tools with an MCP server for agents, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
+The first production site, [media.molex.cloud](https://media.molex.cloud/), runs on zerolith served buildless, and the js-framework-benchmark entry is submitted and measured next to seven popular frameworks in [benchmarks](benchmarks/README.md); what remains before 1.0 is the frozen API for the core, templates, and router, under review in [an RFC](https://github.com/molexxxx/zerolith/issues/7). After 1.0 come the application utilities, signals kept in storage, undo, sensors, retry, and transitions among them, signals the server can push, richer dev tools with an MCP server for agents, and an editor extension. The [roadmap](docs/ROADMAP.md) has the full picture.
 
 ## Documentation
 
