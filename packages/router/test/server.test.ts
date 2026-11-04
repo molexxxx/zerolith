@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { html } from "zerolith";
+import { type ZerolithError, html } from "zerolith";
 import { renderToString } from "zerolith/ssr";
 import { createRouter, defineRoutes, route } from "@zerolith/router";
 import { renderHead, renderRouteState } from "@zerolith/router/server";
@@ -102,6 +102,33 @@ describe("the router without a window", () =>
         expect(renderHead({})).toBe("");
         expect(renderHead({ title: "A <b>" })).toBe("<title>A &lt;b&gt;</title>");
         router.dispose();
+    });
+});
+
+/** A view for a route whose path alone is under test. */
+const plainView = (): string => "x";
+
+describe("route paths", () =>
+{
+    it("refuses a path the matcher cannot read as written, naming the route", () =>
+    {
+        const view = plainView;
+        for (const path of ["/a/*rest/b", "/a/*x/*y", "/a/:", "/a/:b?", "/a/*", "/:name*"])
+        {
+            let thrown: ZerolithError | undefined;
+            try
+            {
+                createRouter(defineRoutes({ bad: route({ path, view }) }), { window: null });
+            }
+            catch (error)
+            {
+                thrown = error as ZerolithError;
+            }
+            expect(thrown?.diagnostic.code, path).toBe("route_path_invalid");
+            expect(thrown?.diagnostic.args).toEqual({ name: "bad", path });
+            expect(thrown?.diagnostic.url).toBe(`https://zerolith.dev/e/route_path_invalid/?${new URLSearchParams({ name: "bad", path }).toString()}`);
+        }
+        expect(() => createRouter(defineRoutes({ ok: route({ path: "/a/:b/c/*rest", view }) }), { window: null })).not.toThrow();
     });
 });
 

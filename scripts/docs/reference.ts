@@ -129,8 +129,8 @@ function docText(jsDoc: JsDoc | undefined, name: string): string
 
 const sources = new Map<string, string[]>();
 
-/** The names of a declaration's `const` type parameters, read from the source, since the doc JSON drops the modifier: the text from the declaration's line to its first parenthesis or brace. */
-function constTypeParams(declaration: Declaration): ReadonlySet<string>
+/** The modifiers of a declaration's type parameters, `const`, `in`, `out`, or `in out`, by parameter name, read from the source, since the doc JSON drops them: the text from the declaration's line to its first parenthesis, brace, or equals sign. */
+function typeParamModifiers(declaration: Declaration): ReadonlyMap<string, string>
 {
     let file: string;
     try
@@ -139,7 +139,7 @@ function constTypeParams(declaration: Declaration): ReadonlySet<string>
     }
     catch
     {
-        return new Set();
+        return new Map();
     }
     let lines = sources.get(file);
     if (lines === undefined)
@@ -155,13 +155,13 @@ function constTypeParams(declaration: Declaration): ReadonlySet<string>
         sources.set(file, lines);
     }
     const head = lines.slice(declaration.location.line - 1, declaration.location.line + 7).join("\n");
-    const stop = head.search(/[({]/);
-    const names = new Set<string>();
-    for (const match of (stop === -1 ? head : head.slice(0, stop)).matchAll(/\bconst\s+([A-Za-z_$][\w$]*)/g))
+    const stop = head.search(/[({=]/);
+    const modifiers = new Map<string, string>();
+    for (const match of (stop === -1 ? head : head.slice(0, stop)).matchAll(/\b(const|in out|in|out)\s+([A-Za-z_$][\w$]*)/g))
     {
-        names.add(match[1] ?? "");
+        modifiers.set(match[2] ?? "", match[1] ?? "");
     }
-    return names;
+    return modifiers;
 }
 
 function signatureOf(name: string, declaration: Declaration): string
@@ -174,18 +174,18 @@ function signatureOf(name: string, declaration: Declaration): string
             const params = def["params"] as Param[] | undefined;
             const typeParams = def["typeParams"] as TypeParam[] | undefined;
             const returnType = def["returnType"] as TsType | undefined;
-            return `${def["isAsync"] === true ? "async " : ""}function ${name}${typeParamsText(typeParams, constTypeParams(declaration))}(${paramsText(params)}): ${typeText(returnType)}`;
+            return `${def["isAsync"] === true ? "async " : ""}function ${name}${typeParamsText(typeParams, typeParamModifiers(declaration))}(${paramsText(params)}): ${typeText(returnType)}`;
         }
         case "interface":
         {
             const typeParams = def["typeParams"] as TypeParam[] | undefined;
             const extendsList = (def["extends"] as TsType[] | undefined) ?? [];
-            return `interface ${name}${typeParamsText(typeParams)}${extendsList.length === 0 ? "" : ` extends ${extendsList.map(typeText).join(", ")}`}`;
+            return `interface ${name}${typeParamsText(typeParams, typeParamModifiers(declaration))}${extendsList.length === 0 ? "" : ` extends ${extendsList.map(typeText).join(", ")}`}`;
         }
         case "typeAlias":
         {
             const typeParams = def["typeParams"] as TypeParam[] | undefined;
-            return `type ${name}${typeParamsText(typeParams)} = ${typeText(def["tsType"] as TsType | undefined)}`;
+            return `type ${name}${typeParamsText(typeParams, typeParamModifiers(declaration))} = ${typeText(def["tsType"] as TsType | undefined)}`;
         }
         case "variable":
             return `${String(def["kind"] ?? "const")} ${name}: ${typeText(def["tsType"] as TsType | undefined)}`;
@@ -194,7 +194,7 @@ function signatureOf(name: string, declaration: Declaration): string
             const typeParams = def["typeParams"] as TypeParam[] | undefined;
             const base = def["extends"] as string | undefined;
             const implementsList = (def["implements"] as TsType[] | undefined) ?? [];
-            return `class ${name}${typeParamsText(typeParams)}${base === undefined || base === "" ? "" : ` extends ${base}`}${implementsList.length === 0 ? "" : ` implements ${implementsList.map(typeText).join(", ")}`}`;
+            return `class ${name}${typeParamsText(typeParams, typeParamModifiers(declaration))}${base === undefined || base === "" ? "" : ` extends ${base}`}${implementsList.length === 0 ? "" : ` implements ${implementsList.map(typeText).join(", ")}`}`;
         }
         default:
             return `${declaration.kind} ${name}`;

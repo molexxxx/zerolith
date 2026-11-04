@@ -4,6 +4,7 @@
 export type { ParamsOf } from "./match.js";
 export type {
     AnyRoute,
+    DataOf,
     Head,
     HeadContext,
     HrefArgs,
@@ -13,6 +14,7 @@ export type {
     NavigationEvent,
     RouteContext,
     RouteDefinition,
+    RouteParams,
     RouteTable,
     RouteView,
     Router,

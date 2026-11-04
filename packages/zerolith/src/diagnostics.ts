@@ -78,7 +78,8 @@ export type DiagnosticCode =
     | "template_not_prepared"
     | "lazy_module_not_split"
     | "package_version_mismatch"
-    | "route_name_unknown";
+    | "route_name_unknown"
+    | "route_path_invalid";
 
 /** Builds the full diagnostic record for a catalog code. */
 export function diagnostic(code: DiagnosticCode, severity: DiagnosticSeverity, args?: DiagnosticArgs): Diagnostic

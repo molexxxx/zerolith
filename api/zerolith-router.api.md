@@ -47,14 +47,6 @@ interface LoadContext<Params>
     abort: AbortSignal
 }
 
-interface Match
-{
-    readonly name: string
-    readonly params: Readonly<Record<string, string>>
-    readonly url: URL
-    readonly data: unknown
-}
-
 interface NavigationEvent
 {
     readonly type: "start" | "commit" | "error" | "cancel"
@@ -82,7 +74,7 @@ interface RouteDefinition<Path extends string = string, Data = undefined>
 
 interface Router<T extends RouteTable>
 {
-    readonly current: ReadableSignal<Match | undefined>
+    readonly current: ReadableSignal<Match<T> | undefined>
     readonly url: ReadableSignal<URL>
     readonly pending: ReadableSignal<boolean>
     readonly head: ReadableSignal<Head>
@@ -105,8 +97,11 @@ interface RouterOptions
     base?: string
 }
 
+type DataOf<R> = R extends RouteDefinition<infer _Path, infer Data> ? Data : unknown
 type HrefArgs<Path extends string> = Record<string, never> extends ParamsOf<Path> ? [] : [ParamsOf<Path>]
+type Match<T extends RouteTable = RouteTable> = T extends RouteTable ? { [N in keyof T]: { readonly name: N & string; readonly params: RouteParams<T[N]>; readonly url: URL; readonly data: DataOf<T[N]> } }[keyof T] : never
 type ParamsOf<Path extends string> = Path extends `${infer Head}/${infer Rest}` ? ParamsOf<Head> & ParamsOf<Rest> : Path extends `:${infer Name}` ? { [K in Name]: string } : Path extends `*${infer Name}` ? { [K in Name]: string } : {}
+type RouteParams<R> = R extends RouteDefinition<infer Path, infer _Data> ? (string extends Path ? Readonly<Record<string, string>> : ParamsOf<Path>) : Readonly<Record<string, string>>
 type RouteTable = Readonly<Record<string, AnyRoute>>
 type RouteView<Params, Data> = (context: RouteContext<Params, Data>) => Renderable
 

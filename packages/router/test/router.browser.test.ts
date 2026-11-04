@@ -6,6 +6,16 @@ let root: Root | undefined;
 let host: HTMLElement | undefined;
 let router: Router<RouteTable> | undefined;
 
+/** Waits until `condition` holds, polling, for up to a second. */
+async function until(condition: () => boolean): Promise<void>
+{
+    for (let i = 0; i < 100 && !condition(); i++)
+    {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    expect(condition()).toBe(true);
+}
+
 function mount(view: Renderable | (() => Renderable)): HTMLElement
 {
     host = document.createElement("div");
@@ -604,6 +614,123 @@ describe("router", () =>
             window.scrollTo(0, 0);
             tall.remove();
         }
+    });
+
+    it("clears pending when disposed during a navigation, and settles ready on the first commit", async () =>
+    {
+        const gate = Promise.withResolvers<void>();
+        const slow = defineRoutes({
+            home: route({ path: "/", view: () => html`<p>home</p>` }),
+            slow: route({ path: "/slow", view: () => html`<p>slow</p>`, load: () => gate.promise.then(() => "loaded") }),
+            fast: route({ path: "/fast", view: () => html`<p>fast</p>` })
+        });
+        history.replaceState(null, "", "/slow");
+        const events: string[] = [];
+        const first = createRouter(slow, { observe: (event) => events.push(event.type) });
+        void first.navigate("/fast");
+        await first.ready;
+        expect(first.current.get()?.name).toBe("fast");
+        expect(events).toEqual(["start", "start", "commit"]);
+        first.dispose();
+
+        history.replaceState(null, "", "/");
+        const second = createRouter(slow);
+        await second.ready;
+        const navigation = second.navigate("/slow");
+        expect(second.pending.get()).toBe(true);
+        second.dispose();
+        expect(second.pending.get()).toBe(false);
+        gate.resolve();
+        await navigation;
+        expect(second.current.get()?.name).toBe("home");
+
+        history.replaceState(null, "", "/slow");
+        const failing = createRouter(defineRoutes({
+            slow: route({ path: "/slow", view: () => html`<p>slow</p>`, load: () => Promise.reject(new Error("no")) })
+        }), { onError: () => undefined });
+        await expect(failing.ready).rejects.toThrow("no");
+        failing.dispose();
+    });
+
+    it("compares matches without a trailing slash, a query, or a hash, and at the base root", async () =>
+    {
+        const pages = defineRoutes({
+            home: route({ path: "/", view: () => html`<p>home</p>` }),
+            settings: route({ path: "/settings", view: () => html`<p>settings</p>` })
+        });
+        history.replaceState(null, "", "/settings/?tab=1#top");
+        const attached = createRouter(pages);
+        await attached.ready;
+        expect(attached.matches("/settings", { exact: true }).get()).toBe(true);
+        expect(attached.matches("/settings/", { exact: true }).get()).toBe(true);
+        expect(attached.matches("/settings?tab=1", { exact: true }).get()).toBe(true);
+        expect(attached.matches("/settings#top").get()).toBe(true);
+        expect(attached.matches("/sett", { exact: true }).get()).toBe(false);
+        attached.dispose();
+
+        history.replaceState(null, "", "/app");
+        const based = createRouter(pages, { base: "/app/" });
+        await based.ready;
+        expect(based.href("home")).toBe("/app/");
+        expect(based.matches(based.href("home"), { exact: true }).get()).toBe(true);
+        expect(based.matches("/", { exact: true }).get()).toBe(true);
+        based.dispose();
+    });
+
+    it("moves the history back when a back or forward navigation fails, so the address bar shows the page still shown", async () =>
+    {
+        let fail = false;
+        const broken = defineRoutes({
+            home: route({ path: "/", view: () => html`<p>home</p>` }),
+            notes: route({
+                path: "/notes",
+                view: () => html`<p>notes</p>`,
+                load: () => (fail ? Promise.reject(new Error("gone")) : Promise.resolve("ok"))
+            })
+        });
+        history.replaceState(null, "", "/");
+        const errors: string[] = [];
+        const events: string[] = [];
+        const moved = createRouter(broken, { onError: (error) => errors.push((error as Error).message), observe: (event) => events.push(`${event.type}:${event.mode}`) });
+        await moved.ready;
+        await moved.navigate("/notes");
+        await moved.navigate("/");
+        expect(location.pathname).toBe("/");
+        fail = true;
+        events.length = 0;
+        history.back();
+        await until(() => errors.length === 1);
+        await until(() => location.pathname === "/" && events.includes("commit:pop") === false && history.state?.position === 2);
+        expect(moved.url.get().pathname).toBe("/");
+        expect(moved.current.get()?.name).toBe("home");
+        expect(events.filter((event) => event.startsWith("error"))).toEqual(["error:pop"]);
+        moved.dispose();
+    });
+
+    it("reports a lazy import that rejects, replaces an entry on request, and leaves scrolling alone when asked", async () =>
+    {
+        history.replaceState(null, "", "/");
+        const errors: string[] = [];
+        const lazyTable = defineRoutes({
+            home: route({ path: "/", view: () => html`<p>home</p>` }),
+            broken: route({ path: "/broken", view: lazy(() => Promise.reject(new Error("no module"))) }),
+            files: route({ path: "/files/*rest", view: () => html`<p>files</p>` })
+        });
+        const scrolls = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+        const lazyRouter = createRouter(lazyTable, { onError: (error) => errors.push((error as Error).message), scroll: false });
+        await lazyRouter.ready;
+        await lazyRouter.navigate("/broken");
+        expect(errors).toEqual(["no module"]);
+        expect(lazyRouter.current.get()?.name).toBe("home");
+        const length = history.length;
+        await lazyRouter.navigate("/files/a/b", { replace: true });
+        expect(history.length).toBe(length);
+        expect(location.pathname).toBe("/files/a/b");
+        expect(lazyRouter.current.get()?.params).toEqual({ rest: "a/b" });
+        expect(lazyRouter.href("files", { rest: "x/y z" })).toBe("/files/x/y%20z");
+        expect(scrolls).not.toHaveBeenCalled();
+        scrolls.mockRestore();
+        lazyRouter.dispose();
     });
 
     it("cancels a navigation a newer one replaced, without reporting its aborted loader as an error", async () =>

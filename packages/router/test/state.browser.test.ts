@@ -52,6 +52,27 @@ describe("embedded route state", () =>
         expect(router.current.get()?.data).toEqual({ id: "1", fresh: true });
     });
 
+    it("consumes the embedded state on the initial navigation whatever it resolves to, and ignores a record without data", async () =>
+    {
+        history.replaceState(null, "", "/nowhere");
+        embed({ name: "note", href: "/notes/1?tab=a", data: { id: "1", fresh: false } });
+        router = createRouter(routes);
+        await router.ready;
+        expect(router.current.get()).toBeUndefined();
+        await router.navigate("/notes/1?tab=a");
+        expect(loads).toEqual(["/notes/1?tab=a"]);
+        expect(router.current.get()?.data).toEqual({ id: "1", fresh: true });
+        router.dispose();
+
+        loads = [];
+        history.replaceState(null, "", "/notes/1?tab=a");
+        embed({ name: "note", href: "/notes/1?tab=a" });
+        router = createRouter(routes);
+        await router.ready;
+        expect(loads).toEqual(["/notes/1?tab=a"]);
+        expect(router.current.get()?.data).toEqual({ id: "1", fresh: true });
+    });
+
     it("runs the loader when the embedded state is for another URL, another route, or is not JSON", async () =>
     {
         history.replaceState(null, "", "/notes/2");

@@ -154,6 +154,12 @@ Cause: href() of @zerolith/router was called with a name the route table does no
 
 Fix: Use a name the table passed to createRouter declares; the message names the one given, and TypeScript rejects it in a typed project.
 
+## route_path_invalid
+
+Cause: A route's path names a parameter the matcher cannot read as written: a *rest segment that is not the last, a second *rest, a parameter with no name, or a modifier such as ? after a name.
+
+Fix: Write the path with static segments, :name parameters, and at most one *rest at the end; the message names the route and its path.
+
 ## script_in_template
 
 Cause: A template contains a script element.

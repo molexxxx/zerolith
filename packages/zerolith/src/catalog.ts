@@ -149,6 +149,11 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
         cause: "href() of @zerolith/router was called with a name the route table does not hold, so there is no path to build.",
         fix: "Use a name the table passed to createRouter declares; the message names the one given, and TypeScript rejects it in a typed project."
     },
+    route_path_invalid:
+    {
+        cause: "A route's path names a parameter the matcher cannot read as written: a *rest segment that is not the last, a second *rest, a parameter with no name, or a modifier such as ? after a name.",
+        fix: "Write the path with static segments, :name parameters, and at most one *rest at the end; the message names the route and its path."
+    },
     template_not_prepared:
     {
         cause: "A template reached the runtime that the build's prepare pass never saw, in a bundle built without the scanner.",

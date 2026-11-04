@@ -94,18 +94,25 @@ export function lazy<Params, Data>(loader: () => Promise<RouteView<Params, Data>
     return { lazy: loader };
 }
 
-/** The route the URL resolved to. */
-export interface Match
-{
-    /** The matched route's name in the route table. */
-    readonly name: string;
-    /** The path parameters by name, decoded from the URL; empty when the path has none. */
-    readonly params: Readonly<Record<string, string>>;
-    /** The URL the route matched, query and hash included. */
-    readonly url: URL;
-    /** What the route's `load` resolved to, or on the initial navigation the copy the server embedded; `undefined` when the route has no loader. */
-    readonly data: unknown;
-}
+/** What a route's `load` resolves to: `undefined` for a route without a loader, and `unknown` for a table whose routes are not known statically. */
+export type DataOf<R> = R extends RouteDefinition<infer _Path, infer Data> ? Data : unknown;
+
+/** The parameters a route's path names, or any string record for a table whose routes are not known statically. */
+export type RouteParams<R> = R extends RouteDefinition<infer Path, infer _Data> ? (string extends Path ? Readonly<Record<string, string>> : ParamsOf<Path>) : Readonly<Record<string, string>>;
+
+/** The route the URL resolved to. For a typed table it is a union over the table's names, each with the parameters its path names and the data its loader resolves to, so a check of `name` narrows `params` and `data`. */
+export type Match<T extends RouteTable = RouteTable> = T extends RouteTable ? {
+    [N in keyof T]: {
+        /** The matched route's name in the route table. */
+        readonly name: N & string;
+        /** The path parameters by name, decoded from the URL; empty when the path has none. */
+        readonly params: RouteParams<T[N]>;
+        /** The URL the route matched, query and hash included. */
+        readonly url: URL;
+        /** What the route's `load` resolved to, or on the initial navigation the copy the server embedded; `undefined` when the route has no loader. */
+        readonly data: DataOf<T[N]>;
+    };
+}[keyof T] : never;
 
 /** The arguments `href()` takes for a path: none when it has no parameters. */
 export type HrefArgs<Path extends string> = Record<string, never> extends ParamsOf<Path> ? [] : [params: ParamsOf<Path>];
@@ -151,7 +158,7 @@ export interface RouterOptions
      * head as a whole; a field neither gives goes back to what the document had when the router was created, as written in the page.
      */
     head?: Head | ((context: HeadContext) => Head);
-    /** Called when a loader, a lazy import, or a route's `head` throws, or when the new page throws as it renders. Without it the error propagates from `navigate()`. */
+    /** Called when a loader, a lazy import, or a route's `head` throws, which leaves the page as it was, or when the new page throws as it renders, after the URL changed. Without it the error propagates from `navigate()`, and a navigation a link or the history started rejects unobserved, which the browser reports. */
     onError?: (error: unknown, url: URL) => void;
     /** Set false to leave scrolling to the application. Defaults to true. */
     scroll?: boolean;
@@ -193,14 +200,14 @@ function normalizeBase(base: string | undefined): string
 export interface Router<T extends RouteTable>
 {
     /** The current match, or undefined when nothing matched (the fallback renders). */
-    readonly current: ReadableSignal<Match | undefined>;
+    readonly current: ReadableSignal<Match<T> | undefined>;
     /** The current URL. */
     readonly url: ReadableSignal<URL>;
     /** True while a navigation is loading. */
     readonly pending: ReadableSignal<boolean>;
     /** The head metadata of the current route, for the server to render and for the browser to apply. */
     readonly head: ReadableSignal<Head>;
-    /** Settles when the initial navigation from the window's location has committed; already settled without a window. Rejects as `navigate` would. */
+    /** Settles when the first navigation commits, the initial one from the window's location or a newer one that replaced it; already settled without a window. Rejects with the first failure before that, as `navigate` would. */
     readonly ready: Promise<void>;
     /** Builds a URL path for a named route; a name the table does not hold throws `route_name_unknown`. */
     href<N extends keyof T & string>(name: N, ...args: HrefArgs<T[N]["path"]>): string;
@@ -252,7 +259,7 @@ export interface EmbeddedRouteState
 /** The selector of the script `renderRouteState` writes. */
 export const ROUTE_STATE_SELECTOR: string = "script[type=\"application/json\"][data-zerolith-route]";
 
-/** Reads and removes the embedded route state, if the server left one; used once, for the initial navigation. */
+/** Reads and removes the embedded route state, if the server left one; used once, for the initial navigation, whatever it resolves to. A record without a `data` member is not one the server wrote. */
 function readEmbeddedState(doc: Document): EmbeddedRouteState | undefined
 {
     const script = doc.querySelector(ROUTE_STATE_SELECTOR);
@@ -264,7 +271,7 @@ function readEmbeddedState(doc: Document): EmbeddedRouteState | undefined
     try
     {
         const parsed = JSON.parse(script.textContent ?? "") as Partial<EmbeddedRouteState>;
-        return typeof parsed.name === "string" && typeof parsed.href === "string" ? { name: parsed.name, href: parsed.href, data: parsed.data } : undefined;
+        return typeof parsed.name === "string" && typeof parsed.href === "string" && "data" in parsed ? { name: parsed.name, href: parsed.href, data: parsed.data } : undefined;
     }
     catch
     {
@@ -303,12 +310,55 @@ function headOf(resolved: Resolved, target: URL, defaults: RouterOptions["head"]
     return merged;
 }
 
-/** The error `href()` throws for a name the route table does not hold, built from the core's catalog as the core builds its own. */
+/** An error of the router's own, built from the core's catalog as the core builds its own. */
+function routerError(code: "route_name_unknown" | "route_path_invalid", args: Readonly<Record<string, string>>): ZerolithError
+{
+    const text = diagnosticCatalog[code];
+    return new ZerolithError({ code, severity: "error", cause: text?.cause ?? "", fix: text?.fix ?? "", url: `${DIAGNOSTIC_URL}${code}/?${new URLSearchParams(args).toString()}`, args });
+}
+
+/** A path without its trailing slash, except the root, so `/settings` and `/settings/` compare equal as the matcher reads them. */
+function withoutTrailingSlash(path: string): string
+{
+    return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
+}
+
+/** The error `href()` throws for a name the route table does not hold. */
 function unknownRoute(name: string): ZerolithError
 {
-    const code = "route_name_unknown";
-    const text = diagnosticCatalog[code];
-    return new ZerolithError({ code, severity: "error", cause: text?.cause ?? "", fix: text?.fix ?? "", url: `${DIAGNOSTIC_URL}${code}/?${new URLSearchParams({ name }).toString()}`, args: { name } });
+    return routerError("route_name_unknown", { name });
+}
+
+/**
+ * Refuses a path the matcher cannot read as written: a `*rest` segment that
+ * is not the last, a second one, a parameter with no name, or a modifier
+ * such as `?` or `+` after a name, which would be read as part of it.
+ */
+function checkPath(name: string, path: string): void
+{
+    const segments = path.split("/").filter((segment) => segment !== "");
+    let stars = 0;
+    for (const [index, segment] of segments.entries())
+    {
+        const parameter = segment.startsWith(":") || segment.startsWith("*");
+        if (!parameter)
+        {
+            continue;
+        }
+        const label = segment.slice(1);
+        if (label === "" || /[?*+:()[\]{}]/.test(label))
+        {
+            throw routerError("route_path_invalid", { name, path });
+        }
+        if (segment.startsWith("*"))
+        {
+            stars++;
+            if (stars > 1 || index !== segments.length - 1)
+            {
+                throw routerError("route_path_invalid", { name, path });
+            }
+        }
+    }
 }
 
 /** A fragment percent-decoded, or as it is when its escapes are malformed, as in `#100%`. */
@@ -331,7 +381,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
     let embedded = win === undefined ? undefined : readEmbeddedState(win.document);
     const compiledRoutes: Compiled[] = Object.entries(routes as unknown as Record<string, RouteDefinition<string, unknown>>).map(([name, definition]) => ({
         name,
-        pattern: compile(definition.path),
+        pattern: (checkPath(name, definition.path), compile(definition.path)),
         route: definition,
         view: isLazy(definition.view) ? undefined : (definition.view as RouteView<unknown, unknown>)
     }));
@@ -345,6 +395,13 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
     const views = new Map<string, RouteView<unknown, unknown>>();
     let controller: AbortController | undefined;
     let generation = 0;
+    /** Where the entry shown stands among the entries the router wrote, kept in each entry's state, so a back or forward that fails can return by the distance it moved. */
+    let position = 0;
+    let settleReady: { resolve: () => void; reject: (error: unknown) => void } | undefined;
+    const ready = new Promise<void>((resolve, reject) =>
+    {
+        settleReady = { resolve, reject };
+    });
     /** The scroll position the history entry shown saved in its state, if it saved one. */
     const savedScroll = (): number | undefined =>
     {
@@ -448,6 +505,8 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
 
     const resolve = async (target: URL): Promise<Resolved> =>
     {
+        const reusable = embedded;
+        embedded = undefined;
         const found = find(target.pathname);
         if (found === undefined)
         {
@@ -462,8 +521,6 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             view = await (compiled.route.view as LazyView<unknown, unknown>).lazy();
             views.set(compiled.name, view);
         }
-        const reusable = embedded;
-        embedded = undefined;
         let data: unknown;
         if (reusable !== undefined && reusable.name === compiled.name && reusable.href === target.pathname + target.search)
         {
@@ -557,6 +614,8 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         });
         applyHead(value);
         scrollTo(target, restored, !first);
+        settleReady?.resolve();
+        settleReady = undefined;
     };
 
     /**
@@ -564,7 +623,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
      * the route and its head before the URL changes, then commits. A failure
      * at any step clears `pending` and ends in an `error` event.
      */
-    const go = async (target: URL, mode: "push" | "replace" | "pop", restored?: number, first = false, reload = false): Promise<void> =>
+    const go = async (target: URL, mode: "push" | "replace" | "pop", restored?: number, first = false, reload = false, moved = 0): Promise<void> =>
     {
         const run = ++generation;
         controller?.abort();
@@ -578,11 +637,12 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             {
                 clearTimeout(scrollPause);
                 saveScroll();
-                win.history.pushState({}, "", target.href);
+                position++;
+                win.history.pushState({ position }, "", target.href);
             }
             else if (win !== undefined && mode === "replace")
             {
-                win.history.replaceState(entryState(), "", target.href);
+                win.history.replaceState({ ...entryState(), position }, "", target.href);
             }
             url.set(target);
             scrollTo(target, mode === "pop" && target.hash === "" ? restored : undefined);
@@ -594,7 +654,14 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         const failed = (error: unknown): void =>
         {
             pending.set(false);
+            if (mode === "pop" && moved !== 0 && win !== undefined)
+            {
+                position -= moved;
+                win.history.go(-moved);
+            }
             options.observe?.({ type: "error", id: run, url: target, mode, error });
+            settleReady?.reject(error);
+            settleReady = undefined;
             if (options.onError === undefined)
             {
                 throw error;
@@ -631,11 +698,12 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
                 {
                     clearTimeout(scrollPause);
                     saveScroll();
-                    win.history.pushState({}, "", target.href);
+                    position++;
+                    win.history.pushState({ position }, "", target.href);
                 }
                 else
                 {
-                    win.history.replaceState(entryState(), "", target.href);
+                    win.history.replaceState({ ...entryState(), position }, "", target.href);
                 }
             }
             commit(target, resolved, value, restored, first);
@@ -695,6 +763,9 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         clearTimeout(scrollPause);
         const target = new URL(win.location.href);
         const restored = savedScroll();
+        const landed: unknown = win.history.state?.position;
+        const moved = typeof landed === "number" ? landed - position : 0;
+        position += moved;
         const shown = url.get();
         if (!pending.get() && target.pathname === shown.pathname && target.search === shown.search)
         {
@@ -702,7 +773,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             scrollTo(target, target.hash === "" ? restored : undefined);
             return;
         }
-        void go(target, "pop", restored);
+        void go(target, "pop", restored, false, false, moved);
     };
 
     if (win !== undefined)
@@ -718,7 +789,17 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             win.addEventListener("scroll", onScroll, { passive: true });
         }
     }
-    const ready = win === undefined ? Promise.resolve() : go(initial, "replace", savedScroll(), true);
+    if (win === undefined)
+    {
+        settleReady?.resolve();
+        settleReady = undefined;
+    }
+    else
+    {
+        const state: unknown = win.history.state?.position;
+        position = typeof state === "number" ? state : 0;
+        void go(initial, "replace", savedScroll(), true).catch(() => undefined);
+    }
 
     /**
      * The current page as a list of one entry per committed navigation, so
@@ -743,7 +824,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
     }));
 
     return {
-        current,
+        current: current as unknown as ReadableSignal<Match<T> | undefined>,
         url,
         pending,
         head,
@@ -776,11 +857,11 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         },
         matches(path, matching = {})
         {
-            const full = within(path);
+            const full = withoutTrailingSlash(within(path.split(/[?#]/)[0] ?? path));
             return computed(() =>
             {
-                const { pathname } = url.get();
-                return pathname === full || (matching.exact !== true && pathname.startsWith(full.endsWith("/") ? full : full + "/"));
+                const pathname = withoutTrailingSlash(url.get().pathname);
+                return pathname === full || (matching.exact !== true && pathname.startsWith(full === "/" ? "/" : full + "/"));
             });
         },
         outlet()
@@ -791,6 +872,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         {
             generation++;
             controller?.abort();
+            pending.set(false);
             if (win !== undefined)
             {
                 win.document.removeEventListener("click", onClick);
