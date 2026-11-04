@@ -51,9 +51,44 @@ pub struct Vendored {
     pub folders: Vec<String>,
     /// The URLs each vendored module imports statically, relative imports resolved and bare ones through the map.
     pub statics: BTreeMap<String, Vec<String>>,
+    /// The files an earlier run left in the package folders this run wrote, which the entries no longer load, for `prune` to remove once the pages that named them are rewritten.
+    pub stale: Vec<PathBuf>,
+    /// Every folder under the package folders this run wrote, each after its parent, which `prune` removes when pruning leaves it empty.
+    written_folders: Vec<PathBuf>,
 }
 
 impl Vendored {
+    /// Removes the files an earlier run left that the entries no longer load, listed in `stale`, and the folders that leaves empty. A caller runs it once the pages that named those files are written, so a page write that fails leaves a page whose files are all still there. Every removal is tried, and the first that failed is the error, naming its path; what stays is listed as stale again by the next run.
+    pub fn prune(&self) -> io::Result<()> {
+        let mut failed: Option<io::Error> = None;
+        let mut note = |path: &Path, error: io::Error| {
+            failed.get_or_insert_with(|| {
+                io::Error::new(
+                    error.kind(),
+                    format!("could not remove {}: {error}", path.display()),
+                )
+            });
+        };
+        for file in &self.stale {
+            if let Err(error) = remove_entry(file) {
+                note(file, error);
+            }
+        }
+        for directory in self.written_folders.iter().rev() {
+            let empty = match fs::read_dir(directory) {
+                Ok(mut entries) => entries.next().is_none(),
+                Err(error) => {
+                    note(directory, error);
+                    continue;
+                }
+            };
+            if empty && let Err(error) = fs::remove_dir(directory) {
+                note(directory, error);
+            }
+        }
+        failed.map_or(Ok(()), Err)
+    }
+
     /// The preload links for one page: the modules its entries load statically, the entries themselves left out since the page names them, then every vendored module the page's bare imports load statically, through the map and the modules' own imports, in a stable order.
     pub fn preloads(&self, page: &PageGraph) -> Vec<String> {
         let mut reached = BTreeSet::new();
@@ -794,8 +829,49 @@ fn files_and_folders(folder: &Path) -> io::Result<(Vec<String>, Vec<std::path::P
     Ok((files, folders))
 }
 
-/// Writes a package's `VERSION` and then its planned files into its folder in place, so a write that fails partway leaves a folder a later run takes for its own, and with `prune` removes the files an earlier run left there that the entries no longer load, and the folders that leaves empty. Only a folder that holds nothing but what this command writes reaches here, since planning refuses one without a `VERSION` file.
-fn write_package(folder: &Path, plan: &PackagePlan, prune: bool) -> io::Result<()> {
+/// Removes a stale entry: a file, or a symbolic link, which Windows removes as a directory when it points at one.
+fn remove_entry(path: &Path) -> io::Result<()> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::FileTypeExt;
+        if fs::symlink_metadata(path)?.file_type().is_symlink_dir() {
+            return fs::remove_dir(path);
+        }
+    }
+    fs::remove_file(path)
+}
+
+/// True for a URL with a scheme, such as `https://cdn.example/lit.js` or `data:`, which the browser does not read against the page.
+fn has_scheme(url: &str) -> bool {
+    let mut chars = url.chars();
+    chars
+        .next()
+        .is_some_and(|first| first.is_ascii_alphabetic())
+        && chars
+            .take_while(|c| *c != ':')
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '.' | '-'))
+        && url.contains(':')
+}
+
+/// A URL of a page's import map as the browser reads it: root-relative or with a scheme as written, a relative one read against the page, root-relative, with its trailing slash kept for a folder prefix; one the browser would read otherwise stays as written.
+fn page_url(page: &str, url: &str) -> String {
+    if url.starts_with('/') || has_scheme(url) {
+        return url.to_string();
+    }
+    let (path, slash) = match url.strip_suffix('/') {
+        Some(path) => (path, "/"),
+        None => (url, ""),
+    };
+    resolve_url(page, path).map_or_else(|| url.to_string(), |resolved| resolved + slash)
+}
+
+/// Writes a package's `VERSION` and then its planned files into its folder in place, so a write that fails partway leaves a folder a later run takes for its own, and lists in `stale` the files an earlier run left there that the entries no longer load, and in `folders` every folder of the package, for `Vendored::prune` to remove once the pages that named the files are rewritten. Only a folder that holds nothing but what this command writes reaches here, since planning refuses one without a `VERSION` file.
+fn write_package(
+    folder: &Path,
+    plan: &PackagePlan,
+    stale: &mut Vec<PathBuf>,
+    folders: &mut Vec<PathBuf>,
+) -> io::Result<()> {
     fs::create_dir_all(folder)?;
     fs::write(folder.join("VERSION"), format!("{}\n", plan.version))?;
     for (file, bytes) in &plan.writes {
@@ -805,29 +881,21 @@ fn write_package(folder: &Path, plan: &PackagePlan, prune: bool) -> io::Result<(
         }
         fs::write(&to, bytes)?;
     }
-    if !prune {
-        return Ok(());
-    }
-    let (files, folders) = files_and_folders(folder)?;
+    let (files, found) = files_and_folders(folder)?;
     for file in files {
         if file != "VERSION" && !plan.writes.contains_key(&file) {
-            fs::remove_file(folder.join(&file))?;
+            stale.push(folder.join(&file));
         }
     }
-    for directory in folders.iter().rev() {
-        if fs::read_dir(directory)?.next().is_none() {
-            fs::remove_dir(directory)?;
-        }
-    }
+    folders.extend(found);
     Ok(())
 }
 
-/// Copies each installed package's published modules into `out` under the project root and returns the import map; with `prune`, files an earlier run left that the entries no longer load are removed, which suits a run that moves the page to the new map at once. With a `page` whose graph the walk could bound, only the entries it reaches are vendored and mapped, and a package it does not reach is left as it is; without one, or with a page the walk could not bound, every entry of every package.
+/// Copies each installed package's published modules into `out` under the project root and returns the import map, which lists in `stale` the files an earlier run left that the entries no longer load, for `Vendored::prune` to remove once the page is moved to the new map. With a `page` whose graph the walk could bound, only the entries it reaches are vendored and mapped, and a package it does not reach is left as it is; without one, or with a page the walk could not bound, every entry of every package.
 pub fn vendor(
     root: &Path,
     out: &Path,
     development: bool,
-    prune: bool,
     page: Option<&PageGraph>,
 ) -> io::Result<Vendored> {
     vendor_from(
@@ -836,19 +904,17 @@ pub fn vendor(
         out,
         development,
         false,
-        prune,
         page,
     )
 }
 
-/// Like `vendor`, reading the packages from `packages` (a node_modules folder) and writing under `root/out`, so a build can vendor into its output folder; with `prepare`, every vendored module goes through the template prepare pass and the core's scanner is replaced by its stand-in. Every package is read and checked before anything is written, so a run that a check stops leaves the vendored files the page uses as they were; then each package's files are written in place, and with `prune` files an earlier run left that the entries no longer load are removed; a package the page does not reach is neither written nor removed. The map holds an integrity hash for every file it vendors, the ones `import()` loads included, and `modules` preloads the JavaScript modules the mapped entries load statically.
+/// Like `vendor`, reading the packages from `packages` (a node_modules folder) and writing under `root/out`, so a build can vendor into its output folder; with `prepare`, every vendored module goes through the template prepare pass and the core's scanner is replaced by its stand-in. Every package is read and checked before anything is written, so a run that a check stops leaves the vendored files the page uses as they were; then each package's files are written in place, and the files an earlier run left that the entries no longer load are listed in `stale` for `Vendored::prune`, which a caller runs once its pages name the new files; a package the page does not reach is neither written nor pruned. The map holds an integrity hash for every file it vendors, the ones `import()` loads included, and `modules` preloads the JavaScript modules the mapped entries load statically.
 pub fn vendor_from(
     packages: &Path,
     root: &Path,
     out: &Path,
     development: bool,
     prepare: bool,
-    prune: bool,
     page: Option<&PageGraph>,
 ) -> io::Result<Vendored> {
     let mut vendored = Vendored::default();
@@ -929,7 +995,12 @@ pub fn vendor_from(
         if package.empty {
             continue;
         }
-        write_package(&destination.join(package.package), package, prune)?;
+        write_package(
+            &destination.join(package.package),
+            package,
+            &mut vendored.stale,
+            &mut vendored.written_folders,
+        )?;
     }
     fs::create_dir_all(&destination)?;
     fs::write(
@@ -993,13 +1064,18 @@ pub fn html_tags(vendored: &Vendored) -> String {
     tags(&vendored.map, &vendored.modules)
 }
 
-/// The tags for one page: the vendored map with the entries of the page's own import map kept where the vendored map names a different specifier, so a package mapped by hand survives an update, and the preloads for the page's graph when one is given. An entry of the page's map that points into a package folder this run wrote, at a file or a folder prefix the run no longer vendors anything under, is dropped, since the run removed what it no longer vendors there.
-pub fn page_tags(vendored: &Vendored, html: &str, page: Option<&PageGraph>) -> String {
-    let modules = page.map_or_else(|| vendored.modules.clone(), |page| vendored.preloads(page));
+/// The tags for one page, at `page` root-relative: the vendored map with the entries of the page's own import map kept where the vendored map names a different specifier, so a package mapped by hand survives an update, and the preloads for the page's graph when one is given. An entry of the page's map that points into a package folder this run wrote, at a file or a folder prefix the run no longer vendors anything under, is dropped, since the run prunes what it no longer vendors there, and so is an integrity hash of the page's own for a file this run vendors, whose hash the vendored map carries; a relative URL is read against the page, as the browser reads it, so a hash under a relative key cannot come before the vendored one under the root-relative key, which the browser would take first.
+pub fn page_tags(vendored: &Vendored, page: &str, html: &str, graph: Option<&PageGraph>) -> String {
+    let modules = graph.map_or_else(
+        || vendored.modules.clone(),
+        |graph| vendored.preloads(graph),
+    );
     let Some(mut map) = page_map(html) else {
         return tags(&vendored.map, &modules);
     };
     let gone = |url: &str| {
+        let resolved = page_url(page, url);
+        let url = resolved.as_str();
         vendored
             .folders
             .iter()
@@ -1015,7 +1091,13 @@ pub fn page_tags(vendored: &Vendored, html: &str, page: Option<&PageGraph>) -> S
             }
     };
     map.imports.retain(|_, url| !gone(url));
-    map.integrity.retain(|url, _| !gone(url));
+    map.integrity.retain(|url, _| {
+        !gone(url)
+            && !vendored
+                .map
+                .integrity
+                .contains_key(page_url(page, url).as_str())
+    });
     for scope in map.scopes.values_mut() {
         scope.retain(|_, url| !gone(url));
     }
@@ -1143,13 +1225,12 @@ pub fn run(root: &Path, out: &Path, development: bool, html: &[PathBuf]) -> io::
         );
         let graph = page_graph(root, &url, &current)?;
         every.extend(&graph);
-        pages.push((file, path, current, graph));
+        pages.push((file, path, url, current, graph));
     }
     let vendored = vendor(
         root,
         out,
         development,
-        !pages.is_empty(),
         (!pages.is_empty()).then_some(&every),
     )?;
     let packages = format!(
@@ -1169,14 +1250,26 @@ pub fn run(root: &Path, out: &Path, development: bool, html: &[PathBuf]) -> io::
         );
         return Ok(());
     }
-    for (file, path, current, graph) in &pages {
+    for (file, path, url, current, graph) in &pages {
         fs::write(
             path,
-            update_html(current, &page_tags(&vendored, current, Some(graph))),
+            update_html(current, &page_tags(&vendored, url, current, Some(graph))),
         )?;
         anstream::println!(
             "{}",
             crate::term::row("updated", crate::term::done, file.display())
+        );
+    }
+    if let Err(error) = vendored.prune() {
+        anstream::println!(
+            "{}",
+            crate::term::row(
+                "warning",
+                crate::term::caution,
+                format!(
+                    "{error}; the pages are written, and the next run removes what this one left"
+                )
+            )
         );
     }
     anstream::println!();
@@ -1337,11 +1430,14 @@ export const a = () => import(LAZY);",
         )
         .unwrap();
 
-        let vendored = vendor(&root, std::path::Path::new("vendor"), false, true, None).unwrap();
+        let vendored = vendor(&root, std::path::Path::new("vendor"), false, None).unwrap();
         assert_eq!(
             fs::read_to_string(root.join("vendor/zerolith/LICENSE")).unwrap(),
             "Apache License\n"
         );
+        assert!(root.join("vendor/zerolith/stale.js").is_file());
+        assert_eq!(vendored.stale, vec![root.join("vendor/zerolith/stale.js")]);
+        vendored.prune().unwrap();
         assert!(!root.join("vendor/zerolith/stale.js").exists());
         assert!(
             fs::read_to_string(root.join("vendor/.gitattributes"))
@@ -1511,7 +1607,7 @@ export const a = () => import(LAZY);",
         fs::write(production.join("orphan.js.map"), embedded("orphan.js")).unwrap();
         fs::write(production.join("notes.txt"), "not a module").unwrap();
 
-        let vendored = vendor(&root, std::path::Path::new("vendor"), false, true, None).unwrap();
+        let vendored = vendor(&root, std::path::Path::new("vendor"), false, None).unwrap();
         let copied = root.join("vendor/zerolith/dist");
         assert_eq!(
             vendored.modules,
@@ -1552,7 +1648,7 @@ export const a = () => import(LAZY);",
             assert!(!copied.join(absent).exists(), "{absent} was copied");
         }
 
-        vendor(&root, std::path::Path::new("readable"), true, true, None).unwrap();
+        vendor(&root, std::path::Path::new("readable"), true, None).unwrap();
         let readable = root.join("readable/zerolith/dist");
         assert_eq!(
             fs::read_to_string(readable.join("index.js")).unwrap(),
@@ -1567,7 +1663,6 @@ export const a = () => import(LAZY);",
             &built,
             std::path::Path::new("vendor"),
             false,
-            true,
             true,
             None,
         )
@@ -1611,7 +1706,7 @@ export const a = () => import(LAZY);",
             "export{a}from\"./a.js\";export{",
         )
         .unwrap();
-        let error = vendor(&root, std::path::Path::new("vendor"), false, true, None)
+        let error = vendor(&root, std::path::Path::new("vendor"), false, None)
             .expect_err("a module that does not parse");
         assert!(
             error
@@ -1648,9 +1743,12 @@ export const a = () => import(LAZY);",
         fs::create_dir_all(&user).unwrap();
         fs::write(user.join("notes.txt"), "the user's own").unwrap();
 
-        vendor(&root, std::path::Path::new("vendor"), true, true, None).unwrap();
+        vendor(&root, std::path::Path::new("vendor"), true, None).unwrap();
         assert!(root.join("vendor/zerolith/dist/index.js").is_file());
-        vendor(&root, std::path::Path::new("vendor"), false, true, None).unwrap();
+        vendor(&root, std::path::Path::new("vendor"), false, None)
+            .unwrap()
+            .prune()
+            .unwrap();
         let copied = root.join("vendor/zerolith/dist");
         assert!(!copied.join("index.js").exists());
         assert_eq!(
@@ -1663,7 +1761,7 @@ export const a = () => import(LAZY);",
             inline
         );
 
-        let refused = vendor(&root, std::path::Path::new("other"), false, true, None)
+        let refused = vendor(&root, std::path::Path::new("other"), false, None)
             .expect_err("a folder no earlier run wrote");
         assert!(
             refused
@@ -1700,7 +1798,7 @@ export const a = () => import(LAZY);",
         )
         .unwrap();
         fs::write(core.join("dist/lazy.js"), "export const lazy=1;\n").unwrap();
-        let vendored = vendor(&root, std::path::Path::new("vendor"), false, true, None).unwrap();
+        let vendored = vendor(&root, std::path::Path::new("vendor"), false, None).unwrap();
         assert_eq!(vendored.modules, vec!["/vendor/zerolith/dist/index.js"]);
         assert_eq!(
             vendored.map.integrity.keys().cloned().collect::<Vec<_>>(),
@@ -1717,7 +1815,7 @@ export const a = () => import(LAZY);",
             "export{a}from\"./missing.js\";\n",
         )
         .unwrap();
-        let error = vendor(&root, std::path::Path::new("vendor"), false, true, None)
+        let error = vendor(&root, std::path::Path::new("vendor"), false, None)
             .expect_err("a module the package does not hold");
         assert!(
             error.to_string().contains("missing.js is missing"),
@@ -1760,7 +1858,7 @@ export const a = () => import(LAZY);",
         )
         .unwrap();
         fs::write(core.join("dist/data.json"), "{\"a\":1}").unwrap();
-        let vendored = vendor(&root, std::path::Path::new("vendor"), false, true, None).unwrap();
+        let vendored = vendor(&root, std::path::Path::new("vendor"), false, None).unwrap();
         assert_eq!(
             fs::read_to_string(root.join("vendor/zerolith/dist/data.json")).unwrap(),
             "{\"a\":1}"
@@ -1793,7 +1891,7 @@ export const a = () => import(LAZY);",
         .unwrap();
         fs::write(core.join("dist/index.js"), "export const a=1;\n").unwrap();
         fs::write(core.join("dist/locales/de.js"), "export const de=1;\n").unwrap();
-        let vendored = vendor(&root, std::path::Path::new("vendor"), false, true, None).unwrap();
+        let vendored = vendor(&root, std::path::Path::new("vendor"), false, None).unwrap();
         assert_eq!(
             vendored.map.imports.keys().cloned().collect::<Vec<_>>(),
             vec!["zerolith"]
@@ -1804,7 +1902,7 @@ export const a = () => import(LAZY);",
             "export{a}from\"../../shared/a.js\";\n",
         )
         .unwrap();
-        let error = vendor(&root, std::path::Path::new("vendor"), false, true, None)
+        let error = vendor(&root, std::path::Path::new("vendor"), false, None)
             .expect_err("an import that leaves the package");
         assert!(
             error
@@ -1831,19 +1929,45 @@ export const a = () => import(LAZY);",
         .unwrap();
         fs::write(core.join("dist/index.js"), "export const v=1;\n").unwrap();
         let vendor_folder = root.join("vendor");
-        vendor(&root, std::path::Path::new("vendor"), false, true, None).unwrap();
+        vendor(&root, std::path::Path::new("vendor"), false, None).unwrap();
         fs::create_dir_all(vendor_folder.join("zerolith/dist/old")).unwrap();
         fs::write(vendor_folder.join("zerolith/dist/old/gone.js"), "stale").unwrap();
         fs::write(vendor_folder.join("zerolith/dist/gone.d.ts"), "stale").unwrap();
         fs::create_dir_all(vendor_folder.join("lenis")).unwrap();
         fs::write(vendor_folder.join("lenis/lenis.mjs"), "the site's own").unwrap();
         fs::write(core.join("dist/index.js"), "export const v=2;\n").unwrap();
-        vendor(&root, std::path::Path::new("vendor"), false, true, None).unwrap();
+        #[cfg(windows)]
+        let linked = std::os::windows::fs::symlink_dir(
+            vendor_folder.join("lenis"),
+            vendor_folder.join("zerolith/dist/link"),
+        )
+        .is_ok();
+        #[cfg(not(windows))]
+        let linked = std::os::unix::fs::symlink(
+            vendor_folder.join("lenis"),
+            vendor_folder.join("zerolith/dist/link"),
+        )
+        .is_ok();
+        let vendored = vendor(&root, std::path::Path::new("vendor"), false, None).unwrap();
+        assert!(vendor_folder.join("zerolith/dist/old/gone.js").is_file());
+        let mut expected = vec![
+            vendor_folder.join("zerolith/dist/gone.d.ts"),
+            vendor_folder.join("zerolith/dist/old/gone.js"),
+        ];
+        if linked {
+            expected.push(vendor_folder.join("zerolith/dist/link"));
+        }
+        expected.sort();
+        let mut stale = vendored.stale.clone();
+        stale.sort();
+        assert_eq!(stale, expected);
+        vendored.prune().unwrap();
         assert_eq!(
             fs::read_to_string(vendor_folder.join("zerolith/dist/index.js")).unwrap(),
             "export const v=2;\n"
         );
         assert!(!vendor_folder.join("zerolith/dist/old").exists());
+        assert!(!vendor_folder.join("zerolith/dist/link").exists());
         assert!(!vendor_folder.join("zerolith/dist/gone.d.ts").exists());
         assert_eq!(
             fs::read_to_string(vendor_folder.join("lenis/lenis.mjs")).unwrap(),
@@ -1880,12 +2004,12 @@ export const a = () => import(LAZY);",
         .unwrap();
         fs::write(router.join("dist/index.js"), "export const r=1;\n").unwrap();
         let vendor_folder = root.join("vendor");
-        vendor(&root, std::path::Path::new("vendor"), false, true, None).unwrap();
+        vendor(&root, std::path::Path::new("vendor"), false, None).unwrap();
         let map = fs::read_to_string(vendor_folder.join("importmap.json")).unwrap();
 
         fs::write(core.join("dist/index.js"), "export const v=2;\n").unwrap();
         fs::write(router.join("dist/index.js"), "export{").unwrap();
-        vendor(&root, std::path::Path::new("vendor"), false, true, None)
+        vendor(&root, std::path::Path::new("vendor"), false, None)
             .expect_err("a router module that does not parse");
         assert_eq!(
             fs::read_to_string(vendor_folder.join("zerolith/dist/index.js")).unwrap(),
@@ -2049,8 +2173,7 @@ export const a = () => import(LAZY);",
     }
 
     #[test]
-    fn keeps_an_earlier_runs_files_unless_asked_to_prune_and_refuses_an_entry_outside_the_package()
-    {
+    fn keeps_an_earlier_runs_files_until_pruned_and_refuses_an_entry_outside_the_package() {
         let root = std::env::temp_dir().join(format!(
             "zerolith-importmap-prune-test-{}",
             std::process::id()
@@ -2065,19 +2188,22 @@ export const a = () => import(LAZY);",
             "export const prod=1;\n",
         )
         .unwrap();
-        vendor(&root, std::path::Path::new("vendor"), true, false, None).unwrap();
-        vendor(&root, std::path::Path::new("vendor"), false, false, None).unwrap();
+        vendor(&root, std::path::Path::new("vendor"), true, None).unwrap();
+        vendor(&root, std::path::Path::new("vendor"), false, None).unwrap();
         assert!(root.join("vendor/zerolith/dist/index.js").is_file());
         assert!(
             root.join("vendor/zerolith/dist/production/index.js")
                 .is_file()
         );
-        vendor(&root, std::path::Path::new("vendor"), false, true, None).unwrap();
+        vendor(&root, std::path::Path::new("vendor"), false, None)
+            .unwrap()
+            .prune()
+            .unwrap();
         assert!(!root.join("vendor/zerolith/dist/index.js").exists());
 
         fs::write(core.join("package.json"), r#"{"name":"zerolith","version":"0.0.0","exports":{".":"./dist/production/index.js","./outside":"./../../outside.js"}}"#).unwrap();
         fs::write(root.join("node_modules/outside.js"), "export const o=1;\n").unwrap();
-        let error = vendor(&root, std::path::Path::new("vendor"), false, true, None)
+        let error = vendor(&root, std::path::Path::new("vendor"), false, None)
             .expect_err("an entry outside the package");
         assert!(
             error
@@ -2128,7 +2254,7 @@ export const a = () => import(LAZY);",
         fs::create_dir_all(router.join("dist")).unwrap();
         fs::write(router.join("package.json"), r#"{"name":"@zerolith/router","version":"0.0.0","exports":{".":{"development":"./dist/index.js","default":"./dist/production/index.js"}}}"#).unwrap();
         fs::write(router.join("dist/index.js"), "export const dev = 1;\n").unwrap();
-        let error = vendor(&root, std::path::Path::new("vendor"), false, true, None)
+        let error = vendor(&root, std::path::Path::new("vendor"), false, None)
             .expect_err("an entry the package does not hold");
         assert!(
             error
@@ -2147,13 +2273,13 @@ export const a = () => import(LAZY);",
             .imports
             .insert("zerolith".into(), "/vendor/zerolith/index.js".into());
         let page = "<head><script type=\"importmap\">{\"imports\":{\"zerolith\":\"/old.js\",\"lit\":\"https://cdn.example/lit.js\"},\"scopes\":{\"/legacy/\":{\"lit\":\"/legacy/lit.js\"}}}</script></head>";
-        let updated = update_html(page, &page_tags(&vendored, page, None));
+        let updated = update_html(page, &page_tags(&vendored, "/index.html", page, None));
         assert!(updated.contains("\"zerolith\":\"/vendor/zerolith/index.js\""));
         assert!(updated.contains("\"lit\":\"https://cdn.example/lit.js\""));
         assert!(updated.contains("\"scopes\":{\"/legacy/\":{\"lit\":\"/legacy/lit.js\"}}"));
         assert!(!updated.contains("/old.js"));
         assert_eq!(
-            page_tags(&vendored, "<head></head>", None),
+            page_tags(&vendored, "/index.html", "<head></head>", None),
             html_tags(&vendored)
         );
 
@@ -2163,7 +2289,7 @@ export const a = () => import(LAZY);",
             .integrity
             .insert("/vendor/zerolith/index.js".into(), "sha256-kept".into());
         let earlier = "<head><script type=\"importmap\">{\"imports\":{\"zerolith/internal\":\"/vendor/zerolith/dist/internal.js\",\"#core\":\"/vendor/zerolith/index.js\",\"core/\":\"/vendor/zerolith/\",\"lit\":\"/lib/lit.js\"},\"integrity\":{\"/vendor/zerolith/dist/index.js\":\"sha256-old\",\"/lib/lit.js\":\"sha384-lit\"}}</script></head>";
-        let refreshed = update_html(earlier, &page_tags(&vendored, earlier, None));
+        let refreshed = update_html(earlier, &page_tags(&vendored, "/index.html", earlier, None));
         assert!(!refreshed.contains("/vendor/zerolith/dist/"));
         assert!(refreshed.contains("\"#core\":\"/vendor/zerolith/index.js\""));
         assert!(refreshed.contains("\"core/\":\"/vendor/zerolith/\""));
@@ -2171,10 +2297,87 @@ export const a = () => import(LAZY);",
         assert!(refreshed.contains("\"/lib/lit.js\":\"sha384-lit\""));
 
         let scoped = "<head><script type=\"importmap\">{\"imports\":{},\"scopes\":{\"/app/\":{\"zerolith/x\":\"/vendor/zerolith/dist/x.js\"},\"/legacy/\":{\"lit\":\"/legacy/lit.js\",\"zerolith\":\"/vendor/zerolith/dist/old.js\"}}}</script></head>";
-        let cleaned = update_html(scoped, &page_tags(&vendored, scoped, None));
+        let cleaned = update_html(scoped, &page_tags(&vendored, "/index.html", scoped, None));
         assert!(!cleaned.contains("/vendor/zerolith/dist/"));
         assert!(!cleaned.contains("\"/app/\""));
         assert!(cleaned.contains("\"scopes\":{\"/legacy/\":{\"lit\":\"/legacy/lit.js\"}}"));
+
+        let relative = "<head><script type=\"importmap\">{\"imports\":{\"zerolith/old\":\"../vendor/zerolith/dist/old.js\",\"zerolith/kept\":\"../vendor/zerolith/index.js\",\"core/\":\"../vendor/zerolith/dist/\",\"odd\":\"../vendor/zerolith/dist/a:b.js\",\"lit\":\"lit.js\",\"cdn\":\"https://cdn.example/lit.js\"},\"integrity\":{\"../vendor/zerolith/dist/old.js\":\"sha256-old\",\"../vendor/zerolith/index.js\":\"sha256-stale\",\"lit.js\":\"sha384-lit\"}}</script></head>";
+        let resolved = update_html(
+            relative,
+            &page_tags(&vendored, "/app/index.html", relative, None),
+        );
+        assert!(!resolved.contains("old.js"), "{resolved}");
+        assert!(!resolved.contains("\"core/\""), "{resolved}");
+        assert!(!resolved.contains("a:b.js"), "{resolved}");
+        assert!(!resolved.contains("sha256-stale"), "{resolved}");
+        assert!(
+            resolved.contains("\"zerolith/kept\":\"../vendor/zerolith/index.js\""),
+            "{resolved}"
+        );
+        assert!(resolved.contains("\"lit\":\"lit.js\""), "{resolved}");
+        assert!(
+            resolved.contains("\"cdn\":\"https://cdn.example/lit.js\""),
+            "{resolved}"
+        );
+        assert!(
+            resolved.contains("\"integrity\":{\"/vendor/zerolith/index.js\":\"sha256-kept\",\"lit.js\":\"sha384-lit\"}"),
+            "{resolved}"
+        );
+    }
+
+    #[test]
+    fn prunes_only_after_the_pages_are_written() {
+        let root = std::env::temp_dir().join(format!(
+            "zerolith-importmap-late-prune-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let core = root.join("node_modules/zerolith");
+        fs::create_dir_all(core.join("dist")).unwrap();
+        fs::write(
+            core.join("package.json"),
+            r#"{"name":"zerolith","version":"0.0.0","exports":{".":"./dist/index.js"}}"#,
+        )
+        .unwrap();
+        fs::write(core.join("dist/index.js"), "export const v=1;\n").unwrap();
+        fs::create_dir_all(root.join("vendor/zerolith/dist")).unwrap();
+        fs::write(root.join("vendor/zerolith/VERSION"), "0.0.0\n").unwrap();
+        let stale = root.join("vendor/zerolith/dist/gone.js");
+        fs::write(&stale, "export const gone=1;\n").unwrap();
+        let page = root.join("index.html");
+        fs::write(&page, "<html><head><script type=\"importmap\">{\"imports\":{\"zerolith/gone\":\"/vendor/zerolith/dist/gone.js\"}}</script></head><body><script type=\"module\">import \"zerolith\";</script></body></html>").unwrap();
+        let mut readonly = fs::metadata(&page).unwrap().permissions();
+        readonly.set_readonly(true);
+        fs::set_permissions(&page, readonly).unwrap();
+        let outcome = super::run(
+            &root,
+            std::path::Path::new("vendor"),
+            false,
+            &[PathBuf::from("index.html")],
+        );
+        let mut writable = fs::metadata(&page).unwrap().permissions();
+        #[allow(clippy::permissions_set_readonly_false)]
+        writable.set_readonly(false);
+        fs::set_permissions(&page, writable).unwrap();
+        // A read-only page stops the write wherever the account honors the bit, as a developer's account and the hosted runners do; an account that writes anyway, such as root, takes the second run alone.
+        if outcome.is_err() {
+            assert!(
+                stale.is_file(),
+                "a failed page write keeps the files the page names"
+            );
+            assert!(fs::read_to_string(&page).unwrap().contains("gone.js"));
+        }
+        super::run(
+            &root,
+            std::path::Path::new("vendor"),
+            false,
+            &[PathBuf::from("index.html")],
+        )
+        .unwrap();
+        assert!(!stale.exists());
+        assert!(!fs::read_to_string(&page).unwrap().contains("gone.js"));
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
@@ -2185,7 +2388,7 @@ export const a = () => import(LAZY);",
             .imports
             .insert("zerolith".into(), "/vendor/zerolith/index.js".into());
         let page = "<head>\n<!-- <script type=\"importmap\">{\"imports\":{}}</script> -->\n<script type=\"importmap\" nonce=\"n0\">{\"imports\":{\"lit\":\"/lit.js\"}}</script>\n<script type=\"importmap\">{}</script>\n</head>";
-        let updated = update_html(page, &page_tags(&vendored, page, None));
+        let updated = update_html(page, &page_tags(&vendored, "/index.html", page, None));
         assert!(
             updated.contains("<script type=\"importmap\" nonce=\"n0\">{\"imports\":{\"lit\":\"/lit.js\",\"zerolith\":\"/vendor/zerolith/index.js\"}}</script>"),
             "{updated}"
@@ -2304,14 +2507,7 @@ export const a = () => import(LAZY);",
             ["@zerolith/a11y", "@zerolith/forms"]
         );
 
-        let vendored = vendor(
-            &root,
-            std::path::Path::new("vendor"),
-            false,
-            true,
-            Some(&graph),
-        )
-        .unwrap();
+        let vendored = vendor(&root, std::path::Path::new("vendor"), false, Some(&graph)).unwrap();
         assert_eq!(
             vendored.map.imports.keys().collect::<Vec<_>>(),
             [
@@ -2357,7 +2553,10 @@ export const a = () => import(LAZY);",
                 "/vendor/zerolith/dist/scan.js"
             ]
         );
-        let updated = update_html(page, &page_tags(&vendored, page, Some(&graph)));
+        let updated = update_html(
+            page,
+            &page_tags(&vendored, "/index.html", page, Some(&graph)),
+        );
         assert!(
             updated.contains(
                 "<link rel=\"modulepreload\" href=\"/src/app.js\" data-zerolith-preload>"
@@ -2402,7 +2601,6 @@ export const a = () => import(LAZY);",
             &root,
             std::path::Path::new("vendor"),
             false,
-            true,
             Some(&narrowed),
         )
         .unwrap();
@@ -2422,20 +2620,17 @@ export const a = () => import(LAZY);",
             ]
         );
         let stale = "<head><script type=\"importmap\">{\"imports\":{\"@zerolith/router\":\"/vendor/@zerolith/router/dist/index.js\",\"lit\":\"/lib/lit.js\"}}</script></head>";
-        let cleaned = update_html(stale, &page_tags(&vendored, stale, Some(&narrowed)));
+        let cleaned = update_html(
+            stale,
+            &page_tags(&vendored, "/index.html", stale, Some(&narrowed)),
+        );
         assert!(!cleaned.contains("@zerolith/router"), "{cleaned}");
         assert!(cleaned.contains("\"lit\":\"/lib/lit.js\""), "{cleaned}");
 
         let nothing = super::page_graph(&root, "/index.html", "<head></head>").unwrap();
         assert!(nothing.unbounded() && !nothing.open);
-        let vendored = vendor(
-            &root,
-            std::path::Path::new("vendor"),
-            false,
-            true,
-            Some(&nothing),
-        )
-        .unwrap();
+        let vendored =
+            vendor(&root, std::path::Path::new("vendor"), false, Some(&nothing)).unwrap();
         assert_eq!(vendored.map.imports.len(), 7);
         assert!(
             root.join("vendor/@zerolith/router/dist/server.js")
@@ -2460,7 +2655,6 @@ export const a = () => import(LAZY);",
             &root,
             std::path::Path::new("vendor"),
             false,
-            true,
             Some(&computed),
         )
         .unwrap();

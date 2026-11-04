@@ -8,6 +8,10 @@ Every package in this repository is released together and carries the same versi
 
 - Docs: the benchmark scores measure every framework against hand-written JavaScript, which is 1.00 by definition, so a score says how many times its time a framework takes and a cell below 1.00 is faster than it; they had measured against the fastest framework at each operation, as the official results page does, which put hand-written JavaScript at 1.01 whenever another framework was faster at one operation. The ranking does not change, since every score moves by the same factor.
 
+### Fixed
+
+- `@zerolith/cli`: `importmap --html` and `build --unbundled` remove the vendored files an earlier run left only after the pages are written, so a page write that fails leaves every file the page still names, where the files went first; a symbolic link to a directory left in a vendored package folder is removed as a link, where removing it as a file failed on Windows; and an entry of a page's own import map written as a relative URL, such as `../vendor/zerolith/dist/old.js`, is read against the page, so it is dropped like a root-relative one when the run no longer vendors its file, where it had stayed and failed to load, and so is an integrity hash the page held for a file the run vendors, which had come before the fresh hash in the map and made the browser refuse the module.
+
 ## 0.1.0-alpha.10 (2026-11-04)
 
 ### Breaking changes

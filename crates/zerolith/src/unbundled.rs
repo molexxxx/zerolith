@@ -503,7 +503,7 @@ pub fn build(
         );
         let graph = page_graph(&out_dir, &url, &fs::read_to_string(path)?)?;
         every.extend(&graph);
-        graphs.push(graph);
+        graphs.push((url, graph));
     }
     let vendored = if packages.join("zerolith").is_dir() {
         Some(vendor_from(
@@ -512,14 +512,13 @@ pub fn build(
             Path::new("vendor"),
             false,
             prepare_templates,
-            true,
             Some(&every),
         )?)
     } else {
         None
     };
     let mut mapped = ImportMap::default();
-    for (path, graph) in built.pages.iter().zip(&graphs) {
+    for (path, (url, graph)) in built.pages.iter().zip(&graphs) {
         let current = fs::read_to_string(path)?;
         if let Some(map) = page_map(&current) {
             mapped.imports.extend(map.imports);
@@ -527,11 +526,16 @@ pub fn build(
         if let Some(vendored) = &vendored {
             fs::write(
                 path,
-                update_html(&current, &page_tags(vendored, &current, Some(graph))),
+                update_html(&current, &page_tags(vendored, url, &current, Some(graph))),
             )?;
         }
     }
     if let Some(vendored) = &vendored {
+        if let Err(error) = vendored.prune() {
+            warnings.push(format!(
+                "{error}; the pages are written, and the next build removes what this one left"
+            ));
+        }
         mapped.imports.extend(vendored.map.imports.clone());
     }
     for (specifier, module) in &imports.bare {
