@@ -59,8 +59,42 @@ const SCOPED_MODULE = "\0zerolith-scoped:";
 /** Packages served as they are so the application and the plugin's runtime share one copy of each. */
 const UNOPTIMIZED: readonly string[] = ["zerolith", "zerolith/ssr", "zerolith/element", "zerolith/jsx-runtime", "zerolith/internal", "@zerolith/router", "@zerolith/forms", "@zerolith/client", "@zerolith/a11y", "@zerolith/i18n", "@zerolith/devtools", "@zerolith/vite/runtime"];
 
-/** A module of the development build of the core: anything under `zerolith/dist/` that is not under `production/`. */
-const DEVELOPMENT_MODULE = /[\\/]zerolith[\\/]dist[\\/](?!production[\\/])/;
+/**
+ * The zerolith package a module belongs to, `zerolith` or `@zerolith/<name>` as its own `package.json` names it, so a
+ * workspace package linked under another folder name counts, when the module is in the package's development build:
+ * under its `dist/` folder but not under `dist/production/`, which the package has, so a package published without the
+ * split, or any other package, is never reported. `names` caches the answer by package folder for one build.
+ */
+function developmentModuleOf(id: string, names: Map<string, string | undefined>): string | undefined
+{
+    const normalized = id.replace(/\\/g, "/");
+    const at = normalized.lastIndexOf("/dist/");
+    if (at === -1 || normalized.startsWith("production/", at + "/dist/".length))
+    {
+        return undefined;
+    }
+    const folder = normalized.slice(0, at);
+    const cached = names.get(folder);
+    if (cached !== undefined || names.has(folder))
+    {
+        return cached;
+    }
+    let name: string | undefined;
+    if (existsSync(resolve(folder, "dist", "production")))
+    {
+        try
+        {
+            const manifest = JSON.parse(readFileSync(resolve(folder, "package.json"), "utf8")) as { name?: unknown };
+            name = typeof manifest.name === "string" && (manifest.name === "zerolith" || manifest.name.startsWith("@zerolith/")) ? manifest.name : undefined;
+        }
+        catch
+        {
+            name = undefined;
+        }
+    }
+    names.set(folder, name);
+    return name;
+}
 
 const parse: ModuleParser = (filename, code) => parseSync(filename, code, { sourceType: "module", lang: "js" });
 
@@ -367,16 +401,20 @@ export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
             {
                 return;
             }
+            const names = new Map<string, string | undefined>();
             for (const output of Object.values(bundle))
             {
                 if (output.type !== "chunk")
                 {
                     continue;
                 }
-                const leaked = Object.keys(output.modules).find((id) => DEVELOPMENT_MODULE.test(id));
-                if (leaked !== undefined)
+                for (const leaked of Object.keys(output.modules))
                 {
-                    this.error(`zerolith: the development build of zerolith reached the production output through ${leaked}. The "production" export condition did not apply; check resolve.conditions and any alias that points at zerolith/dist/.`);
+                    const name = developmentModuleOf(leaked, names);
+                    if (name !== undefined)
+                    {
+                        this.error(`zerolith: the development build of ${name} reached the production output through ${leaked}. The "production" export condition did not apply; check resolve.conditions and any alias that points at ${name}/dist/.`);
+                    }
                 }
             }
         }

@@ -133,12 +133,21 @@ fn imports_scanner(importer: &str) -> bool {
         || normalized.ends_with("/zerolith/dist/production/template.js")
 }
 
-/// True for a module of the development build of the core: anything under `zerolith/dist/` that is not under `production/`.
-fn is_development_module(id: &str) -> bool {
+/// The zerolith package a module belongs to, `zerolith` or `@zerolith/<name>` as its own `package.json` names it, so a workspace package linked under another folder name counts, when the module is in the package's development build: under its `dist/` folder but not under `dist/production/`, which the package has, so a package published without the split, or any other package, is never reported.
+fn development_module_of(id: &str) -> Option<String> {
     let normalized = id.replace('\\', "/");
-    normalized
-        .find("/zerolith/dist/")
-        .is_some_and(|at| !normalized[at + "/zerolith/dist/".len()..].starts_with("production/"))
+    let at = normalized.rfind("/dist/")?;
+    if normalized[at + "/dist/".len()..].starts_with("production/") {
+        return None;
+    }
+    let package = Path::new(&normalized[..at]);
+    if !package.join("dist").join("production").is_dir() {
+        return None;
+    }
+    let manifest: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(package.join("package.json")).ok()?).ok()?;
+    let name = manifest.get("name")?.as_str()?;
+    (name == "zerolith" || name.starts_with("@zerolith/")).then(|| name.to_string())
 }
 
 /// A module id as messages show it: relative to the project, with forward slashes.
@@ -458,13 +467,12 @@ impl Plugin for Zerolith {
         for output in args.bundle.iter() {
             if let Output::Chunk(chunk) = output {
                 if self.production
-                    && let Some(leaked) = chunk
-                        .module_ids
-                        .iter()
-                        .find(|id| is_development_module(id.as_str()))
+                    && let Some((package, leaked)) = chunk.module_ids.iter().find_map(|id| {
+                        development_module_of(id.as_str()).map(|package| (package, id))
+                    })
                 {
                     return Err(failure(format!(
-                        "the development build of zerolith reached the production output through {}; the build resolves the production build unless --mode names another mode",
+                        "the development build of {package} reached the production output through {}; the build resolves the production build unless --mode names another mode",
                         shown(&self.root, leaked.as_str())
                     ))
                     .into());
@@ -1035,7 +1043,7 @@ pub async fn run(options: &Options) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Options, build, normalize_base};
+    use super::{Options, build, development_module_of, normalize_base};
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -1250,6 +1258,92 @@ mod tests {
             "{css}"
         );
         assert!(css.contains("url(grain-"), "{css}");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn refuses_the_development_build_of_any_package_in_production() {
+        let root = project(
+            "development",
+            "import { html, render } from \"zerolith\";\nimport { mountDevtools } from \"@zerolith/devtools\";\nmountDevtools();\nrender(html`<p>guarded</p>`, \"#app\");\n",
+        );
+        let devtools = root.join("node_modules/@zerolith/devtools");
+        fs::create_dir_all(devtools.join("dist/production")).unwrap();
+        fs::write(
+            devtools.join("package.json"),
+            "{\"name\":\"@zerolith/devtools\",\"type\":\"module\",\"exports\":{\".\":{\"development\":\"./dist/index.js\",\"default\":\"./dist/index.js\"}}}",
+        )
+        .unwrap();
+        fs::write(
+            devtools.join("dist/index.js"),
+            "export function mountDevtools() { console.log(\"INSPECTOR\"); }\n",
+        )
+        .unwrap();
+        fs::write(
+            devtools.join("dist/production/noop.js"),
+            "export function mountDevtools() {}\n",
+        )
+        .unwrap();
+        let error = build(&options(&root, "/", "production"))
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("the development build of @zerolith/devtools reached the production output through node_modules/@zerolith/devtools/dist/index.js"),
+            "{error}"
+        );
+        build(&options(&root, "/", "staging")).await.unwrap();
+        assert!(read_all(&root.join("dist/assets"), "js").contains("INSPECTOR"));
+
+        fs::write(
+            devtools.join("package.json"),
+            "{\"name\":\"@zerolith/devtools\",\"type\":\"module\",\"exports\":{\".\":{\"development\":\"./dist/index.js\",\"default\":\"./dist/production/noop.js\"}}}",
+        )
+        .unwrap();
+        build(&options(&root, "/", "production")).await.unwrap();
+        assert!(!read_all(&root.join("dist/assets"), "js").contains("INSPECTOR"));
+
+        fs::create_dir_all(root.join("node_modules/other/dist/production")).unwrap();
+        fs::write(
+            root.join("node_modules/other/package.json"),
+            "{\"name\":\"other\"}",
+        )
+        .unwrap();
+        fs::create_dir_all(root.join("packages/tools/dist/production")).unwrap();
+        fs::write(
+            root.join("packages/tools/package.json"),
+            "{\"name\":\"@zerolith/tools\"}",
+        )
+        .unwrap();
+        let id = |path: &str| format!("{}/{path}", root.display()).replace('\\', "/");
+        assert_eq!(
+            development_module_of(&id("node_modules/zerolith/dist/index.js")).as_deref(),
+            Some("zerolith")
+        );
+        assert_eq!(
+            development_module_of(&id("node_modules/zerolith/dist/index.js").replace('/', "\\"))
+                .as_deref(),
+            Some("zerolith")
+        );
+        assert_eq!(
+            development_module_of(&id("node_modules/@zerolith/devtools/dist/version.js"))
+                .as_deref(),
+            Some("@zerolith/devtools")
+        );
+        assert_eq!(
+            development_module_of(&id("packages/tools/dist/index.js")).as_deref(),
+            Some("@zerolith/tools")
+        );
+        for other in [
+            "node_modules/zerolith/dist/production/index.js",
+            "node_modules/@zerolith/devtools/dist/production/noop.js",
+            "node_modules/@zerolith/router/dist/index.js",
+            "node_modules/other/dist/index.js",
+            "src/dist/index.js",
+            "node_modules/zerolith/src/index.ts",
+        ] {
+            assert_eq!(development_module_of(&id(other)), None, "{other}");
+        }
         let _ = fs::remove_dir_all(&root);
     }
 

@@ -177,7 +177,7 @@ Bundles the application for production with [Rolldown](https://rolldown.rs), the
 | --- | --- |
 | `--out <folder>` | The output folder, `dist` unless `zerolith.json` sets `build.out` |
 | `--base <path>` | The public path every URL the build writes uses, such as `/app/`, or `./` for URLs relative to the page |
-| `--mode <name>` | `production` by default; any other mode, such as `staging`, resolves the development build of zerolith with its diagnostic text |
+| `--mode <name>` | `production` by default; any other mode, such as `staging`, resolves the development build of zerolith with its diagnostic text. In `production`, a module of the development build of a zerolith package that reaches the output fails the build, naming the package and the module |
 | `--sourcemap` | Writes a source map next to each chunk |
 | `--no-minify` | Keeps names and whitespace, while still removing dead code |
 | `--no-prepare` | Keeps the template scanner and leaves every `html` literal as it is |
