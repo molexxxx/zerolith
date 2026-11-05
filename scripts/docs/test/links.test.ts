@@ -40,4 +40,10 @@ describe("docs links", () =>
         const known = new Set(["/a/", "/b/", "/playground/", "/llms.txt"]);
         expect(brokenLinks(known, rendered)).toEqual(["/a/ -> /b/#gone", "/a/ -> #missing", "/b/ -> /c/"]);
     });
+
+    it("leave the header's switch to the other release alone, whose address lies in that release's build", () =>
+    {
+        const rendered = new Map([["/a/", "<a class=\"switch\" href=\"/next/a/\" data-version-switch>2.0 alpha docs</a><a href=\"/next/b/\">plain</a>"]]);
+        expect(brokenLinks(new Set(["/a/"]), rendered)).toEqual(["/a/ -> /next/b/"]);
+    });
 });

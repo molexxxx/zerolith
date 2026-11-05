@@ -70,6 +70,9 @@ export function sitePath(target: string, folder: string, file: string): string
     return `${page[2] === "index" ? `/${page[1]}/` : `/${page[1]}/${page[2]}/`}${anchor}`;
 }
 
+/** The header's switch to the other release the site shows, whose address lies in that release's build, not this one. */
+const SWITCH_ANCHOR = /<a\b[^>]*\bdata-version-switch\b[^>]*>/g;
+
 /**
  * The links on the rendered pages that lead nowhere, each as `page -> href`:
  * a site path the site does not serve, or a fragment that no `id` carries on
@@ -88,7 +91,7 @@ export function brokenLinks(known: ReadonlySet<string>, rendered: ReadonlyMap<st
     const broken: string[] = [];
     for (const [path, html] of rendered)
     {
-        for (const match of html.matchAll(/href="([^"]+)"/g))
+        for (const match of html.replace(SWITCH_ANCHOR, "").matchAll(/href="([^"]+)"/g))
         {
             const href = match[1] ?? "";
             if (!href.startsWith("/") && !href.startsWith("#"))

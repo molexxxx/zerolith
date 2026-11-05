@@ -221,6 +221,13 @@ svg
     border-bottom-color: var(--zl-accent-text);
 }
 
+.sections a.switch
+{
+    color: var(--zl-accent-text);
+    border-bottom-style: dotted;
+    border-bottom-color: currentColor;
+}
+
 .icon
 {
     display: inline-grid;
