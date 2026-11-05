@@ -208,5 +208,10 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
     {
         cause: "A second stored signal was created for the key while the first is live; each writes its own value and neither hears the other, since the storage event tells other tabs alone.",
         fix: "Create a stored signal once per key, at module level or in the app's root, and share it; one created inside a component goes with the component, so create the next after that one is disposed."
+    },
+    in_view_options_invalid:
+    {
+        cause: "inView was given a threshold outside 0 to 1, or a root margin the browser refuses, so no IntersectionObserver can be made from them.",
+        fix: "Give threshold as a fraction of the element that must show, 0 for any part to 1 for all of it, and rootMargin in pixels or percent as CSS writes them, such as \"200px\" or \"0px 0px 25% 0px\"."
     }
 };

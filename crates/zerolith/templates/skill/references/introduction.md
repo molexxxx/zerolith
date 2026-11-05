@@ -24,6 +24,7 @@ Everything else is a package around that core, and an application installs the o
 | `@zerolith/i18n` | Locale negotiation, cached `Intl` formatters, and MessageFormat 2 catalogs compiled per locale |
 | `@zerolith/a11y` | Focus trap, roving tabindex, a live announcer, focus origin, and preference signals |
 | `@zerolith/state` | A signal kept in storage and across tabs, undo and redo, debounced and throttled signals, and a row selector |
+| `@zerolith/browser` | The page as signals: online, visible, the window's size, an element's size, and whether it is in view |
 | `@zerolith/test` | Mounting with cleanup, settling async work, and hydration and accessibility checks |
 | `@zerolith/devtools` | The in-page inspector for signals, roots, and diagnostics |
 | `@zerolith/otel` | OpenTelemetry spans for navigations, hydration, and requests |
@@ -168,6 +169,7 @@ Read the basics in order; the rest is there for when an application needs it.
 | [Internationalization](i18n.md) | Locale negotiation and state on `Intl`, formatters that follow the locale, and compiled MessageFormat 2 catalogs |
 | [Accessibility](accessibility.md) | Focus trap, roving tabindex, live announcer, focus origin, hidden text, and preference signals |
 | [State](state.md) | A signal kept in storage and across tabs, undo and redo, debounced and throttled signals, and a selector for rows |
+| [Browser](browser.md) | The page as signals: online, visible, the window's size, an element's size, and whether it is in view |
 
 ### Tooling
 

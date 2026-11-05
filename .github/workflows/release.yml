@@ -273,7 +273,7 @@ jobs:
           if [ "$DRY_RUN" = "true" ]; then
             flags="$flags --dry-run"
           fi
-          libraries="zerolith @zerolith/router @zerolith/forms @zerolith/client @zerolith/test @zerolith/a11y @zerolith/state @zerolith/i18n @zerolith/devtools @zerolith/vite @zerolith/otel"
+          libraries="zerolith @zerolith/router @zerolith/forms @zerolith/client @zerolith/test @zerolith/a11y @zerolith/state @zerolith/browser @zerolith/i18n @zerolith/devtools @zerolith/vite @zerolith/otel"
           platforms="@zerolith/cli-linux-x64 @zerolith/cli-linux-arm64 @zerolith/cli-darwin-arm64 @zerolith/cli-darwin-x64 @zerolith/cli-win32-x64 @zerolith/cli-win32-arm64"
           case "$selection" in
             all) packages="$libraries $platforms @zerolith/cli" ;;

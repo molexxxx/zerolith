@@ -61,6 +61,7 @@ const libraries: Part[] = [
     { name: "@zerolith/i18n", href: "/guide/i18n/", mark: glyph("i18n"), text: "Locales and compiled messages" },
     { name: "@zerolith/a11y", href: "/guide/accessibility/", mark: glyph("a11y"), text: "Focus, announcer, preferences" },
     { name: "@zerolith/state", href: "/guide/state/", mark: glyph("state"), text: "Storage, undo, debounce, selection" },
+    { name: "@zerolith/browser", href: "/guide/browser/", mark: glyph("browser"), text: "Online, visible, sizes, in view" },
     { name: "@zerolith/otel", href: "/guide/observability/", mark: glyph("otel"), text: "Spans for navigation and requests" }
 ];
 

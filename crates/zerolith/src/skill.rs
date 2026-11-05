@@ -7,7 +7,7 @@ use std::path::Path;
 use crate::term;
 
 /// The skill's files, by their path inside the skill's folder; `npm run skills` keeps `templates/skill` equal to the repository's `skills/zerolith`.
-pub const FILES: [(&str, &str); 23] = [
+pub const FILES: [(&str, &str); 24] = [
     ("SKILL.md", include_str!("../templates/skill/SKILL.md")),
     (
         "references/accessibility.md",
@@ -16,6 +16,10 @@ pub const FILES: [(&str, &str); 23] = [
     (
         "references/agents.md",
         include_str!("../templates/skill/references/agents.md"),
+    ),
+    (
+        "references/browser.md",
+        include_str!("../templates/skill/references/browser.md"),
     ),
     (
         "references/client.md",

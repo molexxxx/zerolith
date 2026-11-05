@@ -20,6 +20,7 @@ export default defineConfig({
             "@zerolith/i18n": fileURLToPath(new URL("./packages/i18n/src/index.ts", import.meta.url)),
             "@zerolith/a11y": fileURLToPath(new URL("./packages/a11y/src/index.ts", import.meta.url)),
             "@zerolith/state": fileURLToPath(new URL("./packages/state/src/index.ts", import.meta.url)),
+            "@zerolith/browser": fileURLToPath(new URL("./packages/browser/src/index.ts", import.meta.url)),
             "@zerolith/test": fileURLToPath(new URL("./packages/test/src/index.ts", import.meta.url)),
             "@zerolith/forms": fileURLToPath(new URL("./packages/forms/src/index.ts", import.meta.url)),
             "@zerolith/devtools": fileURLToPath(new URL("./packages/devtools/src/index.ts", import.meta.url)),
@@ -42,6 +43,7 @@ export default defineConfig({
             thresholds: {
                 lines: 92.5, statements: 92.4, functions: 91.5, branches: 84.7,
                 "packages/a11y/src/**": { lines: 91.3, statements: 91.1, functions: 87.1, branches: 81.0 },
+                "packages/browser/src/**": { lines: 99.5, statements: 99.5, functions: 99.5, branches: 97.0 },
                 "packages/client/src/**": { lines: 93.7, statements: 93.7, functions: 95.6, branches: 83.5 },
                 "packages/devtools/src/**": { lines: 79.7, statements: 77.3, functions: 67.1, branches: 64.0 },
                 "packages/forms/src/**": { lines: 92.1, statements: 91.0, functions: 84.2, branches: 85.1 },

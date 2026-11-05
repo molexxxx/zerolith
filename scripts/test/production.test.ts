@@ -17,7 +17,7 @@ import { parseSync } from "rolldown/utils";
 import { describe, expect, it } from "vitest";
 
 const packages = fileURLToPath(new URL("../../packages/", import.meta.url));
-const PUBLISHED = ["zerolith", "router", "a11y", "state", "forms", "client", "i18n", "devtools", "otel"];
+const PUBLISHED = ["zerolith", "router", "a11y", "state", "browser", "forms", "client", "i18n", "devtools", "otel"];
 
 interface Manifest
 {

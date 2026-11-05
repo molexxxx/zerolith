@@ -106,6 +106,12 @@ Cause: An <img> in a template has no alt attribute, so assistive technology has 
 
 Fix: Add alt text that says what the image conveys, or alt="" when it is decorative.
 
+## in_view_options_invalid
+
+Cause: inView was given a threshold outside 0 to 1, or a root margin the browser refuses, so no IntersectionObserver can be made from them.
+
+Fix: Give threshold as a fraction of the element that must show, 0 for any part to 1 for all of it, and rootMargin in pixels or percent as CSS writes them, such as "200px" or "0px 0px 25% 0px".
+
 ## jsx_not_lowered
 
 Cause: A JSX expression reached the runtime, which means the lowering in @zerolith/vite did not run for this file.

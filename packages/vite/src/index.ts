@@ -57,7 +57,7 @@ const SCOPED = "?scoped";
 const SCOPED_MODULE = "\0zerolith-scoped:";
 
 /** Packages served as they are so the application and the plugin's runtime share one copy of each. */
-const UNOPTIMIZED: readonly string[] = ["zerolith", "zerolith/ssr", "zerolith/element", "zerolith/jsx-runtime", "zerolith/internal", "@zerolith/router", "@zerolith/forms", "@zerolith/client", "@zerolith/a11y", "@zerolith/state", "@zerolith/i18n", "@zerolith/devtools", "@zerolith/vite/runtime"];
+const UNOPTIMIZED: readonly string[] = ["zerolith", "zerolith/ssr", "zerolith/element", "zerolith/jsx-runtime", "zerolith/internal", "@zerolith/router", "@zerolith/forms", "@zerolith/client", "@zerolith/a11y", "@zerolith/state", "@zerolith/browser", "@zerolith/i18n", "@zerolith/devtools", "@zerolith/vite/runtime"];
 
 /**
  * The zerolith package a module belongs to, `zerolith` or `@zerolith/<name>` as its own `package.json` names it, so a

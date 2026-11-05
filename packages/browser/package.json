@@ -1,0 +1,52 @@
+{
+    "name": "@zerolith/browser",
+    "version": "1.0.0",
+    "description": "The page as signals for zerolith: whether it is online and visible and the window's size, shared by the page, and an element's size and presence in view",
+    "license": "Apache-2.0",
+    "author": "molexxxx",
+    "homepage": "https://zerolith.dev/",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/molexxxx/zerolith.git",
+        "directory": "packages/browser"
+    },
+    "bugs": {
+        "url": "https://github.com/molexxxx/zerolith/issues"
+    },
+    "keywords": [
+        "zerolith",
+        "signals",
+        "browser",
+        "resize",
+        "intersection",
+        "visibility"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "engines": {
+        "node": ">=24.0.0"
+    },
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "development": "./dist/index.js",
+            "default": "./dist/production/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "src",
+        "LICENSE",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json && node ../../scripts/production.ts"
+    },
+    "peerDependencies": {
+        "zerolith": "^1.0.0"
+    },
+    "devDependencies": {
+        "zerolith": "^1.0.0"
+    }
+}

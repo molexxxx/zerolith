@@ -94,7 +94,7 @@ The function declaration keeps its hoisting because the registration runs first 
 - Server-side transforms, classes, lowercase functions, anonymous default exports, and `render` reached through anything other than the binding imported from `zerolith`. An aliased import such as `import { render as mount }` is followed; a `render` stored in a variable first is not, and neither is a `render` whose view expression awaits, such as `render(await page(), "#app")`.
 - Modules under `node_modules`, unless `include` and `exclude` say otherwise.
 
-The plugin also keeps `zerolith` and the packages built on its signals, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, `@zerolith/a11y`, `@zerolith/state`, `@zerolith/i18n`, and `@zerolith/devtools`, with its own runtime, out of Vite's dependency pre-bundling, so the application and the plugin's runtime share one copy of the framework and the inspector sees every signal.
+The plugin also keeps `zerolith` and the packages built on its signals, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, `@zerolith/a11y`, `@zerolith/state`, `@zerolith/browser`, `@zerolith/i18n`, and `@zerolith/devtools`, with its own runtime, out of Vite's dependency pre-bundling, so the application and the plugin's runtime share one copy of the framework and the inspector sees every signal.
 
 ## Compared with the buildless dev server
 

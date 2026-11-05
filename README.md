@@ -100,6 +100,7 @@ Everything below runs and is tested in this repository, and is published under `
 | i18n | `@zerolith/i18n` | Locale negotiation, direction, formatters, and MessageFormat 2 catalogs compiled to typed per-locale modules |
 | Accessibility | `@zerolith/a11y` | Focus trap, roving tabindex, live announcer, focus origin, visually hidden text, and preference signals |
 | State | `@zerolith/state` | A signal kept in storage and across tabs, undo and redo, debounced and throttled signals, and a selector for rows |
+| Browser | `@zerolith/browser` | The page as signals: online, visible, the window's size, an element's size, and whether it is in view |
 | Testing | `@zerolith/test` | `mount`, `cleanup`, `settle`, and hydration and accessibility checks |
 | Dev tools | `@zerolith/devtools` | The in-page inspector, named signals, and Performance panel tracks |
 | Observability | `@zerolith/otel` | OpenTelemetry spans for navigation, hydration, and requests |

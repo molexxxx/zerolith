@@ -61,7 +61,7 @@ async function visit(origin: string): Promise<Record<string, unknown>>
     return { heading, count, current, listed, found, missing, problems };
 }
 
-const expected = { heading: `starter-${process.pid}`, count: "2", current: "/counter", listed: 12, found: 1, missing: "Not found", problems: [] };
+const expected = { heading: `starter-${process.pid}`, count: "2", current: "/counter", listed: 13, found: 1, missing: "Not found", problems: [] };
 
 beforeAll(async () =>
 {

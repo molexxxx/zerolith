@@ -18,6 +18,7 @@
         "packages/test",
         "packages/a11y",
         "packages/state",
+        "packages/browser",
         "packages/i18n",
         "packages/otel",
         "packages/cli"

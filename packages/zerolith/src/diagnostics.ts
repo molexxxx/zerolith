@@ -83,7 +83,8 @@ export type DiagnosticCode =
     | "state_storage_unreadable"
     | "state_storage_unavailable"
     | "state_value_not_json"
-    | "state_key_duplicate";
+    | "state_key_duplicate"
+    | "in_view_options_invalid";
 
 /** Builds the full diagnostic record for a catalog code, for `report` or for a `ZerolithError`; a first-party package warns through it as the runtime does. */
 export function diagnostic(code: DiagnosticCode, severity: DiagnosticSeverity, args?: DiagnosticArgs): Diagnostic

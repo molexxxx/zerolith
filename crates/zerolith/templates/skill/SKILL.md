@@ -46,6 +46,7 @@ zerolith is a standalone frontend framework. A component is a function that runs
 | Messages and formatting | `@zerolith/i18n` |
 | Focus trap, roving tabindex, announcements | `@zerolith/a11y` |
 | A value kept across reloads and tabs, undo and redo, a debounced or throttled signal, the selected row | `@zerolith/state` |
+| Online, the tab shown, the window's size, an element's size, an element in view | `@zerolith/browser` |
 | A view inside another framework | a custom element with `define` from `zerolith/element` |
 | Tests | `mount(() => View())`, `cleanup`, `settle`, and `accessibilityIssues` from `@zerolith/test` |
 
