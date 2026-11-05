@@ -4,7 +4,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 
 ## Where it stands
 
-`1.0.0` was published on 2026-11-05, the first stable release after ten alphas since `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, which writes a starter or the fullstack example, each with the zerolith skill for coding agents, and develops, bundles, and previews a project with no other build tool. It is on npm under `latest` with provenance, published through trusted publishing with no npm token anywhere, on crates.io, and a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://zerolith.dev/) is published from the same commit, and redeployed from `main` when only the site changes. Every package's API is frozen at 1.0, the core, templates, and router through [RFC 0003](https://github.com/molexxxx/zerolith/issues/7), and supported for 24 months under the [support policy](policy/support.md); a breaking change in any package comes only in a major.
+`1.0.0` was published on 2026-11-05, the first stable release after ten alphas since `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, which writes a starter or the fullstack example, each with the zerolith skill for coding agents, and develops, bundles, and previews a project with no other build tool. It is on npm under `latest` with provenance, published through trusted publishing with no npm token anywhere, on crates.io, and a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://zerolith.dev/) is published from the same commit, and redeployed from `main` when only the site changes. Every package's API is frozen at 1.0, the core, templates, and router through [RFC 0003](https://github.com/molexxxx/zerolith/issues/7), and supported for 12 months under the [support policy](policy/support.md); a breaking change in any package comes only in a major.
 
 | Area | State |
 | --- | --- |
@@ -29,7 +29,7 @@ In order:
 
 ## 1.0
 
-1.0.0 shipped on 2026-11-05 with all of these. Every package's API is supported for 24 months under the [support policy](policy/support.md).
+1.0.0 shipped on 2026-11-05 with all of these. Every package's API is supported for 12 months under the [support policy](policy/support.md).
 
 - [x] The API of the core, templates, and router is frozen through an RFC: [RFC 0003](https://github.com/molexxxx/zerolith/issues/7), accepted on 2026-11-05 without the seven-day final comment period, which the project lead waived since the project had no users beyond its author yet.
 - [x] The docs site is live at a permanent address, https://zerolith.dev/, built with zerolith itself, and every diagnostic code's page resolves there.
@@ -188,7 +188,7 @@ See the [command line guide](guide/command-line.md).
 
 ## Project and supply chain
 
-- [x] Governance, a security policy, a 24-month support window, release and versioning policies, and the RFC process with a seven-day final comment period.
+- [x] Governance, a security policy, a 12-month support window that grows to 24 with a second maintainer, release and versioning policies, and the RFC process with a seven-day final comment period.
 - [x] A code of conduct, a contributing guide, issue forms, a pull request template, and code owners.
 - [x] SHA-pinned workflows, OpenSSF Scorecard, a CycloneDX SBOM, and provenance on every published package.
 - [x] A check of the crate's dependencies against the RustSec advisory database in CI, through cargo-deny.
