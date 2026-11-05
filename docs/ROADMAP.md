@@ -188,7 +188,7 @@ See the [command line guide](guide/command-line.md).
 
 ## Project and supply chain
 
-- [x] Governance, a security policy, a support policy sized to one maintainer, with 24-month windows once there are two, release and versioning policies, and the RFC process with a seven-day final comment period.
+- [x] Governance, a security policy, a support policy sized to one maintainer, with 24-month windows once there are two, release and versioning policies, and the RFC process, whose seven-day final comment period applies once there is a second maintainer or an outside contributor.
 - [x] A code of conduct, a contributing guide, issue forms, a pull request template, and code owners.
 - [x] SHA-pinned workflows, OpenSSF Scorecard, a CycloneDX SBOM, and provenance on every published package.
 - [x] A check of the crate's dependencies against the RustSec advisory database in CI, through cargo-deny.
