@@ -154,6 +154,52 @@ describe("signals guide", () =>
         expect(requested).toEqual(["/api/users/7"]);
     });
 
+    it("resource-retry", async () =>
+    {
+        const requested: string[] = [];
+        vi.stubGlobal("fetch", (url: string) =>
+        {
+            requested.push(url);
+            return requested.length === 1 ? Promise.reject(new TypeError("Failed to fetch")) : Promise.resolve(Response.json({ id: 7, name: "Ada" }));
+        });
+        // #region resource-retry
+        class HttpError extends Error
+        {
+            readonly status: number;
+
+            constructor(status: number)
+            {
+                super(`HTTP ${status}`);
+                this.status = status;
+            }
+        }
+
+        const userId = signal<number | undefined>(7);
+        const user = resource({
+            params: () => userId.get(),
+            loader: async ({ params, abort }) =>
+            {
+                const response = await fetch(`/api/users/${params}`, { signal: abort });
+                if (!response.ok)
+                {
+                    throw new HttpError(response.status);
+                }
+                return (await response.json()) as { id: number; name: string };
+            },
+            timeout: 5000,
+            retry: 2,
+            backoff: 500,
+            retryIf: (error) => !(error instanceof HttpError) || error.status >= 500
+        });
+
+        console.log(user.attempt.get());        // 1: the first run is in flight
+        // #endregion resource-retry
+        expect(printed).toEqual([[1]]);
+        await vi.waitFor(() => expect(user.status.get()).toBe("resolved"), { timeout: 3000 });
+        expect([user.attempt.get(), user.get()]).toEqual([2, { id: 7, name: "Ada" }]);
+        expect(requested).toEqual(["/api/users/7", "/api/users/7"]);
+    });
+
     it("diagnostics", () =>
     {
         // #region diagnostics

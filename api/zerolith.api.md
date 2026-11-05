@@ -84,6 +84,7 @@ interface Resource<T> extends ReadableSignal<T | undefined>
     readonly status: ReadableSignal<ResourceStatus>
     readonly pending: ReadableSignal<boolean>
     readonly error: ReadableSignal<unknown>
+    readonly attempt: ReadableSignal<number>
     get(): T | undefined
     reload(): void
 }
@@ -92,6 +93,10 @@ interface ResourceOptions<P, T>
 {
     params: () => P | undefined
     loader: (context: LoaderContext<P>) => Promise<T>
+    timeout?: number
+    retry?: number
+    backoff?: number
+    retryIf?: (error: unknown, attempt: number) => boolean
 }
 
 interface Root
@@ -130,7 +135,7 @@ interface View
 }
 
 type DiagnosticArgs = Readonly<Record<string, string | number | boolean>>
-type DiagnosticCode = "signal_written_inside_computed" | "computed_cycle" | "effect_loop" | "effect_async" | "on_dispose_outside_scope" | "binding_in_tag_position" | "binding_in_comment" | "binding_in_raw_text" | "binding_in_template_element" | "binding_not_single" | "script_in_template" | "template_unclosed_tag" | "unsafe_property_binding" | "unsafe_attribute_binding" | "unsafe_url_blocked" | "unrenderable_value" | "each_items_function" | "event_handler_not_function" | "when_condition_function" | "mount_component_uncalled" | "each_key_undefined" | "each_key_duplicate" | "css_value_not_allowed" | "ref_not_assignable" | "hydration_mismatch" | "jsx_not_lowered" | "template_frozen_read" | "image_without_alt" | "button_without_name" | "frame_without_title" | "mount_target_missing" | "template_not_prepared" | "lazy_module_not_split" | "package_version_mismatch" | "route_name_unknown" | "route_path_invalid" | "state_storage_unreadable" | "state_storage_unavailable" | "state_value_not_json" | "state_key_duplicate" | "in_view_options_invalid"
+type DiagnosticCode = "signal_written_inside_computed" | "computed_cycle" | "effect_loop" | "effect_async" | "on_dispose_outside_scope" | "binding_in_tag_position" | "binding_in_comment" | "binding_in_raw_text" | "binding_in_template_element" | "binding_not_single" | "script_in_template" | "template_unclosed_tag" | "unsafe_property_binding" | "unsafe_attribute_binding" | "unsafe_url_blocked" | "unrenderable_value" | "each_items_function" | "event_handler_not_function" | "when_condition_function" | "mount_component_uncalled" | "each_key_undefined" | "each_key_duplicate" | "css_value_not_allowed" | "ref_not_assignable" | "hydration_mismatch" | "jsx_not_lowered" | "template_frozen_read" | "image_without_alt" | "button_without_name" | "frame_without_title" | "mount_target_missing" | "template_not_prepared" | "lazy_module_not_split" | "package_version_mismatch" | "route_name_unknown" | "route_path_invalid" | "state_storage_unreadable" | "state_storage_unavailable" | "state_value_not_json" | "state_key_duplicate" | "in_view_options_invalid" | "resource_timed_out"
 type DiagnosticListener = (diagnostic: Diagnostic) => void
 type DiagnosticSeverity = "error" | "warning" | "deprecation" | "info"
 type EffectFunction = () => void | (() => void)

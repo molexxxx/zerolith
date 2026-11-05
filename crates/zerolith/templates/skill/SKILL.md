@@ -38,7 +38,7 @@ zerolith is a standalone frontend framework. A component is a function that runs
 | A list that never changes | `entries.map((entry) => html\`...\`)` |
 | A condition | `when(condition, () => view, () => otherwise)`; the condition is a signal or a computed value, never a function |
 | Component styles | `` const styles = css`:scope { ... }` ``, applied with `class=${styles}`; a stylesheet too long for the module goes in a file beside it, `import card from "./card.css?scoped"`, applied the same way |
-| Async data | `resource({ params, loader })`, read through `get()`, `status`, `error`, and `reload()` |
+| Async data | `resource({ params, loader })`, read through `get()`, `status`, `error`, `attempt`, and `reload()`; `timeout`, `retry`, `backoff`, and `retryIf` for a loader that can fail |
 | Mounting | `render(() => App(), "#app")`, a function that returns the view, so the root owns what its components start; `hydrate(() => App(), "#app")` adopts server-rendered markup |
 | A page | a route in `src/routes.ts` and a component; links are anchors with `router.href("name", params)` |
 | A form that posts | `@zerolith/forms`: native forms with fetch, pending state, and field errors as RFC 9457 problems |

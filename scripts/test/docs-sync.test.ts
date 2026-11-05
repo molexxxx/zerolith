@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { diagnosticCatalog } from "zerolith";
 
 /**
  * Holds the repository's prose to the code it describes, so a doc that falls
@@ -99,6 +100,15 @@ describe("the repository's prose", () =>
             }
         }
         expect(missing).toEqual([]);
+    });
+
+    it("lists every diagnostic code of the catalog in the diagnostics guide, once", async () =>
+    {
+        const guide = await text("docs/guide/diagnostics.md");
+        const section = guide.slice(guide.indexOf("## Every code"));
+        const table = section.slice(0, section.indexOf("\n\n", section.indexOf("| --- |")));
+        const listed = [...table.split("\n").filter((line) => line.startsWith("| ") && !line.startsWith("| Area") && !line.startsWith("| ---")).join(" ").matchAll(/`([a-z_]+)`/g)].map((match) => match[1] ?? "");
+        expect(listed.toSorted()).toEqual(Object.keys(diagnosticCatalog).toSorted());
     });
 
     it("keeps to American spelling, regular dashes, and Markdown without horizontal rules", async () =>

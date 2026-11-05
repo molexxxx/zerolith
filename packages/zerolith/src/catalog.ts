@@ -213,5 +213,10 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
     {
         cause: "inView was given a threshold outside 0 to 1, or a root margin the browser refuses, so no IntersectionObserver can be made from them.",
         fix: "Give threshold as a fraction of the element that must show, 0 for any part to 1 for all of it, and rootMargin in pixels or percent as CSS writes them, such as \"200px\" or \"0px 0px 25% 0px\"."
+    },
+    resource_timed_out:
+    {
+        cause: "A run of the resource's loader did not settle within the timeout, so its abort signal fired and the run failed.",
+        fix: "Pass the loader's abort signal to fetch so the request itself stops, raise the timeout for a slow backend, or add retry so a run that fails now and then is tried again."
     }
 };

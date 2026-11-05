@@ -53,7 +53,10 @@ Each code has a page at `https://zerolith.dev/e/<code>/` with its cause and its 
 | Unsafe values | `unsafe_property_binding`, `unsafe_attribute_binding`, `unsafe_url_blocked`, `css_value_not_allowed` |
 | Mounting and hydration | `mount_target_missing`, `mount_component_uncalled`, `hydration_mismatch` |
 | Accessibility | `image_without_alt`, `button_without_name`, `frame_without_title` |
+| Async data | `resource_timed_out` |
 | Routing | `route_name_unknown`, `route_path_invalid` |
+| State | `state_storage_unreadable`, `state_storage_unavailable`, `state_value_not_json`, `state_key_duplicate` |
+| Browser | `in_view_options_invalid` |
 | Builds and versions | `lazy_module_not_split`, `package_version_mismatch` |
 
 The command line's own checks, such as the findings of `zerolith doctor`, use codes of their own with the same cause and fix, printed in the terminal; the [command line guide](command-line.md#doctor) lists them.

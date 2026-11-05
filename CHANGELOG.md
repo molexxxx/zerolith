@@ -8,11 +8,17 @@ Every package in this repository is released together and carries the same versi
 
 - `@zerolith/state`, signals with a memory over the core alone: `stored(key, initial)` is a writable signal kept in `localStorage` or `sessionStorage` as JSON and set again when another tab writes the key; `history(signal)` gives undo and redo from explicit checkpoints, with `canUndo` and `canRedo` as signals; `debounced(signal, ms)` and `throttled(signal, ms)` follow a signal after a quiet spell or at most so often; and `selector(signal)` gives each key a signal that is true for the selected one, so a selection among a thousand rows updates two. Each timer and listener is disposed with the enclosing owner. Four warnings join the catalog: `state_storage_unreadable`, `state_storage_unavailable`, `state_value_not_json`, and `state_key_duplicate`.
 - `@zerolith/browser`, the page as signals: `online()`, `visible()`, and `windowSize()` are one signal each for the page, following the browser's own events; `size(target)` and `inView(target, options?)` keep an element's content box and whether it is in the viewport through observers that stop with the enclosing owner, and take the element or the signal a `ref` fills. Each is still on the server: online, visible, and no size. A threshold outside 0 to 1 or a root margin the browser refuses fails with `in_view_options_invalid`, which joins the catalog.
+- `zerolith`: `resource` takes `timeout`, `retry`, `backoff`, and `retryIf`, and gives `attempt`. A run of the loader past the timeout fails with `resource_timed_out`, which joins the catalog, and its abort signal fires with that error. A run that fails runs again as many times as `retry` says, `Infinity` to keep trying, while `retryIf` says the failure is worth it; the first wait is `backoff`, 250 milliseconds by default, and each wait after it doubles until it reaches 30 seconds. A waiting retry is dropped when the params change, on `reload()`, and when the owner is disposed. The resource stays pending through the retries, and `attempt` counts the runs.
 - `zerolith`: `diagnostic(code, severity, args?)` and `report(record)` are exported, the way the runtime builds and reports its own warnings, so a package can warn with a catalog code and `onDiagnostic` listeners hear it; `hasOwner()` tells whether `onDispose` has an owner to register with, so a package ties a cleanup to the enclosing owner when there is one and lives for the page otherwise.
 
 ### Changed
 
 - Docs: the site shows two releases when a pre-release is newer than the stable one: the stable release at the root, built from its line branch when one exists, and the pre-release under `/next/`, built from its tag, with a switch in the header between them at the same page where it exists and at the other release's home otherwise; a diagnostic code only the pre-release has gets a page at the root that sends the reader to `/next/`, so the URL a pre-release prints never comes back not found. Every release deploys the site again, as before 1.0.0.
+- The core's size budget grows by 512 bytes after gzip, to 11,264 for the production bundle and 14,848 for the modules a buildless page loads, for retry and timeout in `resource`.
+
+### Fixed
+
+- `zerolith`: `resource`'s `reload()` runs the loader untracked, so an effect that calls it no longer follows the signals the loader reads, and does nothing while `params` throws, where it loaded the last params that did not.
 
 ## 1.0.0 (2026-11-05)
 

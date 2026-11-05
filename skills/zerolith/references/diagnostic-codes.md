@@ -154,6 +154,12 @@ Cause: A ref binding received something other than a writable signal or a functi
 
 Fix: Pass a signal created with signal<Element | undefined>(undefined) or a callback that receives the element.
 
+## resource_timed_out
+
+Cause: A run of the resource's loader did not settle within the timeout, so its abort signal fired and the run failed.
+
+Fix: Pass the loader's abort signal to fetch so the request itself stops, raise the timeout for a slow backend, or add retry so a run that fails now and then is tried again.
+
 ## route_name_unknown
 
 Cause: href() of @zerolith/router was called with a name the route table does not hold, so there is no path to build.

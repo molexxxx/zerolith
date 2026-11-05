@@ -179,12 +179,50 @@ A resource is itself a signal of its value, with its state beside it:
 | Member | Holds |
 | --- | --- |
 | `get()` | The value the last successful load returned, or `undefined` before one has. It stays while the next load runs and after a load fails. |
-| `status` | `"idle"`, `"pending"`, `"resolved"`, or `"error"` |
-| `pending` | `true` while a load runs |
+| `status` | `"idle"`, `"pending"` while the loader runs or waits to retry, `"resolved"`, or `"error"` |
+| `pending` | `true` while a load runs or waits to retry |
 | `error` | What the last failed load threw, until the next load starts |
+| `attempt` | The number of the current request's latest run: 1 for the first, one more as each retry starts, and 0 while idle or while `params` throws |
 | `reload()` | Runs the loader again with the current params |
 
 A result that arrives after newer params have started a load is dropped, so a slow first request never overwrites a fast second one. The abort signal fires when the params change, on `reload()`, and when the resource's owner is disposed; passing it to `fetch`, as above, cancels the request itself.
+
+A loader that fails runs again when `retry` says so: `retry: 2` runs it twice more, the first time `backoff` milliseconds after the failure, 250 by default, and each wait after that twice the one before, until it reaches 30 seconds. `Infinity` keeps trying. `retryIf` decides which failures are worth another run: it gets what the run threw and the run's number, so below a response outside 2xx stops at once unless it is a server error, while a dropped connection or a timeout is tried again. The resource stays pending through the retries, with `error` empty until the last failure, and a retry still waiting is dropped when the params change, on `reload()`, and when the owner is disposed. `timeout` bounds each run: a run that takes longer fails with `resource_timed_out`, its abort signal fires with that error as the reason, and a retry covers it like any failure. A run's abort signal stays live after the run settles, until the params change, a reload, or disposal, so a body still streaming ends with the request:
+
+```ts
+import { resource, signal } from "zerolith";
+
+class HttpError extends Error
+{
+    readonly status: number;
+
+    constructor(status: number)
+    {
+        super(`HTTP ${status}`);
+        this.status = status;
+    }
+}
+
+const userId = signal<number | undefined>(7);
+const user = resource({
+    params: () => userId.get(),
+    loader: async ({ params, abort }) =>
+    {
+        const response = await fetch(`/api/users/${params}`, { signal: abort });
+        if (!response.ok)
+        {
+            throw new HttpError(response.status);
+        }
+        return (await response.json()) as { id: number; name: string };
+    },
+    timeout: 5000,
+    retry: 2,
+    backoff: 500,
+    retryIf: (error) => !(error instanceof HttpError) || error.status >= 500
+});
+
+console.log(user.attempt.get());        // 1: the first run is in flight
+```
 
 ## The functions at a glance
 
@@ -198,4 +236,4 @@ A result that arrives after newer params have started a load is dropped, so a sl
 | `scope(fn)` | A function whose effects belong to a new owner | The owner, with `value`, what `fn` returned, and `dispose()` |
 | `onDispose(fn)` | A cleanup | Nothing; the running owner calls `fn` when it is disposed |
 | `hasOwner()` | Nothing | True while an owner is running, so `onDispose` has one to register with; false in plain code |
-| `resource({ params, loader })` | A tracked `params` function, and a `loader` that receives `{ params, abort }` | A resource, as the table above describes |
+| `resource({ params, loader, timeout, retry, backoff, retryIf })` | A tracked `params` function, a `loader` that receives `{ params, abort }`, and how patient to be: a `timeout` per run, how many times to `retry`, the `backoff` before the first retry, and `retryIf`, which says whether a failure is worth another run | A resource, as the table above describes |
