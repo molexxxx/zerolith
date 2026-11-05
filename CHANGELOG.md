@@ -1,8 +1,10 @@
 # Changelog
 
-Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes before 1.0.0 are called out as such.
+Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
-## 0.1.0-alpha.11
+## 1.0.0 (2026-11-04)
+
+The first stable release. The API of `zerolith`, `zerolith/ssr`, `zerolith/element`, `zerolith/jsx-runtime`, `@zerolith/router`, and `@zerolith/router/server` is frozen through [RFC 0003](https://github.com/molexxxx/zerolith/issues/7): the reports in `api/` are its text, and the line is supported for 24 months under the [support policy](docs/policy/support.md). The other packages and the command line are frozen at 1.0 as well: every package carries one version under semantic versioning, so a breaking change in any of them comes only in a major, after the deprecation cycle the [versioning policy](docs/policy/versioning.md) describes. Packages publish under `latest`, so `npm install zerolith` and `npx @zerolith/cli new my-app` need no tag. The changes since `0.1.0-alpha.10` follow.
 
 ### Added
 

@@ -1143,7 +1143,7 @@ fn readme(name: &str, choice: Choice) -> String {
             "A zerolith application on Vite. The commands below are the project's npm scripts, which run Vite with `@zerolith/vite`."
         }
         _ => {
-            "A zerolith application. The commands below are the zerolith command line. Install it once with `npm install --global @zerolith/cli@alpha`, or run the project's own copy, which `npm install` put in `node_modules`, as `npx zerolith dev` or through the `dev`, `build`, and `preview` npm scripts, which is what CI should do."
+            "A zerolith application. The commands below are the zerolith command line. Install it once with `npm install --global @zerolith/cli`, or run the project's own copy, which `npm install` put in `node_modules`, as `npx zerolith dev` or through the `dev`, `build`, and `preview` npm scripts, which is what CI should do."
         }
     };
     let (develop, build) = match choice.tool {

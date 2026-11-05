@@ -11,7 +11,7 @@ You will receive an acknowledgment within three business days and a triage decis
 
 ## Supported versions
 
-Security fixes are published for every release line inside the support window described in [docs/policy/support.md](docs/policy/support.md). Until 1.0.0 there is no supported line: fixes ship in the next alpha. Pre-release channels (alpha, canary, experimental) receive fixes in their next version and are not backported.
+Security fixes are published for every release line inside the support window described in [docs/policy/support.md](docs/policy/support.md). Since 1.0.0 the 1.x line is the supported one, and a fix ships in its next patch or minor release. Pre-release channels (alpha, canary, experimental) receive fixes in their next version and are not backported.
 
 ## What the runtime guarantees
 

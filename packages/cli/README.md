@@ -5,18 +5,18 @@ The `zerolith` command line from npm: `new`, `dev`, which serves a project with 
 Install it once and start a project. `new` asks a few questions, each with a default, writes the starter, and installs its dependencies, this package among them:
 
 ```
-npm install --global @zerolith/cli@alpha
+npm install --global @zerolith/cli
 zerolith new my-app
 cd my-app
 zerolith dev
 ```
 
-Without a global install, `npx @zerolith/cli@alpha new my-app` does the same, and inside the project `npx zerolith dev` and its npm scripts run the copy it lists.
+Without a global install, `npx @zerolith/cli new my-app` does the same, and inside the project `npx zerolith dev` and its npm scripts run the copy it lists.
 
 Or add it to an existing project and call it through `npx`:
 
 ```
-npm install --save-dev @zerolith/cli@alpha
+npm install --save-dev @zerolith/cli
 npx zerolith doctor .
 ```
 
@@ -24,7 +24,7 @@ Prebuilt binaries exist for Linux (glibc), macOS, and Windows on x64 and arm64. 
 
 The commands are documented in the [command line guide](https://zerolith.dev/guide/command-line/).
 
-Status: alpha. The commands and their flags may change before 1.0.
+The commands and their flags are stable at 1.0: one that could break a script goes only in a major, after a deprecation notice, under the [versioning policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/versioning.md).
 
 ## Documentation
 

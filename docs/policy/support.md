@@ -1,13 +1,13 @@
 # Support window and release channels
 
-This policy takes effect with the first stable release and is published beforehand so adopters can plan against it. Until then the packages are alpha versions: fixes ship in the next alpha and nothing is backported.
+This policy took effect with 1.0.0 on 2026-11-04. Before it the packages were alpha versions, where a fix shipped in the next alpha and nothing was backported.
 
 ## Channels
 
 | Channel | npm dist-tag | What it is | Who should use it |
 | --- | --- | --- | --- |
 | Latest | `latest` | Stable releases that follow semantic versioning | Everyone in production |
-| Alpha | `alpha` | Pre-release versions before 1.0.0, API not frozen | Early adopters evaluating zerolith |
+| Alpha | `alpha` | Pre-release versions of the next major, API not frozen | Early adopters evaluating what comes next |
 | Canary | `canary` | Builds from the default branch that passed the full CI matrix | Projects that want the next fix early, and ecosystem maintainers testing compatibility |
 | Experimental | `experimental` | Builds from an accepted RFC branch, API not yet frozen | Reviewers of that RFC |
 

@@ -26,7 +26,7 @@ export interface HomeData
     revisions: Array<{ version: string; date: string }>;
 }
 
-export const createCommand = "npx @zerolith/cli@alpha new my-app";
+export const createCommand = "npx @zerolith/cli new my-app";
 const startCode = `${createCommand}\ncd my-app\nnpm run dev`;
 
 /** Text with `code` spans, as the characteristics table writes it. */
@@ -142,7 +142,7 @@ export function Home(data: HomeData): View
             <div class="columns">
                 <div>
                     <p>Node 24 or newer is required. The command writes a starter that asks for the language, the build tool, and the inspector; <code>--yes</code> takes every default.</p>
-                    <p>To add zerolith to a project you have, install <code>zerolith@alpha</code> and the packages you need. To serve with no build step at all, <a href="/guide/command-line/#importmap"><code>zerolith importmap</code></a> writes an import map with integrity hashes.</p>
+                    <p>To add zerolith to a project you have, install <code>zerolith</code> and the packages you need. To serve with no build step at all, <a href="/guide/command-line/#importmap"><code>zerolith importmap</code></a> writes an import map with integrity hashes.</p>
                 </div>
                 <div class="code" data-language="sh"><button class="copy" type="button" aria-label="Copy code"><span class="idle">${unsafeHtml(icon("copy"))}</span><span class="done">${unsafeHtml(icon("check"))}</span></button><pre><code>${unsafeHtml(highlight(startCode, "sh"))}</code></pre></div>
             </div>
@@ -153,7 +153,7 @@ export function Home(data: HomeData): View
         </section>
         <section class="band">
             <h2>Revision history</h2>
-            <p>zerolith is in alpha: the API may change until it is frozen for 1.0, and the <a href=${`${repository}/blob/main/docs/ROADMAP.md`}>roadmap</a> lists what remains.</p>
+            <p>zerolith 1.0 is out: the API is frozen and supported for 24 months, and the <a href=${`${repository}/blob/main/docs/ROADMAP.md`}>roadmap</a> lists what comes next.</p>
             <div class="table">
                 <table>
                     <thead><tr><th scope="col">Version</th><th scope="col">Date</th><th scope="col">Notes</th></tr></thead>

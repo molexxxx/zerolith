@@ -1,6 +1,6 @@
 # Versioning and deprecation
 
-All packages in this repository follow semantic versioning 2.0.0. Before 1.0.0, minor versions may contain breaking changes and are announced as such in the changelog.
+All packages in this repository follow semantic versioning 2.0.0 and carry one version, so a breaking change in any of them comes only in a major release. Since 1.0.0 every package's API is frozen: for `zerolith`, with its `ssr`, `element`, and `jsx-runtime` entries, and for `@zerolith/router`, with its `server` entry, through [RFC 0003](https://github.com/molexxxx/zerolith/issues/7), and for the other packages and the command line by this policy. The reports in `api/` are the text of each package's API, a change to them other than an addition is a breaking change under the rule below, and the 1.x line is supported for 24 months under the [support policy](support.md). Before 1.0.0, minor versions could contain breaking changes in any package.
 
 ## What is public API
 
