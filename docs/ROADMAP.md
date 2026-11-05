@@ -4,7 +4,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 
 ## Where it stands
 
-`1.0.0` was published on 2026-11-04, the first stable release after ten alphas since `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, which writes a starter or the fullstack example, each with the zerolith skill for coding agents, and develops, bundles, and previews a project with no other build tool. It is on npm under `latest` with provenance, published through trusted publishing with no npm token anywhere, on crates.io, and a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://zerolith.dev/) is published from the same commit, and redeployed from `main` when only the site changes. Every package's API is frozen at 1.0, the core, templates, and router through [RFC 0003](https://github.com/molexxxx/zerolith/issues/7), and supported for 24 months under the [support policy](policy/support.md); a breaking change in any package comes only in a major.
+`1.0.0` was published on 2026-11-05, the first stable release after ten alphas since `0.1.0-alpha.1` on 2026-10-29: the core, ten first-party packages, and the command line with prebuilt binaries, which writes a starter or the fullstack example, each with the zerolith skill for coding agents, and develops, bundles, and previews a project with no other build tool. It is on npm under `latest` with provenance, published through trusted publishing with no npm token anywhere, on crates.io, and a [GitHub release](https://github.com/molexxxx/zerolith/releases) with its SBOM. The [docs site](https://zerolith.dev/) is published from the same commit, and redeployed from `main` when only the site changes. Every package's API is frozen at 1.0, the core, templates, and router through [RFC 0003](https://github.com/molexxxx/zerolith/issues/7), and supported for 24 months under the [support policy](policy/support.md); a breaking change in any package comes only in a major.
 
 | Area | State |
 | --- | --- |
@@ -29,9 +29,9 @@ In order:
 
 ## 1.0
 
-1.0.0 shipped on 2026-11-04 with all of these. Every package's API is supported for 24 months under the [support policy](policy/support.md).
+1.0.0 shipped on 2026-11-05 with all of these. Every package's API is supported for 24 months under the [support policy](policy/support.md).
 
-- [x] The API of the core, templates, and router is frozen through an RFC: [RFC 0003](https://github.com/molexxxx/zerolith/issues/7), accepted on 2026-11-04 without the seven-day final comment period, which the project lead waived since the project had no users beyond its author yet.
+- [x] The API of the core, templates, and router is frozen through an RFC: [RFC 0003](https://github.com/molexxxx/zerolith/issues/7), accepted on 2026-11-05 without the seven-day final comment period, which the project lead waived since the project had no users beyond its author yet.
 - [x] The docs site is live at a permanent address, https://zerolith.dev/, built with zerolith itself, and every diagnostic code's page resolves there.
 - [x] A production site runs on zerolith, served buildless with an import map and integrity hashes, with a Lighthouse budget enforced in CI: [media.molex.cloud](https://media.molex.cloud/), the molexMedia website, since 2026-11-04.
 - [x] A keyed entry is submitted to js-framework-benchmark, with the core inside its 10.5 kB compressed budget: [pull request 2146](https://github.com/krausest/js-framework-benchmark/pull/2146), opened 2026-11-04 at `0.1.0-alpha.9` and moved to `0.1.0-alpha.10` the same day. The public results show the version pinned in that repository when a round runs, so a release moves the pin there by a pull request.
