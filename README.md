@@ -16,7 +16,7 @@
 
 Routing, forms, rendering, and i18n, with clear patterns for you and your agent.
 
-> **Alpha.** Packages publish under the `alpha` dist-tag (`npm install zerolith@alpha`) and the API is still settling. Watch the repository or join the [discussions](https://github.com/molexxxx/zerolith/discussions) to follow along.
+> **1.0.** Every package's API is frozen at 1.0 and supported for 24 months under the [support policy](docs/policy/support.md): the core, templates, and router through [RFC 0003](https://github.com/molexxxx/zerolith/issues/7), and a breaking change in any package comes only in a major, after the deprecation cycle the [versioning policy](docs/policy/versioning.md) describes. Watch the repository or join the [discussions](https://github.com/molexxxx/zerolith/discussions) to follow along.
 
 zerolith is a standalone frontend framework: fine-grained signals, HTML templates that need no compiler, a typed router, server rendering with hydration, and a command line that develops and builds the application on its own. It talks to any backend over plain HTTP.
 
@@ -42,7 +42,7 @@ Bind the signal, not its value: `${count}` stays live, while `${count.get()}` re
 Node 24 or newer is required. Install the command line once; npm puts the prebuilt binary for your platform on your PATH:
 
 ```sh
-npm install --global @zerolith/cli@alpha
+npm install --global @zerolith/cli
 ```
 
 Then write a starter application and run it:
@@ -73,9 +73,9 @@ In the project:
 | `zerolith build` | Bundles and minifies it into `dist/`, static files for any host or backend |
 | `zerolith preview` | Serves `dist/` the way a host will, to check the build |
 
-Without a global install, `npx @zerolith/cli@alpha new my-app` writes the project, and inside it `npx zerolith dev` and the `dev`, `build`, and `preview` npm scripts run the project's own copy of the command line, which is what CI should use. The starter's README covers deploying, environment variables, and when Vite is worth adding, and the [command line guide](docs/guide/command-line.md) has every option.
+Without a global install, `npx @zerolith/cli new my-app` writes the project, and inside it `npx zerolith dev` and the `dev`, `build`, and `preview` npm scripts run the project's own copy of the command line, which is what CI should use. The starter's README covers deploying, environment variables, and when Vite is worth adding, and the [command line guide](docs/guide/command-line.md) has every option.
 
-To add zerolith to an existing project, install `zerolith@alpha` and the `@zerolith/*` packages you need at the same tag, with `@zerolith/cli` for the commands. To work against a backend, the [building and serving guide](docs/guide/deploying.md) covers the dev server's proxy, a base path, and serving the build from a static host, a web server, or the backend itself.
+To add zerolith to an existing project, install `zerolith` and the `@zerolith/*` packages you need at the same version, with `@zerolith/cli` for the commands. To work against a backend, the [building and serving guide](docs/guide/deploying.md) covers the dev server's proxy, a base path, and serving the build from a static host, a web server, or the backend itself.
 
 Every night that the code changed, every package is also published under the `canary` tag, built from the main branch: `npx @zerolith/cli@canary new my-app` starts a project on it.
 
@@ -89,7 +89,7 @@ Every night that the code changed, every package is also published under the `ca
 
 ## What works today
 
-Everything below runs, is tested in this repository, and is published under the `alpha` dist-tag.
+Everything below runs, is tested in this repository, and is published under `latest`.
 
 | Area | Package | What it does |
 | --- | --- | --- |

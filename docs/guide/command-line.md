@@ -24,7 +24,7 @@ The `zerolith` binary is written in Rust and covers the parts of development tha
 
 | Where | How |
 | --- | --- |
-| Anywhere npm runs, on Linux (glibc), macOS, or Windows, x64 or arm64 | `npm install --global @zerolith/cli@alpha` puts `zerolith` on the PATH |
+| Anywhere npm runs, on Linux (glibc), macOS, or Windows, x64 or arm64 | `npm install --global @zerolith/cli` puts `zerolith` on the PATH |
 | Inside a project | `@zerolith/cli` as a development dependency, as every starter has it, runs as `npx zerolith` and through the npm scripts |
 | Elsewhere, and on musl systems such as Alpine | `cargo install zerolith --locked` builds the same crate from crates.io, with the dependencies it was tested with, and `ZEROLITH_BINARY_PATH` tells the npm package where it is |
 

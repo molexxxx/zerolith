@@ -20,7 +20,7 @@ Tags select what the release workflow publishes:
 
 ## Before 1.0.0
 
-Alpha and beta versions (`0.1.0-alpha.1` and on) are published under the `alpha` or `beta` dist-tag. npm also gives the first version of a new package the `latest` tag, so until a stable version takes it, the release workflow moves `latest` to each new pre-release as well, and `npm install zerolith` never stays behind `npm install zerolith@alpha`; the docs install with `@alpha` to make the pre-release explicit. Once a stable version exists, `latest` names only stable versions and a pre-release moves only its own tag. The changelog lists breaking changes between pre-releases under their own heading, the same way it does between minors.
+Alpha and beta versions (`0.1.0-alpha.1` and on) are published under the `alpha` or `beta` dist-tag. npm also gives the first version of a new package the `latest` tag, so until a stable version takes it, the release workflow moves `latest` to each new pre-release as well, and `npm install zerolith` never stays behind `npm install zerolith@alpha`; the docs install with `@alpha` to make the pre-release explicit. Once a stable version exists, `latest` names only stable versions and a pre-release moves only its own tag; a stable release is published with `tag=latest`, under which the workflow moves no other tag. The changelog lists breaking changes between pre-releases under their own heading, the same way it does between minors.
 
 ## Steps for a stable release
 

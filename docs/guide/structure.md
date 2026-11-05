@@ -121,7 +121,7 @@ Other choices change the lines that name the language and the tools. The framewo
 
 ## Scaffolding
 
-The command line comes from npm as `@zerolith/cli`, so `npx @zerolith/cli@alpha new my-app` needs nothing installed first; see [Command line](command-line.md).
+The command line comes from npm as `@zerolith/cli`, so `npx @zerolith/cli new my-app` needs nothing installed first; see [Command line](command-line.md).
 
 | Command | Writes |
 | --- | --- |

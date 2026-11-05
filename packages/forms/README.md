@@ -19,7 +19,7 @@ Validation is written once as a Standard Schema and runs on both sides: `validat
 
 The guide is on the [docs site](https://zerolith.dev/guide/forms/).
 
-Status: alpha. Install with `npm install @zerolith/forms@alpha`; the API may change before 1.0.
+Install with `npm install @zerolith/forms`. The API is frozen at 1.0 and supported for 24 months under the [support policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md).
 
 ## Documentation
 

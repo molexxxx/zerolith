@@ -10,7 +10,7 @@ group: Basics
 zerolith is a standalone frontend framework for single-page applications. State lives in fine-grained signals, HTML templates bind those signals with no compiler, a typed router handles navigation, and one command line serves the app while you work and builds it for production. It talks to any backend over plain HTTP, and renders on the server when a page needs it.
 
 > [!NOTE]
-> zerolith is in alpha. Every package is published under the `alpha` dist-tag, and the API may change until it is frozen for 1.0.
+> zerolith 1.0 is out. Every package's API is frozen at 1.0 and supported for 24 months; a breaking change comes only in a major, after the deprecation cycle the [versioning policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/versioning.md) describes.
 
 The guides explain one concept each, with the pattern zerolith uses for it and an example that runs as a test. New to zerolith? The [tutorial](../learn/index.md) builds a small app from an empty folder, one idea per step, and the [playground](https://zerolith.dev/playground/) runs code in your browser.
 
@@ -39,7 +39,7 @@ Everything else is a package around that core, and an application installs the o
 Node 24 or newer is required. Install the command line once; npm puts the prebuilt binary for your platform on your PATH:
 
 ```sh
-npm install --global @zerolith/cli@alpha
+npm install --global @zerolith/cli
 ```
 
 Then write a starter application and run it:
@@ -71,7 +71,7 @@ In the project:
 | `zerolith preview` | Serves `dist/` the way a host will, to check the build |
 
 > [!TIP]
-> Without a global install, `npx @zerolith/cli@alpha new my-app` writes the project. Inside it, `npx zerolith dev` and the `dev`, `build`, and `preview` npm scripts run the project's own copy of the command line, which is what CI should use.
+> Without a global install, `npx @zerolith/cli new my-app` writes the project. Inside it, `npx zerolith dev` and the `dev`, `build`, and `preview` npm scripts run the project's own copy of the command line, which is what CI should use.
 
 The starter's README walks through its files, deploying, and environment variables, and the [command line guide](command-line.md) has every option.
 

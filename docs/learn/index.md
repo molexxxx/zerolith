@@ -21,7 +21,7 @@ Each step adds one idea and explains why it works the way it does before showing
 `zerolith new` writes a starter application. This tutorial uses TypeScript with `html` templates, which run in the browser without a compiler:
 
 ```sh
-npx @zerolith/cli@alpha new packing-list --template ts --yes
+npx @zerolith/cli new packing-list --template ts --yes
 cd packing-list
 npm run dev
 ```
