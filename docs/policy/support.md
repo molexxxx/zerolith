@@ -15,15 +15,13 @@ Pre-release channels can change without notice and are not covered by the suppor
 
 ## Support window
 
-Every major release line is supported for 12 months from the day its first stable version is published while the project has one maintainer with release rights, and for 24 months once it has two; the window a line was published under is the one it keeps.
+While the project has one maintainer with release rights, the newest major line with a stable release is the supported line: fixes ship in its next patch or minor release, pre-releases of the next major run beside it under the `alpha` tag, and an older line gets no releases once a newer stable major is out. Once the project has two maintainers with release rights, every major line published from then on is supported for 24 months from its first stable version:
 
 | Months after major release | Phase | What ships on that line |
 | --- | --- | --- |
-| 0 to 6, or 0 to 12 with two maintainers | Active | New minor releases with features, fixes, and security patches |
-| 6 to 12, or 12 to 24 with two maintainers | Maintenance | Patch releases with security fixes and fixes for regressions and data-loss bugs |
-| After the window | End of life | Nothing; a final advisory is posted if a known vulnerability exists |
-
-Until the project has at least two maintainers with release rights, only one major line is maintained at a time; the 12-month window still applies to that line, which means a new major cannot be published less than 6 months after the previous one without extending the previous line's maintenance to meet its promise. This limitation is recorded here so it is never a surprise.
+| 0 to 12 | Active | New minor releases with features, fixes, and security patches |
+| 12 to 24 | Maintenance | Patch releases with security fixes and fixes for regressions and data-loss bugs |
+| After 24 | End of life | Nothing; a final advisory is posted if a known vulnerability exists |
 
 ## Platforms
 

@@ -26,7 +26,7 @@ it("renders and hydrates", async () =>
 
 Under Vitest, which reads the components itself, add the plugin from `@zerolith/vite` as `zerolith({ hot: false })` so a test reads JSX and stylesheets imported with `?scoped` as the app does; a project from `zerolith new` has it in `vitest.config.ts`. The guide is on the [docs site](https://zerolith.dev/guide/testing/).
 
-Install with `npm install --save-dev @zerolith/test`. The API is frozen at 1.0 and supported for 12 months under the [support policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md).
+Install with `npm install --save-dev @zerolith/test`. The API is frozen at 1.0: a breaking change comes only in a major, after a deprecation notice, and the [support policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md) says how long a line gets fixes.
 
 ## Documentation
 

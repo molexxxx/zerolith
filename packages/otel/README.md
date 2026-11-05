@@ -18,7 +18,7 @@ tracedHydrate(App(router), "#app", tracer);
 
 The guide is on the [docs site](https://zerolith.dev/guide/observability/).
 
-Install with `npm install @zerolith/otel`. The API is frozen at 1.0 and supported for 12 months under the [support policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md).
+Install with `npm install @zerolith/otel`. The API is frozen at 1.0: a breaking change comes only in a major, after a deprecation notice, and the [support policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md) says how long a line gets fixes.
 
 ## Documentation
 

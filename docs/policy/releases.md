@@ -4,7 +4,11 @@
 
 - Patch releases ship whenever a fix is ready.
 - Minor releases ship when there is something to release, with a target of at least one per month during the active phase of a line.
-- Major releases ship at most once every 12 months and only when a deprecation cycle has completed; see [versioning.md](versioning.md).
+- A major release ships when a milestone or a breaking change warrants it, a breaking change only after the deprecation cycle in [versioning.md](versioning.md), which is one release long while the project has one maintainer; once it has two, majors ship at most once every 12 months.
+
+## Lines
+
+After a stable major, `main` is the next major and a branch named after the line, such as `1.x`, carries the line's fixes: a fix lands on `main` and is cherry-picked to the branch with `git cherry-pick -x`, and the branch releases patches and minors under `latest` while it is the newest stable line, with the release workflow run on the branch. Pre-releases of the next major publish from `main` under `alpha` and leave `latest` and the docs site alone. CI runs on `main` and on every line branch.
 
 ## Versions and tags
 
@@ -28,7 +32,7 @@ Alpha and beta versions (`0.1.0-alpha.1` and on) are published under the `alpha`
 2. CI runs the full matrix on the pull request, including the size budget and the benchmark comparison against `benchmarks/baseline`.
 3. After merge, the release manager runs the release workflow for every package with the crate selected, first as a dry run, or pushes a `<package>@<version>` tag to release one package. The tag's version has to be the manifests' own, and a single package moves only its own dist-tag, so `latest` always names a set released together.
 4. The release workflow builds from the release commit, runs each binary it built, runs the full check again, publishes to npm with provenance through trusted publishing, publishes the crate to crates.io once npm has the version, and creates a GitHub release tagged `zerolith@<version>` whose notes are the version's changelog section, with the CycloneDX SBOM attached.
-5. The release workflow rebuilds the documentation site from the commit it published and deploys it to GitHub Pages, so the docs always describe what the registry serves; the API reference and the agent index (`llms.txt`, the API manifest) are regenerated from that build, never hand-edited. Pushes to the default branch do not redeploy the site, and a manual run of the docs workflow redeploys a given ref.
+5. For a stable release the release workflow rebuilds the documentation site from the commit it published and deploys it to GitHub Pages, so the docs always describe what `latest` serves; a pre-release of the next major leaves the site on the stable line; the API reference and the agent index (`llms.txt`, the API manifest) are regenerated from that build, never hand-edited. Pushes to the default branch do not redeploy the site, and a manual run of the docs workflow redeploys a given ref.
 
 6. Once the GitHub release exists, the release workflow starts the benchmarks workflow on the release's tag, which measures the release on js-framework-benchmark, with the release before it in the same session on the same machine, next to every framework `benchmarks/frameworks.json` lists, on a GitHub-hosted runner, in a job that can write nothing. A second job checks the run's file and commits it to `benchmarks/results/` with the results section of the benchmarks README, which `npm run bench:report` writes from the runs, the newest release first; the same commit pins the js-framework-benchmark entry to the release and moves `benchmarks/baseline` to the release's tag, so CI measures every later push against what users installed, unless the baseline names a faster commit the release does not hold. While the documentation site still shows that release, the workflow then deploys it again from the release's tag, and since the docs workflow takes the benchmark runs from main, the site's benchmarks page shows the new run. A manual run of the benchmarks workflow measures a published version again, and the pin never moves back to an earlier release.
 
