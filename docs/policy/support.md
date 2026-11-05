@@ -1,6 +1,6 @@
 # Support window and release channels
 
-This policy took effect with 1.0.0 on 2026-11-04. Before it the packages were alpha versions, where a fix shipped in the next alpha and nothing was backported.
+This policy took effect with 1.0.0 on 2026-11-05. Before it the packages were alpha versions, where a fix shipped in the next alpha and nothing was backported.
 
 ## Channels
 
