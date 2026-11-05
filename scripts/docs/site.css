@@ -1593,7 +1593,7 @@ main[tabindex="-1"]:focus
 .part
 {
     display: grid;
-    grid-column: span 2;
+    grid-column: span 3;
     align-content: start;
     gap: var(--zl-space-2);
     padding: var(--zl-space-4);
@@ -1648,11 +1648,6 @@ main[tabindex="-1"]:focus
 .part.core .text
 {
     font-size: var(--zl-text-md);
-}
-
-.part.tool
-{
-    grid-column: span 3;
 }
 
 .start .columns

@@ -70,7 +70,7 @@ const routerBuild = join(root, "packages", "router", "dist", "production");
 /** The guides' groups, in reading order; every guide names one in its front matter. */
 const guideGroups = ["Basics", "Building apps", "Tooling"];
 /** The packages that ship to the browser, whose dependencies the home page counts. */
-const runtimePackages = ["zerolith", "router", "forms", "client", "a11y", "i18n", "devtools", "otel", "test"];
+const runtimePackages = ["zerolith", "router", "forms", "client", "a11y", "state", "i18n", "devtools", "otel", "test"];
 
 const entries: Entry[] = [
     { specifier: "zerolith", file: "packages/zerolith/src/index.ts", title: "zerolith" },
@@ -89,6 +89,7 @@ const entries: Entry[] = [
     { specifier: "@zerolith/client/port", file: "packages/client/src/port.ts", title: "@zerolith/client/port" },
     { specifier: "@zerolith/test", file: "packages/test/src/index.ts", title: "@zerolith/test" },
     { specifier: "@zerolith/a11y", file: "packages/a11y/src/index.ts", title: "@zerolith/a11y" },
+    { specifier: "@zerolith/state", file: "packages/state/src/index.ts", title: "@zerolith/state" },
     { specifier: "@zerolith/i18n", file: "packages/i18n/src/index.ts", title: "@zerolith/i18n" },
     { specifier: "@zerolith/i18n/compile", file: "packages/i18n/src/compile.ts", title: "@zerolith/i18n/compile" },
     { specifier: "@zerolith/otel", file: "packages/otel/src/index.ts", title: "@zerolith/otel" }

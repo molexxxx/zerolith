@@ -39,6 +39,7 @@ export const packages: ReadonlyArray<{ specifier: string; folder: string; module
     { specifier: "@zerolith/router", folder: "router", module: "index.js" },
     { specifier: "@zerolith/forms", folder: "forms", module: "index.js" },
     { specifier: "@zerolith/a11y", folder: "a11y", module: "index.js" },
+    { specifier: "@zerolith/state", folder: "state", module: "index.js" },
     { specifier: "@zerolith/i18n", folder: "i18n", module: "index.js" }
 ];
 
@@ -96,7 +97,7 @@ function escapeText(text: string): string
 /** The playground as Markdown: what it does and every example's code. */
 export async function playgroundMarkdown(root: string): Promise<string>
 {
-    const parts = ["# Playground", "", "Edit a zerolith app in the browser and run it with one key. The code runs in a sandboxed frame with the development builds of `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/a11y`, and `@zerolith/i18n`, so diagnostics carry their full text. A view renders into `<main id=\"app\">`, and `console` output shows under the preview. Copy link puts the code in the address, so a link opens with your code in the editor.", "", "## Examples"];
+    const parts = ["# Playground", "", "Edit a zerolith app in the browser and run it with one key. The code runs in a sandboxed frame with the development builds of `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/a11y`, `@zerolith/state`, and `@zerolith/i18n`, so diagnostics carry their full text. A view renders into `<main id=\"app\">`, and `console` output shows under the preview. Copy link puts the code in the address, so a link opens with your code in the editor.", "", "## Examples"];
     for (const example of examples)
     {
         const code = (await readFile(join(root, "scripts", "docs", "playground", `${example.id}.js`), "utf8")).trim();

@@ -19,6 +19,7 @@ export default defineConfig({
             "@zerolith/i18n/compile": fileURLToPath(new URL("./packages/i18n/src/compile.ts", import.meta.url)),
             "@zerolith/i18n": fileURLToPath(new URL("./packages/i18n/src/index.ts", import.meta.url)),
             "@zerolith/a11y": fileURLToPath(new URL("./packages/a11y/src/index.ts", import.meta.url)),
+            "@zerolith/state": fileURLToPath(new URL("./packages/state/src/index.ts", import.meta.url)),
             "@zerolith/test": fileURLToPath(new URL("./packages/test/src/index.ts", import.meta.url)),
             "@zerolith/forms": fileURLToPath(new URL("./packages/forms/src/index.ts", import.meta.url)),
             "@zerolith/devtools": fileURLToPath(new URL("./packages/devtools/src/index.ts", import.meta.url)),
@@ -47,6 +48,7 @@ export default defineConfig({
                 "packages/i18n/src/**": { lines: 91.0, statements: 91.4, functions: 95.6, branches: 81.1 },
                 "packages/otel/src/**": { lines: 87.9, statements: 86.4, functions: 69.2, branches: 70.0 },
                 "packages/router/src/**": { lines: 95.0, statements: 95.1, functions: 93.6, branches: 90.2 },
+                "packages/state/src/**": { lines: 97.5, statements: 97.6, functions: 96.5, branches: 93.3 },
                 "packages/test/src/**": { lines: 97.1, statements: 97.2, functions: 85.7, branches: 80.3 },
                 "packages/vite/src/**": { lines: 93.9, statements: 94.0, functions: 97.1, branches: 86.7 },
                 "packages/zerolith/src/**": { lines: 92.1, statements: 92.3, functions: 91.0, branches: 86.0 }

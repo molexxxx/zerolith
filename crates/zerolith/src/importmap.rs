@@ -19,12 +19,13 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 /// The packages the import map vendors and the doctor checks, in dependency order: every zerolith package a page loads that depends on nothing outside zerolith. `@zerolith/otel` is left out, since it needs `@opentelemetry/api`.
-pub const PACKAGES: [&str; 7] = [
+pub const PACKAGES: [&str; 8] = [
     "zerolith",
     "@zerolith/router",
     "@zerolith/forms",
     "@zerolith/client",
     "@zerolith/a11y",
+    "@zerolith/state",
     "@zerolith/i18n",
     "@zerolith/devtools",
 ];

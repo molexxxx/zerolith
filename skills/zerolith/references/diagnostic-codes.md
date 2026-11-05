@@ -172,6 +172,30 @@ Cause: A signal was written while a computed value was being evaluated.
 
 Fix: Move the write into an effect or an event handler; computed functions must be pure.
 
+## state_key_duplicate
+
+Cause: A second stored signal was created for the key while the first is live; each writes its own value and neither hears the other, since the storage event tells other tabs alone.
+
+Fix: Create a stored signal once per key, at module level or in the app's root, and share it; one created inside a component goes with the component, so create the next after that one is disposed.
+
+## state_storage_unavailable
+
+Cause: The page has no storage of that kind, or refused the write, so the stored signal keeps its value in memory alone.
+
+Fix: On the server, read the signal's initial value and let the browser take over; in a browser that refuses storage, such as a private window with it off, the signal still works for the page.
+
+## state_storage_unreadable
+
+Cause: The value kept in storage under the key does not parse as JSON, so the stored signal starts from its initial value.
+
+Fix: Clear the key, or write it as JSON; a value written by other code under the same key is read as this signal's.
+
+## state_value_not_json
+
+Cause: The stored signal's value does not serialize as JSON, so it is kept in memory alone and storage still holds the value before it.
+
+Fix: Keep JSON values in a stored signal: objects, arrays, strings, numbers, booleans, and null; convert a BigInt or a cyclic object first.
+
 ## template_frozen_read
 
 Cause: A .get() read is bound in a template, so the value was read once when the template was created and never updates; the Vite plugin reports it in development, since the runtime cannot tell a frozen read from a deliberate one.

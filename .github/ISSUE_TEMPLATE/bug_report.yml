@@ -44,6 +44,7 @@ body:
         - "@zerolith/client"
         - "@zerolith/i18n"
         - "@zerolith/a11y"
+        - "@zerolith/state"
         - "@zerolith/test"
         - "@zerolith/devtools"
         - "@zerolith/otel"

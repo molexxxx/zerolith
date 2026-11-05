@@ -989,6 +989,7 @@ const PACKAGES_DATA: &str = r#"[
     { "name": "@zerolith/client", "description": "A typed client generated from an OpenAPI contract." },
     { "name": "@zerolith/i18n", "description": "Locales, formatters, and message catalogs compiled to typed modules." },
     { "name": "@zerolith/a11y", "description": "A focus trap, roving tabindex, a live announcer, and preference signals." },
+    { "name": "@zerolith/state", "description": "A signal kept in storage and across tabs, undo and redo, debounced and throttled signals, and a row selector." },
     { "name": "@zerolith/test", "description": "Mount, settle, and check hydration and accessibility in tests." },
     { "name": "@zerolith/devtools", "description": "The in-page inspector that Alt+Shift+Z opens." },
     { "name": "@zerolith/otel", "description": "OpenTelemetry spans for navigation, hydration, and requests." },

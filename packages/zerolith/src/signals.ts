@@ -1131,3 +1131,9 @@ export function onDispose(fn: () => void): void
     }
     adopt({ dispose: fn, previous: undefined });
 }
+
+/** True inside an effect, a scope, or a component's setup, where `onDispose` registers a cleanup; false in plain code, where nothing would run it. */
+export function hasOwner(): boolean
+{
+    return owner !== undefined;
+}

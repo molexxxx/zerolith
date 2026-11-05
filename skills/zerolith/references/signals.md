@@ -197,4 +197,5 @@ A result that arrives after newer params have started a load is dropped, so a sl
 | `batch(fn)` | A function whose writes apply together | What `fn` returns |
 | `scope(fn)` | A function whose effects belong to a new owner | The owner, with `value`, what `fn` returned, and `dispose()` |
 | `onDispose(fn)` | A cleanup | Nothing; the running owner calls `fn` when it is disposed |
+| `hasOwner()` | Nothing | True while an owner is running, so `onDispose` has one to register with; false in plain code |
 | `resource({ params, loader })` | A tracked `params` function, and a `loader` that receives `{ params, abort }` | A resource, as the table above describes |

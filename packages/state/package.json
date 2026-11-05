@@ -1,0 +1,52 @@
+{
+    "name": "@zerolith/state",
+    "version": "1.0.0",
+    "description": "Signals with a memory for zerolith: a signal kept in storage and across tabs, undo and redo, debounced and throttled signals, and a row selector",
+    "license": "Apache-2.0",
+    "author": "molexxxx",
+    "homepage": "https://zerolith.dev/",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/molexxxx/zerolith.git",
+        "directory": "packages/state"
+    },
+    "bugs": {
+        "url": "https://github.com/molexxxx/zerolith/issues"
+    },
+    "keywords": [
+        "zerolith",
+        "signals",
+        "state",
+        "storage",
+        "undo",
+        "debounce"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "engines": {
+        "node": ">=24.0.0"
+    },
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "development": "./dist/index.js",
+            "default": "./dist/production/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "src",
+        "LICENSE",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json && node ../../scripts/production.ts"
+    },
+    "peerDependencies": {
+        "zerolith": "^1.0.0"
+    },
+    "devDependencies": {
+        "zerolith": "^1.0.0"
+    }
+}

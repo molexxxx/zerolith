@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { type EffectFunction, ZerolithError, batch, computed, effect, onDiagnostic, onDispose, scope, signal, untracked } from "zerolith";
+import { type EffectFunction, ZerolithError, batch, computed, effect, hasOwner, onDiagnostic, onDispose, scope, signal, untracked } from "zerolith";
 import { diagnostic as buildRecord } from "../src/diagnostics.ts";
 import { jsx } from "../src/jsx-runtime.ts";
 
@@ -571,6 +571,22 @@ describe("scope", () =>
     it("rejects onDispose outside any owner", () =>
     {
         expect(codeOf(() => onDispose(() => undefined))).toBe("on_dispose_outside_scope");
+    });
+
+    it("tells whether an owner is current, so a package ties a cleanup to one when there is one", () =>
+    {
+        expect(hasOwner()).toBe(false);
+        const handle = scope(() => hasOwner());
+        expect(handle.value).toBe(true);
+        handle.dispose();
+        let inside = false;
+        const stop = effect(() =>
+        {
+            inside = hasOwner();
+        });
+        expect(inside).toBe(true);
+        stop();
+        expect(computed(() => hasOwner()).get()).toBe(false);
     });
 
     it("disposes every child when a cleanup throws, then rethrows that error", () =>

@@ -15,6 +15,7 @@ Where zerolith stands, what remains before 1.0, and what follows it. There are n
 | Command line | Published with prebuilt binaries for six targets; writes a starter or the fullstack example with the zerolith skill, develops, bundles, and previews a project on its own, forwards an API to its backend, which it starts and stops with itself, and serves under a base path |
 | Dev tools and testing | Shipped; the browser extension adapter remains |
 | Accessibility, i18n, observability | Shipped; the conformance report and the MessageFormat 1 import remain |
+| Application utilities | `@zerolith/state` on main for the first 2.0 alpha; `@zerolith/browser`, retry and timeout for `resource`, the plain fetch client, `svg`, `match`, `keyed`, transitions, and router guards remain |
 | Docs | Published at https://zerolith.dev/ by each release, and run as a single-page application on `@zerolith/router` over prerendered pages: a home page that runs and measures zerolith, a tutorial, a playground, the guides, the reference, and a page per diagnostic, every example run as a test |
 | Coding agents | Every new project holds an `AGENTS.md` and the zerolith skill for its version, which `zerolith skill` keeps current; an interface skill, MCP servers, and evals remain |
 | Adoption | The first production site, [media.molex.cloud](https://media.molex.cloud/), runs on zerolith, served buildless from an import map with integrity hashes, with its Lighthouse budget checked in CI |
@@ -92,7 +93,7 @@ Alongside, as they are ready: the per-row work, which changes no signature: the 
 
 The everyday helpers applications otherwise write by hand, each with one form, full types, a diagnostic code where it can fail, examples that run as tests, and coverage in the Agent Skill. They add to the API rather than change it, so they arrive in minor versions after 1.0.
 
-- [ ] `@zerolith/state`: a signal kept in storage and in step across tabs, undo and redo for a signal, debounced and throttled signals, and a selector that tells only the rows whose selection changed.
+- [x] `@zerolith/state`: a signal kept in storage and in step across tabs, undo and redo for a signal, debounced and throttled signals, and a selector that tells only the rows whose selection changed.
 - [ ] `@zerolith/browser`: the page as signals, such as online status, visibility, an element's size and whether it is in view, and the window size.
 - [ ] Retry with backoff and a timeout for `resource`.
 - [ ] A plain fetch client in `@zerolith/client` for backends without an OpenAPI document: a base URL, headers, JSON in and out, timeouts, and problems as errors.

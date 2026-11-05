@@ -23,6 +23,7 @@ Everything else is a package around that core, and an application installs the o
 | `@zerolith/client` | A typed HTTP client generated from an OpenAPI document, with failures read as problems |
 | `@zerolith/i18n` | Locale negotiation, cached `Intl` formatters, and MessageFormat 2 catalogs compiled per locale |
 | `@zerolith/a11y` | Focus trap, roving tabindex, a live announcer, focus origin, and preference signals |
+| `@zerolith/state` | A signal kept in storage and across tabs, undo and redo, debounced and throttled signals, and a row selector |
 | `@zerolith/test` | Mounting with cleanup, settling async work, and hydration and accessibility checks |
 | `@zerolith/devtools` | The in-page inspector for signals, roots, and diagnostics |
 | `@zerolith/otel` | OpenTelemetry spans for navigations, hydration, and requests |
@@ -166,6 +167,7 @@ Read the basics in order; the rest is there for when an application needs it.
 | [Custom elements](elements.md) | Mounting a view inside a tree another framework owns, with attributes and properties as signals |
 | [Internationalization](i18n.md) | Locale negotiation and state on `Intl`, formatters that follow the locale, and compiled MessageFormat 2 catalogs |
 | [Accessibility](accessibility.md) | Focus trap, roving tabindex, live announcer, focus origin, hidden text, and preference signals |
+| [State](state.md) | A signal kept in storage and across tabs, undo and redo, debounced and throttled signals, and a selector for rows |
 
 ### Tooling
 

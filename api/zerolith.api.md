@@ -6,14 +6,17 @@ Every export of `zerolith` with its signature, generated from the source by `npm
 function batch<T>(fn: () => T): T
 function computed<T>(fn: () => T, options?: SignalOptions<T>): ReadableSignal<T>
 function css(strings: TemplateStringsArray, ...values: ReadonlyArray<number | Styles>): Styles
+function diagnostic(code: DiagnosticCode, severity: DiagnosticSeverity, args?: DiagnosticArgs): Diagnostic
 function each<T>(items: ReadableSignal<readonly T[]> | readonly T[], key: KeyOf<T>, row: RowOf<T>): View
 function effect(fn: EffectFunction): () => void
+function hasOwner(): boolean
 function html(strings: TemplateStringsArray, ...values: unknown[]): View
 function hydrate(view: Renderable | (() => Renderable), target: MountTarget): HydrateResult
 function isProblem(value: unknown): value is Problem
 function onDiagnostic(listener: DiagnosticListener): () => void
 function onDispose(fn: () => void): void
 function render(view: Renderable | (() => Renderable), target: MountTarget): Root
+function report(record: Diagnostic): void
 function resource<P, T>(options: ResourceOptions<P, T>): Resource<T>
 function scope<T>(fn: () => T): Scope<T>
 function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T>
@@ -127,7 +130,7 @@ interface View
 }
 
 type DiagnosticArgs = Readonly<Record<string, string | number | boolean>>
-type DiagnosticCode = "signal_written_inside_computed" | "computed_cycle" | "effect_loop" | "effect_async" | "on_dispose_outside_scope" | "binding_in_tag_position" | "binding_in_comment" | "binding_in_raw_text" | "binding_in_template_element" | "binding_not_single" | "script_in_template" | "template_unclosed_tag" | "unsafe_property_binding" | "unsafe_attribute_binding" | "unsafe_url_blocked" | "unrenderable_value" | "each_items_function" | "event_handler_not_function" | "when_condition_function" | "mount_component_uncalled" | "each_key_undefined" | "each_key_duplicate" | "css_value_not_allowed" | "ref_not_assignable" | "hydration_mismatch" | "jsx_not_lowered" | "template_frozen_read" | "image_without_alt" | "button_without_name" | "frame_without_title" | "mount_target_missing" | "template_not_prepared" | "lazy_module_not_split" | "package_version_mismatch" | "route_name_unknown" | "route_path_invalid"
+type DiagnosticCode = "signal_written_inside_computed" | "computed_cycle" | "effect_loop" | "effect_async" | "on_dispose_outside_scope" | "binding_in_tag_position" | "binding_in_comment" | "binding_in_raw_text" | "binding_in_template_element" | "binding_not_single" | "script_in_template" | "template_unclosed_tag" | "unsafe_property_binding" | "unsafe_attribute_binding" | "unsafe_url_blocked" | "unrenderable_value" | "each_items_function" | "event_handler_not_function" | "when_condition_function" | "mount_component_uncalled" | "each_key_undefined" | "each_key_duplicate" | "css_value_not_allowed" | "ref_not_assignable" | "hydration_mismatch" | "jsx_not_lowered" | "template_frozen_read" | "image_without_alt" | "button_without_name" | "frame_without_title" | "mount_target_missing" | "template_not_prepared" | "lazy_module_not_split" | "package_version_mismatch" | "route_name_unknown" | "route_path_invalid" | "state_storage_unreadable" | "state_storage_unavailable" | "state_value_not_json" | "state_key_duplicate"
 type DiagnosticListener = (diagnostic: Diagnostic) => void
 type DiagnosticSeverity = "error" | "warning" | "deprecation" | "info"
 type EffectFunction = () => void | (() => void)

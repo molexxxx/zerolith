@@ -188,5 +188,25 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
     {
         cause: "An <iframe> has no title attribute, so what it embeds is not announced.",
         fix: "Add a title that names the embedded content."
+    },
+    state_storage_unreadable:
+    {
+        cause: "The value kept in storage under the key does not parse as JSON, so the stored signal starts from its initial value.",
+        fix: "Clear the key, or write it as JSON; a value written by other code under the same key is read as this signal's."
+    },
+    state_storage_unavailable:
+    {
+        cause: "The page has no storage of that kind, or refused the write, so the stored signal keeps its value in memory alone.",
+        fix: "On the server, read the signal's initial value and let the browser take over; in a browser that refuses storage, such as a private window with it off, the signal still works for the page."
+    },
+    state_value_not_json:
+    {
+        cause: "The stored signal's value does not serialize as JSON, so it is kept in memory alone and storage still holds the value before it.",
+        fix: "Keep JSON values in a stored signal: objects, arrays, strings, numbers, booleans, and null; convert a BigInt or a cyclic object first."
+    },
+    state_key_duplicate:
+    {
+        cause: "A second stored signal was created for the key while the first is live; each writes its own value and neither hears the other, since the storage event tells other tabs alone.",
+        fix: "Create a stored signal once per key, at module level or in the app's root, and share it; one created inside a component goes with the component, so create the next after that one is disposed."
     }
 };

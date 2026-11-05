@@ -4,6 +4,11 @@ Every package in this repository is released together and carries the same versi
 
 ## Unreleased
 
+### Added
+
+- `@zerolith/state`, signals with a memory over the core alone: `stored(key, initial)` is a writable signal kept in `localStorage` or `sessionStorage` as JSON and set again when another tab writes the key; `history(signal)` gives undo and redo from explicit checkpoints, with `canUndo` and `canRedo` as signals; `debounced(signal, ms)` and `throttled(signal, ms)` follow a signal after a quiet spell or at most so often; and `selector(signal)` gives each key a signal that is true for the selected one, so a selection among a thousand rows updates two. Each timer and listener is disposed with the enclosing owner. Four warnings join the catalog: `state_storage_unreadable`, `state_storage_unavailable`, `state_value_not_json`, and `state_key_duplicate`.
+- `zerolith`: `diagnostic(code, severity, args?)` and `report(record)` are exported, the way the runtime builds and reports its own warnings, so a package can warn with a catalog code and `onDiagnostic` listeners hear it; `hasOwner()` tells whether `onDispose` has an owner to register with, so a package ties a cleanup to the enclosing owner when there is one and lives for the page otherwise.
+
 ### Changed
 
 - Docs: the site shows two releases when a pre-release is newer than the stable one: the stable release at the root, built from its line branch when one exists, and the pre-release under `/next/`, built from its tag, with a switch in the header between them at the same page where it exists and at the other release's home otherwise; a diagnostic code only the pre-release has gets a page at the root that sends the reader to `/next/`, so the URL a pre-release prints never comes back not found. Every release deploys the site again, as before 1.0.0.

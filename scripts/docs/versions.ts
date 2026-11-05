@@ -121,7 +121,7 @@ export function isStable(version: string): boolean
 export function pickVersions(versions: readonly string[]): Versions | undefined
 {
     const known = versions.filter((version) => parse(version) !== undefined).toSorted(compareVersions);
-    const stable = known.filter(isStable).at(-1);
+    const stable = known.findLast(isStable);
     const newest = known.at(-1);
     if (newest === undefined)
     {

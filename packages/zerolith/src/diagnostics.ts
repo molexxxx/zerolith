@@ -79,9 +79,13 @@ export type DiagnosticCode =
     | "lazy_module_not_split"
     | "package_version_mismatch"
     | "route_name_unknown"
-    | "route_path_invalid";
+    | "route_path_invalid"
+    | "state_storage_unreadable"
+    | "state_storage_unavailable"
+    | "state_value_not_json"
+    | "state_key_duplicate";
 
-/** Builds the full diagnostic record for a catalog code. */
+/** Builds the full diagnostic record for a catalog code, for `report` or for a `ZerolithError`; a first-party package warns through it as the runtime does. */
 export function diagnostic(code: DiagnosticCode, severity: DiagnosticSeverity, args?: DiagnosticArgs): Diagnostic
 {
     const text = diagnosticCatalog[code];
@@ -144,9 +148,10 @@ export function onDiagnostic(listener: DiagnosticListener): () => void
 }
 
 /**
- * Reports a non-throwing diagnostic to every listener. With none
- * registered, the development build prints it to the console instead, so
- * a warning is never lost; registering any listener takes it over.
+ * Reports a non-throwing diagnostic to every listener, as the runtime and
+ * the first-party packages report their warnings. With none registered,
+ * the development build prints it to the console instead, so a warning is
+ * never lost; registering any listener takes it over.
  */
 export function report(record: Diagnostic): void
 {

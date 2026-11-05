@@ -42,7 +42,7 @@ Each example's README walks through what it shows and what the build writes.
 | Path | Contents |
 | --- | --- |
 | `packages/zerolith` | The core runtime: signals, `html` and `css` tags, rendering, hydration, diagnostics |
-| `packages/*` | First-party packages under the `@zerolith/*` scope: router, forms, client, i18n, a11y, test, devtools, otel, vite, and cli, which ships the command line with one prebuilt platform package per target under `packages/cli/platforms` |
+| `packages/*` | First-party packages under the `@zerolith/*` scope: router, forms, client, i18n, a11y, state, test, devtools, otel, vite, and cli, which ships the command line with one prebuilt platform package per target under `packages/cli/platforms` |
 | `crates/zerolith` | The Rust command line: `new`, `dev`, `serve`, `build`, `preview`, `skill`, `importmap`, `doctor`; published on npm as `@zerolith/cli` and on crates.io |
 | `examples/` | Applications built on the packages; their tests run in `npm run check` |
 | `docs/guide` | The guides; examples are pulled from tests with `@include` |

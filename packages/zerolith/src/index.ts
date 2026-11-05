@@ -4,11 +4,11 @@
  * The public surface is assembled here.
  */
 export type { Diagnostic, DiagnosticArgs, DiagnosticCode, DiagnosticListener, DiagnosticSeverity, DiagnosticText } from "./diagnostics.js";
-export { DIAGNOSTIC_URL, ZerolithError, onDiagnostic } from "./diagnostics.js";
+export { DIAGNOSTIC_URL, ZerolithError, diagnostic, onDiagnostic, report } from "./diagnostics.js";
 export { diagnosticCatalog } from "./catalog.js";
 
 export type { EffectFunction, Equals, ReadableSignal, Scope, Signal, SignalOptions } from "./signals.js";
-export { batch, computed, effect, onDispose, scope, signal, untracked } from "./signals.js";
+export { batch, computed, effect, hasOwner, onDispose, scope, signal, untracked } from "./signals.js";
 
 export type { LoaderContext, Resource, ResourceOptions, ResourceStatus } from "./resource.js";
 export { resource } from "./resource.js";

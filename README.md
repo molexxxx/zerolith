@@ -89,7 +89,7 @@ Every night that the code changed, every package is also published under the `ca
 
 ## What works today
 
-Everything below runs, is tested in this repository, and is published under `latest`.
+Everything below runs and is tested in this repository, and is published under `latest` except what the [changelog](CHANGELOG.md) lists under Unreleased, which ships with the next release.
 
 | Area | Package | What it does |
 | --- | --- | --- |
@@ -99,6 +99,7 @@ Everything below runs, is tested in this repository, and is published under `lat
 | Data | `@zerolith/client` | Types and a route table generated from OpenAPI 3.x, checked calls, problems for failures, and a MessagePort transport |
 | i18n | `@zerolith/i18n` | Locale negotiation, direction, formatters, and MessageFormat 2 catalogs compiled to typed per-locale modules |
 | Accessibility | `@zerolith/a11y` | Focus trap, roving tabindex, live announcer, focus origin, visually hidden text, and preference signals |
+| State | `@zerolith/state` | A signal kept in storage and across tabs, undo and redo, debounced and throttled signals, and a selector for rows |
 | Testing | `@zerolith/test` | `mount`, `cleanup`, `settle`, and hydration and accessibility checks |
 | Dev tools | `@zerolith/devtools` | The in-page inspector, named signals, and Performance panel tracks |
 | Observability | `@zerolith/otel` | OpenTelemetry spans for navigation, hydration, and requests |
