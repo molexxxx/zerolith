@@ -1,6 +1,6 @@
 # Versioning and deprecation
 
-All packages in this repository follow semantic versioning 2.0.0 and carry one version, so a breaking change in any of them comes only in a major release. Since 1.0.0 every package's API is frozen: for `zerolith`, with its `ssr`, `element`, and `jsx-runtime` entries, and for `@zerolith/router`, with its `server` entry, through [RFC 0003](https://github.com/molexxxx/zerolith/issues/7), and for the other packages and the command line by this policy. The reports in `api/` are the text of each package's API, a change to them other than an addition is a breaking change under the rule below, and the 1.x line is supported for 12 months under the [support policy](support.md). Before 1.0.0, minor versions could contain breaking changes in any package.
+All packages in this repository follow semantic versioning 2.0.0 and carry one version, so a breaking change in any of them comes only in a major release. Since 1.0.0 every package's API is frozen: for `zerolith`, with its `ssr`, `element`, and `jsx-runtime` entries, and for `@zerolith/router`, with its `server` entry, through [RFC 0003](https://github.com/molexxxx/zerolith/issues/7), and for the other packages and the command line by this policy. The reports in `api/` are the text of each package's API, a change to them other than an addition is a breaking change under the rule below, and the [support policy](support.md) says how long a line gets fixes. Before 1.0.0, minor versions could contain breaking changes in any package.
 
 ## What is public API
 
@@ -25,8 +25,8 @@ A breaking change is any change that can make a correct program fail to type-che
 
 1. The replacement ships in a minor release, alongside the old API.
 2. In the same or the next minor release, the old API emits a coded deprecation diagnostic in development builds that names the replacement and links the migration page. The diagnostic is machine-readable and surfaces in the dev tools, the editor, and the `doctor` command.
-3. A codemod for the change is published under `zerolith migrate` before the major release that removes the API.
-4. The API is removed in the next major release, which is at least 12 months after step 2.
+3. Where the change can be made mechanically, a codemod for it is published under `zerolith migrate` before the major release that removes the API; until that command exists, the changelog carries the steps.
+4. The API is removed in a later major release: while the project has one maintainer with release rights, that may be the release after step 2; once it has two, it is at least 12 months after step 2.
 
 The deprecation diagnostic is part of the public API: a release cannot remove an API without having first shipped the diagnostic.
 

@@ -362,7 +362,7 @@ jobs:
   docs:
     name: Docs
     needs: npm
-    if: ${{ !cancelled() && needs.npm.result == 'success' && github.event.inputs.dry_run != 'true' && github.event.inputs.canary != 'true' && github.event_name != 'schedule' && (github.event.inputs.package == 'all' || github.event.inputs.package == 'zerolith' || startsWith(github.ref_name, 'zerolith@')) }}
+    if: ${{ !cancelled() && needs.npm.result == 'success' && github.event.inputs.dry_run != 'true' && github.event.inputs.canary != 'true' && github.event_name != 'schedule' && ((github.event.inputs.tag == 'latest' && (github.event.inputs.package == 'all' || github.event.inputs.package == 'zerolith')) || (startsWith(github.ref_name, 'zerolith@') && !contains(github.ref_name, '-'))) }}
     permissions:
       contents: read
       pages: write

@@ -16,7 +16,7 @@
 
 Routing, forms, rendering, and i18n, with clear patterns for you and your agent.
 
-> **1.0.** Every package's API is frozen at 1.0 and supported for 12 months under the [support policy](docs/policy/support.md): the core, templates, and router through [RFC 0003](https://github.com/molexxxx/zerolith/issues/7), and a breaking change in any package comes only in a major, after the deprecation cycle the [versioning policy](docs/policy/versioning.md) describes. Watch the repository or join the [discussions](https://github.com/molexxxx/zerolith/discussions) to follow along.
+> **1.0.** Every package's API is frozen at 1.0, the core, templates, and router through [RFC 0003](https://github.com/molexxxx/zerolith/issues/7): a breaking change in any package comes only in a major, after the deprecation notice the [versioning policy](docs/policy/versioning.md) describes, and the [support policy](docs/policy/support.md) says how long a line gets fixes. Watch the repository or join the [discussions](https://github.com/molexxxx/zerolith/discussions) to follow along.
 
 zerolith is a standalone frontend framework: fine-grained signals, HTML templates that need no compiler, a typed router, server rendering with hydration, and a command line that develops and builds the application on its own. It talks to any backend over plain HTTP.
 

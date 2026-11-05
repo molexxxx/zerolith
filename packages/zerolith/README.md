@@ -2,7 +2,7 @@
 
 A standalone frontend framework: fine-grained signals, HTML templates that need no compiler, and a runtime that loads from an import map or a bundle with no second-class path. It works with any backend over plain HTTP.
 
-Install with `npm install zerolith`. The API is frozen at 1.0 and supported for 12 months under the [support policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md). The guides, the API reference, and a page for every diagnostic code are on the [docs site](https://zerolith.dev/), and the direction is in the [roadmap](https://github.com/molexxxx/zerolith/blob/main/docs/ROADMAP.md).
+Install with `npm install zerolith`. The API is frozen at 1.0: a breaking change comes only in a major, after a deprecation notice, and the [support policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md) says how long a line gets fixes. The guides, the API reference, and a page for every diagnostic code are on the [docs site](https://zerolith.dev/), and the direction is in the [roadmap](https://github.com/molexxxx/zerolith/blob/main/docs/ROADMAP.md).
 
 ## A first component
 

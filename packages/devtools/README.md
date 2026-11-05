@@ -14,7 +14,7 @@ The package reads the hook the core publishes in development builds as `globalTh
 
 The guide is on the [docs site](https://zerolith.dev/guide/dev-tools/).
 
-Install with `npm install @zerolith/devtools`, at the version of `zerolith` the project uses: the two share the `zerolith/internal` entry, and `mountDevtools` stops with `package_version_mismatch` on any other version. The API is frozen at 1.0 and supported for 12 months under the [support policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md).
+Install with `npm install @zerolith/devtools`, at the version of `zerolith` the project uses: the two share the `zerolith/internal` entry, and `mountDevtools` stops with `package_version_mismatch` on any other version. The API is frozen at 1.0: a breaking change comes only in a major, after a deprecation notice, and the [support policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md) says how long a line gets fixes.
 
 ## Documentation
 
