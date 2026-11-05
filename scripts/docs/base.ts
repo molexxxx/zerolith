@@ -19,7 +19,7 @@ export function rebasePath(path: string, base: string): string
     return base === "/" || !path.startsWith("/") || path.startsWith("//") ? path : base + path.slice(1);
 }
 
-/** Rebases the root-relative `href` and `src` attributes of a page, and the addresses and integrity keys of its import map. */
+/** Rebases the root-relative `href` and `src` attributes of a page, and the addresses and integrity keys of its import map; the header's version switch, marked `data-version-switch`, keeps its address, which names the other release's base already. */
 export function rebaseHtml(html: string, base: string): string
 {
     if (base === "/")
@@ -27,7 +27,7 @@ export function rebaseHtml(html: string, base: string): string
         return html;
     }
     return html
-        .replace(/\b(href|src)="\/(?!\/)/g, `$1="${base}`)
+        .replace(/\b(href|src)="\/(?!\/)(?![^"]*"[^>]*\bdata-version-switch\b)/g, `$1="${base}`)
         .replace(/(<script type="importmap">)([\s\S]*?)(<\/script>)/g, (_, open: string, json: string, close: string) =>
         {
             const map = JSON.parse(json) as { imports?: Record<string, string>; integrity?: Record<string, string> };

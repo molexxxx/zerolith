@@ -27,6 +27,12 @@ describe("the docs base path", () =>
         expect(rebaseHtml(page, "/")).toBe(page);
     });
 
+    it("leaves the header's version switch at the address it names, which is the other release's base already", () =>
+    {
+        const page = "<a class=\"switch\" href=\"/guide/\" data-version-switch>1.0 docs</a><a href=\"/guide/\">guide</a><a href=\"/next/guide/\" title=\"x\" data-version-switch>2.0 alpha docs</a>";
+        expect(rebaseHtml(page, "/next/")).toBe("<a class=\"switch\" href=\"/guide/\" data-version-switch>1.0 docs</a><a href=\"/next/guide/\">guide</a><a href=\"/next/guide/\" title=\"x\" data-version-switch>2.0 alpha docs</a>");
+    });
+
     it("rebases the integrity keys of an import map with its addresses", () =>
     {
         const page = "<script type=\"importmap\">{\"imports\":{\"zerolith\":\"/zerolith/index.js\"},\"integrity\":{\"/zerolith/index.js\":\"sha384-a\",\"/island.js\":\"sha384-b\"}}</script>";

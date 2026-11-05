@@ -19,6 +19,7 @@ import { diagnosticCatalog } from "zerolith";
 import { CORE_BUDGET_GZIP_BYTES, measure, moduleGraph } from "../measure.ts";
 import { readRuns } from "../../benchmarks/results.ts";
 import { normalizeBase, rebaseHtml, rebaseMarkdown, rebasePath } from "./base.ts";
+import { type Versions, labelOf } from "./versions.ts";
 import { Benchmarks, benchmarksDescription, benchmarksMarkdown } from "./benchmarks.ts";
 import { brokenLinks, mapLinks, sitePath } from "./links.ts";
 import { exampleCode, includeExamples } from "./examples.ts";
@@ -30,13 +31,26 @@ import { type Entry, type ManifestSymbol, apiReport, elementsAsCode, extract, re
 import { stripTags } from "./text.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const out = join(root, "site");
+/** Where the site is written: `ZEROLITH_DOCS_OUT`, or site/ in the repository; the docs workflow builds each shown release into a folder of its own before composing them. */
+const out = process.env["ZEROLITH_DOCS_OUT"] ?? join(root, "site");
 /** Where the site is served: `ZEROLITH_DOCS_BASE`, `/` by default; the docs workflow passes the path the Pages configuration names. */
 const base = normalizeBase(process.env["ZEROLITH_DOCS_BASE"]);
 /** The site's public address, for canonical links, the social card, and the sitemap: `ZEROLITH_DOCS_URL`, or https://zerolith.dev/. */
 const siteUrl = (process.env["ZEROLITH_DOCS_URL"] ?? "https://zerolith.dev/").replace(/\/?$/, "/");
 /** The version the site describes, shown in its header. */
 const version = (JSON.parse(await readFile(join(root, "packages", "zerolith", "package.json"), "utf8")) as { version: string }).version;
+/** The releases the site shows, `ZEROLITH_DOCS_VERSIONS` as the docs workflow passes it: the stable one and, when newer, a pre-release; the header then links the other one. Absent, the site shows this version alone. */
+const shownVersions = process.env["ZEROLITH_DOCS_VERSIONS"] === undefined ? undefined : JSON.parse(process.env["ZEROLITH_DOCS_VERSIONS"]) as Versions;
+/** The other shown release, for the header's switch: the stable one from a pre-release build, the pre-release from the stable build. */
+const versionSwitch = ((): { label: string; base: string } | undefined =>
+{
+    if (shownVersions === undefined)
+    {
+        return undefined;
+    }
+    const other = shownVersions.next !== undefined && shownVersions.next.version === version ? shownVersions.stable : shownVersions.next;
+    return other === undefined || other.version === version ? undefined : { label: labelOf(other.version), base: other.base };
+})();
 const copyIcon = icon("copy");
 const doneIcon = icon("check");
 /** Files the site serves from brand/, by their path in the site. */
@@ -768,7 +782,7 @@ for (const [name, text] of routerLoaded)
 {
     integrity[`/router/${name}`] = sri(text);
 }
-const shared = { version, integrity, image: new URL("social-card.png", siteUrl).href };
+const shared = { version, integrity, image: new URL("social-card.png", siteUrl).href, ...(versionSwitch === undefined ? {} : { versionSwitch }) };
 const absolute = (path: string): string => new URL(path.slice(1), siteUrl).href;
 const rendered = new Map<string, string>();
 

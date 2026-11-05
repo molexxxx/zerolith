@@ -359,10 +359,11 @@ jobs:
           path: sbom.cdx.json
           retention-days: 90
 
+  # After the GitHub release, which makes the tag the docs build reads the shown releases from.
   docs:
     name: Docs
-    needs: npm
-    if: ${{ !cancelled() && needs.npm.result == 'success' && github.event.inputs.dry_run != 'true' && github.event.inputs.canary != 'true' && github.event_name != 'schedule' && ((github.event.inputs.tag == 'latest' && (github.event.inputs.package == 'all' || github.event.inputs.package == 'zerolith')) || (startsWith(github.ref_name, 'zerolith@') && !contains(github.ref_name, '-'))) }}
+    needs: [npm, github-release]
+    if: ${{ !cancelled() && needs.npm.result == 'success' && (needs.github-release.result == 'success' || needs.github-release.result == 'skipped') && github.event.inputs.dry_run != 'true' && github.event.inputs.canary != 'true' && github.event_name != 'schedule' && (github.event.inputs.package == 'all' || github.event.inputs.package == 'zerolith' || startsWith(github.ref_name, 'zerolith@')) }}
     permissions:
       contents: read
       pages: write

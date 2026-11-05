@@ -1,12 +1,16 @@
 name: Docs
 
-# Builds the documentation site and deploys it to GitHub Pages, always from
-# the commit the run is on. The release workflow calls it after publishing,
-# so the site describes what the registry serves; a manual run builds the
-# ref it is dispatched on: main for a change to the site alone, or a release
-# tag to deploy that release's site again, as the benchmarks workflow does
-# once a release's run lands. The benchmark runs come from main whichever
-# commit is built, since each release's run is committed after it.
+# Builds the documentation site and deploys it to GitHub Pages: the newest
+# stable release at the root and, when a newer pre-release exists, that
+# pre-release under /next/, each built from its own release tag, so a 2.0
+# alpha's docs are published without replacing the docs the stable
+# release's users read. The release workflow calls it after publishing,
+# and a manual run deploys the same two whatever ref it is dispatched on;
+# the scripts come from that ref. A line branch such as 1.x, when it
+# exists, stands in for the stable tag, so a fix to the stable docs
+# deploys without a release; the header's switch to /next/ appears on the
+# stable side once that branch carries the build that renders it. The benchmark runs come from main whichever
+# commits are built, since each release's run is committed after it.
 # The base path and the address for canonical links come from the Pages
 # configuration, so the same build serves the project site under
 # /zerolith/ and a custom domain at its root.
@@ -30,12 +34,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
-      - name: Take the newest benchmark runs
-        run: |
-          set -eu
-          git fetch --no-tags --depth 1 origin main
-          git checkout FETCH_HEAD -- benchmarks/results
+          fetch-depth: 0
 
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -43,21 +42,56 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Install
-        run: npm ci
-
       - name: Configure Pages
         id: pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
-      - name: Build packages
-        run: npm run build
-
-      - name: Build the site
+      - name: Pick the releases the site shows
+        id: pick
         env:
-          ZEROLITH_DOCS_BASE: ${{ steps.pages.outputs.base_path }}/
-          ZEROLITH_DOCS_URL: ${{ steps.pages.outputs.base_url }}/
-        run: npm run docs
+          PAGES_BASE: ${{ steps.pages.outputs.base_path }}/
+        run: |
+          set -eu
+          git fetch --tags --no-recurse-submodules origin
+          node scripts/docs/pick.ts "$PAGES_BASE" >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
+
+      # Each shown release is built in a worktree at its own commit, with
+      # the newest benchmark runs from main, under the base it is served at.
+      - name: Build each release's site
+        env:
+          VERSIONS: ${{ steps.pick.outputs.versions }}
+          STABLE_REF: ${{ steps.pick.outputs.stable_ref }}
+          NEXT_REF: ${{ steps.pick.outputs.next_ref }}
+          STABLE_BASE: ${{ steps.pick.outputs.stable_base }}
+          NEXT_BASE: ${{ steps.pick.outputs.next_base }}
+          SITE_URL: ${{ steps.pages.outputs.origin }}
+        run: |
+          set -eu
+          build()
+          {
+            local ref=$1 base=$2 out=$3
+            local tree="$RUNNER_TEMP/tree-$out"
+            git worktree add --detach "$tree" "$ref"
+            git -C "$tree" checkout origin/main -- benchmarks/results
+            (
+              cd "$tree"
+              npm ci
+              npm run build
+              ZEROLITH_DOCS_BASE="$base" ZEROLITH_DOCS_URL="$SITE_URL$base" ZEROLITH_DOCS_VERSIONS="$VERSIONS" ZEROLITH_DOCS_OUT="$RUNNER_TEMP/$out" npm run docs
+            )
+            # A commit from before the output folder was an input wrote site/ in its tree.
+            if [ ! -d "$RUNNER_TEMP/$out" ]; then
+              mv "$tree/site" "$RUNNER_TEMP/$out"
+            fi
+          }
+          build "$STABLE_REF" "$STABLE_BASE" stable
+          if [ -n "$NEXT_REF" ]; then
+            build "$NEXT_REF" "$NEXT_BASE" next
+            node scripts/docs/compose.ts "$RUNNER_TEMP/stable" "$RUNNER_TEMP/next" site "$STABLE_BASE" "$NEXT_BASE"
+          else
+            node scripts/docs/compose.ts "$RUNNER_TEMP/stable" - site "$STABLE_BASE"
+          fi
 
       - name: Upload
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

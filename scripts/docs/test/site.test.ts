@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { type Server } from "node:http";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { deflateRawSync } from "node:zlib";
@@ -35,6 +36,12 @@ afterAll(async () =>
     await browser?.close();
     await new Promise<void>((resolve) => server?.close(() => resolve()));
 });
+
+/** A page's markup without the comments that mark its bindings for hydration. */
+function unmarked(html: string): string
+{
+    return html.replace(/<!--\/?zl:p-->/g, "");
+}
 
 /** A page that records console errors and failed loads, which every test expects to stay empty. */
 async function open(path: string): Promise<{ page: Page; errors: string[] }>
@@ -466,6 +473,32 @@ describe("documentation site", () =>
         const sitemap = await readFile(join(site, "sitemap.xml"), "utf8");
         expect(sitemap).toContain("<loc>https://zerolith.dev/learn/state/</loc>");
     });
+
+    it("builds a pre-release's site under /next/ with a switch to the stable docs that the rebase leaves alone, and the stable site with a switch to /next/", async () =>
+    {
+        const scratch = await mkdtemp(join(tmpdir(), "zerolith-site-next-"));
+        try
+        {
+            const version = JSON.parse(await readFile(join(repositoryRoot, "packages", "zerolith", "package.json"), "utf8")) as { version: string };
+            const shown = JSON.stringify({ stable: { version: "0.0.1", base: "/" }, next: { version: version.version, base: "/next/" } });
+            await run(process.execPath, ["--conditions=development", "scripts/docs/build.ts"], { cwd: repositoryRoot, env: { ...process.env, ZEROLITH_DOCS_OUT: join(scratch, "next"), ZEROLITH_DOCS_BASE: "/next/", ZEROLITH_DOCS_URL: "https://zerolith.dev/next/", ZEROLITH_DOCS_VERSIONS: shown } });
+            const guide = unmarked(await readFile(join(scratch, "next", "guide", "index.html"), "utf8"));
+            expect(guide).toContain("href=\"/guide/\" data-version-switch");
+            expect(guide).toContain("0.0 docs</a>");
+            expect(guide).toContain("href=\"/next/styles.css\"");
+            expect(guide).not.toContain("href=\"/styles.css\"");
+            const stableShown = JSON.stringify({ stable: { version: version.version, base: "/" }, next: { version: "9.0.0-alpha.1", base: "/next/" } });
+            await run(process.execPath, ["--conditions=development", "scripts/docs/build.ts"], { cwd: repositoryRoot, env: { ...process.env, ZEROLITH_DOCS_OUT: join(scratch, "stable"), ZEROLITH_DOCS_VERSIONS: stableShown } });
+            const stable = unmarked(await readFile(join(scratch, "stable", "guide", "index.html"), "utf8"));
+            expect(stable).toContain("href=\"/next/guide/\" data-version-switch");
+            expect(stable).toContain("9.0 alpha docs</a>");
+            expect(await readFile(join(site, "guide", "index.html"), "utf8")).not.toContain("data-version-switch");
+        }
+        finally
+        {
+            await rm(scratch, { recursive: true, force: true });
+        }
+    }, 120000);
 
     it("serves the production builds of the core and the router, and the source map each pinned module names, with its sources inside", async () =>
     {

@@ -107,6 +107,8 @@ export interface PageData
     pager?: { previous?: Link; next?: Link };
     /** The published version of the packages the site describes. */
     version: string;
+    /** The other release the site shows, when it shows two: its label and the base its build is served under, which the header links to at this page's path. */
+    versionSwitch?: { label: string; base: string };
     /** The repository path of the page's Markdown source, for pages people edit by hand. */
     source?: string;
     /** Subresource integrity of every script, module, and stylesheet the page loads, by root-relative path. */
@@ -142,6 +144,7 @@ function Header(page: PageData)
             <nav class="sections" id="sections" aria-label="Sections">
                 ${sections.map((section) => html`<a href=${section.href} aria-current=${section.matches(page.path) ? "true" : null}>${section.title}</a>`)}
                 <a href=${repository}>GitHub</a>
+                ${page.versionSwitch === undefined ? null : html`<a class="switch" href=${`${page.versionSwitch.base}${page.path.slice(1)}`} data-version-switch title=${`The docs for ${page.versionSwitch.label}`}>${`${page.versionSwitch.label} docs`}</a>`}
             </nav>
             <button class="icon menu-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls=${page.nav === undefined ? "sections" : "sections sidebar"}>${unsafeHtml(icon("menu"))}</button>
             <button class="icon theme-toggle" type="button" aria-label="Switch between the light and dark themes"><span class="sun">${unsafeHtml(icon("sun"))}</span><span class="moon">${unsafeHtml(icon("moon"))}</span></button>
