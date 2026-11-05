@@ -19,7 +19,7 @@ A response outside 2xx rejects with a `ProblemError` carrying the RFC 9457 probl
 
 The guide is on the [docs site](https://zerolith.dev/guide/client/).
 
-Install with `npm install @zerolith/client`. The API is frozen at 1.0 and supported for 24 months under the [support policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md).
+Install with `npm install @zerolith/client`. The API is frozen at 1.0 and supported for 12 months under the [support policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md).
 
 ## Documentation
 

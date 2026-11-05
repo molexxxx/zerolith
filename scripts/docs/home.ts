@@ -153,7 +153,7 @@ export function Home(data: HomeData): View
         </section>
         <section class="band">
             <h2>Revision history</h2>
-            <p>zerolith 1.0 is out: the API is frozen and supported for 24 months, and the <a href=${`${repository}/blob/main/docs/ROADMAP.md`}>roadmap</a> lists what comes next.</p>
+            <p>zerolith 1.0 is out: the API is frozen and supported for 12 months, and the <a href=${`${repository}/blob/main/docs/ROADMAP.md`}>roadmap</a> lists what comes next.</p>
             <div class="table">
                 <table>
                     <thead><tr><th scope="col">Version</th><th scope="col">Date</th><th scope="col">Notes</th></tr></thead>
