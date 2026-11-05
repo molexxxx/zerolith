@@ -18,7 +18,9 @@ Role grants and removals are recorded in `MAINTAINERS.md` once more than one per
 
 Day-to-day changes (bug fixes, documentation, internal refactors, additive changes within an existing design) are decided by pull request review: one maintainer approval merges, and once there are two or more maintainers, two approvals for anything that touches the public API or a policy document.
 
-Anything that changes the public API, the policies in `docs/policy/`, the supported platforms, or a dependency of a published package goes through an RFC:
+An addition to the public API, such as a new export, option, diagnostic code, or package, changes nothing that exists, as the [versioning policy](docs/policy/versioning.md) says. While one person is the only maintainer, an addition that person makes is decided as a day-to-day change: the change itself updates the reports in `api/`, which the docs build holds the exports to, and the changelog, which records it. Once a second maintainer exists, additions go through an RFC as well.
+
+Anything that changes or removes part of the public API, the policies in `docs/policy/`, the supported platforms, or a dependency of a published package goes through an RFC:
 
 1. Open an issue with the [RFC form](https://github.com/molexxxx/zerolith/issues/new?template=rfc.yml). The RFC states the problem, the proposed design with code samples, alternatives considered, the migration path and codemod if any API changes, and the effect on bundle size and the agent index.
 2. Discussion happens on the issue. Maintainers may request a prototype on a branch before deciding.
