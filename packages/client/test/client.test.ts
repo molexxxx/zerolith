@@ -337,4 +337,38 @@ describe("requests and responses at the edges", () =>
             vi.unstubAllGlobals();
         }
     });
+
+    it("resolves undefined for a JSON body that is empty or holds only JSON whitespace, rejects any other blank, and keeps a binary HEAD response's Blob", async () =>
+    {
+        interface Bodies
+        {
+            empty: { method: "get"; path: "/empty"; output: undefined };
+            blank: { method: "get"; path: "/blank"; output: undefined };
+            nbsp: { method: "get"; path: "/nbsp"; output: undefined };
+            check: { method: "head"; path: "/check"; output: undefined };
+            file: { method: "head"; path: "/file"; output: Blob };
+        }
+        const bodies = {
+            empty: { method: "get", path: "/empty" },
+            blank: { method: "get", path: "/blank" },
+            nbsp: { method: "get", path: "/nbsp" },
+            check: { method: "head", path: "/check" },
+            file: { method: "head", path: "/file" }
+        } as const satisfies RouteTable<Bodies>;
+        const api = createClient<Bodies>(bodies, {
+            baseUrl: "https://api.test",
+            transport: async (request) =>
+            {
+                const path = new URL(request.url).pathname;
+                return new Response(path === "/blank" ? "\n\t \r\n" : path === "/nbsp" ? "\u00a0" : null, { headers: { "content-type": path === "/file" ? "image/png" : "application/json" } });
+            }
+        });
+        await expect(api.call("empty")).resolves.toBeUndefined();
+        await expect(api.call("blank")).resolves.toBeUndefined();
+        await expect(api.call("nbsp")).rejects.toThrow(SyntaxError);
+        await expect(api.call("check")).resolves.toBeUndefined();
+        const file = await api.call("file");
+        expect(file).toBeInstanceOf(Blob);
+        expect([file.size, file.type]).toEqual([0, "image/png"]);
+    });
 });

@@ -13,6 +13,7 @@ Every package in this repository is released together and carries the same versi
 - `@zerolith/client`: a query string is sent on browsers whose `URLSearchParams` has no `size`, Chrome before 113, Firefox before 112, and Safari before 17, all admitted by the support policy, where every query string was dropped.
 - `@zerolith/client`: a `FormData` body keeps its multipart boundary when the client's or the call's headers set a `content-type`, which the client now leaves out for it.
 - `@zerolith/client`: a `ReadableStream` body on a platform that would send it as the text `[object ReadableStream]`, such as Firefox and Chrome before 105, throws a `TypeError` that asks for a `Blob` or an `ArrayBuffer`, where it sent that text. A platform that keeps the stream in the request goes on as before: Deno sends it, and Safari's `fetch` refuses it with an error of its own.
+- `@zerolith/client`: a 2xx JSON body that is empty or holds only the whitespace JSON allows, spaces, tabs, and line breaks, as a HEAD response's or a server's empty result does, resolves `undefined`, as the guide says, where it rejected with a `SyntaxError`.
 
 ## 1.0.0 (2026-11-05)
 
