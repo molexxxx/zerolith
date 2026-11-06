@@ -198,7 +198,7 @@ function buildRequest(route: { method: Method; path: string }, input: LooseInput
     return new Request(`${base}${path}${searchOf(input.query ?? {})}`, init);
 }
 
-/** A successful response's body: JSON parsed, text for `text/*` or no type, a `Blob` for any other type, such as an image, and `undefined` when it is empty. */
+/** A successful response's body: JSON parsed, or `undefined` when it is empty or holds only the whitespace JSON allows, as a HEAD response's JSON is; text for `text/*` or no type, or `undefined` when it is empty; a `Blob` for any other type, such as an image; and `undefined` for a 204 or a 205. */
 async function readBody(response: Response): Promise<unknown>
 {
     if (response.status === 204 || response.status === 205)
@@ -208,7 +208,8 @@ async function readBody(response: Response): Promise<unknown>
     const type = (response.headers.get("content-type") ?? "").toLowerCase();
     if (type.includes("json"))
     {
-        return response.json();
+        const text = await response.text();
+        return /^[\t\n\r ]*$/.test(text) ? undefined : JSON.parse(text);
     }
     if (type === "" || type.startsWith("text/"))
     {
