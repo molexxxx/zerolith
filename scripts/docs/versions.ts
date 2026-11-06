@@ -171,13 +171,15 @@ export interface Resolved
 }
 
 /**
- * Resolves what to build from the release tags and the line branches on
- * origin: the stable release from its line branch, `origin/1.x` for 1.0.0,
- * when that branch exists, so a fix to the stable docs deploys without a
- * release, and otherwise from its tag; a newer pre-release from its tag.
- * The bases sit under `pagesBase`, the path the Pages configuration names.
+ * Resolves what to build from the release tags, the line branches on
+ * origin, and the version on origin's main: the stable release from main
+ * while main carries its line, a stable version of the same major no older
+ * than the release, so a change to the site deploys with the push; else
+ * from its line branch, `origin/1.x` for 1.0.0, when that branch exists,
+ * and otherwise from its tag; a newer pre-release from its tag. The bases
+ * sit under `pagesBase`, the path the Pages configuration names.
  */
-export function resolveShown(tags: readonly string[], branches: readonly string[], pagesBase = "/"): Resolved | undefined
+export function resolveShown(tags: readonly string[], branches: readonly string[], pagesBase = "/", mainVersion?: string): Resolved | undefined
 {
     const picked = pickVersions(versionsOfTags(tags));
     if (picked === undefined)
@@ -187,9 +189,10 @@ export function resolveShown(tags: readonly string[], branches: readonly string[
     const under = (base: string): string => `${normalizeBase(pagesBase)}${base.slice(1)}`;
     const major = parse(picked.stable.version)?.numbers[0] ?? 0;
     const line = `${major}.x`;
+    const onMain = mainVersion !== undefined && isStable(mainVersion) && isStable(picked.stable.version) && parse(mainVersion)?.numbers[0] === major && compareVersions(mainVersion, picked.stable.version) >= 0;
     const resolved: Resolved = {
         versions: { stable: { version: picked.stable.version, base: under(picked.stable.base) } },
-        stableRef: branches.includes(line) && isStable(picked.stable.version) ? `origin/${line}` : `zerolith@${picked.stable.version}`
+        stableRef: onMain ? "origin/main" : branches.includes(line) && isStable(picked.stable.version) ? `origin/${line}` : `zerolith@${picked.stable.version}`
     };
     if (picked.next !== undefined)
     {

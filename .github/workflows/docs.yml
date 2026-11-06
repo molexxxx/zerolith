@@ -5,10 +5,11 @@ name: Docs
 # pre-release under /next/, each built from its own release tag, so a 2.0
 # alpha's docs are published without replacing the docs the stable
 # release's users read. The release workflow calls it after publishing,
-# and a manual run deploys the same two whatever ref it is dispatched on;
-# the scripts come from that ref. A line branch such as 1.x, when it
-# exists, stands in for the stable tag, so a fix to the stable docs
-# deploys without a release; the header's switch to /next/ appears on the
+# a push to main deploys it, and a manual run deploys the same two
+# whatever ref it is dispatched on; the scripts come from that ref. While
+# main carries the stable line, main stands in for the stable tag, so a
+# change to the site goes live with its push; otherwise a line branch
+# such as 1.x, when it exists, stands in for it; the header's switch to /next/ appears on the
 # stable side once that branch carries the build that renders it. The benchmark runs come from main whichever
 # commits are built, since each release's run is committed after it.
 # The base path and the address for canonical links come from the Pages
@@ -18,6 +19,8 @@ name: Docs
 on:
   workflow_call:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read

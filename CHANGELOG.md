@@ -2,6 +2,12 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
+## Unreleased
+
+### Changed
+
+- Docs site: a push to `main` deploys the site, and while `main` carries the stable line its stable docs are built from `main` itself, so a change to the site goes live with its push; a line branch such as `1.x`, or the release's tag, stands in otherwise.
+
 ## 1.1.0 (2026-11-06)
 
 A minor release from `main`: the first `@zerolith/state` and `@zerolith/browser`, retry and timeout for `resource`, the diagnostic exports a package warns with, and the docs site's redesign and narrow-screen fixes. It holds every fix of 1.0.1.
