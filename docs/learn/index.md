@@ -1,12 +1,12 @@
 ---
 title: Build a packing list
-description: "The zerolith tutorial: start a project, then build a packing list page one idea at a time, from signals and lists to storage, styles, tests, and a deployed build."
+description: "The zerolith tutorial: start a project, then build a packing list page one idea at a time, from signals and lists to storage and undo, styles, tests, and a deployed build."
 order: 0
 ---
 
 # Build a packing list
 
-In this tutorial you build a packing list: a page where you add the things to take on a trip, check them off as they go in the bag, filter what is left, and find the list still there the next time you open the page. It is small enough to finish in an afternoon and touches every idea a zerolith application is made of.
+In this tutorial you build a packing list: a page where you add the things to take on a trip, check them off as they go in the bag, filter what is left, take back a mistake, and find the list still there the next time you open the page. It is small enough to finish in an afternoon and touches every idea a zerolith application is made of.
 
 Each step adds one idea and explains why it works the way it does before showing the code. Every file a step shows is run by zerolith's own test suite, so what you type is what was tested.
 
@@ -55,9 +55,10 @@ Open `src/components/counter.ts`. It is the whole idea of zerolith in a dozen li
 4. [Components](components.md): split the page into parts that each run once.
 5. [Derived state and conditions](derived.md): progress, filters, and an empty state.
 6. [Saving with effects](effects.md): keep the list between visits.
-7. [Styles](styles.md): styles that belong to one component.
-8. [Testing](testing.md): a test that clicks through the page.
-9. [Build and ship](ship.md): the production build and where to put it.
+7. [Undo and offline](undo.md): a stored signal, undo and redo, and a note while offline.
+8. [Styles](styles.md): styles that belong to one component.
+9. [Testing](testing.md): a test that clicks through the page.
+10. [Build and ship](ship.md): the production build and where to put it.
 
 > [!TIP]
 > If you get stuck, every error zerolith reports carries a code and a link to a page that explains the cause and the fix, and the [playground](https://zerolith.dev/playground/) runs small pieces of code without a project.

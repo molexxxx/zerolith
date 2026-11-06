@@ -164,7 +164,7 @@ See the [command line guide](guide/command-line.md).
 - [x] A page for every diagnostic code.
 - [x] The site on GitHub Pages at [zerolith.dev](https://zerolith.dev/), deployed by each release from the commit it published, and by hand from `main` when only the site changes.
 - [x] Links that work on GitHub and on the site alike: pages link each other by file, the docs build checks every link, and a test checks every relative link in the repository's Markdown.
-- [x] A home page that runs a counter and measures its DOM updates, a ten-step tutorial whose every file is a test, and a playground that runs zerolith in a sandboxed frame and shares code through a link.
+- [x] A home page that runs a counter and measures its DOM updates, an eleven-step tutorial whose every file is a test, and a playground that runs zerolith in a sandboxed frame and shares code through a link.
 - [x] The site as a single-page application on `@zerolith/router`: every page prerendered for a first load and for readers without JavaScript, links that load the next page without a reload, and each page's islands started when it commits and stopped when the reader leaves.
 - [x] Code colored by the brand's code tokens, reading `html` and `css` templates and JSX as markup and styles, on the site and in the playground, with each name keeping one color across a page.
 - [x] Playground examples that render as finished interface in the brand, with a preview that waits for the brand's fonts.

@@ -2,8 +2,14 @@
 // under fixtures/tutorial, laid out as the reader's project is, and each
 // step's page runs here the way it runs in the reader's browser. The
 // finished app's own test file runs here too, in order with the storage
-// check, since both use the same storage key.
+// checks, since they all use the same storage key. The finished app keeps
+// its list in a stored signal for that key, as the undo step does, so the
+// undo step's store is the second for the key in this page and reports it.
+// The finished app's tests neither undo nor go offline, so the undo
+// step's checks run on its page too, once its history forgets the
+// checkpoints those tests saved.
 import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { onDiagnostic } from "zerolith";
 import { createRouter } from "@zerolith/router";
 import { cleanup, mount } from "@zerolith/test";
 import { routes } from "../fixtures/tutorial/page/src/routes.ts";
@@ -14,8 +20,14 @@ import { items as eventsItems } from "../fixtures/tutorial/events/src/store.ts";
 import { Packing as ComponentsPage } from "../fixtures/tutorial/components/src/components/packing.ts";
 import { Packing as DerivedPage } from "../fixtures/tutorial/derived/src/components/packing.ts";
 import { filter as derivedFilter, items as derivedItems } from "../fixtures/tutorial/derived/src/store.ts";
+import { Packing as AppPage } from "../fixtures/tutorial/app/src/components/packing.ts";
+import { changes as appChanges, items as appItems } from "../fixtures/tutorial/app/src/store.ts";
 
-afterEach(cleanup);
+afterEach(() =>
+{
+    cleanup();
+    connect(true);
+});
 
 afterAll(() =>
 {
@@ -40,6 +52,61 @@ function submit(container: HTMLElement, name: string): void
     }
     field.value = name;
     form.requestSubmit();
+}
+
+/** Makes the browser report the connection `online` says, with the event it fires when the connection changes. */
+function connect(online: boolean): void
+{
+    if (online)
+    {
+        Reflect.deleteProperty(navigator, "onLine");
+    }
+    else
+    {
+        Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+    }
+    dispatchEvent(new Event(online ? "online" : "offline"));
+}
+
+/** Checks the packing page from the undo step on, given a list of Map alone and nothing to undo: Undo takes back checking Map off, adding Tent, and removing Map, in the rows and in storage; Redo brings the removal back; and the status line notes when the browser is offline. */
+function undoesAndNotesOffline(container: HTMLElement): void
+{
+    const button = (label: string): HTMLButtonElement | undefined => [...container.querySelectorAll("button")].find((candidate) => candidate.textContent === label);
+    const disabled = (): Array<boolean | undefined> => [button("Undo")?.disabled, button("Redo")?.disabled];
+    const box = (): HTMLInputElement | null => container.querySelector<HTMLInputElement>("input[type=checkbox]");
+    const saved = (): unknown => JSON.parse(localStorage.getItem("packing-list") ?? "null");
+    const item = { id: 7, name: "Map", packed: false };
+    expect(rows(container)).toEqual(["Map Remove"]);
+    expect(disabled()).toEqual([true, true]);
+    box()?.click();
+    expect(saved()).toEqual([{ ...item, packed: true }]);
+    button("Undo")?.click();
+    expect(box()?.checked).toBe(false);
+    expect(saved()).toEqual([item]);
+    expect(disabled()).toEqual([true, false]);
+    submit(container, "Tent");
+    expect(rows(container)).toEqual(["Map Remove", "Tent Remove"]);
+    expect(saved()).toEqual([item, { id: 8, name: "Tent", packed: false }]);
+    button("Undo")?.click();
+    expect(rows(container)).toEqual(["Map Remove"]);
+    expect(saved()).toEqual([item]);
+    button("Remove")?.click();
+    expect(rows(container)).toEqual([]);
+    expect(saved()).toEqual([]);
+    expect(disabled()).toEqual([false, true]);
+    button("Undo")?.click();
+    expect(rows(container)).toEqual(["Map Remove"]);
+    expect(saved()).toEqual([item]);
+    expect(disabled()).toEqual([true, false]);
+    button("Redo")?.click();
+    expect(rows(container)).toEqual([]);
+    expect(saved()).toEqual([]);
+    const status = container.querySelector("[role=status]");
+    expect(status?.textContent).toBe("");
+    connect(false);
+    expect(status?.textContent).toBe("Offline: changes are saved on this device.");
+    connect(true);
+    expect(status?.textContent).toBe("");
 }
 
 describe("tutorial", () =>
@@ -104,5 +171,23 @@ describe("tutorial", () =>
         expect(items.get()).toEqual([{ id: 7, name: "Map", packed: false }]);
         toggle(7);
         expect(JSON.parse(localStorage.getItem("packing-list") ?? "[]")).toEqual([{ id: 7, name: "Map", packed: true }]);
+    });
+
+    it("keeps the list in storage, undoes and redoes its changes, and notes when it is offline", async () =>
+    {
+        localStorage.setItem("packing-list", JSON.stringify([{ id: 7, name: "Map", packed: false }]));
+        const reported: string[] = [];
+        const stop = onDiagnostic((record) => reported.push(`${record.code} ${String(record.args?.["key"])}`));
+        const { Packing } = await import("../fixtures/tutorial/undo/src/components/packing.ts");
+        stop();
+        expect(reported).toEqual(["state_key_duplicate packing-list"]);
+        undoesAndNotesOffline(mount(Packing()).container);
+    });
+
+    it("keeps undo, redo, and the offline note on the finished page", () =>
+    {
+        appItems.set([{ id: 7, name: "Map", packed: false }]);
+        appChanges.dispose();
+        undoesAndNotesOffline(mount(AppPage()).container);
     });
 });
