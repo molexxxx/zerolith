@@ -34,6 +34,7 @@ Every package in this repository is released together and carries the same versi
 - `@zerolith/client`: `portTransport` removes its abort listener when the answer arrives, so a request's signal no longer keeps one listener and the request it closes over after the call, and rejects a call whose answer cannot become a `Response`, such as one with a status outside 200 to 599, with the error the platform throws, where the call stayed pending for good.
 - `@zerolith/forms`: a problem is read as `@zerolith/client` now reads it: a member of the wrong type, such as a numeric `title` or a string `status`, is left out, as RFC 9457, section 3.1, requires, `status` comes from the response when the body has none, and a `fields` that is not an object is left out, where a string's characters or an array's indexes became fields and `null` ended the submission in `error` with a `TypeError`.
 - `@zerolith/client`: a problem sent as `Application/Problem+JSON`, or in any other casing, is read, since media types are case-insensitive (RFC 9110, section 8.3.1), where the error carried the problem the status line builds.
+- `@zerolith/forms`: a 2xx JSON body is read whatever the casing of its media type, where `Application/JSON` came back as text, and one that is empty or holds only spaces, tabs, and line breaks gives `result` `undefined`, as `@zerolith/client` now reads it, where the submission ended in `error` with a `SyntaxError`.
 
 ## 1.0.0 (2026-11-05)
 

@@ -345,4 +345,24 @@ describe("createForm", () =>
         expect(form.result.get()).toEqual({ attempt: 2 });
         expect(onError).not.toHaveBeenCalled();
     });
+
+    it("reads a 2xx JSON body whatever the casing of its media type, and an empty or blank one as no result", async () =>
+    {
+        const { form, element } = harness([
+            () => Promise.resolve(new Response(JSON.stringify({ id: 1 }), { headers: { "content-type": "Application/JSON" } })),
+            () => Promise.resolve(new Response(null, { headers: { "content-type": "application/json" } })),
+            () => Promise.resolve(new Response("\n\t \r\n", { headers: { "content-type": "application/json" } }))
+        ]);
+        submit(element);
+        await settled(form);
+        expect([form.status.get(), form.result.get()]).toEqual(["success", { id: 1 }]);
+
+        submit(element);
+        await settled(form);
+        expect([form.status.get(), form.result.get()]).toEqual(["success", undefined]);
+
+        submit(element);
+        await settled(form);
+        expect([form.status.get(), form.result.get()]).toEqual(["success", undefined]);
+    });
 });
