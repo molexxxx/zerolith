@@ -371,4 +371,41 @@ describe("requests and responses at the edges", () =>
         expect(file).toBeInstanceOf(Blob);
         expect([file.size, file.type]).toEqual([0, "image/png"]);
     });
+
+    it("reads a HEAD response without its body on every transport, a failed one included", async () =>
+    {
+        interface Checks
+        {
+            json: { method: "head"; path: "/json"; output: undefined };
+            text: { method: "head"; path: "/text"; output: undefined };
+            file: { method: "head"; path: "/file"; output: Blob };
+            download: { method: "get"; path: "/file"; output: Blob };
+            blank: { method: "get"; path: "/blank"; output: Blob };
+            gone: { method: "head"; path: "/gone"; output: undefined };
+        }
+        const checks = { json: { method: "head", path: "/json" }, text: { method: "head", path: "/text" }, file: { method: "head", path: "/file" }, download: { method: "get", path: "/file" }, blank: { method: "get", path: "/blank" }, gone: { method: "head", path: "/gone" } } as const satisfies RouteTable<Checks>;
+        const api = createClient<Checks>(checks, {
+            baseUrl: "https://api.test",
+            transport: async (request) =>
+            {
+                const path = new URL(request.url).pathname;
+                if (path === "/gone")
+                {
+                    return new Response(JSON.stringify({ title: "No such note", detail: "from the body" }), { status: 404, statusText: "Not Found", headers: { "content-type": "application/problem+json" } });
+                }
+                if (path === "/json")
+                {
+                    return Response.json({ title: "a note" });
+                }
+                return new Response(path === "/text" ? "hello" : path === "/file" ? "png bytes" : null, { headers: { "content-type": path === "/text" ? "text/plain" : "image/png" } });
+            }
+        });
+        await expect(api.call("json")).resolves.toBeUndefined();
+        await expect(api.call("text")).resolves.toBeUndefined();
+        const blobs = await Promise.all([api.call("file"), api.call("download"), api.call("blank")]);
+        expect(blobs.map((blob) => [blob instanceof Blob, blob.size, blob.type])).toEqual([[true, 0, "image/png"], [true, 9, "image/png"], [true, 0, "image/png"]]);
+        const failure = await api.call("gone").catch((error: unknown) => error);
+        expect(failure).toBeInstanceOf(ProblemError);
+        expect((failure as ProblemError).problem).toEqual({ status: 404, title: "Not Found" });
+    });
 });

@@ -72,7 +72,7 @@ const page = await api.call("listNotes", { query: { q: "rout", limit: 10 } });
 - The body as JSON with its content type, unless it is already a `FormData`, `URLSearchParams`, `Blob`, `ArrayBuffer` or typed array, string, or stream, which goes as it is. A `FormData` body leaves out any `content-type` header, so the platform writes its multipart boundary, and a stream body throws a `TypeError` on a platform that would send it as text, such as Firefox and Chrome before 105.
 - An `Accept` header asking for JSON or a problem, unless a header sets one.
 
-A successful response resolves to its JSON, its text, or a `Blob` for any other type, empty when the body is, and to `undefined` for a 204 or a 205, for an empty text body, and for a JSON body that is empty or holds only spaces, tabs, and line breaks.
+A successful response resolves to its JSON, its text, or a `Blob` for any other type, empty when the body is, and to `undefined` for a 204 or a 205, for an empty text body, and for a JSON body that is empty or holds only spaces, tabs, and line breaks. A HEAD response is read without a body on every transport, as `fetch` gives it: `undefined` for JSON or text, and an empty `Blob` otherwise. A failed HEAD call rejects with the problem its status line gives.
 
 ## Read failures as problems
 

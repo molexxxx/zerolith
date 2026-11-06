@@ -72,7 +72,7 @@ export class ProblemError extends Error
 {
     /** The problem the server sent, with `status` filled from the response when the body omits it; a body that is not a JSON problem yields `status` and a `title` from the status line. */
     readonly problem: Problem;
-    /** The response outside 2xx, for its status and headers; its body has already been read when the content type is JSON. */
+    /** The response outside 2xx, for its status and headers; its body has already been read when the content type is JSON and the request was not HEAD. */
     readonly response: Response;
 
     /** Wraps `problem` and the `response` it came from; the message is the problem's `title`, or `HTTP <status>` when it has none. */
@@ -198,14 +198,18 @@ function buildRequest(route: { method: Method; path: string }, input: LooseInput
     return new Request(`${base}${path}${searchOf(input.query ?? {})}`, init);
 }
 
-/** A successful response's body: JSON parsed, or `undefined` when it is empty or holds only the whitespace JSON allows, as a HEAD response's JSON is; text for `text/*` or no type, or `undefined` when it is empty; a `Blob` for any other type, such as an image; and `undefined` for a 204 or a 205. */
-async function readBody(response: Response): Promise<unknown>
+/** A successful response's body: JSON parsed, or `undefined` when it is empty or holds only the whitespace JSON allows; text for `text/*` or no type, or `undefined` when it is empty; a `Blob` for any other type, such as an image; and `undefined` for a 204 or a 205. A HEAD response is read without its body, since RFC 9110, section 9.3.2, gives it none: `undefined` for JSON or text, and an empty `Blob` of its type otherwise. */
+async function readBody(response: Response, method: string): Promise<unknown>
 {
     if (response.status === 204 || response.status === 205)
     {
         return undefined;
     }
     const type = (response.headers.get("content-type") ?? "").toLowerCase();
+    if (method === "HEAD")
+    {
+        return type.includes("json") || type === "" || type.startsWith("text/") ? undefined : new Blob([], { type });
+    }
     if (type.includes("json"))
     {
         const text = await response.text();
@@ -245,14 +249,14 @@ async function withSignals<T>(own: AbortSignal, caller: AbortSignal | undefined,
     }
 }
 
-async function settle(response: Response): Promise<unknown>
+async function settle(response: Response, method: string): Promise<unknown>
 {
     if (response.ok)
     {
-        return readBody(response);
+        return readBody(response, method);
     }
     let problem: Problem | undefined;
-    if ((response.headers.get("content-type") ?? "").includes("json"))
+    if (method !== "HEAD" && (response.headers.get("content-type") ?? "").includes("json"))
     {
         const body: unknown = await response.json().catch(() => undefined);
         if (isProblem(body))
@@ -282,7 +286,8 @@ export function createClient<A extends Contract<A>>(routes: RouteTable<A>, optio
     };
     const call = async (name: keyof A, input: LooseInput | undefined, callOptions: CallOptions | undefined): Promise<unknown> =>
     {
-        return settle(await transport(request(name, input, callOptions)));
+        const sent = request(name, input, callOptions);
+        return settle(await transport(sent), sent.method);
     };
     return {
         call<K extends keyof A>(name: K, ...args: InputArgs<A[K]>): Promise<Output<A[K]>>
