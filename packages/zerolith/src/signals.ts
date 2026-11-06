@@ -395,12 +395,12 @@ class State<T> implements Signal<T>, Source
     version = 0;
     targets: Edge | undefined = undefined;
     edge: Edge | undefined = undefined;
-    private value: T;
+    private current: T;
     private readonly equals: Equals<T>;
 
     constructor(value: T, equals: Equals<T>)
     {
-        this.value = value;
+        this.current = value;
         this.equals = equals;
     }
 
@@ -411,7 +411,7 @@ class State<T> implements Signal<T>, Source
         {
             edge.version = this.version;
         }
-        return this.value;
+        return this.current;
     }
 
     set(value: T): void
@@ -420,7 +420,7 @@ class State<T> implements Signal<T>, Source
         {
             throw fail("signal_written_inside_computed");
         }
-        if (this.equals(this.value, value))
+        if (this.equals(this.current, value))
         {
             return;
         }
@@ -428,7 +428,7 @@ class State<T> implements Signal<T>, Source
         {
             throw fail("effect_loop");
         }
-        this.value = value;
+        this.current = value;
         this.version++;
         globalVersion++;
         batchDepth++;
@@ -474,7 +474,7 @@ class Computed<T> implements ReadableSignal<T>, Source, Consumer
     edge: Edge | undefined = undefined;
     flags = OUTDATED;
     sources: Edge | undefined = undefined;
-    private value: unknown = undefined;
+    private current: unknown = undefined;
     private seen = -1;
     private readonly fn: () => T;
     private readonly equals: Equals<T>;
@@ -499,15 +499,15 @@ class Computed<T> implements ReadableSignal<T>, Source, Consumer
         }
         if (this.flags & HAS_ERROR)
         {
-            throw this.value;
+            throw this.current;
         }
-        return this.value as T;
+        return this.current as T;
     }
 
     /** The last result without computing, for the dev tools: absent before the first run and while the last run threw. */
     cached(): { value?: unknown }
     {
-        return this.version === 0 || this.flags & HAS_ERROR ? {} : { value: this.value };
+        return this.version === 0 || this.flags & HAS_ERROR ? {} : { value: this.current };
     }
 
     refresh(): boolean
@@ -539,16 +539,16 @@ class Computed<T> implements ReadableSignal<T>, Source, Consumer
         {
             prepareSources(this);
             const value = this.fn();
-            if ((this.flags & HAS_ERROR) || this.version === 0 || !this.equals(this.value as T, value))
+            if ((this.flags & HAS_ERROR) || this.version === 0 || !this.equals(this.current as T, value))
             {
-                this.value = value;
+                this.current = value;
                 this.flags &= ~HAS_ERROR;
                 this.version++;
             }
         }
         catch (error)
         {
-            this.value = error;
+            this.current = error;
             this.flags |= HAS_ERROR;
             this.version++;
         }
