@@ -126,6 +126,20 @@ function searchOf(query: Record<string, unknown>): string
     return text === "" ? "" : `?${text}`;
 }
 
+/** Whether this platform keeps a `ReadableStream` body as a stream: one that cannot turns it into the text "[object ReadableStream]" and labels it `text/plain`, as the streaming-requests guide for Chrome describes, or refuses it. */
+function streamsBodies(): boolean
+{
+    try
+    {
+        const init: RequestInit & { duplex: "half" } = { method: "POST", body: new ReadableStream(), duplex: "half" };
+        return !new Request("https://zerolith.invalid/", init).headers.has("content-type");
+    }
+    catch
+    {
+        return false;
+    }
+}
+
 function buildRequest(route: { method: Method; path: string }, input: LooseInput, options: CallOptions, client: ClientOptions): Request
 {
     const path = route.path.replace(/\{([^{}]+)\}/g, (_match, name: string) =>
@@ -165,6 +179,10 @@ function buildRequest(route: { method: Method; path: string }, input: LooseInput
             }
             if (input.body instanceof ReadableStream)
             {
+                if (!streamsBodies())
+                {
+                    throw new TypeError(`zerolith/client: ${route.method.toUpperCase()} ${route.path} has a ReadableStream body, which this platform cannot send as a stream; send a Blob or an ArrayBuffer`);
+                }
                 (init as RequestInit & { duplex: "half" }).duplex = "half";
             }
         }
