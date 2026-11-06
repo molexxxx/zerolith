@@ -49,7 +49,7 @@ export interface PortResponse
     statusText: string;
     /** The response headers as `[name, value]` pairs with lowercase names, as iterating a `Headers` yields them. */
     headers: [string, string][];
-    /** The body as UTF-8 text, or `null` when it is empty, as for a 204. */
+    /** The body as UTF-8 text, or `null` when it is empty, as for a 204, and in the answer to a HEAD request, which carries none. */
     body: string | null;
 }
 
@@ -149,7 +149,9 @@ export function portTransport(port: PortLike): Transport
  * calling `handler`, and posting the response back. A handler that throws,
  * resolves to something other than a `Response`, or answers with a body that
  * cannot be read answers with a 500 problem, so the client sees a
- * `ProblemError` rather than waiting for good.
+ * `ProblemError` rather than waiting for good. The answer to a HEAD
+ * request carries no body: the handler's is canceled unread, and a
+ * failure's 500 goes without its problem.
  */
 export function servePort(port: PortLike, handler: (request: Request) => Response | Promise<Response>): void
 {
@@ -163,11 +165,20 @@ export function servePort(port: PortLike, handler: (request: Request) => Respons
         const id = message.id;
         const answer = async (): Promise<void> =>
         {
+            const head = message.method === "HEAD";
             let reply: PortResponse;
             try
             {
                 const response = await handler(new Request(message.url ?? "", { method: message.method ?? "GET", headers: message.headers ?? [], body: message.body ?? null }));
-                const text = await response.text();
+                let text = "";
+                if (head)
+                {
+                    void Promise.resolve().then(() => response.body?.cancel()).catch(() => undefined);
+                }
+                else
+                {
+                    text = await response.text();
+                }
                 reply = { kind: "zerolith:response", id, status: response.status, statusText: response.statusText, headers: [...response.headers], body: text === "" ? null : text };
             }
             catch (error)
@@ -180,7 +191,7 @@ export function servePort(port: PortLike, handler: (request: Request) => Respons
                 {
                     console.error("zerolith/client: a servePort handler failed", error);
                 }
-                reply = { kind: "zerolith:response", id, status: 500, statusText: "", headers: [["content-type", "application/problem+json"]], body: JSON.stringify({ title: "The handler failed", status: 500 }) };
+                reply = { kind: "zerolith:response", id, status: 500, statusText: "", headers: [["content-type", "application/problem+json"]], body: head ? null : JSON.stringify({ title: "The handler failed", status: 500 }) };
             }
             port.postMessage(reply);
         };
