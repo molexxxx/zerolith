@@ -134,6 +134,16 @@ function headings(content: string): Array<{ id: string; text: string }>
     }));
 }
 
+/** The link to the same page in the other release's docs, when the site shows two releases. */
+function VersionSwitch(page: PageData)
+{
+    return page.versionSwitch === undefined ? null : html`<a class="switch" href=${`${page.versionSwitch.base}${page.path.slice(1)}`} data-version-switch rel="external" title=${`The docs for ${page.versionSwitch.label}`}>${`${page.versionSwitch.label} docs`}</a>`;
+}
+
+/**
+ * The header, and the sheet the menu button opens at 960 px and narrower: the same
+ * sections as large rows, the current one on the chartreuse plane.
+ */
 function Header(page: PageData)
 {
     return html`
@@ -141,14 +151,21 @@ function Header(page: PageData)
         <header class="top">
             <a class="home" href="/" aria-label="zerolith home">${unsafeHtml(lockup)}</a>
             <span class="tag">${page.version}</span>
-            <nav class="sections" id="sections" aria-label="Sections">
+            <nav class="sections" aria-label="Sections">
                 ${sections.map((section) => html`<a href=${section.href} aria-current=${section.matches(page.path) ? "true" : null}>${section.title}</a>`)}
                 <a href=${repository}>GitHub</a>
-                ${page.versionSwitch === undefined ? null : html`<a class="switch" href=${`${page.versionSwitch.base}${page.path.slice(1)}`} data-version-switch title=${`The docs for ${page.versionSwitch.label}`}>${`${page.versionSwitch.label} docs`}</a>`}
+                ${VersionSwitch(page)}
             </nav>
-            <button class="icon menu-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls=${page.nav === undefined ? "sections" : "sections sidebar"}>${unsafeHtml(icon("menu"))}</button>
+            <button class="menu-toggle" type="button" aria-expanded="false" aria-controls=${page.nav === undefined ? "sheet" : "sheet sidebar"}><span class="menu-icon">${unsafeHtml(icon("menu"))}</span><span class="close-icon">${unsafeHtml(icon("close"))}</span>Menu</button>
             <button class="icon theme-toggle" type="button" aria-label="Switch between the light and dark themes"><span class="sun">${unsafeHtml(icon("sun"))}</span><span class="moon">${unsafeHtml(icon("moon"))}</span></button>
-        </header>`;
+        </header>
+        <nav class="sheet" id="sheet" aria-label="Sections">
+            <ul>
+                ${sections.map((section) => html`<li><a href=${section.href} aria-current=${section.matches(page.path) ? "true" : null}>${section.title}${unsafeHtml(icon("arrow-right"))}</a></li>`)}
+                <li><a href=${repository}>GitHub${unsafeHtml(icon("external"))}</a></li>
+            </ul>
+            ${VersionSwitch(page)}
+        </nav>`;
 }
 
 function Pager({ previous, next }: { previous?: Link; next?: Link })

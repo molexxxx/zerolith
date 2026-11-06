@@ -211,7 +211,7 @@ function PartCell(part: Part, kind: "library" | "core" | "tool")
         </a>`;
 }
 
-/** One node of the launch figure's flow diagram: its id in demo.js, its label, its kind, and its column and row. */
+/** One node of the launch figure's flow diagram: its id in demo.js, its label, its kind, and its column and row in the wide drawing. */
 interface FlowNode
 {
     id: string;
@@ -245,23 +245,27 @@ const flowNodes: FlowNode[] = [
     { id: "dom-action", label: "${action}", kind: "dom", column: 6, row: 4 }
 ];
 
-/** The half width of a node's box: DOM nodes are wider, since their labels are bindings. */
+/** The half width of a node's box in the wide drawing: DOM nodes are wider, since their labels are bindings. */
 function halfWidth(node: FlowNode): number
 {
     return node.kind === "dom" ? 80 : 56;
 }
 
-/** The point on a node's edge an arrow leaves from or arrives at. */
-function port(id: string, side: "left" | "right" | "top" | "bottom"): [number, number]
+/** A node's box in the drawing that runs across a wide screen: its center and half its width. */
+function widePlace(node: FlowNode): { x: number; y: number; half: number }
+{
+    return { x: flowX[node.column] ?? 0, y: flowY[node.row] ?? 0, half: halfWidth(node) };
+}
+
+/** The point on a node's edge an arrow leaves from or arrives at, in the drawing `place` lays out. */
+function port(id: string, side: "left" | "right" | "top" | "bottom", place = widePlace): [number, number]
 {
     const node = flowNodes.find((item) => item.id === id);
     if (node === undefined)
     {
         throw new Error(`the launch figure's flow has no node ${id}`);
     }
-    const x = flowX[node.column] ?? 0;
-    const y = flowY[node.row] ?? 0;
-    const half = halfWidth(node);
+    const { x, y, half } = place(node);
     return side === "left" ? [x - half, y] : side === "right" ? [x + half, y] : side === "top" ? [x, y - nodeHeight / 2] : [x, y + nodeHeight / 2];
 }
 
@@ -307,20 +311,130 @@ function flowEdges(): Array<{ id: string; d: string; dashed: boolean }>
     ];
 }
 
-/** The launch figure's flow diagram as SVG markup: column heads, the edges under the nodes, then the nodes. */
+/** A node's label as markup. */
+function flowLabel(node: FlowNode): string
+{
+    return node.label.replaceAll("&", "&amp;").replaceAll("<", "&lt;");
+}
+
+/** One drawing of the flow as SVG markup: the column heads, the edges under the nodes, then each node's box where `place` puts it. */
+function flowDrawing(shape: string, size: string, heads: string, edges: Array<{ id: string; d: string; dashed: boolean }>, place: (node: FlowNode) => { x: number; y: number; half: number }): string
+{
+    const paths = edges.map((edge) => `<path class="${edge.dashed ? "edge read" : "edge"}" data-edge="${edge.id}" d="${edge.d}"/>`).join("");
+    const boxes = flowNodes.map((node) =>
+    {
+        const { x, y, half } = place(node);
+        return `<g class="node ${node.kind}" data-node="${node.id}"><rect x="${x - half}" y="${y - nodeHeight / 2}" width="${half * 2}" height="${nodeHeight}"/><text x="${x}" y="${y}">${flowLabel(node)}</text></g>`;
+    }).join("");
+    return `<svg class="${shape}" viewBox="0 0 ${size}" aria-hidden="true" focusable="false">${heads}<g class="edges">${paths}</g>${boxes}</svg>`;
+}
+
+/** The launch figure's flow diagram as SVG markup, running across a wide screen. */
 function flowSvg(): string
 {
     const heads = flowColumns.map((head, column) => `<text class="head" x="${flowX[column] ?? 0}" y="12">${head}</text>`).join("");
-    const edges = flowEdges().map((edge) => `<path class="${edge.dashed ? "edge read" : "edge"}" data-edge="${edge.id}" d="${edge.d}"/>`).join("");
-    const nodes = flowNodes.map((node) =>
+    return flowDrawing("landscape", "1152 198", heads, flowEdges(), widePlace);
+}
+
+/** Martian Mono's advance at the diagram's 11 px, so a box in the tall drawing fits its label. */
+const monoAdvance = 7.7;
+
+/**
+ * Each node's center when the flow runs down a narrow screen: the main
+ * chain in the left lane, the clock and its signals beside it, the throttle
+ * on the right with the action past it, and the DOM bindings stacked under
+ * the main chain, where each lane turns into its own. A binding's place is
+ * its left edge, so the stack lines up on the left.
+ */
+const tallPlaces = new Map<string, [number, number]>([
+    ["press", [126, 20]],
+    ["steer", [300, 20]],
+    ["stage", [126, 70]],
+    ["throttle", [300, 70]],
+    ["live", [126, 120]],
+    ["action", [344, 120]],
+    ["clock", [228, 170]],
+    ["countdown", [126, 220]],
+    ["altitude", [228, 220]],
+    ["fuel", [300, 220]],
+    ["readout", [126, 270]],
+    ["dom-readout", [70, 322]],
+    ["dom-altitude", [70, 356]],
+    ["dom-fuel", [70, 390]],
+    ["dom-action", [70, 424]],
+    ["dom-throttle", [70, 458]]
+]);
+
+/** Where each column's head sits in the tall drawing, level with the first row of its nodes. */
+const tallHeads = [20, 70, 120, 170, 220, 270, 322];
+
+/** A node's box in the drawing that runs down a narrow screen, as wide as its label. */
+function tallPlace(node: FlowNode): { x: number; y: number; half: number }
+{
+    const [x, y] = tallPlaces.get(node.id) ?? [0, 0];
+    const half = Math.ceil((node.label.length * monoAdvance + 16) / 2);
+    return { x: node.kind === "dom" ? x + half : x, y, half };
+}
+
+/** The point on a node's edge in the tall drawing that an edge leaves from or arrives at. */
+function tallPort(id: string, side: "left" | "right" | "top" | "bottom"): [number, number]
+{
+    return port(id, side, tallPlace);
+}
+
+/** The edges of the tall drawing: the wide drawing's edges turned to run downward. The binding under the main chain takes its line from above; the others take their lanes in from the right. */
+function tallEdges(): Array<{ id: string; d: string; dashed: boolean }>
+{
+    const down = (from: string, to: string) =>
     {
-        const x = flowX[node.column] ?? 0;
-        const y = flowY[node.row] ?? 0;
-        const half = halfWidth(node);
-        const label = node.label.replaceAll("&", "&amp;").replaceAll("<", "&lt;");
-        return `<g class="node ${node.kind}" data-node="${node.id}"><rect x="${x - half}" y="${y - nodeHeight / 2}" width="${half * 2}" height="${nodeHeight}"/><text x="${x}" y="${y}">${label}</text></g>`;
-    }).join("");
-    return `<svg viewBox="0 0 1152 198" aria-hidden="true" focusable="false">${heads}<g class="edges">${edges}</g>${nodes}</svg>`;
+        const [x0, y0] = tallPort(from, "bottom");
+        const [, y1] = tallPort(to, "top");
+        return `M${x0} ${y0}V${y1}`;
+    };
+    const elbow = (from: string, to: string, turn: number) =>
+    {
+        const [x0, y0] = tallPort(from, "bottom");
+        const [x1, y1] = tallPort(to, "top");
+        return `M${x0} ${y0}V${turn}H${x1}V${y1}`;
+    };
+    const into = (from: string, to: string) =>
+    {
+        const [x0, y0] = tallPort(from, "bottom");
+        const [x1, y1] = tallPort(to, "right");
+        return `M${x0} ${y0}V${y1}H${x1}`;
+    };
+    const [liveRightX, liveRightY] = tallPort("live", "right");
+    const [actionLeftX] = tallPort("action", "left");
+    const [throttleRightX, throttleRightY] = tallPort("throttle", "right");
+    const [domThrottleRightX, domThrottleRightY] = tallPort("dom-throttle", "right");
+    const [stageLeftX, stageLeftY] = tallPort("stage", "left");
+    const [readoutLeftX, readoutLeftY] = tallPort("readout", "left");
+    return [
+        { id: "press>stage", d: down("press", "stage"), dashed: false },
+        { id: "stage>live", d: down("stage", "live"), dashed: false },
+        { id: "live>clock", d: elbow("live", "clock", 145), dashed: false },
+        { id: "live>action", d: `M${liveRightX} ${liveRightY}H${actionLeftX}`, dashed: false },
+        { id: "steer>throttle", d: down("steer", "throttle"), dashed: false },
+        { id: "throttle>clock", d: elbow("throttle", "clock", 141), dashed: true },
+        { id: "throttle>dom-throttle", d: `M${throttleRightX} ${throttleRightY}H388V${domThrottleRightY}H${domThrottleRightX}`, dashed: false },
+        { id: "clock>countdown", d: elbow("clock", "countdown", 196), dashed: false },
+        { id: "clock>altitude", d: down("clock", "altitude"), dashed: false },
+        { id: "clock>fuel", d: elbow("clock", "fuel", 196), dashed: false },
+        { id: "stage>readout", d: `M${stageLeftX} ${stageLeftY}H70V${readoutLeftY}H${readoutLeftX}`, dashed: false },
+        { id: "countdown>readout", d: down("countdown", "readout"), dashed: false },
+        { id: "altitude>readout", d: elbow("altitude", "readout", 246), dashed: false },
+        { id: "readout>dom-readout", d: down("readout", "dom-readout"), dashed: false },
+        { id: "altitude>dom-altitude", d: into("altitude", "dom-altitude"), dashed: false },
+        { id: "fuel>dom-fuel", d: into("fuel", "dom-fuel"), dashed: false },
+        { id: "action>dom-action", d: into("action", "dom-action"), dashed: false }
+    ];
+}
+
+/** The flow diagram drawn down a narrow screen, where the wide drawing would scroll inside its panel. */
+function flowSvgTall(): string
+{
+    const heads = flowColumns.map((head, column) => `<text class="head" x="62" y="${tallHeads[column] ?? 0}">${head}</text>`).join("");
+    return flowDrawing("portrait", "400 480", heads, tallEdges(), tallPlace);
 }
 
 /** The create command with its copy button, as the hero and the closing section show it. */
@@ -360,8 +474,20 @@ function printed(score: number): number
     return Number(score.toFixed(2));
 }
 
+/**
+ * The sentence under the speed heading. It names the release the run
+ * measured, which trails the site's own version until the benchmarks
+ * workflow measures a new release.
+ */
+export function speedLine(scores: HomeData["scores"]): string
+{
+    const ours = scores.rows.find((row) => row.name === "zerolith");
+    const others = scores.rows.filter((row) => row.name !== "vanilla" && row.name !== "zerolith").length;
+    return `${ours === undefined ? "zerolith" : `zerolith ${ours.version}`} on js-framework-benchmark next to hand-written JavaScript and ${others} frameworks, measured on ${scores.date}. Lower is faster. These are this project's runs, not the official results.`;
+}
+
 /** The benchmark scores as ranked bars, each the extra time over hand-written JavaScript. */
-function Speed(scores: HomeData["scores"], version: string)
+function Speed(scores: HomeData["scores"])
 {
     const slowest = Math.max(...scores.rows.map((row) => printed(row.score)));
     const ours = scores.rows.find((row) => row.name === "zerolith");
@@ -371,7 +497,7 @@ function Speed(scores: HomeData["scores"], version: string)
             <div class="split">
                 <div class="copy-column">
                     <h2>${extra === undefined ? "Benchmark scores" : `Within ${extra} percent of hand-written JavaScript`}</h2>
-                    <p>${`zerolith ${version} on js-framework-benchmark next to hand-written JavaScript and ${scores.rows.length - 2} frameworks, measured on ${scores.date}. Lower is faster. These are this project's runs, not the official results.`}</p>
+                    <p>${speedLine(scores)}</p>
                     <a class="more" href="/benchmarks/">See every operation and the method${unsafeHtml(icon("arrow-right"))}</a>
                 </div>
                 <ol class="bars">
@@ -471,11 +597,11 @@ export function Home(data: HomeData): View
             <figure class="figure" aria-label="Launch control running on this page: its code, the rocket, the signal graph each change runs along, and what each change did to the DOM">
                 <div class="code" data-language="js"><pre><code>${unsafeHtml(data.figureCode)}</code></pre></div>
                 <div class="run" data-island="figure">${Figure()}</div>
-                <div class="flow">${unsafeHtml(flowSvg())}</div>
+                <div class="flow">${unsafeHtml(flowSvg())}${unsafeHtml(flowSvgTall())}</div>
             </figure>
         </section>
         ${Tour(data.tour)}
-        ${Speed(data.scores, data.version)}
+        ${Speed(data.scores)}
         ${Diagnostics(data.doctor, data.diagnosticCount)}
         <section class="band roomy">
             <h2>${`One core and ${libraries.length + tools.length} packages`}</h2>

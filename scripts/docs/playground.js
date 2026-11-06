@@ -374,8 +374,11 @@ export function start(host)
  * sets the select and fires its change event; a change made elsewhere, as
  * from the address, is mirrored back. The list follows the listbox pattern:
  * the arrow keys, Home, and End move, Enter and Space choose, and Escape or
- * a press outside closes it. Each time it opens, every option takes the
- * height of the tallest, so the rows line up whatever their summaries hold.
+ * a press outside closes it. Each time it opens, and as the window resizes,
+ * the list takes the header row's width, 640 px at most, under the button
+ * where it fits and moved left as far as it must to end inside the row, so
+ * it never widens the page, and every option takes the height of the
+ * tallest, so the rows line up whatever their summaries hold.
  * @param {HTMLElement} host
  * @param {HTMLSelectElement} select
  * @returns {() => void}
@@ -417,11 +420,26 @@ function picker(host, select)
             option.scrollIntoView({ block: "nearest" });
         }
     };
+    const fit = () =>
+    {
+        if (list.hidden)
+        {
+            return;
+        }
+        const row = root.closest(".head-row")?.getBoundingClientRect();
+        const rowLeft = row?.left ?? 0;
+        const rowRight = row?.right ?? document.documentElement.clientWidth;
+        const width = Math.floor(Math.min(640, rowRight - rowLeft));
+        list.style.setProperty("--picker-width", `${width}px`);
+        list.style.setProperty("--picker-shift", "0px");
+        list.style.setProperty("--picker-shift", `${Math.min(0, Math.floor(rowRight - width - list.getBoundingClientRect().left))}px`);
+        list.style.removeProperty("--picker-row");
+        list.style.setProperty("--picker-row", `${Math.max(...options.map((option) => option.offsetHeight))}px`);
+    };
     const open = () =>
     {
         list.hidden = false;
-        list.style.removeProperty("--picker-row");
-        list.style.setProperty("--picker-row", `${Math.max(...options.map((option) => option.offsetHeight))}px`);
+        fit();
         trigger.setAttribute("aria-expanded", "true");
         point(Math.max(0, options.findIndex((option) => option.getAttribute("data-value") === select.value)));
         list.focus();
@@ -494,11 +512,13 @@ function picker(host, select)
         }
     };
     document.addEventListener("pointerdown", outside);
+    addEventListener("resize", fit);
     select.addEventListener("change", sync);
     sync();
     return () =>
     {
         document.removeEventListener("pointerdown", outside);
+        removeEventListener("resize", fit);
         select.removeEventListener("change", sync);
     };
 }
