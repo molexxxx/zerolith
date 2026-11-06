@@ -21,6 +21,7 @@ Every package in this repository is released together and carries the same versi
 - `@zerolith/client`: a body `JSON.stringify` turns into nothing, a function, a symbol, or a value whose `toJSON` returns `undefined`, throws a `TypeError`, where it went as no body under a JSON content type.
 - `@zerolith/client`: a whole query that is iterable, such as a `URLSearchParams`, `FormData`, `Map`, `Set`, `Headers`, array, or typed array, or that is a `Date` or a non-empty string, throws a `TypeError` naming its kind, where its values were dropped or sent as numbered keys; any other value is read by its own keys, as before.
 - `@zerolith/client`: an `undefined` or `null` item of a query array is left out, as the guide says of query values, where it went as the text `undefined` or `null`.
+- `@zerolith/client`: a query's request aborts with the reason of the signal that aborted it, the caller's or the resource's own, where it aborted with a new `AbortError`, and the `signal` option's documentation says the two are joined rather than replaced.
 
 ## 1.0.0 (2026-11-05)
 

@@ -1,3 +1,4 @@
+import { getEventListeners } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import { signal } from "zerolith";
 import { type Client, type RouteTable, type Transport, ProblemError, createClient } from "@zerolith/client";
@@ -531,5 +532,44 @@ describe("requests and responses at the edges", () =>
     {
         const api = createClient<Api>(routes, { baseUrl: "https://api.test", transport: async () => Response.json({ items: [] }) });
         expect(api.request("listNotes", { query: { tag: ["a", null, undefined, "b"] as never } }).url).toBe("https://api.test/notes?tag=a&tag=b");
+    });
+
+    it("passes each signal's abort reason to a query's request, before or during the run, and lets go of the caller's signal after", async () =>
+    {
+        const files = { download: { method: "get", path: "/files/{id}" }, upload: { method: "post", path: "/files" } } as const satisfies RouteTable<Files>;
+        const signals: AbortSignal[] = [];
+        const api = createClient<Files>(files, {
+            baseUrl: "https://api.test",
+            transport: (request) =>
+            {
+                signals.push(request.signal);
+                if (request.signal.aborted)
+                {
+                    return Promise.reject(request.signal.reason);
+                }
+                return new Promise<Response>((_resolve, reject) => request.signal.addEventListener("abort", () => reject(request.signal.reason), { once: true }));
+            }
+        });
+        const before = new AbortController();
+        const early = new Error("gone before it started");
+        before.abort(early);
+        api.query("download", () => ({ params: { id: "a" } }), { signal: before.signal });
+        const during = new AbortController();
+        api.query("download", () => ({ params: { id: "b" } }), { signal: during.signal });
+        const id = signal("c");
+        const changing = new AbortController();
+        api.query("download", () => ({ params: { id: id.get() } }), { signal: changing.signal });
+        await vi.waitFor(() => expect(signals).toHaveLength(3));
+        const late = new Error("left the page");
+        during.abort(late);
+        id.set("d");
+        await vi.waitFor(() => expect(signals).toHaveLength(4));
+        expect([signals[0]?.reason, signals[1]?.reason]).toEqual([early, late]);
+        expect(signals[2]?.aborted).toBe(true);
+        const changed: unknown = signals[2]?.reason;
+        expect(changed).toBeInstanceOf(DOMException);
+        expect((changed as DOMException).name).toBe("AbortError");
+        await vi.waitFor(() => expect([before.signal, during.signal].map((caller) => getEventListeners(caller, "abort").length)).toEqual([0, 0]));
+        expect(getEventListeners(changing.signal, "abort")).toHaveLength(1);
     });
 });
