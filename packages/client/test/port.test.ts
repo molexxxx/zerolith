@@ -171,4 +171,33 @@ describe("portTransport and servePort", () =>
             vi.unstubAllGlobals();
         }
     });
+
+    it("keeps the calls of two transports on one port apart", async () =>
+    {
+        const { client, server, close } = pair();
+        try
+        {
+            const held: { id: number; path: string }[] = [];
+            server.addEventListener("message", (event: MessageEvent<{ id: number; url: string }>) =>
+            {
+                held.push({ id: event.data.id, path: new URL(event.data.url).pathname });
+                if (held.length === 2)
+                {
+                    for (const { id, path } of held.toReversed())
+                    {
+                        server.postMessage({ kind: "zerolith:response", id, status: 200, statusText: "", headers: [["content-type", "text/plain"]], body: path }, []);
+                    }
+                }
+            });
+            server.start();
+            const first = portTransport(client);
+            const second = portTransport(client);
+            const answers = await Promise.all([first(new Request("https://app.local/first")), second(new Request("https://app.local/second"))]);
+            expect(await Promise.all(answers.map((answer) => answer.text()))).toEqual(["/first", "/second"]);
+        }
+        finally
+        {
+            close();
+        }
+    });
 });

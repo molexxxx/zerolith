@@ -36,6 +36,7 @@ Every package in this repository is released together and carries the same versi
 - `@zerolith/client`: a problem sent as `Application/Problem+JSON`, or in any other casing, is read, since media types are case-insensitive (RFC 9110, section 8.3.1), where the error carried the problem the status line builds.
 - `@zerolith/forms`: a 2xx JSON body is read whatever the casing of its media type, where `Application/JSON` came back as text, and one that is empty or holds only spaces, tabs, and line breaks gives `result` `undefined`, as `@zerolith/client` now reads it, where the submission ended in `error` with a `SyntaxError`.
 - `@zerolith/client`: `servePort` answers with its 500 problem when the handler resolves to something other than a `Response` or answers with a body that cannot be read, such as a stream that errors, where no answer went and the call waited for good.
+- `@zerolith/client`: every `portTransport` draws its request ids from one counter, so several can share a port, where two transports numbered their calls from 1, so one answer settled both calls under the same number and the other answer was dropped.
 
 ## 1.0.0 (2026-11-05)
 
