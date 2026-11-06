@@ -1,6 +1,6 @@
 {
     "name": "@zerolith/forms",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "description": "Forms for zerolith: native forms that post FormData and work without JavaScript, enhanced with fetch, pending state, and RFC 9457 problem+json field errors when it runs, with Standard Schema validation shared by client and server",
     "license": "Apache-2.0",
     "author": "molexxxx",
@@ -43,9 +43,9 @@
         "build": "tsc -p tsconfig.build.json && node ../../scripts/production.ts"
     },
     "peerDependencies": {
-        "zerolith": "^1.0.1"
+        "zerolith": "^1.1.0"
     },
     "devDependencies": {
-        "zerolith": "^1.0.1"
+        "zerolith": "^1.1.0"
     }
 }

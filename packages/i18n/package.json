@@ -1,6 +1,6 @@
 {
     "name": "@zerolith/i18n",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "description": "Internationalization for zerolith built on Intl with nothing shipped: locale negotiation and state, direction and document language, cached formatters, and a compiler that turns MessageFormat 2 catalogs into per-locale modules",
     "license": "Apache-2.0",
     "author": "molexxxx",
@@ -50,9 +50,9 @@
         "build": "tsc -p tsconfig.build.json && node ../../scripts/production.ts"
     },
     "peerDependencies": {
-        "zerolith": "^1.0.1"
+        "zerolith": "^1.1.0"
     },
     "devDependencies": {
-        "zerolith": "^1.0.1"
+        "zerolith": "^1.1.0"
     }
 }
