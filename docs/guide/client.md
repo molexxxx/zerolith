@@ -38,7 +38,7 @@ An operation is named by its `operationId` in camel case, or by its method and p
 | Query parameters | `query`, optional unless one of them is required; an optional parameter also accepts `undefined`, which is not sent |
 | A JSON request body, `application/json` or any `+json` type | `body`, typed by its schema, optional unless the body is required |
 | A `multipart/form-data`, URL-encoded, or `text/*` request body | `body` as `FormData`, `URLSearchParams`, or `string` |
-| The 2xx responses | `output`: the union of their JSON types, `string` for text, `Blob` for any other type, such as `application/octet-stream`, and `undefined` for a response without content |
+| The 2xx responses | `output`: the union of their JSON types, `string` for text, `Blob` for any other type, such as `application/octet-stream`, and `undefined` for a response without content; a HEAD operation gives `undefined` for a JSON or text response too, since a HEAD response carries no content |
 | No 2xx response | `output` from the `default` response, or `unknown` |
 | `summary`, `description`, and `deprecated` | The entry's doc comment, with `@deprecated` when it applies |
 | `allOf`, `oneOf`, `anyOf`, and `$ref` in a schema | An intersection, a union, or the referenced type; keywords beside them that shape a type, such as `properties`, intersect with them |
@@ -55,12 +55,12 @@ An operation is named by its `operationId` in camel case, or by its method and p
 
 `call` resolves with the operation's output. Its second argument holds the operation's `params`, `query`, and `body`, exactly as optional as the contract makes them, and it is omitted when the operation takes nothing. The request is built this way:
 
-- The path, with each parameter encoded; a missing one throws a `TypeError` that names it, and so does a parameter of `.` or `..`, which the URL would otherwise read as a step to another path.
-- The query, with an array repeating its key, an object sent as JSON, and `undefined` and `null` left out, whatever `style` and `explode` the document declares for the parameter, which the client does not read yet.
-- The body as JSON with its content type, unless it is already a `FormData`, `URLSearchParams`, `Blob`, `ArrayBuffer` or typed array, string, or stream, which goes as it is.
+- The path, with each parameter read from the params object or a prototype it inherits from, never from `Object.prototype`, and encoded; a missing one, or one that is `null` or a function, throws a `TypeError` that names it, and so does a parameter of `.` or `..`, which the URL would otherwise read as a step to another path.
+- The query, with an array repeating its key, an object sent as JSON, and `undefined` and `null` left out, inside an array too, whatever `style` and `explode` the document declares for the parameter, which the client does not read yet. A whole query that is iterable, such as a `URLSearchParams`, `FormData`, `Map`, or array, or that is a `Date` or a non-empty string, throws a `TypeError`, since its values would be lost.
+- The body as JSON with its content type, unless it is already a `FormData`, `URLSearchParams`, `Blob`, `ArrayBuffer` or typed array, string, or stream, which goes as it is. A `FormData` body leaves out any `content-type` header, so the platform writes its multipart boundary, and a stream body throws a `TypeError` on a platform that would send it as text, such as Firefox and Chrome before 105. So does a body `JSON.stringify` turns into nothing, such as a function.
 - An `Accept` header asking for JSON or a problem, unless a header sets one.
 
-A successful response resolves to its JSON, its text, or `undefined` when it has no content.
+A successful response resolves to its JSON, its text, or a `Blob` for any other type, empty when the body is, and to `undefined` for a 204 or a 205, for an empty text body, and for a JSON body that is empty or holds only spaces, tabs, and line breaks. A HEAD response is read without a body on every transport, as `fetch` gives it: `undefined` for JSON or text, and an empty `Blob` otherwise. A failed HEAD call rejects with the problem its status line gives.
 
 ## Read failures as problems
 
@@ -70,7 +70,7 @@ A response outside 2xx rejects with a `ProblemError`, so one `catch` handles eve
 
 | Member | Holds |
 | --- | --- |
-| `problem` | The RFC 9457 document the server sent, with the response's status filled in when it left it out, or a problem built from the status line when the body was something else |
+| `problem` | The RFC 9457 document the server sent, with the response's status filled in when it left it out, a standard member of the wrong type left out, and `fields` read as lists of messages, as forms read them; or a problem built from the status line when the body was something else |
 | `response` | The `Response` itself |
 | `message` | The problem's title, or `HTTP` and the status |
 
@@ -89,7 +89,7 @@ The same `Problem` type is what forms show and what the core exports, so one err
 | Option | What it does |
 | --- | --- |
 | `baseUrl` | Prepended to every path. It defaults to the empty string, the page's origin in a browser; pass an absolute URL anywhere else |
-| `headers` | Sent with every request, or computed per request when given as a function, which is where a bearer token goes |
+| `headers` | Sent with every request, or computed per request when given as a function, which is where a bearer token goes; a `content-type` among them is left out for a `FormData` body |
 | `transport` | Replaces `fetch`: a function from a `Request` to a promise of a `Response`. A test can answer in process, and an Electron renderer can forward requests over a message port |
 
 Each call also takes options of its own as its last argument, a `signal` and `headers` that override the client's. `request` takes the same arguments as `call` and returns the `Request` a call would send, without sending it.

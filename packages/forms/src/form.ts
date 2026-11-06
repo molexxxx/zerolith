@@ -156,10 +156,15 @@ function submittedData(element: HTMLFormElement, submitter: HTMLElement | null):
     return data;
 }
 
+/** The members RFC 9457 defines and the types section 3.1 gives them. */
+const MEMBERS: Readonly<Record<string, "string" | "number">> = { type: "string", title: "string", status: "number", detail: "string", instance: "string" };
+
 /**
  * The problem a failed response describes: its body when that is a problem
  * document, or one built from the status. The server is a trust boundary,
- * so `fields` keeps only own keys whose value is a message or a list of
+ * so a standard member of the wrong type is left out, as RFC 9457, section
+ * 3.1, requires, `status` comes from the response when the body has none,
+ * and `fields` keeps only own keys whose value is a message or a list of
  * messages, a lone message becoming a list of one.
  */
 function problemOf(body: unknown, response: Response): Problem
@@ -168,9 +173,26 @@ function problemOf(body: unknown, response: Response): Problem
     {
         return { status: response.status, title: response.statusText === "" ? `HTTP ${response.status}` : response.statusText };
     }
+    const problem: Record<string, unknown> = { ...body };
+    for (const key of Object.keys(MEMBERS))
+    {
+        if (Object.prototype.hasOwnProperty.call(problem, key) && typeof problem[key] !== MEMBERS[key])
+        {
+            delete problem[key];
+        }
+    }
+    if (problem["status"] === undefined)
+    {
+        problem["status"] = response.status;
+    }
     if (body.fields === undefined)
     {
-        return body;
+        return problem as Problem;
+    }
+    if (body.fields === null || typeof body.fields !== "object" || Array.isArray(body.fields))
+    {
+        delete problem["fields"];
+        return problem as Problem;
     }
     const fields: Record<string, readonly string[]> = Object.create(null) as Record<string, readonly string[]>;
     for (const [name, value] of Object.entries(body.fields as Record<string, unknown>))
@@ -188,7 +210,7 @@ function problemOf(body: unknown, response: Response): Problem
             }
         }
     }
-    return { ...body, fields };
+    return { ...(problem as Problem), fields };
 }
 
 function entries(data: FormData): [string, string][]
@@ -228,18 +250,19 @@ async function defaultSend(submission: Submission, headers: HeadersInit | undefi
     return fetchImpl(action, init);
 }
 
+/** A successful response's body: JSON parsed, whatever the casing of its media type, or `undefined` when it is empty or holds only the whitespace JSON allows; text otherwise, or `undefined` when it is empty; and `undefined` for a 204 or a 205. */
 async function parseBody(response: Response): Promise<unknown>
 {
     if (response.status === 204 || response.status === 205)
     {
         return undefined;
     }
-    const type = response.headers.get("content-type") ?? "";
+    const type = (response.headers.get("content-type") ?? "").toLowerCase();
+    const text = await response.text();
     if (type.includes("json"))
     {
-        return response.json();
+        return /^[\t\n\r ]*$/.test(text) ? undefined : JSON.parse(text);
     }
-    const text = await response.text();
     return text === "" ? undefined : text;
 }
 

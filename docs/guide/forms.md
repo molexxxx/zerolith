@@ -76,9 +76,9 @@ It is the same document the enhancer builds when the schema fails in the browser
 
 | Response | Outcome |
 | --- | --- |
-| `application/problem+json`, or any failing status | `failure`; `problem` holds the document, or a problem built from the status, and `field()` follows its `fields` |
+| `application/problem+json`, or any failing status | `failure`; `problem` holds the document, with members of the wrong type left out and `status` taken from the response when it has none, or a problem built from the status, and `field()` follows its `fields` |
 | A redirect was followed | `success`, then `navigate(url)` with the final URL; `result` stays undefined |
-| 2xx with a JSON body | `success`; `result` holds the parsed body |
+| 2xx with a JSON body | `success`; `result` holds the parsed body, or undefined when it is empty or holds only spaces, tabs, and line breaks |
 | 2xx with another body, or none | `success`; `result` holds the text, or undefined |
 | The request itself failed | `error`; `error` holds the exception |
 

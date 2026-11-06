@@ -1,3 +1,4 @@
+import { getEventListeners } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import { ProblemError, createClient } from "@zerolith/client";
 import { type PortLike, portTransport, servePort } from "@zerolith/client/port";
@@ -107,5 +108,137 @@ describe("portTransport and servePort", () =>
         const response = await transport(new Request("https://app.local/x"));
         await expect(response.json()).resolves.toEqual({ ok: true });
         expect(() => portTransport({ postMessage() {} })).toThrow(/neither addEventListener nor on/);
+    });
+
+    it("rejects a call whose answer cannot become a response, and releases its abort listener on every answer", async () =>
+    {
+        const { client, server, close } = pair();
+        let answer = 0;
+        server.addEventListener("message", (event: MessageEvent<{ id: number }>) =>
+        {
+            answer += 1;
+            server.postMessage({ kind: "zerolith:response", id: event.data.id, status: answer === 2 ? 99 : 200, statusText: "", headers: [["content-type", "application/json"]], body: "{\"items\":[]}" }, []);
+        });
+        server.start();
+        const port = portTransport(client);
+        const signals: AbortSignal[] = [];
+        const api = createClient<Api>(routes, {
+            baseUrl: "https://api.test",
+            transport: (request) =>
+            {
+                signals.push(request.signal);
+                return port(request);
+            }
+        });
+        const caller = new AbortController();
+        await expect(api.call("listNotes", {}, { signal: caller.signal })).resolves.toEqual({ items: [] });
+        await expect(api.call("listNotes", {}, { signal: caller.signal })).rejects.toThrow(RangeError);
+        await expect(api.call("listNotes", {}, { signal: caller.signal })).resolves.toEqual({ items: [] });
+        expect(signals.map((signal) => getEventListeners(signal, "abort").length)).toEqual([0, 0, 0]);
+        close();
+    });
+
+    it("answers with its 500 problem when the handler's response cannot be read or is not a response", async () =>
+    {
+        const reported = vi.fn();
+        vi.stubGlobal("reportError", reported);
+        const { client, server, close } = pair();
+        try
+        {
+            servePort(server, (request) =>
+            {
+                if (new URL(request.url).pathname !== "/broken")
+                {
+                    return undefined as unknown as Response;
+                }
+                return new Response(new ReadableStream({
+                    start(controller)
+                    {
+                        controller.error(new Error("the connection dropped"));
+                    }
+                }));
+            });
+            const port = portTransport(client);
+            const broken = await port(new Request("https://app.local/broken"));
+            const missing = await port(new Request("https://app.local/missing"));
+            expect([broken.status, missing.status]).toEqual([500, 500]);
+            await expect(broken.json()).resolves.toEqual({ title: "The handler failed", status: 500 });
+            expect(reported).toHaveBeenCalledTimes(2);
+        }
+        finally
+        {
+            close();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it("keeps the calls of two transports on one port apart", async () =>
+    {
+        const { client, server, close } = pair();
+        try
+        {
+            const held: { id: number; path: string }[] = [];
+            server.addEventListener("message", (event: MessageEvent<{ id: number; url: string }>) =>
+            {
+                held.push({ id: event.data.id, path: new URL(event.data.url).pathname });
+                if (held.length === 2)
+                {
+                    for (const { id, path } of held.toReversed())
+                    {
+                        server.postMessage({ kind: "zerolith:response", id, status: 200, statusText: "", headers: [["content-type", "text/plain"]], body: path }, []);
+                    }
+                }
+            });
+            server.start();
+            const first = portTransport(client);
+            const second = portTransport(client);
+            const answers = await Promise.all([first(new Request("https://app.local/first")), second(new Request("https://app.local/second"))]);
+            expect(await Promise.all(answers.map((answer) => answer.text()))).toEqual(["/first", "/second"]);
+        }
+        finally
+        {
+            close();
+        }
+    });
+
+    it("sends no body in the answer to a HEAD request, a failure's included, and leaves the handler's body unread", async () =>
+    {
+        const reported = vi.fn();
+        vi.stubGlobal("reportError", reported);
+        const { client, server, close } = pair();
+        try
+        {
+            servePort(server, (request) =>
+            {
+                const path = new URL(request.url).pathname;
+                if (path === "/broken")
+                {
+                    throw new Error("the handler failed");
+                }
+                if (path === "/duck")
+                {
+                    return { status: 200, statusText: "", headers: new Headers(), body: {}, text: async () => "unread" } as unknown as Response;
+                }
+                if (path === "/stream")
+                {
+                    return new Response(new ReadableStream({
+                        start(controller)
+                        {
+                            controller.error(new Error("the connection dropped"));
+                        }
+                    }));
+                }
+                return Response.json({ title: "a note" });
+            });
+            const port = portTransport(client);
+            const answers = await Promise.all(["/notes", "/broken", "/stream", "/duck"].map((path) => port(new Request(`https://app.local${path}`, { method: "HEAD" }))));
+            expect(await Promise.all(answers.map(async (answer) => [answer.status, await answer.text()]))).toEqual([[200, ""], [500, ""], [200, ""], [200, ""]]);
+            expect(reported).toHaveBeenCalledTimes(1);
+        }
+        finally
+        {
+            close();
+            vi.unstubAllGlobals();
+        }
     });
 });

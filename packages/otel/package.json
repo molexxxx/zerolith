@@ -1,6 +1,6 @@
 {
     "name": "@zerolith/otel",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "OpenTelemetry spans for zerolith applications through @opentelemetry/api: a span per navigation, per hydration, and per request of the typed client with traceparent propagation",
     "license": "Apache-2.0",
     "author": "molexxxx",
@@ -42,17 +42,17 @@
     },
     "peerDependencies": {
         "@opentelemetry/api": ">=1.9.0 <2.0.0",
-        "@zerolith/client": "^1.0.0",
-        "@zerolith/router": "^1.0.0",
-        "zerolith": "^1.0.0"
+        "@zerolith/client": "^1.0.1",
+        "@zerolith/router": "^1.0.1",
+        "zerolith": "^1.0.1"
     },
     "peerDependenciesMeta": {
         "@zerolith/client": { "optional": true },
         "@zerolith/router": { "optional": true }
     },
     "devDependencies": {
-        "@zerolith/client": "^1.0.0",
-        "@zerolith/router": "^1.0.0",
-        "zerolith": "^1.0.0"
+        "@zerolith/client": "^1.0.1",
+        "@zerolith/router": "^1.0.1",
+        "zerolith": "^1.0.1"
     }
 }

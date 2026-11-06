@@ -142,6 +142,45 @@ describe("createForm", () =>
         expect(form.field("title").invalid.get()).toBe(false);
     });
 
+    it("reads a problem as the client does, leaving out members of the wrong type and fields that are not an object", async () =>
+    {
+        const { form, element } = harness([
+            problem({ title: 5, status: "500", detail: "Check the title", fields: "title" }),
+            problem({ title: "Invalid", fields: ["title"] }),
+            problem({ title: "Invalid", fields: null }),
+            problem({ title: 5, detail: "Check the title", fields: { title: "Too short" } }),
+            problem({ status: "500", detail: "No fields" }),
+            problem({ title: "Gone", status: 410 })
+        ]);
+        submit(element);
+        await settled(form);
+        expect(form.problem.get()).toEqual({ status: 422, detail: "Check the title" });
+        expect(form.field("0").invalid.get()).toBe(false);
+
+        submit(element);
+        await settled(form);
+        expect(form.problem.get()).toEqual({ status: 422, title: "Invalid" });
+        expect(form.field("0").invalid.get()).toBe(false);
+
+        submit(element);
+        await settled(form);
+        expect(form.status.get()).toBe("failure");
+        expect(form.problem.get()).toEqual({ status: 422, title: "Invalid" });
+
+        submit(element);
+        await settled(form);
+        expect(form.problem.get()).toEqual({ status: 422, detail: "Check the title", fields: { title: ["Too short"] } });
+        expect(form.field("title").errors.get()).toEqual(["Too short"]);
+
+        submit(element);
+        await settled(form);
+        expect(form.problem.get()).toEqual({ status: 422, detail: "No fields" });
+
+        submit(element);
+        await settled(form);
+        expect(form.problem.get()).toEqual({ status: 410, title: "Gone" });
+    });
+
     it("reports an error a callback throws without failing the submission", async () =>
     {
         const reported = vi.fn();
@@ -305,5 +344,25 @@ describe("createForm", () =>
         expect(form.status.get()).toBe("success");
         expect(form.result.get()).toEqual({ attempt: 2 });
         expect(onError).not.toHaveBeenCalled();
+    });
+
+    it("reads a 2xx JSON body whatever the casing of its media type, and an empty or blank one as no result", async () =>
+    {
+        const { form, element } = harness([
+            () => Promise.resolve(new Response(JSON.stringify({ id: 1 }), { headers: { "content-type": "Application/JSON" } })),
+            () => Promise.resolve(new Response(null, { headers: { "content-type": "application/json" } })),
+            () => Promise.resolve(new Response("\n\t \r\n", { headers: { "content-type": "application/json" } }))
+        ]);
+        submit(element);
+        await settled(form);
+        expect([form.status.get(), form.result.get()]).toEqual(["success", { id: 1 }]);
+
+        submit(element);
+        await settled(form);
+        expect([form.status.get(), form.result.get()]).toEqual(["success", undefined]);
+
+        submit(element);
+        await settled(form);
+        expect([form.status.get(), form.result.get()]).toEqual(["success", undefined]);
     });
 });
