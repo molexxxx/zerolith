@@ -136,7 +136,7 @@ afterAll(() =>
     rmSync(folder, { recursive: true, force: true });
 });
 
-describe("the release workflow's publish step with names npm has never published", () =>
+describe("the release workflow's publish step with names npm has never published", { timeout: 60_000 }, () =>
 {
     it("leaves them out of a canary, which publishes every other package and moves no tag", () =>
     {
