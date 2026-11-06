@@ -86,7 +86,7 @@ export interface ResponseObject
     $ref?: string;
     /** A description of the response; the generator does not carry it into the output. */
     description?: string;
-    /** The response body by media type: a JSON type, when present, gives its schema's type, `text/*` gives `string`, any other type gives `Blob`, as the client reads it, and no content gives `undefined`. */
+    /** The response body by media type: a JSON type, when present, gives its schema's type, `text/*` gives `string`, any other type gives `Blob`, as the client reads it, and no content gives `undefined`; a HEAD operation, whose response carries no content, gives `undefined` for a JSON or text type too. */
     content?: Record<string, MediaTypeObject>;
 }
 
@@ -540,7 +540,7 @@ function bodyType(context: Context, operation: OperationObject): { type: string;
     }
 }
 
-function outputType(context: Context, operation: OperationObject): string
+function outputType(context: Context, operation: OperationObject, method: string): string
 {
     const responses = Object.entries(operation.responses ?? {});
     const successful = responses.filter(([status]) => /^2(\d\d|XX)$/.test(status)).toSorted(([a], [b]) => a.localeCompare(b));
@@ -557,10 +557,10 @@ function outputType(context: Context, operation: OperationObject): string
         switch (content.kind)
         {
             case "json":
-                types.add(typeOf(content.schema, "        "));
+                types.add(method === "head" ? "undefined" : typeOf(content.schema, "        "));
                 break;
             case "text":
-                types.add("string");
+                types.add(method === "head" ? "undefined" : "string");
                 break;
             case "none":
                 types.add("undefined");
@@ -589,7 +589,7 @@ function entryOf(context: Context, path: string, item: PathItemObject, method: s
     {
         lines.push(`        body${body.required ? "" : "?"}: ${body.type}${body.required ? "" : " | undefined"};`);
     }
-    lines.push(`        output: ${outputType(context, operation)};`);
+    lines.push(`        output: ${outputType(context, operation, method)};`);
     const doc = [operation.summary, operation.description, operation.deprecated === true ? "@deprecated" : undefined].filter((part) => part !== undefined && part !== "").join("\n\n");
     return { name: operationName(operation, method, path), method, path, lines, doc: doc === "" ? undefined : doc };
 }
