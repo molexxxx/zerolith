@@ -8,6 +8,10 @@ Every package in this repository is released together and carries the same versi
 
 - Docs: the site shows two releases when a pre-release is newer than the stable one: the stable release at the root, built from its line branch when one exists, and the pre-release under `/next/`, built from its tag, with a switch in the header between them at the same page where it exists and at the other release's home otherwise; a diagnostic code only the pre-release has gets a page at the root that sends the reader to `/next/`, so the URL a pre-release prints never comes back not found. Every release deploys the site again, as before 1.0.0.
 
+### Fixed
+
+- `@zerolith/client`: a query string is sent on browsers whose `URLSearchParams` has no `size`, Chrome before 113, Firefox before 112, and Safari before 17, all admitted by the support policy, where every query string was dropped.
+
 ## 1.0.0 (2026-11-05)
 
 The first stable release. The API of `zerolith`, `zerolith/ssr`, `zerolith/element`, `zerolith/jsx-runtime`, `@zerolith/router`, and `@zerolith/router/server` is frozen through [RFC 0003](https://github.com/molexxxx/zerolith/issues/7): the reports in `api/` are its text, and the [support policy](docs/policy/support.md) says how long the line gets fixes. The other packages and the command line are frozen at 1.0 as well: every package carries one version under semantic versioning, so a breaking change in any of them comes only in a major, after the deprecation notice the [versioning policy](docs/policy/versioning.md) describes. Packages publish under `latest`, so `npm install zerolith` and `npx @zerolith/cli new my-app` need no tag. The changes since `0.1.0-alpha.10` follow.

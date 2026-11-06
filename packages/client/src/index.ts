@@ -122,7 +122,8 @@ function searchOf(query: Record<string, unknown>): string
             search.append(key, typeof item === "object" && item !== null ? JSON.stringify(item) : String(item));
         }
     }
-    return search.size > 0 ? `?${search.toString()}` : "";
+    const text = search.toString();
+    return text === "" ? "" : `?${text}`;
 }
 
 function buildRequest(route: { method: Method; path: string }, input: LooseInput, options: CallOptions, client: ClientOptions): Request
