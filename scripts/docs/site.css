@@ -2281,11 +2281,10 @@ main[tabindex="-1"]:focus
 .tour .tabs
 {
     display: flex;
-    gap: var(--zl-space-8);
+    flex-wrap: wrap;
+    column-gap: var(--zl-space-8);
     margin-top: var(--zl-space-8);
-    overflow-x: auto;
     border-bottom: var(--zl-rule) solid var(--zl-line);
-    scrollbar-width: none;
 }
 
 .tour [role="tab"]
@@ -2525,6 +2524,78 @@ main[tabindex="-1"]:focus
     flex-wrap: wrap;
     align-items: center;
     gap: var(--zl-space-3);
+}
+
+.mock-area
+{
+    height: 88px;
+    padding-block: var(--zl-space-2);
+    line-height: var(--zl-leading-text);
+}
+
+.writes li
+{
+    display: flex;
+    align-items: center;
+    gap: var(--zl-space-3);
+    font-family: var(--zl-font-mono);
+    font-size: 0.8125rem;
+}
+
+.wide .writes code
+{
+    padding: 0;
+    background: none;
+    color: var(--zl-text-muted);
+    font-size: inherit;
+}
+
+.writes .note
+{
+    margin-left: auto;
+}
+
+.measured
+{
+    display: grid;
+    gap: var(--zl-space-2);
+}
+
+.ruler
+{
+    display: grid;
+    justify-items: center;
+    gap: var(--zl-space-1);
+    color: var(--zl-text-muted);
+    font-family: var(--zl-font-mono);
+    font-size: var(--zl-text-xs);
+}
+
+.ruler .ticks
+{
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    justify-self: stretch;
+    height: var(--zl-space-2);
+}
+
+.ruler .ticks span
+{
+    border-bottom: var(--zl-rule) solid;
+    border-left: var(--zl-rule) solid;
+}
+
+.ruler .ticks span:last-child
+{
+    border-right: var(--zl-rule) solid;
+}
+
+.measured .panel
+{
+    padding: var(--zl-space-3) var(--zl-space-4);
+    border: var(--zl-rule) solid var(--zl-line);
+    background: var(--zl-bg);
 }
 
 .more
@@ -3938,7 +4009,7 @@ main[tabindex="-1"]:focus
 
     .tour .tabs
     {
-        gap: var(--zl-space-6);
+        column-gap: var(--zl-space-6);
     }
 
     .result

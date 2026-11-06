@@ -31,9 +31,11 @@ export interface Measure
 /** One pattern of the tour: a guide's tested example and the guide it comes from. */
 export interface TourStep
 {
-    id: "signals" | "templates" | "routing" | "forms" | "server-rendering";
+    id: "signals" | "templates" | "routing" | "forms" | "state" | "browser" | "server-rendering";
     title: string;
     guide: string;
+    /** The title of the guide at `guide`, which the link under the result names. */
+    guideTitle: string;
     /** The example as highlighted HTML. */
     code: string;
 }
@@ -137,14 +139,35 @@ const routeTable = [
     { name: "settings", path: "/settings", source: "view: lazy(", note: "lazy" }
 ];
 const fieldError = "Give the note a title of at least two characters.";
+const draftKey = "draft";
+const typed = ["hello", "hello world"];
+const undone = "hello";
+const draftWrites = [...typed.map((text) => ({ text, note: "" })), { text: undone, note: "undo" }];
+const panelWidth = 720;
+const columnWidth = 240;
+const columnsFit = Math.floor(panelWidth / columnWidth);
+const measured = `${columnsFit} columns fit in ${panelWidth}px.`;
 const clicks = 1;
+
+/** Lines that follow one another in an example's source, as one check: each line after the first indented `indent` spaces, as the source writes it. */
+function consecutive(indent: number, ...lines: string[]): string
+{
+    return lines.join(`\n${" ".repeat(indent)}`);
+}
+
+/** The draft test's assertion that storage holds `text` under the draft's key, as JSON. */
+function draftHolds(text: string): string
+{
+    return `expect(localStorage.getItem("${draftKey}")).toBe(${JSON.stringify(JSON.stringify(text))});`;
+}
 
 /**
  * What each pattern's example produces, drawn as the page or console it ends
  * on, with the lines of its source that hold what the drawing shows: the
  * test's own assertions where the example is a test. Each drawing and its
  * checks read the same values, and the docs build fails when a check is
- * missing from the source, so a drawing cannot outlive its example.
+ * missing from the source or found in it more than once, so a drawing
+ * cannot outlive its example or lean on a neighboring test's lines.
  */
 const results: Record<TourStep["id"], { label: string; checks: string[]; view: () => View }> = {
     "signals": {
@@ -183,6 +206,35 @@ const results: Record<TourStep["id"], { label: string; checks: string[]; view: (
                 <span class="mock-button">Save</span>
             </span>
             <p>The browser checks the schema first; the server's field errors land in the same place.</p>`
+    },
+    "state": {
+        label: `The field back at ${undone} after an undo, and each write the draft made to localStorage`,
+        checks: [
+            `stored("${draftKey}", "")`,
+            consecutive(12, "<textarea .value=${draft} @input=${type}></textarea>", "<button ?disabled=${noUndo} @click=${edits.undo}>Undo</button>`, \"#app\");"),
+            ...typed.map((text) => consecutive(8, `typeInto(area, "${text}");`, "await settle();", draftHolds(text))),
+            consecutive(8, "undo.click();", "await settle();", `expect(area.value).toBe("${undone}");`, draftHolds(undone), "expect(undo.disabled).toBe(false);")
+        ],
+        view: () => html`
+            <span class="pane-label">#app</span>
+            <span class="rendered-form">
+                <span class="mock-field mock-area">${undone}</span>
+                <span class="mock-button">Undo</span>
+            </span>
+            <span class="pane-label">localStorage writes</span>
+            <ol class="rendered writes">${draftWrites.map((write) => html`<li><code>${draftKey}</code><span>${JSON.stringify(write.text)}</span>${write.note === "" ? null : html`<span class="note">${write.note}</span>`}</li>`)}</ol>
+            <p>The draft is saved on every edit and every undo, so a reload or another tab shows the same text.</p>`
+    },
+    "browser": {
+        label: `A section ${panelWidth} pixels wide that reads: ${measured}`,
+        checks: [`style="width: ${panelWidth}px"`, `Math.floor(width.get() / ${columnWidth})`, `await shows("${measured}");`],
+        view: () => html`
+            <span class="pane-label">#app</span>
+            <span class="measured">
+                <span class="ruler"><span>${`${panelWidth}px`}</span><span class="ticks">${Array.from({ length: columnsFit }, () => html`<span></span>`)}</span></span>
+                <span class="panel">${measured}</span>
+            </span>
+            <p>The section measures its own content box, kept current by one ResizeObserver that every measured element shares.</p>`
     },
     "server-rendering": {
         label: "The server's markup, then the same button adopted in the browser",
@@ -464,7 +516,7 @@ function Tour(steps: TourStep[])
                     <div class="code" data-language="ts"><pre><code>${unsafeHtml(step.code)}</code></pre></div>
                     <div class="result">
                         <div class="shown" role="img" aria-label=${results[step.id].label}>${results[step.id].view()}</div>
-                        <a class="more" href=${step.guide}>${`Read the ${step.title.toLowerCase()} guide`}${unsafeHtml(icon("arrow-right"))}</a>
+                        <a class="more" href=${step.guide}>${`Read the ${step.guideTitle.toLowerCase()} guide`}${unsafeHtml(icon("arrow-right"))}</a>
                     </div>
                 </div>`)}
         </section>`;

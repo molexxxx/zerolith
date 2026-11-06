@@ -82,6 +82,39 @@ describe("state guide", () =>
         expect(text.get()).toBe("hello world");
     });
 
+    it("draft", async () =>
+    {
+        // #region draft
+        const draft = stored("draft", "");
+        const edits = history(draft);
+        const noUndo = computed(() => !edits.canUndo.get());
+
+        function type(event: Event): void
+        {
+            edits.checkpoint();
+            draft.set((event.currentTarget as HTMLTextAreaElement).value);
+        }
+
+        render(html`
+            <textarea .value=${draft} @input=${type}></textarea>
+            <button ?disabled=${noUndo} @click=${edits.undo}>Undo</button>`, "#app");
+        // #endregion draft
+        const area = host.querySelector("textarea") as HTMLTextAreaElement;
+        const undo = host.querySelector("button") as HTMLButtonElement;
+        expect(undo.disabled).toBe(true);
+        typeInto(area, "hello");
+        await settle();
+        expect(localStorage.getItem("draft")).toBe("\"hello\"");
+        typeInto(area, "hello world");
+        await settle();
+        expect(localStorage.getItem("draft")).toBe("\"hello world\"");
+        undo.click();
+        await settle();
+        expect(area.value).toBe("hello");
+        expect(localStorage.getItem("draft")).toBe("\"hello\"");
+        expect(undo.disabled).toBe(false);
+    });
+
     it("timing", async () =>
     {
         // #region timing

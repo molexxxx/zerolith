@@ -51,6 +51,20 @@ function listInside(): boolean
     return list !== undefined && list.width > 0 && list.left >= 0 && list.right <= view && document.documentElement.scrollWidth <= view && scrollX === 0;
 }
 
+/** Whether every tab of the home page's tour shows whole inside the page, which does not scroll sideways, and inside its row, which does not scroll either; it runs in the page. */
+function tabsInside(): boolean
+{
+    const view = document.documentElement.clientWidth;
+    const list = document.querySelector(".tour [role=\"tablist\"]");
+    if (list === null)
+    {
+        return false;
+    }
+    const row = list.getBoundingClientRect();
+    const tabs = Array.from(list.querySelectorAll("[role=\"tab\"]"), (tab) => tab.getBoundingClientRect());
+    return tabs.length > 0 && tabs.every((box) => box.width > 0 && box.left >= Math.max(0, row.left) && box.right <= Math.min(view, row.right)) && list.scrollWidth <= list.clientWidth && document.documentElement.scrollWidth <= view && scrollX === 0;
+}
+
 /** A page that records console errors and failed loads, which every test expects to stay empty; `device` sets its viewport and input. */
 async function open(path: string, device?: Parameters<Browser["newPage"]>[0]): Promise<{ page: Page; errors: string[] }>
 {
@@ -277,10 +291,38 @@ describe("documentation site", () =>
         expect(await page.textContent("#tour-forms-panel code")).toContain("createForm");
         await page.focus("#tour-forms");
         await page.keyboard.press("ArrowRight");
-        expect(await shown()).toEqual(["tour-server-rendering-panel"]);
-        expect(await page.evaluate(() => document.activeElement?.id)).toBe("tour-server-rendering");
+        expect(await shown()).toEqual(["tour-state-panel"]);
+        expect(await page.evaluate(() => document.activeElement?.id)).toBe("tour-state");
+        expect(await page.textContent("#tour-state-panel code")).toContain("history(draft)");
+        await page.click("#tour-server-rendering");
         await page.keyboard.press("ArrowRight");
         expect(await shown()).toEqual(["tour-signals-panel"]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("keeps every tab of the home page's tour inside the page at every width, and walks them all by arrow key", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        const ids = await page.$$eval(".tour [role=\"tab\"]", (tabs) => tabs.map((tab) => tab.id));
+        expect(ids).toEqual(["tour-signals", "tour-templates", "tour-routing", "tour-forms", "tour-state", "tour-browser", "tour-server-rendering"]);
+        const [first = "", ...others] = ids;
+        const focused = (): Promise<string | undefined> => page.evaluate(() => document.activeElement?.id);
+        for (const width of [320, 390, 768, 1024, 1440])
+        {
+            await page.setViewportSize({ width, height: 800 });
+            expect(await page.evaluate(tabsInside), `at ${width} px`).toBe(true);
+            await page.focus(`#${first}`);
+            for (const id of [...others, first])
+            {
+                await page.keyboard.press("ArrowRight");
+                expect(await focused(), `at ${width} px`).toBe(id);
+                expect(await page.getAttribute(`#${id}`, "aria-selected"), `at ${width} px`).toBe("true");
+                expect(await page.isVisible(`#${id}-panel`), `at ${width} px`).toBe(true);
+            }
+            await page.keyboard.press("ArrowLeft");
+            expect(await focused(), `at ${width} px`).toBe(others.at(-1));
+        }
         expect(errors).toEqual([]);
         await page.close();
     });

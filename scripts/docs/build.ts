@@ -682,29 +682,41 @@ async function figureCode(): Promise<string>
         .join("");
 }
 
-/** The home page's tour: each core pattern's tested example from the guide that teaches it, highlighted. */
-async function tour(): Promise<TourStep[]>
+/** The home page's tour: each core pattern's tested example from the guide that teaches it, highlighted, with that guide's title as `guides` holds it. */
+async function tour(guides: Page[]): Promise<TourStep[]>
 {
-    const steps: Array<Omit<TourStep, "code"> & { include: string }> = [
+    const steps: Array<Omit<TourStep, "guideTitle" | "code"> & { include: string }> = [
         { id: "signals", title: "Signals", guide: "/guide/signals/", include: "packages/zerolith/test/examples/signals.example.test.ts#computed" },
         { id: "templates", title: "Templates", guide: "/guide/templates/", include: "packages/zerolith/test/examples/guide.example.browser.test.ts#lists" },
         { id: "routing", title: "Routing", guide: "/guide/routing/", include: "packages/router/test/examples/routes.ts" },
         { id: "forms", title: "Forms", guide: "/guide/forms/", include: "packages/forms/test/examples/forms.example.browser.test.ts#form" },
+        { id: "state", title: "Saved state", guide: "/guide/state/", include: "packages/state/test/examples/state.example.browser.test.ts#draft" },
+        { id: "browser", title: "Browser", guide: "/guide/browser/", include: "packages/browser/test/examples/browser.example.browser.test.ts#size" },
         { id: "server-rendering", title: "Server rendering", guide: "/guide/server-rendering/", include: "packages/zerolith/test/examples/hydrate.example.browser.test.ts#hydrate" }
     ];
     return Promise.all(steps.map(async ({ id, title, guide, include }) =>
     {
+        const guideTitle = guides.find((page) => page.path === guide)?.title;
+        if (guideTitle === undefined)
+        {
+            throw new Error(`the home page's ${title} pattern links ${guide}, which is no guide`);
+        }
         const [path = "", region] = include.split("#");
         const source = await readFile(join(root, path), "utf8");
         for (const check of resultChecks(id))
         {
-            if (!source.includes(check))
+            const at = source.indexOf(check);
+            if (at === -1)
             {
                 throw new Error(`${path} no longer holds ${check}, which the home page's ${title} result draws; update the result in scripts/docs/home.ts`);
             }
+            if (source.includes(check, at + 1))
+            {
+                throw new Error(`${path} holds ${check} in more than one place, so it does not tie the home page's ${title} result to one test; lengthen the check in scripts/docs/home.ts`);
+            }
         }
         const { language, code } = exampleCode(source, path, region, [], "home page");
-        return { id, title, guide, code: highlight(code, language) };
+        return { id, title, guide, guideTitle, code: highlight(code, language) };
     }));
 }
 
@@ -969,7 +981,7 @@ const homeData: HomeData = {
     characteristics: homeCharacteristics.rows,
     measures: homeCharacteristics.measures,
     facts: homeFacts,
-    tour: await tour(),
+    tour: await tour(guidePages),
     scores: { date: newestRun.date, rows: ranked(newestRun).filter((row) => !row.before).map(({ name, entry, version: release, score }) => ({ name, entry, version: release, score })) },
     doctor: await doctorSample(),
     diagnosticCount: Object.keys(diagnosticCatalog).length
