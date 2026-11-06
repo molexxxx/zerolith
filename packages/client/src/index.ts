@@ -45,7 +45,7 @@ export type Output<Op extends Operation> = Op["output"];
 /** Per-call options. */
 export interface CallOptions
 {
-    /** Becomes the request's `signal`, so aborting it rejects the call under `fetch` or `portTransport`; `query` replaces it with the resource's own signal. */
+    /** Becomes the request's `signal`, so aborting it rejects the call under `fetch` or `portTransport`; `query` joins it with the resource's own signal, keeping the reason of whichever aborts. */
     signal?: AbortSignal;
     /** Headers for this call, set over the client's `headers` so that a name in both takes this value; a `content-type` is left out for a `FormData` body, whose boundary the platform writes. */
     headers?: HeadersInit;
@@ -264,7 +264,7 @@ async function readBody(response: Response, method: string): Promise<unknown>
     return response.blob();
 }
 
-/** Calls `run` with a signal that aborts when either `own` or `caller` does, and stops listening to the caller once the call settles. */
+/** Calls `run` with a signal that aborts when either `own` or `caller` does, with that signal's reason, and stops listening to both once the call settles. */
 async function withSignals<T>(own: AbortSignal, caller: AbortSignal | undefined, run: (signal: AbortSignal) => Promise<T>): Promise<T>
 {
     if (caller === undefined)
@@ -272,21 +272,26 @@ async function withSignals<T>(own: AbortSignal, caller: AbortSignal | undefined,
         return run(own);
     }
     const combined = new AbortController();
-    const abort = (): void => combined.abort();
-    if (own.aborted || caller.aborted)
+    const fromOwn = (): void => combined.abort(own.reason);
+    const fromCaller = (): void => combined.abort(caller.reason);
+    if (own.aborted)
     {
-        combined.abort();
+        fromOwn();
     }
-    own.addEventListener("abort", abort);
-    caller.addEventListener("abort", abort);
+    else if (caller.aborted)
+    {
+        fromCaller();
+    }
+    own.addEventListener("abort", fromOwn);
+    caller.addEventListener("abort", fromCaller);
     try
     {
         return await run(combined.signal);
     }
     finally
     {
-        own.removeEventListener("abort", abort);
-        caller.removeEventListener("abort", abort);
+        own.removeEventListener("abort", fromOwn);
+        caller.removeEventListener("abort", fromCaller);
     }
 }
 
