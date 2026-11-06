@@ -2,7 +2,9 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
-## Unreleased
+## 1.0.1 (2026-11-06)
+
+A patch release of the 1.x line with the fixes to `@zerolith/client` and `@zerolith/forms` found after 1.0.0. The one most apps will notice: `@zerolith/client` sends query strings on every browser the support policy admits, where 1.0.0 dropped them on Safari before 17, Chrome before 113, and Firefox before 112.
 
 ### Changed
 
