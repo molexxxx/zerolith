@@ -31,6 +31,7 @@ Every package in this repository is released together and carries the same versi
 - `@zerolith/client`: a whole query that is iterable, such as a `URLSearchParams`, `FormData`, `Map`, `Set`, `Headers`, array, or typed array, or that is a `Date` or a non-empty string, throws a `TypeError` naming its kind, where its values were dropped or sent as numbered keys; any other value is read by its own keys, as before.
 - `@zerolith/client`: an `undefined` or `null` item of a query array is left out, as the guide says of query values, where it went as the text `undefined` or `null`.
 - `@zerolith/client`: a query's request aborts with the reason of the signal that aborted it, the caller's or the resource's own, where it aborted with a new `AbortError`, and the `signal` option's documentation says the two are joined rather than replaced.
+- `@zerolith/client`: `portTransport` removes its abort listener when the answer arrives, so a request's signal no longer keeps one listener and the request it closes over after the call, and rejects a call whose answer cannot become a `Response`, such as one with a status outside 200 to 599, with the error the platform throws, where the call stayed pending for good.
 
 ## 1.0.0 (2026-11-05)
 

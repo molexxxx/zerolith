@@ -1,3 +1,4 @@
+import { getEventListeners } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import { ProblemError, createClient } from "@zerolith/client";
 import { type PortLike, portTransport, servePort } from "@zerolith/client/port";
@@ -107,5 +108,33 @@ describe("portTransport and servePort", () =>
         const response = await transport(new Request("https://app.local/x"));
         await expect(response.json()).resolves.toEqual({ ok: true });
         expect(() => portTransport({ postMessage() {} })).toThrow(/neither addEventListener nor on/);
+    });
+
+    it("rejects a call whose answer cannot become a response, and releases its abort listener on every answer", async () =>
+    {
+        const { client, server, close } = pair();
+        let answer = 0;
+        server.addEventListener("message", (event: MessageEvent<{ id: number }>) =>
+        {
+            answer += 1;
+            server.postMessage({ kind: "zerolith:response", id: event.data.id, status: answer === 2 ? 99 : 200, statusText: "", headers: [["content-type", "application/json"]], body: "{\"items\":[]}" }, []);
+        });
+        server.start();
+        const port = portTransport(client);
+        const signals: AbortSignal[] = [];
+        const api = createClient<Api>(routes, {
+            baseUrl: "https://api.test",
+            transport: (request) =>
+            {
+                signals.push(request.signal);
+                return port(request);
+            }
+        });
+        const caller = new AbortController();
+        await expect(api.call("listNotes", {}, { signal: caller.signal })).resolves.toEqual({ items: [] });
+        await expect(api.call("listNotes", {}, { signal: caller.signal })).rejects.toThrow(RangeError);
+        await expect(api.call("listNotes", {}, { signal: caller.signal })).resolves.toEqual({ items: [] });
+        expect(signals.map((signal) => getEventListeners(signal, "abort").length)).toEqual([0, 0, 0]);
+        close();
     });
 });

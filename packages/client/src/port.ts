@@ -93,7 +93,17 @@ export function portTransport(port: PortLike): Transport
             return;
         }
         pending.delete(message.id);
-        waiting.resolve(new Response(message.body ?? null, { status: message.status ?? 200, statusText: message.statusText ?? "", headers: message.headers ?? [] }));
+        let response: Response;
+        try
+        {
+            response = new Response(message.body ?? null, { status: message.status ?? 200, statusText: message.statusText ?? "", headers: message.headers ?? [] });
+        }
+        catch (error)
+        {
+            waiting.reject(error);
+            return;
+        }
+        waiting.resolve(response);
     });
     return async (request) =>
     {
@@ -107,14 +117,26 @@ export function portTransport(port: PortLike): Transport
                 reject(request.signal.reason ?? new DOMException("The request was aborted", "AbortError"));
                 return;
             }
-            pending.set(id, { resolve, reject });
-            request.signal.addEventListener("abort", () =>
+            const abort = (): void =>
             {
                 if (pending.delete(id))
                 {
                     reject(request.signal.reason ?? new DOMException("The request was aborted", "AbortError"));
                 }
+            };
+            pending.set(id, {
+                resolve: (response) =>
+                {
+                    request.signal.removeEventListener("abort", abort);
+                    resolve(response);
+                },
+                reject: (reason) =>
+                {
+                    request.signal.removeEventListener("abort", abort);
+                    reject(reason);
+                }
             });
+            request.signal.addEventListener("abort", abort, { once: true });
             port.postMessage(message);
         });
     };
