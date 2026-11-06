@@ -43,7 +43,7 @@ export interface PortResponse
     kind: "zerolith:response";
     /** The `id` of the request this answers; an answer with no pending request, such as one whose call was aborted, is dropped. */
     id: number;
-    /** The status code of the handler's response, or 500 when the handler threw. */
+    /** The status code of the handler's response, or 500 when the handler threw or its response could not be read. */
     status: number;
     /** The status text of the handler's response, empty when none was set. */
     statusText: string;
@@ -144,8 +144,10 @@ export function portTransport(port: PortLike): Transport
 
 /**
  * Answers the requests `portTransport` sends by building a `Request`,
- * calling `handler`, and posting the response back. A handler that throws
- * answers with a 500 problem so the client sees a `ProblemError`.
+ * calling `handler`, and posting the response back. A handler that throws,
+ * resolves to something other than a `Response`, or answers with a body that
+ * cannot be read answers with a 500 problem, so the client sees a
+ * `ProblemError` rather than waiting for good.
  */
 export function servePort(port: PortLike, handler: (request: Request) => Response | Promise<Response>): void
 {
@@ -159,10 +161,12 @@ export function servePort(port: PortLike, handler: (request: Request) => Respons
         const id = message.id;
         const answer = async (): Promise<void> =>
         {
-            let response: Response;
+            let reply: PortResponse;
             try
             {
-                response = await handler(new Request(message.url ?? "", { method: message.method ?? "GET", headers: message.headers ?? [], body: message.body ?? null }));
+                const response = await handler(new Request(message.url ?? "", { method: message.method ?? "GET", headers: message.headers ?? [], body: message.body ?? null }));
+                const text = await response.text();
+                reply = { kind: "zerolith:response", id, status: response.status, statusText: response.statusText, headers: [...response.headers], body: text === "" ? null : text };
             }
             catch (error)
             {
@@ -172,12 +176,10 @@ export function servePort(port: PortLike, handler: (request: Request) => Respons
                 }
                 else
                 {
-                    console.error("zerolith/client: a servePort handler threw", error);
+                    console.error("zerolith/client: a servePort handler failed", error);
                 }
-                response = new Response(JSON.stringify({ title: "The handler failed", status: 500 }), { status: 500, headers: { "content-type": "application/problem+json" } });
+                reply = { kind: "zerolith:response", id, status: 500, statusText: "", headers: [["content-type", "application/problem+json"]], body: JSON.stringify({ title: "The handler failed", status: 500 }) };
             }
-            const text = await response.text();
-            const reply: PortResponse = { kind: "zerolith:response", id, status: response.status, statusText: response.statusText, headers: [...response.headers], body: text === "" ? null : text };
             port.postMessage(reply);
         };
         void answer();

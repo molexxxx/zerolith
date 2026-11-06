@@ -137,4 +137,38 @@ describe("portTransport and servePort", () =>
         expect(signals.map((signal) => getEventListeners(signal, "abort").length)).toEqual([0, 0, 0]);
         close();
     });
+
+    it("answers with its 500 problem when the handler's response cannot be read or is not a response", async () =>
+    {
+        const reported = vi.fn();
+        vi.stubGlobal("reportError", reported);
+        const { client, server, close } = pair();
+        try
+        {
+            servePort(server, (request) =>
+            {
+                if (new URL(request.url).pathname !== "/broken")
+                {
+                    return undefined as unknown as Response;
+                }
+                return new Response(new ReadableStream({
+                    start(controller)
+                    {
+                        controller.error(new Error("the connection dropped"));
+                    }
+                }));
+            });
+            const port = portTransport(client);
+            const broken = await port(new Request("https://app.local/broken"));
+            const missing = await port(new Request("https://app.local/missing"));
+            expect([broken.status, missing.status]).toEqual([500, 500]);
+            await expect(broken.json()).resolves.toEqual({ title: "The handler failed", status: 500 });
+            expect(reported).toHaveBeenCalledTimes(2);
+        }
+        finally
+        {
+            close();
+            vi.unstubAllGlobals();
+        }
+    });
 });
