@@ -19,6 +19,7 @@ Every package in this repository is released together and carries the same versi
 ### Fixed
 
 - `zerolith`: `resource`'s `reload()` runs the loader untracked, so an effect that calls it no longer follows the signals the loader reads, and does nothing while `params` throws, where it loaded the last params that did not.
+- `@zerolith/client`: a query string is sent on browsers whose `URLSearchParams` has no `size`, Chrome before 113, Firefox before 112, and Safari before 17, all admitted by the support policy, where every query string was dropped.
 
 ## 1.0.0 (2026-11-05)
 

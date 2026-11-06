@@ -229,3 +229,27 @@ describe("bodies beyond JSON and text", () =>
         expect(signals[0]?.aborted).toBe(true);
     });
 });
+
+describe("requests and responses at the edges", () =>
+{
+    it("sends the query string where URLSearchParams has no size, and none for an empty query", async () =>
+    {
+        const { transport, requests } = recorder(() => Response.json({ items: [] }));
+        const api = createClient<Api>(routes, { baseUrl: "https://api.test", transport });
+        const size = Object.getOwnPropertyDescriptor(URLSearchParams.prototype, "size");
+        Reflect.deleteProperty(URLSearchParams.prototype, "size");
+        try
+        {
+            await api.call("listNotes", { query: { q: "a" } });
+            await api.call("listNotes", { query: {} });
+        }
+        finally
+        {
+            if (size !== undefined)
+            {
+                Object.defineProperty(URLSearchParams.prototype, "size", size);
+            }
+        }
+        expect(requests.map((request) => request.url)).toEqual(["https://api.test/notes?q=a", "https://api.test/notes"]);
+    });
+});
