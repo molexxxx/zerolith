@@ -252,4 +252,26 @@ describe("requests and responses at the edges", () =>
         }
         expect(requests.map((request) => request.url)).toEqual(["https://api.test/notes?q=a", "https://api.test/notes"]);
     });
+
+    it("keeps the multipart boundary of a FormData body under a content type from the client or the call", async () =>
+    {
+        interface Forms
+        {
+            send: { method: "post"; path: "/forms"; body: FormData; output: undefined };
+        }
+        const forms = { send: { method: "post", path: "/forms" } } as const satisfies RouteTable<Forms>;
+        const { transport, requests } = recorder(() => new Response(null, { status: 204 }));
+        const typed = createClient<Forms>(forms, { baseUrl: "https://api.test", headers: { "content-type": "application/json" }, transport });
+        const plain = createClient<Forms>(forms, { baseUrl: "https://api.test", transport });
+        const body = new FormData();
+        body.append("title", "x");
+        await typed.call("send", { body });
+        await plain.call("send", { body }, { headers: { "content-type": "application/json" } });
+        expect(requests).toHaveLength(2);
+        for (const request of requests)
+        {
+            expect(request.headers.get("content-type")).toMatch(/^multipart\/form-data; boundary=/);
+            expect(await request.text()).toContain('name="title"');
+        }
+    });
 });

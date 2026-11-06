@@ -47,7 +47,7 @@ export interface CallOptions
 {
     /** Becomes the request's `signal`, so aborting it rejects the call under `fetch` or `portTransport`; `query` replaces it with the resource's own signal. */
     signal?: AbortSignal;
-    /** Headers for this call, set over the client's `headers` so that a name in both takes this value. */
+    /** Headers for this call, set over the client's `headers` so that a name in both takes this value; a `content-type` is left out for a `FormData` body, whose boundary the platform writes. */
     headers?: HeadersInit;
 }
 
@@ -63,7 +63,7 @@ export interface ClientOptions
     baseUrl?: string;
     /** Sends every request the client builds and resolves with the response. Defaults to the global `fetch`, looked up on each call. */
     transport?: Transport;
-    /** Headers sent with every request, or a function returning them, for values such as a bearer token. */
+    /** Headers sent with every request, or a function returning them, for values such as a bearer token; a `content-type` among them is left out for a `FormData` body, whose boundary the platform writes. */
     headers?: HeadersInit | (() => HeadersInit);
 }
 
@@ -159,6 +159,10 @@ function buildRequest(route: { method: Method; path: string }, input: LooseInput
         if (isRawBody(input.body))
         {
             init.body = input.body;
+            if (input.body instanceof FormData)
+            {
+                headers.delete("content-type");
+            }
             if (input.body instanceof ReadableStream)
             {
                 (init as RequestInit & { duplex: "half" }).duplex = "half";

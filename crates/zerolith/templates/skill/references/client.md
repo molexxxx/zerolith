@@ -69,7 +69,7 @@ const page = await api.call("listNotes", { query: { q: "rout", limit: 10 } });
 
 - The path, with each parameter encoded; a missing one throws a `TypeError` that names it, and so does a parameter of `.` or `..`, which the URL would otherwise read as a step to another path.
 - The query, with an array repeating its key, an object sent as JSON, and `undefined` and `null` left out, whatever `style` and `explode` the document declares for the parameter, which the client does not read yet.
-- The body as JSON with its content type, unless it is already a `FormData`, `URLSearchParams`, `Blob`, `ArrayBuffer` or typed array, string, or stream, which goes as it is.
+- The body as JSON with its content type, unless it is already a `FormData`, `URLSearchParams`, `Blob`, `ArrayBuffer` or typed array, string, or stream, which goes as it is. A `FormData` body leaves out any `content-type` header, so the platform writes its multipart boundary.
 - An `Accept` header asking for JSON or a problem, unless a header sets one.
 
 A successful response resolves to its JSON, its text, or `undefined` when it has no content.
@@ -123,7 +123,7 @@ const results = api.query("listNotes", () => ({ query: { q: search.get() } }));
 | Option | What it does |
 | --- | --- |
 | `baseUrl` | Prepended to every path. It defaults to the empty string, the page's origin in a browser; pass an absolute URL anywhere else |
-| `headers` | Sent with every request, or computed per request when given as a function, which is where a bearer token goes |
+| `headers` | Sent with every request, or computed per request when given as a function, which is where a bearer token goes; a `content-type` among them is left out for a `FormData` body |
 | `transport` | Replaces `fetch`: a function from a `Request` to a promise of a `Response`. A test can answer in process, and an Electron renderer can forward requests over a message port |
 
 Each call also takes options of its own as its last argument, a `signal` and `headers` that override the client's. `request` takes the same arguments as `call` and returns the `Request` a call would send, without sending it.
