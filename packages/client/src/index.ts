@@ -357,7 +357,7 @@ async function settle(response: Response, method: string): Promise<unknown>
         return readBody(response, method);
     }
     let problem: Problem | undefined;
-    if (method !== "HEAD" && (response.headers.get("content-type") ?? "").includes("json"))
+    if (method !== "HEAD" && (response.headers.get("content-type") ?? "").toLowerCase().includes("json"))
     {
         const body: unknown = await response.json().catch(() => undefined);
         if (isProblem(body))

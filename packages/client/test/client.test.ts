@@ -572,4 +572,12 @@ describe("requests and responses at the edges", () =>
         await vi.waitFor(() => expect([before.signal, during.signal].map((caller) => getEventListeners(caller, "abort").length)).toEqual([0, 0]));
         expect(getEventListeners(changing.signal, "abort")).toHaveLength(1);
     });
+
+    it("reads a problem whatever the casing of its media type", async () =>
+    {
+        const api = createClient<Api>(routes, { baseUrl: "https://api.test", transport: async () => new Response(JSON.stringify({ title: "No such note" }), { status: 404, headers: { "content-type": "Application/Problem+JSON" } }) });
+        const failure = await api.call("getNote", { params: { id: "a" } }).catch((error: unknown) => error);
+        expect(failure).toBeInstanceOf(ProblemError);
+        expect((failure as ProblemError).problem).toEqual({ status: 404, title: "No such note" });
+    });
 });
