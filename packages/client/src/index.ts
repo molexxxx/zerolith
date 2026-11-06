@@ -108,8 +108,23 @@ function isRawBody(body: unknown): body is BodyInit
     return typeof body === "string" || body instanceof FormData || body instanceof URLSearchParams || body instanceof Blob || body instanceof ArrayBuffer || ArrayBuffer.isView(body) || body instanceof ReadableStream;
 }
 
-function searchOf(query: Record<string, unknown>): string
+/** The `Object.prototype.toString` tag of a value, such as `URLSearchParams` or `Array`, for an error message. */
+function kindOf(value: unknown): string
 {
+    return Object.prototype.toString.call(value).slice(8, -1);
+}
+
+/** The query string of `query`, from `?`, or nothing when it has no pair; a query that is a non-empty string, an iterable, or a `Date` throws a `TypeError` that names `route`, since its values would be lost, and any other value is read by its own keys, as `Object.entries` reads them. */
+function searchOf(route: { method: Method; path: string }, query: unknown): string
+{
+    if (query === undefined || query === null)
+    {
+        return "";
+    }
+    if (typeof query === "string" ? query !== "" : typeof query === "object" && (typeof (query as { [Symbol.iterator]?: unknown })[Symbol.iterator] === "function" || query instanceof Date))
+    {
+        throw new TypeError(`zerolith/client: ${route.method.toUpperCase()} ${route.path} takes its query as an object of names and values, not ${kindOf(query)}`);
+    }
     const search = new URLSearchParams();
     for (const [key, value] of Object.entries(query))
     {
@@ -217,7 +232,7 @@ function buildRequest(route: { method: Method; path: string }, input: LooseInput
             }
         }
     }
-    return new Request(`${base}${path}${searchOf(input.query ?? {})}`, init);
+    return new Request(`${base}${path}${searchOf(route, input.query)}`, init);
 }
 
 /** A successful response's body: JSON parsed, or `undefined` when it is empty or holds only the whitespace JSON allows; text for `text/*` or no type, or `undefined` when it is empty; a `Blob` for any other type, such as an image; and `undefined` for a 204 or a 205. A HEAD response is read without its body, since RFC 9110, section 9.3.2, gives it none: `undefined` for JSON or text, and an empty `Blob` of its type otherwise. */
