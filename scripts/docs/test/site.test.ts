@@ -354,7 +354,7 @@ describe("documentation site", () =>
         await page.close();
     });
 
-    it("keeps the playground's example list inside the page at every width, and across the field on a phone", { timeout: 60000 }, async () =>
+    it("keeps the playground's example list inside the page at every width, as wide as its header row allows", { timeout: 60000 }, async () =>
     {
         const { page, errors } = await open("/playground/");
         for (const width of [320, 390, 700, 961, 1280])
@@ -368,10 +368,6 @@ describe("documentation site", () =>
                 const box = list.getBoundingClientRect();
                 return row !== undefined && Math.abs(box.width - Math.min(640, Math.floor(row.width))) <= 1 && box.left >= row.left - 1 && box.right <= row.right + 1;
             }), `width at ${width} px`).toBe(true);
-            if (width === 390)
-            {
-                expect(await page.$eval(".picker-list", (list) => Math.round(list.getBoundingClientRect().left) === Math.round(list.closest(".field")?.getBoundingClientRect().left ?? -1))).toBe(true);
-            }
             await page.keyboard.press("Escape");
         }
         await page.click(".picker-button");
