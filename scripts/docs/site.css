@@ -3313,12 +3313,6 @@ main[tabindex="-1"]:focus
     background: var(--zl-text);
 }
 
-.before .track .fill
-{
-    border: var(--zl-rule) solid var(--zl-text);
-    background: transparent;
-}
-
 .frameworks th,
 .frameworks td
 {
