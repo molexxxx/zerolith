@@ -43,10 +43,18 @@ function unmarked(html: string): string
     return html.replace(/<!--\/?zl:p-->/g, "");
 }
 
-/** A page that records console errors and failed loads, which every test expects to stay empty. */
-async function open(path: string): Promise<{ page: Page; errors: string[] }>
+/** Whether the playground's example list lies inside the page, which does not scroll sideways; it runs in the page. */
+function listInside(): boolean
 {
-    const page = await browser.newPage();
+    const view = document.documentElement.clientWidth;
+    const list = document.querySelector(".picker-list")?.getBoundingClientRect();
+    return list !== undefined && list.width > 0 && list.left >= 0 && list.right <= view && document.documentElement.scrollWidth <= view && scrollX === 0;
+}
+
+/** A page that records console errors and failed loads, which every test expects to stay empty; `device` sets its viewport and input. */
+async function open(path: string, device?: Parameters<Browser["newPage"]>[0]): Promise<{ page: Page; errors: string[] }>
+{
+    const page = await browser.newPage(device);
     const errors: string[] = [];
     page.on("console", (message) =>
     {
@@ -166,13 +174,14 @@ describe("documentation site", () =>
         const { page, errors } = await open("/");
         const readout = (): Promise<string[]> => page.$$eval(".readout dd", (values) => values.map((value) => value.textContent ?? ""));
         const display = (): Promise<string> => page.$eval(".run .output .display", (element) => element.textContent ?? "");
-        const drawing = (): Promise<number> => page.evaluate(() => document.querySelector(".flow")?.getAnimations({ subtree: true }).length ?? 0);
+        const drawing = (): Promise<number> => page.evaluate(() => document.querySelector(".flow .landscape")?.getAnimations({ subtree: true }).length ?? 0);
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
         expect(await readout()).toEqual(["0", "0", "0", "1"]);
         expect(await drawing()).toBe(0);
         await page.locator(".run .output input[type=\"range\"]").fill("90");
         await page.waitForFunction(() => document.querySelector(".run .output label:nth-of-type(3)")?.textContent?.includes("90%") === true);
         expect(await drawing()).toBeGreaterThan(0);
+        expect(await page.evaluate(() => document.querySelector(".flow .portrait")?.getAnimations({ subtree: true }).length)).toBe(0);
         await page.click(".run .output button");
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.startsWith("T-") === true);
         expect(await page.textContent(".run .output button")).toBe("Abort");
@@ -201,6 +210,57 @@ describe("documentation site", () =>
         await page.waitForFunction(() => ["In orbit", "Out of fuel", "Aborted"].includes(document.querySelector(".run .output .display")?.textContent ?? ""), null, { timeout: 30000 });
         expect(await page.textContent(".run .output .display")).toBe("In orbit");
         expect(await page.$$eval(".run .output progress", (bars) => bars.map((bar) => (bar as HTMLProgressElement).value > 0))).toEqual([true, true]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("draws launch control's flow down a phone, inside its panel, every label inside its box, and runs each change along it", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        expect(await page.isVisible(".flow .landscape")).toBe(true);
+        expect(await page.isVisible(".flow .portrait")).toBe(false);
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
+        expect(await page.isVisible(".flow .landscape")).toBe(false);
+        expect(await page.isVisible(".flow .portrait")).toBe(true);
+        expect(await page.$eval(".flow", (flow) => flow.scrollWidth <= flow.clientWidth)).toBe(true);
+        expect(await page.$$eval(".flow .portrait .head", (heads) => heads.map((head) => head.textContent))).toEqual(["event", "signal", "computed", "effect", "signal", "computed", "DOM"]);
+        const layout = await page.$eval(".flow .portrait", (svg) =>
+        {
+            const view = (svg as SVGSVGElement).viewBox.baseVal;
+            const boxes = Array.from(svg.querySelectorAll(".node")).map((node) => ({ rect: (node.querySelector("rect") as SVGRectElement).getBBox(), text: (node.querySelector("text") as SVGTextElement).getComputedTextLength() }));
+            const inside = boxes.every(({ rect }) => rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= view.width && rect.y + rect.height <= view.height);
+            const fitted = boxes.every(({ rect, text }) => text <= rect.width - 8);
+            const apart = boxes.every(({ rect: a }, index) => boxes.slice(index + 1).every(({ rect: b }) => a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y));
+            return { nodes: boxes.length, edges: svg.querySelectorAll("[data-edge]").length, inside, fitted, apart };
+        });
+        expect(layout).toEqual({ nodes: 16, edges: 17, inside: true, fitted: true, apart: true });
+        const ids = await page.evaluate(() => [".flow .portrait", ".flow .landscape"].map((drawing) => Array.from(document.querySelectorAll(`${drawing} [data-node], ${drawing} [data-edge]`), (element) => element.getAttribute("data-node") ?? element.getAttribute("data-edge")).toSorted().join(" ")));
+        expect(ids[0]).toBe(ids[1]);
+        const crossed = await page.$$eval(".flow svg", (drawings) => drawings.flatMap((svg) =>
+        {
+            const boxes = Array.from(svg.querySelectorAll("[data-node]"), (node) => ({ id: node.getAttribute("data-node"), box: (node.querySelector("rect") as SVGRectElement).getBBox() }));
+            return Array.from(svg.querySelectorAll("[data-edge]") as NodeListOf<SVGPathElement>).flatMap((path) =>
+            {
+                const length = path.getTotalLength();
+                const points = Array.from({ length: Math.ceil(length / 2) + 1 }, (_, step) => path.getPointAtLength(Math.min(length, step * 2)));
+                return boxes.filter(({ box }) => points.some((point) => point.x > box.x + 1 && point.x < box.x + box.width - 1 && point.y > box.y + 1 && point.y < box.y + box.height - 1)).map(({ id }) => `${svg.getAttribute("class") ?? ""}: ${path.getAttribute("data-edge") ?? ""} runs through ${id ?? ""}`);
+            });
+        }));
+        expect(crossed).toEqual([]);
+        await page.click(".run .output button");
+        const drawn = await page.evaluate(() => document.querySelector(".flow .portrait")?.getAnimations({ subtree: true }).map((animation) =>
+        {
+            const target = (animation.effect as KeyframeEffect).target as Element;
+            return target.closest("[data-node]")?.getAttribute("data-node") ?? target.getAttribute("class");
+        }) ?? []);
+        expect(drawn).toEqual(expect.arrayContaining(["press", "stage", "live", "spark"]));
+        expect(await page.evaluate(() => document.querySelector(".flow .landscape")?.getAnimations({ subtree: true }).length)).toBe(0);
+        await page.setViewportSize({ width: 960, height: 844 });
+        expect(await page.isVisible(".flow .portrait")).toBe(true);
+        await page.setViewportSize({ width: 961, height: 844 });
+        expect(await page.isVisible(".flow .landscape")).toBe(true);
+        expect(await page.isVisible(".flow .portrait")).toBe(false);
         expect(errors).toEqual([]);
         await page.close();
     });
@@ -290,6 +350,33 @@ describe("documentation site", () =>
         await trigger.click();
         await page.mouse.click(5, 5);
         expect(await trigger.getAttribute("aria-expanded")).toBe("false");
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("keeps the playground's example list inside the page at every width, and across the field on a phone", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/");
+        for (const width of [320, 390, 700, 961, 1280])
+        {
+            await page.setViewportSize({ width, height: 800 });
+            await page.click(".picker-button");
+            expect(await page.evaluate(listInside), `at ${width} px`).toBe(true);
+            expect(await page.$eval(".picker-list", (list) =>
+            {
+                const row = list.closest(".head-row")?.getBoundingClientRect();
+                const box = list.getBoundingClientRect();
+                return row !== undefined && Math.abs(box.width - Math.min(640, Math.floor(row.width))) <= 1 && box.left >= row.left - 1 && box.right <= row.right + 1;
+            }), `width at ${width} px`).toBe(true);
+            if (width === 390)
+            {
+                expect(await page.$eval(".picker-list", (list) => Math.round(list.getBoundingClientRect().left) === Math.round(list.closest(".field")?.getBoundingClientRect().left ?? -1))).toBe(true);
+            }
+            await page.keyboard.press("Escape");
+        }
+        await page.click(".picker-button");
+        await page.setViewportSize({ width: 390, height: 800 });
+        await page.waitForFunction(listInside);
         expect(errors).toEqual([]);
         await page.close();
     });
@@ -466,6 +553,89 @@ describe("documentation site", () =>
         await page.close();
     });
 
+    it("opens the menu on a phone as a sheet in place of the page, marks the current section, and closes it where the reader was", { timeout: 60000 }, async () =>
+    {
+        const { page: wide } = await open("/guide/signals/");
+        expect(await wide.isVisible(".sheet")).toBe(false);
+        expect(await wide.isVisible(".menu-toggle")).toBe(false);
+        await wide.close();
+        const { page, errors } = await open("/guide/signals/", { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+        const menu = page.locator(".menu-toggle");
+        const scrolled = (): Promise<number> => page.evaluate(() => Math.round(scrollY));
+        const opened = (): Promise<boolean> => page.evaluate(() => document.documentElement.hasAttribute("data-menu-open"));
+        expect(await menu.isVisible()).toBe(true);
+        expect(await menu.textContent()).toBe("Menu");
+        await page.evaluate(() => scrollTo(0, 600));
+        await menu.dispatchEvent("click");
+        expect(await menu.getAttribute("aria-expanded")).toBe("true");
+        expect(await page.isVisible(".menu-toggle .close-icon")).toBe(true);
+        expect(await page.isVisible("main")).toBe(false);
+        expect(await page.isVisible("#sidebar")).toBe(true);
+        expect(await page.textContent(".sheet a[aria-current=\"true\"]")).toBe("Guide");
+        expect(await page.evaluate(() => scrollY === 0 && document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+        await page.keyboard.press("Escape");
+        expect(await menu.getAttribute("aria-expanded")).toBe("false");
+        expect(await page.evaluate(() => document.activeElement?.classList.contains("menu-toggle"))).toBe(true);
+        expect(await page.isVisible(".sheet")).toBe(false);
+        expect(await page.isVisible("main")).toBe(true);
+        expect(await scrolled()).toBe(600);
+
+        await menu.dispatchEvent("click");
+        await menu.dispatchEvent("click");
+        expect(await opened()).toBe(false);
+        expect(await scrolled()).toBe(600);
+
+        await menu.dispatchEvent("click");
+        await page.focus(".skip");
+        await page.keyboard.press("Enter");
+        expect(await opened()).toBe(false);
+        expect(await page.evaluate(() => location.hash)).toBe("#content");
+
+        await menu.dispatchEvent("click");
+        await page.click("#sidebar a[aria-current=\"page\"]");
+        expect(await opened()).toBe(false);
+        expect(await menu.getAttribute("aria-expanded")).toBe("false");
+        await menu.dispatchEvent("click");
+        expect(await opened()).toBe(true);
+        await menu.dispatchEvent("click");
+        const theme = (): Promise<string> => page.evaluate(() => document.documentElement.getAttribute("data-theme") ?? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"));
+        const before = await theme();
+        await page.locator(".theme-toggle").dispatchEvent("click");
+        expect(await theme()).not.toBe(before);
+
+        await page.evaluate(() => scrollTo(0, 600));
+        await menu.dispatchEvent("click");
+        await page.click(".sheet a[href=\"/learn/\"]");
+        await page.waitForFunction(() => document.querySelector(".sheet a[aria-current]")?.textContent === "Learn");
+        expect(await opened()).toBe(false);
+        expect(await page.isVisible("main")).toBe(true);
+        await page.goBack();
+        await page.waitForFunction(() => document.querySelector("h1")?.textContent === "Signals");
+        await page.waitForFunction(() => Math.round(scrollY) === 600);
+
+        await page.locator(".pager .next").dispatchEvent("click");
+        await page.waitForFunction(() => document.querySelector("h1")?.textContent !== "Signals");
+        await menu.dispatchEvent("click");
+        await page.goBack();
+        await page.waitForFunction(() => document.querySelector("h1")?.textContent === "Signals");
+        await page.waitForFunction(() => Math.round(scrollY) === 600);
+        expect(await opened()).toBe(false);
+
+        await menu.dispatchEvent("click");
+        await page.setViewportSize({ width: 1280, height: 844 });
+        await page.waitForFunction(() => !document.documentElement.hasAttribute("data-menu-open"));
+        expect(await scrolled()).toBe(600);
+
+        await page.setViewportSize({ width: 320, height: 640 });
+        expect(await page.evaluate(() =>
+        {
+            const [logo, button, toggle] = [".home svg", ".menu-toggle", ".theme-toggle"].map((selector) => document.querySelector(selector)?.getBoundingClientRect());
+            return logo !== undefined && button !== undefined && toggle !== undefined && logo.right + 8 <= button.left && button.right + 8 <= toggle.left && toggle.right <= document.documentElement.clientWidth - 16;
+        })).toBe(true);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
     it("eases wheel scrolling on a fine pointer, lands each navigation where the router puts it, and takes heading links through history", { timeout: 60000 }, async () =>
     {
         const { page, errors } = await open("/guide/routing/");
@@ -577,6 +747,7 @@ describe("documentation site", () =>
             await run(process.execPath, ["--conditions=development", "scripts/docs/build.ts"], { cwd: repositoryRoot, env: { ...process.env, ZEROLITH_DOCS_OUT: join(scratch, "next"), ZEROLITH_DOCS_BASE: "/next/", ZEROLITH_DOCS_URL: "https://zerolith.dev/next/", ZEROLITH_DOCS_VERSIONS: shown } });
             const guide = unmarked(await readFile(join(scratch, "next", "guide", "index.html"), "utf8"));
             expect(guide).toContain("href=\"/guide/\" data-version-switch");
+            expect(guide.match(/data-version-switch rel="external"/g)).toHaveLength(2);
             expect(guide).toContain("0.0 docs</a>");
             expect(guide).toContain("href=\"/next/styles.css\"");
             expect(guide).not.toContain("href=\"/styles.css\"");
@@ -584,6 +755,7 @@ describe("documentation site", () =>
             await run(process.execPath, ["--conditions=development", "scripts/docs/build.ts"], { cwd: repositoryRoot, env: { ...process.env, ZEROLITH_DOCS_OUT: join(scratch, "stable"), ZEROLITH_DOCS_VERSIONS: stableShown } });
             const stable = unmarked(await readFile(join(scratch, "stable", "guide", "index.html"), "utf8"));
             expect(stable).toContain("href=\"/next/guide/\" data-version-switch");
+            expect(stable.match(/data-version-switch rel="external"/g)).toHaveLength(2);
             expect(stable).toContain("9.0 alpha docs</a>");
             expect(await readFile(join(site, "guide", "index.html"), "utf8")).not.toContain("data-version-switch");
         }

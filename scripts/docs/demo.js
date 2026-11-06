@@ -137,7 +137,7 @@ export function Figure()
         </dl>`;
 }
 
-/** The diagram's layers, left to right, which set when each node and edge lights. */
+/** The diagram's layers, in the order a change runs through them, which set when each node and edge lights. */
 const layers = {
     press: 0, steer: 0,
     stage: 1, throttle: 1,
@@ -351,6 +351,8 @@ export function watch(host)
 /**
  * Draws one round of changes: lights each node that changed, sends a spark
  * along each edge a change ran along, and flashes the lines of code that ran.
+ * It draws on whichever drawing of the flow is showing, the one that runs
+ * across a wide screen or the one that runs down a narrow one.
  * A change runs through the whole graph synchronously, in well under a
  * millisecond, so the drawing keeps the order but runs the whole path in
  * about a quarter of a second and leaves a short afterglow.
@@ -454,16 +456,17 @@ function draw(flow, figure, seen)
     }
     const first = Math.min(...hits.map(([, , layer]) => layer));
     const accent = getComputedStyle(flow).getPropertyValue("--zl-accent-text");
+    const shown = Array.from(flow.children).find((child) => child.getClientRects().length > 0) ?? flow;
     for (const [kind, id, layer] of hits)
     {
         const delay = (layer - first) * 20;
         if (kind === "node")
         {
-            light(flow.querySelector(`[data-node="${id}"]`), delay + 20, accent);
+            light(shown.querySelector(`[data-node="${id}"]`), delay + 20, accent);
         }
         else
         {
-            spark(flow.querySelector(`[data-edge="${id}"]`), delay, 140);
+            spark(shown.querySelector(`[data-edge="${id}"]`), delay, 140);
         }
     }
 }

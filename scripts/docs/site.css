@@ -258,6 +258,55 @@ svg
 .menu-toggle
 {
     display: none;
+    flex: none;
+    align-items: center;
+    gap: var(--zl-space-2);
+    height: 44px;
+    padding: 0 var(--zl-space-4) 0 var(--zl-space-3);
+    border: var(--zl-rule) solid var(--zl-control-line);
+    border-radius: 0;
+    background: transparent;
+    color: var(--zl-text);
+    font-family: var(--zl-font-mono);
+    font-size: 0.8125rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.menu-toggle:hover
+{
+    border-color: var(--zl-text);
+}
+
+.menu-toggle[aria-expanded="true"]
+{
+    border-color: var(--zl-text);
+    background: var(--zl-text);
+    color: var(--zl-bg);
+}
+
+.menu-toggle svg
+{
+    width: 20px;
+    height: 20px;
+}
+
+.menu-toggle .menu-icon,
+.menu-toggle[aria-expanded="true"] .close-icon
+{
+    display: grid;
+}
+
+.menu-toggle .close-icon,
+.menu-toggle[aria-expanded="true"] .menu-icon
+{
+    display: none;
+}
+
+.sheet
+{
+    display: none;
 }
 
 .theme-toggle .moon
@@ -1273,34 +1322,95 @@ article .tree li
 
     .menu-toggle
     {
-        display: inline-grid;
+        display: inline-flex;
         margin-left: auto;
     }
 
-    [data-menu-open] .top
+    [data-menu-open] .sheet
     {
-        flex-wrap: wrap;
-        height: auto;
-        min-height: var(--docs-header);
-        padding-block: var(--zl-space-3);
+        display: block;
+        border-bottom: var(--zl-rule) solid var(--zl-line);
     }
 
-    [data-menu-open] .sections
+    [data-menu-open] main,
+    [data-menu-open] .toc
+    {
+        display: none;
+    }
+
+    .sheet ul
+    {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .sheet li + li,
+    .sheet .switch
+    {
+        border-top: var(--zl-rule) solid var(--zl-line);
+    }
+
+    .sheet a
     {
         display: flex;
-        flex-direction: column;
-        flex-basis: 100%;
-        order: 1;
-        gap: 0;
-        margin: 0;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--zl-space-4);
+        min-height: 64px;
+        padding: var(--zl-space-3) var(--zl-space-6);
+        color: var(--zl-text);
+        font-family: var(--zl-font-display);
+        font-size: var(--zl-text-xl);
+        font-weight: var(--zl-weight-display);
+        letter-spacing: var(--zl-tracking-display);
+        line-height: var(--zl-leading-display);
+        text-decoration: none;
     }
 
-    [data-menu-open] .sections a
+    .sheet a:hover,
+    .sheet a:active
     {
-        margin: 0;
-        padding: var(--zl-space-3) 0;
-        border-top: var(--zl-rule) solid var(--zl-line);
-        border-bottom: 0;
+        background: var(--zl-surface);
+    }
+
+    .sheet a[aria-current]
+    {
+        background: var(--zl-lichen-300);
+        color: var(--zl-basalt-950);
+        text-decoration-line: underline;
+        text-decoration-thickness: var(--zl-rule);
+        text-underline-offset: 0.2em;
+    }
+
+    .sheet a:focus-visible
+    {
+        outline-offset: calc(-2 * var(--zl-rule));
+    }
+
+    .sheet a[aria-current]:focus-visible
+    {
+        outline-color: var(--zl-basalt-950);
+    }
+
+    .sheet svg
+    {
+        flex: none;
+        width: 24px;
+        height: 24px;
+    }
+
+    .sheet .switch
+    {
+        justify-content: flex-start;
+        min-height: 56px;
+        color: var(--zl-accent-text);
+        font-family: var(--zl-font-mono);
+        font-size: 0.8125rem;
+        font-weight: 400;
+        letter-spacing: 0.06em;
+        line-height: 1.6;
+        text-transform: uppercase;
     }
 
     .side
@@ -1334,6 +1444,11 @@ article .tree li
     {
         gap: var(--zl-space-3);
         padding: 0 var(--zl-space-4);
+    }
+
+    .sheet a
+    {
+        padding-inline: var(--zl-space-4);
     }
 
     .tag
@@ -2057,9 +2172,19 @@ main[tabindex="-1"]:focus
 .flow svg
 {
     width: 100%;
-    min-width: 880px;
     height: auto;
     overflow: visible;
+}
+
+.flow .portrait
+{
+    display: none;
+}
+
+.flow .portrait .head
+{
+    text-anchor: end;
+    dominant-baseline: central;
 }
 
 .flow .head
@@ -3462,9 +3587,9 @@ main[tabindex="-1"]:focus
 {
     position: absolute;
     top: calc(100% + var(--zl-space-2));
-    left: 0;
+    left: var(--picker-shift, 0);
     z-index: 20;
-    width: min(640px, calc(100vw - 2 * var(--zl-space-4)));
+    width: var(--picker-width, min(640px, calc(100vw - 2 * var(--zl-space-4))));
     max-height: min(70vh, 640px);
     margin: 0;
     padding: 0;
@@ -3716,7 +3841,21 @@ main[tabindex="-1"]:focus
     .figure > .code pre
     {
         position: static;
-        max-height: 360px;
+        max-height: calc(2 * var(--zl-rule) + var(--zl-space-6) + 14lh);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .flow .landscape
+    {
+        display: none;
+    }
+
+    .flow .portrait
+    {
+        display: block;
+        max-width: 480px;
+        margin-inline: auto;
     }
 
     .measures
@@ -3872,8 +4011,7 @@ main[tabindex="-1"]:focus
 
     .figure .code pre
     {
-        white-space: pre-wrap;
-        overflow-wrap: anywhere;
+        max-height: calc(2 * var(--zl-rule) + var(--zl-space-4) + 14lh);
     }
 
     .band
@@ -3975,6 +4113,7 @@ main[tabindex="-1"]:focus
     .picker-button
     {
         width: 100%;
+        min-width: 0;
     }
 
     .playground .actions .button
@@ -4104,11 +4243,33 @@ main[tabindex="-1"]:focus
     }
 }
 
+@media (max-width: 359px)
+{
+    .top
+    {
+        gap: var(--zl-space-2);
+    }
+
+    .menu-toggle
+    {
+        padding: 0 var(--zl-space-3) 0 var(--zl-space-2);
+    }
+}
+
 @keyframes zl-blink
 {
     50%
     {
         opacity: 0;
+    }
+}
+
+@keyframes zl-sheet
+{
+    from
+    {
+        opacity: 0;
+        transform: translateY(-6px);
     }
 }
 
@@ -4118,6 +4279,7 @@ main[tabindex="-1"]:focus
     .button,
     .icon,
     .icon svg,
+    .menu-toggle,
     .part,
     .pager a,
     .tour [role="tab"],
@@ -4126,6 +4288,7 @@ main[tabindex="-1"]:focus
     .examples svg,
     .index svg,
     .index .text,
+    .sheet svg,
     .bars .fill
     {
         transition-property: color, background-color, border-color, outline-color, text-decoration-color, transform, box-shadow;
@@ -4160,9 +4323,15 @@ main[tabindex="-1"]:focus
 
     .more:hover svg,
     .examples a:hover svg,
-    .index a:hover svg
+    .index a:hover svg,
+    .sheet a:hover svg
     {
         transform: translateX(4px);
+    }
+
+    [data-menu-open] .sheet
+    {
+        animation: zl-sheet 200ms cubic-bezier(0.2, 0, 0, 1);
     }
 
     .theme-toggle:hover svg
