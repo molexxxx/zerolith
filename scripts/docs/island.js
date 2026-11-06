@@ -89,7 +89,7 @@ async function copy(button)
     }, 1500);
 }
 
-/** Wires the controls of the page in the document: the theme toggle, the menu, the copy buttons, and the file tabs. */
+/** Wires the controls of the page in the document: the theme toggle, the menu, the copy buttons, the file tabs, and the home page's tour. */
 function wireControls()
 {
     document.querySelector(".theme-toggle")?.addEventListener("click", () =>
@@ -114,7 +114,7 @@ function wireControls()
         button.addEventListener("click", () => copy(/** @type {HTMLButtonElement} */ (button)));
     }
 
-    for (const list of document.querySelectorAll(".file [role=\"tablist\"]"))
+    for (const list of document.querySelectorAll(".file [role=\"tablist\"], .tour [role=\"tablist\"]"))
     {
         const tabs = /** @type {HTMLElement[]} */ (Array.from(list.querySelectorAll("[role=\"tab\"]")));
         /** @param {Element} chosen */
@@ -285,8 +285,9 @@ announcer.className = "visually-hidden";
 announcer.setAttribute("aria-live", "polite");
 
 /**
- * Starts the page that just committed: its controls, the search, and the
- * figure or the playground when the page has one, after stopping what the
+ * Starts the page that just committed: its controls, the search, the
+ * marker on its table of contents, and the figure or the playground when
+ * the page has one, after stopping what the
  * previous page started. The playground module's type is given by hand:
  * TypeScript resolves `./playground.js` to the server module beside it,
  * `playground.ts`, while the browser loads `playground.js`.
@@ -330,6 +331,7 @@ function arrive(mode, page)
             });
         });
     }
+    leaving.push(follow());
     const playground = document.querySelector("[data-playground]");
     if (playground instanceof HTMLElement)
     {
@@ -361,6 +363,81 @@ function arrive(mode, page)
             main?.focus({ preventScroll: true });
         }
     }
+}
+
+/**
+ * Marks the section the reader is in on the page's table of contents: the
+ * last second-level heading whose top has passed a line a third of the way
+ * down the window, or the last one when the page is scrolled to its end. Returns what stops
+ * following the scroll.
+ * @returns {() => void}
+ */
+function follow()
+{
+    const toc = document.querySelector(".toc");
+    if (toc === null)
+    {
+        return () => undefined;
+    }
+    /** @type {Map<string, HTMLAnchorElement>} */
+    const links = new Map();
+    for (const link of toc.querySelectorAll("a[href^=\"#\"]"))
+    {
+        if (link instanceof HTMLAnchorElement)
+        {
+            links.set(decodeURIComponent(link.hash.slice(1)), link);
+        }
+    }
+    const headings = Array.from(document.querySelectorAll("article h2[id]")).filter((heading) => links.has(heading.id));
+    if (headings.length === 0)
+    {
+        return () => undefined;
+    }
+    let pending = false;
+    const mark = () =>
+    {
+        pending = false;
+        const line = Math.max((parseFloat(getComputedStyle(root).scrollPaddingTop) || 96) + 1, innerHeight * 0.3);
+        let current = headings[0]?.id;
+        for (const heading of headings)
+        {
+            if (heading.getBoundingClientRect().top <= line)
+            {
+                current = heading.id;
+            }
+        }
+        if (innerHeight + scrollY >= root.scrollHeight - 2)
+        {
+            current = headings.at(-1)?.id;
+        }
+        for (const [id, link] of links)
+        {
+            if (id === current)
+            {
+                link.setAttribute("aria-current", "location");
+            }
+            else
+            {
+                link.removeAttribute("aria-current");
+            }
+        }
+    };
+    const schedule = () =>
+    {
+        if (!pending)
+        {
+            pending = true;
+            requestAnimationFrame(mark);
+        }
+    };
+    mark();
+    addEventListener("scroll", schedule, { passive: true });
+    addEventListener("resize", schedule);
+    return () =>
+    {
+        removeEventListener("scroll", schedule);
+        removeEventListener("resize", schedule);
+    };
 }
 
 const router = createRouter(routes, {
