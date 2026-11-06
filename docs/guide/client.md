@@ -38,7 +38,7 @@ An operation is named by its `operationId` in camel case, or by its method and p
 | Query parameters | `query`, optional unless one of them is required; an optional parameter also accepts `undefined`, which is not sent |
 | A JSON request body, `application/json` or any `+json` type | `body`, typed by its schema, optional unless the body is required |
 | A `multipart/form-data`, URL-encoded, or `text/*` request body | `body` as `FormData`, `URLSearchParams`, or `string` |
-| The 2xx responses | `output`: the union of their JSON types, `string` for text, `Blob` for any other type, such as `application/octet-stream`, and `undefined` for a response without content |
+| The 2xx responses | `output`: the union of their JSON types, `string` for text, `Blob` for any other type, such as `application/octet-stream`, and `undefined` for a response without content; a HEAD operation gives `undefined` for a JSON or text response too, since a HEAD response carries no content |
 | No 2xx response | `output` from the `default` response, or `unknown` |
 | `summary`, `description`, and `deprecated` | The entry's doc comment, with `@deprecated` when it applies |
 | `allOf`, `oneOf`, `anyOf`, and `$ref` in a schema | An intersection, a union, or the referenced type; keywords beside them that shape a type, such as `properties`, intersect with them |
