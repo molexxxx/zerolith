@@ -449,4 +449,46 @@ describe("requests and responses at the edges", () =>
         expect(Object.getPrototypeOf(named)).toBe(Object.prototype);
         expect(Object.entries(named ?? {})).toEqual([["__proto__", ["taken"]], ["email", ["required"]]]);
     });
+
+    it("reads operations and path parameters through their objects and prototypes but never Object.prototype or a function, and null as missing", () =>
+    {
+        interface Named
+        {
+            named: { method: "get"; path: "/x/{toString}"; params: { toString: string }; output: unknown };
+            ctor: { method: "get"; path: "/y/{constructor}"; params: { constructor: string }; output: unknown };
+        }
+        /** A path parameter served by a getter, as a class or a reactive model holds it. */
+        class NoteRef
+        {
+            readonly #id: string;
+
+            constructor(id: string)
+            {
+                this.#id = id;
+            }
+
+            get id(): string
+            {
+                return this.#id;
+            }
+        }
+        const api = createClient<Api>(routes, { baseUrl: "https://api.test", transport: async () => Response.json({}) });
+        const loose = api as unknown as { request(name: string): Request };
+        for (const name of ["constructor", "toString", "__proto__", "hasOwnProperty"])
+        {
+            expect(() => loose.request(name)).toThrow(`unknown operation "${name}"`);
+        }
+        const inherited = createClient<Api>(Object.create(routes) as typeof routes, { baseUrl: "https://api.test" });
+        expect(inherited.request("getNote", { params: { id: "a" } }).url).toBe("https://api.test/notes/a");
+        expect(api.request("getNote", { params: new NoteRef("b") }).url).toBe("https://api.test/notes/b");
+        const named = createClient<Named>({ named: { method: "get", path: "/x/{toString}" }, ctor: { method: "get", path: "/y/{constructor}" } }, { baseUrl: "https://api.test" });
+        expect(() => named.request("named", { params: {} as { toString: string } })).toThrow('needs the path parameter "toString"');
+        expect(() => named.request("ctor", { params: new NoteRef("b") as unknown as { constructor: string } })).toThrow('needs the path parameter "constructor"');
+        expect(() => api.request("getNote", { params: { id: (() => "a") as unknown as string } })).toThrow('needs the path parameter "id"');
+        const read = new Proxy(new URLSearchParams("id=7"), { get: (search, key) => typeof key === "string" ? search.get(key) : undefined });
+        expect(api.request("getNote", { params: read as unknown as { id: string } }).url).toBe("https://api.test/notes/7");
+        expect(named.request("named", { params: Object.create({ toString: "x" }) as { toString: string } }).url).toBe("https://api.test/x/x");
+        expect(() => api.request("getNote", { params: { id: null as unknown as string } })).toThrow('needs the path parameter "id"');
+        expect(() => api.request("getNote", { params: null as never })).toThrow('needs the path parameter "id"');
+    });
 });
