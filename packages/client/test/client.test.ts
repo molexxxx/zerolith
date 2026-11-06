@@ -491,4 +491,13 @@ describe("requests and responses at the edges", () =>
         expect(() => api.request("getNote", { params: { id: null as unknown as string } })).toThrow('needs the path parameter "id"');
         expect(() => api.request("getNote", { params: null as never })).toThrow('needs the path parameter "id"');
     });
+
+    it("refuses a body JSON.stringify turns into nothing", () =>
+    {
+        const api = createClient<Api>(routes, { baseUrl: "https://api.test", transport: async () => Response.json({}) });
+        for (const body of [() => 1, Symbol("draft"), { toJSON: () => undefined }])
+        {
+            expect(() => api.request("createNote", { body: body as never })).toThrow("does not serialize as JSON");
+        }
+    });
 });

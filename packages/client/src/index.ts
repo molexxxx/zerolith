@@ -205,7 +205,12 @@ function buildRequest(route: { method: Method; path: string }, input: LooseInput
         }
         else
         {
-            init.body = JSON.stringify(input.body);
+            const text = JSON.stringify(input.body) as string | undefined;
+            if (text === undefined)
+            {
+                throw new TypeError(`zerolith/client: the body of ${route.method.toUpperCase()} ${route.path} does not serialize as JSON, as a function or a symbol does not; send a value JSON can hold`);
+            }
+            init.body = text;
             if (!headers.has("content-type"))
             {
                 headers.set("content-type", "application/json");
