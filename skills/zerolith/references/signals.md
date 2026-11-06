@@ -153,7 +153,9 @@ tick.set(2);                            // prints nothing: the effect is gone
 
 ## Async values
 
-`resource` loads data from signals. Its `params` function reads the signals the request depends on, and its `loader` receives those params and an abort signal. Whenever the params change, the previous request is aborted and the loader runs again; when `params` returns `undefined`, the resource waits, idle. `params` runs as an effect's function does: once when the resource is created, and again whenever a signal it read changes, whatever it returns. Params that read no signal load once; params that read a flag the component sets later, as `() => (ready.get() ? { id } : undefined)`, wait idle and load on the first change. A `params` function that throws fails the load as a loader does: `status` is `error` and `error` holds what it threw, until the signals it read change. `reload()` after the resource's owner is disposed does nothing.
+`resource` loads data from signals. Its `params` function reads the signals the request depends on, and its `loader` receives those params and an abort signal. Whenever the params change, the previous request is aborted and the loader runs again; when `params` returns `undefined`, the resource waits, idle. `params` runs as an effect's function does: once when the resource is created, and again whenever a signal it read changes, whatever it returns.
+
+Params that read no signal load once; params that read a flag the component sets later, as `() => (ready.get() ? { id } : undefined)`, wait idle and load on the first change. A `params` function that throws fails the load as a loader does: `status` is `error` and `error` holds what it threw, until the signals it read change. `reload()` after the resource's owner is disposed does nothing.
 
 ```ts
 import { resource, signal } from "zerolith";

@@ -1,14 +1,16 @@
 /**
- * The docs site's home page, set as the framework's datasheet: the headline
- * and the create command, a running figure that measures its own DOM
- * updates, the packages, characteristics the docs build computes, the ways
- * in, and the revision history from the changelog. The Markdown twin says
- * the same for agents.
+ * The docs site's home page: the headline and the create command over
+ * launch control, which runs on the page beside its code and draws each
+ * change along its signal graph, then a tour of the core patterns in code
+ * that runs as tests, the benchmark scores, a coded diagnostic as the
+ * command line prints it, the packages, the numbers the build checks, the
+ * ways in, and the create command again beside the playground's examples.
+ * The Markdown twin says the same for agents.
  */
 import { type View, html, unsafeHtml } from "zerolith";
 import { Figure } from "./demo.js";
-import { highlight } from "./highlight.ts";
-import { glyph, icon, repository } from "./layout.ts";
+import { diagnosticIcon, glyph, icon, repository } from "./layout.ts";
+import { examples } from "./playground.ts";
 
 export interface Characteristic
 {
@@ -17,19 +19,64 @@ export interface Characteristic
     check: string;
 }
 
+/** A measured value the home page sets large, with the check that holds it. */
+export interface Measure
+{
+    name: string;
+    value: string;
+    unit: string;
+    check: string;
+}
+
+/** One pattern of the tour: a guide's tested example and the guide it comes from. */
+export interface TourStep
+{
+    id: "signals" | "templates" | "routing" | "forms" | "server-rendering";
+    title: string;
+    guide: string;
+    /** The example as highlighted HTML. */
+    code: string;
+}
+
+/** One framework's score in the newest benchmark run. */
+export interface Score
+{
+    name: string;
+    entry: string;
+    version: string;
+    score: number;
+}
+
+/** A coded finding as `zerolith doctor` prints it, and the source it reports on. */
+export interface DoctorSample
+{
+    file: string;
+    /** The source as highlighted HTML, the reported expression wrapped in `.frozen`. */
+    source: string;
+    code: string;
+    line: number;
+    column: number;
+    message: string;
+}
+
 export interface HomeData
 {
     version: string;
     /** The figure's code as highlighted HTML, its bound expressions marked with `data-signal`. */
     figureCode: string;
     characteristics: Characteristic[];
-    revisions: Array<{ version: string; date: string }>;
+    measures: Measure[];
+    facts: string[];
+    tour: TourStep[];
+    scores: { date: string; rows: Score[] };
+    doctor: DoctorSample;
+    diagnosticCount: number;
 }
 
 export const createCommand = "npx @zerolith/cli new my-app";
 const startCode = `${createCommand}\ncd my-app\nnpm run dev`;
 
-/** Text with `code` spans, as the characteristics table writes it. */
+/** Text with `code` spans, as the characteristics write it. */
 function inline(text: string)
 {
     return text.split("`").map((part, index) => (index % 2 === 1 ? html`<code>${part}</code>` : part));
@@ -80,6 +127,79 @@ const ways = [
     { href: "/guide/agents/", name: "Coding agents", text: "What an agent reads in a zerolith app, the AGENTS.md and the zerolith skill, and when." }
 ];
 
+const consoleLines = [20, 30];
+const tasks = ["test", "write, edited"];
+const routeTable = [
+    { name: "home", path: "/", source: "home: route({ path: \"/\"", note: "" },
+    { name: "release", path: "/releases/:tag", source: "load: loadRelease", note: "load" },
+    { name: "settings", path: "/settings", source: "view: lazy(", note: "lazy" }
+];
+const fieldError = "Give the note a title of at least two characters.";
+const clicks = 1;
+
+/**
+ * What each pattern's example produces, drawn as the page or console it ends
+ * on, with the lines of its source that hold what the drawing shows: the
+ * test's own assertions where the example is a test. Each drawing and its
+ * checks read the same values, and the docs build fails when a check is
+ * missing from the source, so a drawing cannot outlive its example.
+ */
+const results: Record<TourStep["id"], { label: string; checks: string[]; view: () => View }> = {
+    "signals": {
+        label: `The console prints ${consoleLines.join(", then ")}`,
+        checks: [`expect(printed).toEqual([${consoleLines.map((value) => `[${value}]`).join(", ")}]);`],
+        view: () => html`
+            <span class="pane-label">Console</span>
+            <samp class="console">${consoleLines.map((value) => html`<span>${value}</span>`)}</samp>
+            <p>A computed value reads its sources when something asks for it, and only after one of them changed.</p>`
+    },
+    "templates": {
+        label: `A list of ${tasks.join(", then ")}`,
+        checks: [`tasks.set([{ id: 2, text: "${tasks[0]}" }, { id: 1, text: "${tasks[1]}" }]);`, `expect(write?.textContent).toBe("${tasks[1]}");`],
+        view: () => html`
+            <span class="pane-label">#app</span>
+            <ul class="rendered">${tasks.map((task, index) => html`<li class=${index === tasks.length - 1 ? "moved" : null}>${task}</li>`)}</ul>
+            <p>The row with id 1 moves to the end and keeps its element; only its text node changes.</p>`
+    },
+    "routing": {
+        label: `${routeTable.length} paths, each mapped to its route`,
+        checks: routeTable.flatMap((row) => [`path: "${row.path}"`, `${row.name}: route(`, row.source]),
+        view: () => html`
+            <span class="pane-label">Route table</span>
+            <ol class="routes">${routeTable.map((row) => html`<li><code>${row.path}</code><span class="to">${row.name}</span>${row.note === "" ? null : html`<span class="note">${row.note}</span>`}</li>`)}</ol>
+            <p>Plain anchors navigate. A loader runs before its page shows, and a lazy view loads on the first visit.</p>`
+    },
+    "forms": {
+        label: "The form showing a field error under the title",
+        checks: [`toBe("${fieldError}")`],
+        view: () => html`
+            <span class="pane-label">#app</span>
+            <span class="rendered-form">
+                <span class="mock-label">Title</span>
+                <span class="mock-field" data-invalid>a</span>
+                <span class="mock-error">${unsafeHtml(diagnosticIcon("error"))}<span>${fieldError}</span></span>
+                <span class="mock-button">Save</span>
+            </span>
+            <p>The browser checks the schema first; the server's field errors land in the same place.</p>`
+    },
+    "server-rendering": {
+        label: "The server's markup, then the same button adopted in the browser",
+        checks: [`const count = signal(${clicks});`, "<button @click=${add}>Clicked ${count} times</button>", "expect(app.mismatches).toEqual([]);"],
+        view: () => html`
+            <span class="pane-label">Server</span>
+            <samp class="console"><span>${`<button>Clicked ${clicks} times</button>`}</span></samp>
+            <span class="pane-label">Browser</span>
+            <span class="adopted"><span class="mock-button">${`Clicked ${clicks} times`}</span><span class="note">0 mismatches</span></span>
+            <p>The same view renders to a string on the server and adopts those nodes in the browser.</p>`
+    }
+};
+
+/** The lines of a pattern's source that must hold what the home page draws as its result. */
+export function resultChecks(id: TourStep["id"]): readonly string[]
+{
+    return results[id].checks;
+}
+
 /** One cell of the block diagram; the core's cell carries no glyph, since the header already shows the mark. */
 function PartCell(part: Part, kind: "library" | "core" | "tool")
 {
@@ -91,76 +211,289 @@ function PartCell(part: Part, kind: "library" | "core" | "tool")
         </a>`;
 }
 
+/** One node of the launch figure's flow diagram: its id in demo.js, its label, its kind, and its column and row. */
+interface FlowNode
+{
+    id: string;
+    label: string;
+    kind: "event" | "signal" | "computed" | "effect" | "dom";
+    column: number;
+    row: number;
+}
+
+const flowColumns = ["event", "signal", "computed", "effect", "signal", "computed", "DOM"];
+const flowX = [72, 232, 392, 552, 712, 872, 1048];
+const flowY = [48, 82, 116, 150, 184];
+const nodeHeight = 24;
+
+const flowNodes: FlowNode[] = [
+    { id: "press", label: "@click", kind: "event", column: 0, row: 0 },
+    { id: "steer", label: "@input", kind: "event", column: 0, row: 2 },
+    { id: "stage", label: "stage", kind: "signal", column: 1, row: 0 },
+    { id: "throttle", label: "throttle", kind: "signal", column: 1, row: 2 },
+    { id: "live", label: "live", kind: "computed", column: 2, row: 0 },
+    { id: "action", label: "action", kind: "computed", column: 2, row: 4 },
+    { id: "clock", label: "clock", kind: "effect", column: 3, row: 1 },
+    { id: "countdown", label: "countdown", kind: "signal", column: 4, row: 0 },
+    { id: "altitude", label: "altitude", kind: "signal", column: 4, row: 1 },
+    { id: "fuel", label: "fuel", kind: "signal", column: 4, row: 2 },
+    { id: "readout", label: "readout", kind: "computed", column: 5, row: 0 },
+    { id: "dom-readout", label: "${readout}", kind: "dom", column: 6, row: 0 },
+    { id: "dom-altitude", label: "value=${altitude}", kind: "dom", column: 6, row: 1 },
+    { id: "dom-fuel", label: "value=${fuel}", kind: "dom", column: 6, row: 2 },
+    { id: "dom-throttle", label: "${throttle}%", kind: "dom", column: 6, row: 3 },
+    { id: "dom-action", label: "${action}", kind: "dom", column: 6, row: 4 }
+];
+
+/** The half width of a node's box: DOM nodes are wider, since their labels are bindings. */
+function halfWidth(node: FlowNode): number
+{
+    return node.kind === "dom" ? 80 : 56;
+}
+
+/** The point on a node's edge an arrow leaves from or arrives at. */
+function port(id: string, side: "left" | "right" | "top" | "bottom"): [number, number]
+{
+    const node = flowNodes.find((item) => item.id === id);
+    if (node === undefined)
+    {
+        throw new Error(`the launch figure's flow has no node ${id}`);
+    }
+    const x = flowX[node.column] ?? 0;
+    const y = flowY[node.row] ?? 0;
+    const half = halfWidth(node);
+    return side === "left" ? [x - half, y] : side === "right" ? [x + half, y] : side === "top" ? [x, y - nodeHeight / 2] : [x, y + nodeHeight / 2];
+}
+
+/** The edges of the flow, each an orthogonal path between two nodes; a dashed edge is a read inside a function rather than a tracked dependency. */
+function flowEdges(): Array<{ id: string; d: string; dashed: boolean }>
+{
+    const straight = (from: string, to: string) =>
+    {
+        const [x0, y0] = port(from, "right");
+        const [x1] = port(to, "left");
+        return `M${x0} ${y0}H${x1}`;
+    };
+    const elbow = (from: string, to: string, turn: number) =>
+    {
+        const [x0, y0] = port(from, "right");
+        const [x1, y1] = port(to, "left");
+        return `M${x0} ${y0}H${turn}V${y1}H${x1}`;
+    };
+    const [stageTopX, stageTopY] = port("stage", "top");
+    const [readoutTopX, readoutTopY] = port("readout", "top");
+    const [liveBottomX, liveBottomY] = port("live", "bottom");
+    const [, actionTopY] = port("action", "top");
+    const [throttleBottomX, throttleBottomY] = port("throttle", "bottom");
+    const [domThrottleX, domThrottleY] = port("dom-throttle", "left");
+    return [
+        { id: "press>stage", d: straight("press", "stage"), dashed: false },
+        { id: "stage>live", d: straight("stage", "live"), dashed: false },
+        { id: "live>clock", d: elbow("live", "clock", 472), dashed: false },
+        { id: "live>action", d: `M${liveBottomX} ${liveBottomY}V${actionTopY}`, dashed: false },
+        { id: "steer>throttle", d: straight("steer", "throttle"), dashed: false },
+        { id: "throttle>clock", d: elbow("throttle", "clock", 452), dashed: true },
+        { id: "throttle>dom-throttle", d: `M${throttleBottomX} ${throttleBottomY}V${domThrottleY}H${domThrottleX}`, dashed: false },
+        { id: "clock>countdown", d: elbow("clock", "countdown", 632), dashed: false },
+        { id: "clock>altitude", d: straight("clock", "altitude"), dashed: false },
+        { id: "clock>fuel", d: elbow("clock", "fuel", 632), dashed: false },
+        { id: "stage>readout", d: `M${stageTopX} ${stageTopY}V27H${readoutTopX}V${readoutTopY}`, dashed: false },
+        { id: "countdown>readout", d: straight("countdown", "readout"), dashed: false },
+        { id: "altitude>readout", d: elbow("altitude", "readout", 792), dashed: false },
+        { id: "readout>dom-readout", d: straight("readout", "dom-readout"), dashed: false },
+        { id: "altitude>dom-altitude", d: straight("altitude", "dom-altitude"), dashed: false },
+        { id: "fuel>dom-fuel", d: straight("fuel", "dom-fuel"), dashed: false },
+        { id: "action>dom-action", d: straight("action", "dom-action"), dashed: false }
+    ];
+}
+
+/** The launch figure's flow diagram as SVG markup: column heads, the edges under the nodes, then the nodes. */
+function flowSvg(): string
+{
+    const heads = flowColumns.map((head, column) => `<text class="head" x="${flowX[column] ?? 0}" y="12">${head}</text>`).join("");
+    const edges = flowEdges().map((edge) => `<path class="${edge.dashed ? "edge read" : "edge"}" data-edge="${edge.id}" d="${edge.d}"/>`).join("");
+    const nodes = flowNodes.map((node) =>
+    {
+        const x = flowX[node.column] ?? 0;
+        const y = flowY[node.row] ?? 0;
+        const half = halfWidth(node);
+        const label = node.label.replaceAll("&", "&amp;").replaceAll("<", "&lt;");
+        return `<g class="node ${node.kind}" data-node="${node.id}"><rect x="${x - half}" y="${y - nodeHeight / 2}" width="${half * 2}" height="${nodeHeight}"/><text x="${x}" y="${y}">${label}</text></g>`;
+    }).join("");
+    return `<svg viewBox="0 0 1152 198" aria-hidden="true" focusable="false">${heads}<g class="edges">${edges}</g>${nodes}</svg>`;
+}
+
+/** The create command with its copy button, as the hero and the closing section show it. */
+function Command()
+{
+    return html`
+        <div class="command">
+            <code>${createCommand.split(" ").map((word, index) => html`${index === 0 ? "" : " "}<span>${word}</span>`)}</code>
+            <button class="copy button primary" type="button" data-copy=${createCommand} aria-label="Copy the command"><span class="idle">${unsafeHtml(icon("copy"))}Copy</span><span class="done">${unsafeHtml(icon("check"))}Copied</span></button>
+        </div>`;
+}
+
+/** The tour: one tab per pattern, each showing the guide's tested example beside what it produces. */
+function Tour(steps: TourStep[])
+{
+    return html`
+        <section class="band tour alt roomy">
+            <h2>Clear patterns for every part of an app</h2>
+            <p>Each example comes from a guide and runs as a test in CI, so the code here is code that works.</p>
+            <div class="tabs" role="tablist" aria-label="Patterns">
+                ${steps.map((step, index) => html`<button type="button" role="tab" id=${`tour-${step.id}`} aria-controls=${`tour-${step.id}-panel`} aria-selected=${String(index === 0)} tabindex=${index === 0 ? "0" : "-1"}>${step.title}</button>`)}
+            </div>
+            ${steps.map((step, index) => html`
+                <div class="pair" role="tabpanel" id=${`tour-${step.id}-panel`} aria-labelledby=${`tour-${step.id}`} ?hidden=${index !== 0}>
+                    <div class="code" data-language="ts"><pre><code>${unsafeHtml(step.code)}</code></pre></div>
+                    <div class="result">
+                        <div class="shown" role="img" aria-label=${results[step.id].label}>${results[step.id].view()}</div>
+                        <a class="more" href=${step.guide}>${`Read the ${step.title.toLowerCase()} guide`}${unsafeHtml(icon("arrow-right"))}</a>
+                    </div>
+                </div>`)}
+        </section>`;
+}
+
+/** A score as the page prints it, to two decimals, so its bar never disagrees with its number. */
+function printed(score: number): number
+{
+    return Number(score.toFixed(2));
+}
+
+/** The benchmark scores as ranked bars, each the extra time over hand-written JavaScript. */
+function Speed(scores: HomeData["scores"], version: string)
+{
+    const slowest = Math.max(...scores.rows.map((row) => printed(row.score)));
+    const ours = scores.rows.find((row) => row.name === "zerolith");
+    const extra = ours === undefined ? undefined : Math.round((printed(ours.score) - 1) * 100);
+    return html`
+        <section class="band speed">
+            <div class="split">
+                <div class="copy-column">
+                    <h2>${extra === undefined ? "Benchmark scores" : `Within ${extra} percent of hand-written JavaScript`}</h2>
+                    <p>${`zerolith ${version} on js-framework-benchmark next to hand-written JavaScript and ${scores.rows.length - 2} frameworks, measured on ${scores.date}. Lower is faster. These are this project's runs, not the official results.`}</p>
+                    <a class="more" href="/benchmarks/">See every operation and the method${unsafeHtml(icon("arrow-right"))}</a>
+                </div>
+                <ol class="bars">
+                    ${scores.rows.map((row) => html`
+                        <li class=${row.name === "zerolith" ? "ours" : null}>
+                            <span class="name">${row.name}<span class="entry">${`${row.entry} ${row.version}`}</span></span>
+                            <span class="track" aria-hidden="true">${printed(row.score) > 1 ? html`<span class="fill" style=${`--length: ${slowest <= 1 ? 0 : (((printed(row.score) - 1) / (slowest - 1)) * 100).toFixed(2)}%`}></span>` : null}</span>
+                            <span class="score">${printed(row.score).toFixed(2)}</span>
+                        </li>`)}
+                </ol>
+            </div>
+        </section>`;
+}
+
+/** A coded diagnostic: the source with the read it reports, and the command line's report of it. */
+function Diagnostics(doctor: DoctorSample, count: number)
+{
+    const page = `/e/${doctor.code}/`;
+    return html`
+        <section class="band errors alt">
+            <h2>Errors that name the fix</h2>
+            <p>Every warning and error carries a code, its cause, and the fix, and every code has a page. Here <code>zerolith doctor</code> catches a read that would never update.</p>
+            <div class="pair">
+                <div class="source">
+                    <span class="bar">${doctor.file}</span>
+                    <div class="code" data-language="js"><pre><code>${unsafeHtml(doctor.source)}</code></pre></div>
+                </div>
+                <div class="terminal">
+                    <span class="bar">Terminal</span>
+                    <samp class="screen">
+                        <span class="line"><span class="prompt">$</span> zerolith doctor</span>
+                        <span class="line gap"><span class="badge">zerolith</span> <b>doctor</b> <span class="dim">~/my-app</span></span>
+                        <span class="line row"><span class="warn">warning</span><span><b>${doctor.code}</b>${`: ${doctor.file}:${doctor.line}:${doctor.column}: ${doctor.message}`}</span></span>
+                        <span class="line row"><span></span><span><span class="hint">fix:</span> See <a href=${page}>${`https://zerolith.dev${page}`}</a></span></span>
+                        <span class="line gap">0 errors, 1 warning</span>
+                        <span class="line"><span class="prompt">$</span> <span class="cursor"></span></span>
+                    </samp>
+                </div>
+            </div>
+            <a class="more" href="/e/">${`Browse all ${count} diagnostic codes`}${unsafeHtml(icon("arrow-right"))}</a>
+        </section>`;
+}
+
+/** The numbers the build measures, set large, with the check behind each and the facts that hold beside them. */
+function Numbers(measures: Measure[], facts: string[])
+{
+    return html`
+        <section class="band numbers inverse roomy">
+            <h2>${`${["No", "One", "Two", "Three", "Four", "Five", "Six"][measures.length] ?? measures.length} numbers, checked on every build`}</h2>
+            <dl class="measures">
+                ${measures.map((measure) => html`
+                    <div>
+                        <dt>${measure.name}</dt>
+                        <dd class="value">${measure.value}${measure.unit === "" ? null : html`<span class="unit">${measure.unit}</span>`}</dd>
+                        <dd class="check">${inline(measure.check)}</dd>
+                    </div>`)}
+            </dl>
+            <ul class="facts">${facts.map((fact) => html`<li>${inline(fact)}</li>`)}</ul>
+        </section>`;
+}
+
+/** The closing section: the create command again, beside the playground's other examples. */
+function Start()
+{
+    return html`
+        <section class="band closing">
+            <div class="split">
+                <div class="copy-column">
+                    <h2>Start a zerolith project</h2>
+                    <p>Node 24 or newer is required. The command writes a starter that asks for the language, the build tool, and the inspector; <code>--yes</code> takes every default.</p>
+                    ${Command()}
+                    <p class="ways-in"><a href="/learn/">Start the tutorial</a><a href="/guide/command-line/#importmap">Serve with no build step</a></p>
+                </div>
+                <nav class="examples" aria-label="Playground examples">
+                    <span class="pane-label">Open an example in the playground</span>
+                    <ul>${examples.filter((example) => example.id !== "launch" && example.id !== "counter").map((example) => html`
+                        <li><a href=${`/playground/#example=${example.id}`}><span class="name">${example.title}</span><span class="text">${inline(example.summary)}</span>${unsafeHtml(icon("arrow-right"))}</a></li>`)}
+                    </ul>
+                </nav>
+            </div>
+        </section>`;
+}
+
 /** The home page's main content. */
 export function Home(data: HomeData): View
 {
     return html`
-        <section class="masthead">
+        <section class="hero roomy lime">
             <div class="title">
                 <h1><span>Full framework.</span> <span>Zero guesswork.</span></h1>
-                <p class="lead">Routing, forms, rendering, and i18n, with clear patterns for you and your agent.</p>
-                <div class="command">
-                    <code>${createCommand.split(" ").map((word, index) => html`${index === 0 ? "" : " "}<span>${word}</span>`)}</code>
-                    <button class="copy button primary" type="button" data-copy=${createCommand} aria-label="Copy the command"><span class="idle">${unsafeHtml(icon("copy"))}Copy</span><span class="done">${unsafeHtml(icon("check"))}Copied</span></button>
+                <div class="intro">
+                    <p class="lead">Routing, forms, rendering, and i18n, with clear patterns for you and your agent.</p>
+                    ${Command()}
+                    <p class="ways-in"><a href="/learn/">Start the tutorial</a><a href="/playground/">Open the playground</a></p>
                 </div>
-                <p class="ways-in"><a href="/learn/">Start the tutorial</a><a href="/playground/">Open the playground</a><a href="/guide/">Read the guide</a></p>
             </div>
-            <div class="features">
-                <h2>Features</h2>
-                <ul>${features.map((feature) => html`<li><a href=${feature.href}>${feature.name}</a>: ${feature.text}</li>`)}</ul>
-            </div>
+            <figure class="figure" aria-label="Launch control running on this page: its code, the rocket, the signal graph each change runs along, and what each change did to the DOM">
+                <div class="code" data-language="js"><pre><code>${unsafeHtml(data.figureCode)}</code></pre></div>
+                <div class="run" data-island="figure">${Figure()}</div>
+                <div class="flow">${unsafeHtml(flowSvg())}</div>
+            </figure>
         </section>
-        <figure class="figure">
-            <div class="code" data-language="js"><pre><code>${unsafeHtml(data.figureCode)}</code></pre></div>
-            <div class="run" data-island="figure">${Figure()}</div>
-            <figcaption>Figure 1. This counter is running on this page: rendered by the docs build, hydrated in your browser, and measured with a MutationObserver. Press Add one a few times: every click changes two text nodes and creates no elements, and Counter() never runs again.</figcaption>
-        </figure>
-        <section class="band">
-            <h2>Everything an application needs</h2>
-            <p>One core and the packages around it. Each package is optional, has its own guide, and shares the core's signals, so nothing needs an adapter.</p>
-            <figure class="diagram">
+        ${Tour(data.tour)}
+        ${Speed(data.scores, data.version)}
+        ${Diagnostics(data.doctor, data.diagnosticCount)}
+        <section class="band roomy">
+            <h2>${`One core and ${libraries.length + tools.length} packages`}</h2>
+            <p>Each package is optional, has its own guide, and shares the core's signals, so nothing needs an adapter.</p>
+            <div class="diagram">
                 <div class="cells">
                     ${libraries.map((part) => PartCell(part, "library"))}
                     ${PartCell(core, "core")}
                     ${tools.map((part) => PartCell(part, "tool"))}
                 </div>
-                <figcaption>Figure 2. The libraries an application imports, above the core they share, and the tools that build, test, and inspect it.</figcaption>
-            </figure>
-        </section>
-        <section class="band">
-            <h2>Characteristics</h2>
-            <p>Each value is computed when this site is built or checked by the test suite, so it describes the version in the header.</p>
-            <div class="table">
-                <table>
-                    <thead><tr><th scope="col">Characteristic</th><th scope="col">Value</th><th scope="col">How it is checked</th></tr></thead>
-                    <tbody>${data.characteristics.map((row) => html`<tr><th scope="row">${row.name}</th><td data-label="Value">${inline(row.value)}</td><td data-label="How it is checked">${inline(row.check)}</td></tr>`)}</tbody>
-                </table>
             </div>
         </section>
-        <section class="band start">
-            <h2>Start a project</h2>
-            <div class="columns">
-                <div>
-                    <p>Node 24 or newer is required. The command writes a starter that asks for the language, the build tool, and the inspector; <code>--yes</code> takes every default.</p>
-                    <p>To add zerolith to a project you have, install <code>zerolith</code> and the packages you need. To serve with no build step at all, <a href="/guide/command-line/#importmap"><code>zerolith importmap</code></a> writes an import map with integrity hashes.</p>
-                </div>
-                <div class="code" data-language="sh"><button class="copy" type="button" aria-label="Copy code"><span class="idle">${unsafeHtml(icon("copy"))}</span><span class="done">${unsafeHtml(icon("check"))}</span></button><pre><code>${unsafeHtml(highlight(startCode, "sh"))}</code></pre></div>
-            </div>
-        </section>
-        <section class="band">
+        ${Numbers(data.measures, data.facts)}
+        <section class="band narrow">
             <h2>Learn zerolith</h2>
             <ul class="index">${ways.map((way) => html`<li><a href=${way.href}><span class="name">${way.name}</span><span class="text">${way.text}</span>${unsafeHtml(icon("arrow-right"))}</a></li>`)}</ul>
         </section>
-        <section class="band">
-            <h2>Revision history</h2>
-            <p>zerolith 1.0 is out: the API is frozen, and the <a href=${`${repository}/blob/main/docs/ROADMAP.md`}>roadmap</a> lists what comes next.</p>
-            <div class="table">
-                <table>
-                    <thead><tr><th scope="col">Version</th><th scope="col">Date</th><th scope="col">Notes</th></tr></thead>
-                    <tbody>${data.revisions.map((revision) => html`<tr><th scope="row">${revision.version}</th><td data-label="Date">${revision.date}</td><td data-label="Notes"><a href=${`${repository}/releases/tag/zerolith%40${revision.version}`} aria-label=${`Release notes for ${revision.version}`}>Release notes</a></td></tr>`)}</tbody>
-                </table>
-            </div>
-        </section>
+        ${Start()}
         <footer class="site-foot">
             <nav aria-label="Site">
                 <a href="/learn/">Tutorial</a>
@@ -181,7 +514,7 @@ export function Home(data: HomeData): View
 export function NotFound(): View
 {
     return html`
-        <section class="masthead missing">
+        <section class="masthead missing page-head">
             <div class="title">
                 <h1>Page not found</h1>
                 <p class="lead">Nothing lives at this address. One of these will get you back on track.</p>
@@ -193,6 +526,7 @@ export function NotFound(): View
 /** The home page as Markdown, for agents and the llms indexes. */
 export function homeMarkdown(data: HomeData): string
 {
+    const ours = data.scores.rows.find((row) => row.name === "zerolith");
     return [
         "# zerolith",
         "",
@@ -208,6 +542,24 @@ export function homeMarkdown(data: HomeData): string
         "",
         ...features.map((feature) => `- [${feature.name}](${feature.href}): ${feature.text}`),
         "",
+        "## Patterns",
+        "",
+        "Each pattern has a guide, and each guide's examples run as tests in CI:",
+        "",
+        ...data.tour.map((step) => `- [${step.title}](${step.guide})`),
+        "",
+        "## Benchmarks",
+        "",
+        `${ours === undefined ? "zerolith" : `zerolith scores ${printed(ours.score).toFixed(2)}`} on js-framework-benchmark, where hand-written JavaScript is 1.00 and lower is faster, in this project's run of ${data.scores.date}; these are not the official results. [Benchmarks](/benchmarks/) has every operation and the method.`,
+        "",
+        "| Framework | Entry | Score |",
+        "| --- | --- | --- |",
+        ...data.scores.rows.map((row) => `| ${row.name} | ${row.entry} ${row.version} | ${printed(row.score).toFixed(2)} |`),
+        "",
+        "## Diagnostics",
+        "",
+        `Every warning and error carries a code, its cause, and the fix, and each of the ${data.diagnosticCount} codes has a page under [/e/](/e/). For example, \`zerolith doctor\` reports a \`.get()\` read bound in a template as [${data.doctor.code}](/e/${data.doctor.code}/).`,
+        "",
         "## Packages",
         "",
         ...[core, ...libraries, ...tools].map((part) => `- [${part.name}](${part.href}): ${part.text}`),
@@ -220,10 +572,6 @@ export function homeMarkdown(data: HomeData): string
         "",
         "## Learn",
         "",
-        ...ways.map((way) => `- [${way.name}](${way.href}): ${way.text}`),
-        "",
-        "## Revisions",
-        "",
-        ...data.revisions.map((revision) => `- ${revision.version}, ${revision.date}`)
+        ...ways.map((way) => `- [${way.name}](${way.href}): ${way.text}`)
     ].join("\n");
 }

@@ -17,14 +17,14 @@ import { Marked, marked } from "marked";
 import { rolldown } from "rolldown";
 import { diagnosticCatalog } from "zerolith";
 import { CORE_BUDGET_GZIP_BYTES, measure, moduleGraph } from "../measure.ts";
-import { readRuns } from "../../benchmarks/results.ts";
+import { ranked, readRuns } from "../../benchmarks/results.ts";
 import { normalizeBase, rebaseHtml, rebaseMarkdown, rebasePath } from "./base.ts";
 import { type Versions, labelOf } from "./versions.ts";
 import { Benchmarks, benchmarksDescription, benchmarksMarkdown } from "./benchmarks.ts";
 import { brokenLinks, mapLinks, sitePath } from "./links.ts";
 import { exampleCode, includeExamples } from "./examples.ts";
 import { type Role, type Roles, escapeHtml, highlight, rolesOf } from "./highlight.ts";
-import { type Characteristic, Home, NotFound, homeMarkdown } from "./home.ts";
+import { type Characteristic, type DoctorSample, type HomeData, type Measure, type TourStep, Home, NotFound, homeMarkdown, resultChecks } from "./home.ts";
 import { type Link, type NavGroup, type PageData, diagnosticIcon, fontFaces, icon, markdownTwin, renderPage, siteStyles } from "./layout.ts";
 import { Playground, examples as playgroundExamples, playgroundMarkdown, playgroundModules } from "./playground.ts";
 import { type Entry, type ManifestSymbol, apiReport, elementsAsCode, extract, referencePage, symbolsOf } from "./reference.ts";
@@ -629,36 +629,119 @@ async function browserModule(file: string, minify = false): Promise<string>
     return entry.code;
 }
 
-/** The figure's code from demo.js, highlighted, with the two bound expressions marked for the figure's readout. */
+/**
+ * The figure's code from demo.js, highlighted: each binding the template
+ * makes is marked with `data-signal` for the readout, and the lines of each
+ * function the figure animates with `data-run`, so the page can show which
+ * code a change ran.
+ */
 async function figureCode(): Promise<string>
 {
     const path = "scripts/docs/demo.js";
     const { code } = exampleCode(await readFile(join(root, path), "utf8"), path, "figure", ["js"], "home page");
-    let found = 0;
-    const html = highlight(code, "js").replace(/<span class="b">\$\{<\/span>(?:<span class="g">)?(count|doubled)(?:<\/span>)?<span class="b">\}/g, (_, name: string) =>
+    const bound = new Set<string>();
+    const html = highlight(code, "js").replace(/<span class="b">\$\{<\/span>(?:<span class="g">)?(readout|altitude|fuel|throttle|action)(?:<\/span>)?<span class="b">\}/g, (_, name: string) =>
     {
-        found++;
+        bound.add(name);
         return `<span class="b">\${</span><span class="g" data-signal="${name}">${name}</span><span class="b">}`;
     });
-    if (found !== 2)
+    const missing = ["readout", "altitude", "fuel", "throttle", "action"].filter((name) => !bound.has(name));
+    if (missing.length > 0)
     {
-        throw new Error(`${path}: the figure's template should bind count and doubled once each; found ${found} marked bindings`);
+        throw new Error(`${path}: the figure's template no longer binds ${missing.join(", ")}`);
     }
+    const source = code.split("\n");
+    const runs = new Map<number, string>();
+    const mark = (name: string, opens: (line: string) => boolean, closes: (line: string) => boolean) =>
+    {
+        const first = source.findIndex(opens);
+        const last = first === -1 ? -1 : source.findIndex((line, index) => index >= first && closes(line));
+        if (first === -1 || last === -1)
+        {
+            throw new Error(`${path}: the figure's code no longer holds ${name}, which the page animates`);
+        }
+        for (let index = first; index <= last; index++)
+        {
+            runs.set(index, name);
+        }
+    };
+    mark("tick", (line) => line === "function tick()", (line) => line === "}");
+    mark("press", (line) => line === "function press()", (line) => line === "}");
+    mark("clock", (line) => line === "    effect(() =>", (line) => line === "    });");
+    mark("steer", (line) => line.startsWith("    const steer = "), () => true);
     return html
         .split("\n")
-        .map((line) =>
+        .map((line, index) =>
         {
             const indent = /^ */.exec(line)?.[0].length ?? 0;
-            return `<span class="line" style="--indent: ${indent}ch">${line.slice(indent)}</span>`;
+            const run = runs.get(index);
+            return `<span class="line"${run === undefined ? "" : ` data-run="${run}"`} style="--indent: ${indent}ch">${line.slice(indent)}</span>`;
         })
         .join("");
 }
 
-/** The released versions and their dates, from the changelog's headings. */
-async function revisions(): Promise<Array<{ version: string; date: string }>>
+/** The home page's tour: each core pattern's tested example from the guide that teaches it, highlighted. */
+async function tour(): Promise<TourStep[]>
 {
-    const changelog = await readFile(join(root, "CHANGELOG.md"), "utf8");
-    return [...changelog.matchAll(/^## (\S+) \((\d{4}-\d{2}-\d{2})\)$/gm)].map((match) => ({ version: match[1] ?? "", date: match[2] ?? "" }));
+    const steps: Array<Omit<TourStep, "code"> & { include: string }> = [
+        { id: "signals", title: "Signals", guide: "/guide/signals/", include: "packages/zerolith/test/examples/signals.example.test.ts#computed" },
+        { id: "templates", title: "Templates", guide: "/guide/templates/", include: "packages/zerolith/test/examples/guide.example.browser.test.ts#lists" },
+        { id: "routing", title: "Routing", guide: "/guide/routing/", include: "packages/router/test/examples/routes.ts" },
+        { id: "forms", title: "Forms", guide: "/guide/forms/", include: "packages/forms/test/examples/forms.example.browser.test.ts#form" },
+        { id: "server-rendering", title: "Server rendering", guide: "/guide/server-rendering/", include: "packages/zerolith/test/examples/hydrate.example.browser.test.ts#hydrate" }
+    ];
+    return Promise.all(steps.map(async ({ id, title, guide, include }) =>
+    {
+        const [path = "", region] = include.split("#");
+        const source = await readFile(join(root, path), "utf8");
+        for (const check of resultChecks(id))
+        {
+            if (!source.includes(check))
+            {
+                throw new Error(`${path} no longer holds ${check}, which the home page's ${title} result draws; update the result in scripts/docs/home.ts`);
+            }
+        }
+        const { language, code } = exampleCode(source, path, region, [], "home page");
+        return { id, title, guide, code: highlight(code, language) };
+    }));
+}
+
+/**
+ * The finding the home page shows `zerolith doctor` reporting: a `.get()`
+ * read bound in a template, at the line and column the command line counts,
+ * with the message it prints, read from the crate's lint so it cannot drift.
+ */
+async function doctorSample(): Promise<DoctorSample>
+{
+    const code = "template_frozen_read";
+    if (!(code in diagnosticCatalog))
+    {
+        throw new Error(`the home page's diagnostic ${code} is not in the catalog`);
+    }
+    const lines = [
+        "import { html, signal } from \"zerolith\";",
+        "",
+        "const count = signal(0);",
+        "",
+        "export function Counter()",
+        "{",
+        "    return html`<p>Count: ${count.get()}</p>`;",
+        "}"
+    ];
+    const lint = await readFile(join(root, "crates", "zerolith", "src", "lint.rs"), "utf8");
+    const message = /const FROZEN_READ: &str = "([^"]+)";/.exec(lint)?.[1];
+    if (message === undefined)
+    {
+        throw new Error("crates/zerolith/src/lint.rs no longer holds FROZEN_READ; update the home page's diagnostic");
+    }
+    const line = lines.findIndex((text) => text.includes("count.get()"));
+    const read = "<span class=\"g\">count</span>.<span class=\"f\">get</span>()";
+    const source = highlight(lines.join("\n"), "js");
+    if (source.split(read).length !== 2)
+    {
+        throw new Error("the home page's diagnostic source no longer highlights count.get() as one read");
+    }
+    return { file: "src/counter.js", source: source.replace(read, `<span class="frozen">${read}</span>`), code, line: line + 1, column: (lines[line] ?? "").indexOf("count.get()") + 1, message };
 }
 
 /** A byte count as the characteristics table writes it. */
@@ -667,8 +750,11 @@ function bytes(count: number): string
     return `${count.toLocaleString("en-US")} B`;
 }
 
-/** The home page's characteristics, each computed from the build or named for the check that holds it. */
-async function characteristics(manifest: ManifestSymbol[]): Promise<Characteristic[]>
+/** The facts the home page lists under its measures, each a characteristic with no number to set large. */
+const homeFacts = ["Optional build step: an import map, or `zerolith build`", "`script-src 'self'` with Trusted Types", "Node 24 or newer for the tools", "Apache-2.0"];
+
+/** The home page's characteristics, each computed from the build or named for the check that holds it, and the measured ones it sets large. */
+async function characteristics(manifest: ManifestSymbol[]): Promise<{ rows: Characteristic[]; measures: Measure[] }>
 {
     const core = await measure(join(root, "packages", "zerolith", "dist", "production", "index.js"));
     let dependencies = 0;
@@ -677,16 +763,24 @@ async function characteristics(manifest: ManifestSymbol[]): Promise<Characterist
         const manifestFile = JSON.parse(await readFile(join(root, "packages", name, "package.json"), "utf8")) as { dependencies?: Record<string, string> };
         dependencies += Object.keys(manifestFile.dependencies ?? {}).length;
     }
-    return [
+    const codes = Object.keys(diagnosticCatalog).length;
+    const measures: Measure[] = [
+        { name: "Core, gzip", value: (core.gzip / 1000).toFixed(1), unit: "kB", check: `${bytes(core.gzip)} against a budget of ${bytes(CORE_BUDGET_GZIP_BYTES)}; \`npm run size\` fails over it` },
+        { name: "Runtime dependencies", value: String(dependencies), unit: "", check: `Counted from the manifests of the ${runtimePackages.length} runtime packages` },
+        { name: "Documented exports", value: String(manifest.length), unit: "", check: `Across ${entries.length} modules; the docs build fails on one without a doc comment` },
+        { name: "Diagnostic codes", value: String(codes), unit: "", check: "Each with a page, generated from the runtime's catalog" }
+    ];
+    const rows = [
         { name: "Core size", value: `${bytes(core.gzip)} gzip, against a budget of ${bytes(CORE_BUDGET_GZIP_BYTES)}`, check: "`npm run size` bundles and minifies the production build and fails over budget" },
         { name: "Runtime dependencies", value: String(dependencies), check: `Counted from the manifests of the ${runtimePackages.length} runtime packages when this site was built` },
         { name: "Documented exports", value: `${manifest.length} across ${entries.length} modules`, check: "The docs build fails on an export without a doc comment" },
-        { name: "Diagnostic codes", value: `${Object.keys(diagnosticCatalog).length}, each with a page`, check: "Generated from the runtime's catalog" },
+        { name: "Diagnostic codes", value: `${codes}, each with a page`, check: "Generated from the runtime's catalog" },
         { name: "Build step", value: "Optional: an import map, or `zerolith build`", check: "The test suite runs the same files unbundled and bundled" },
         { name: "Content Security Policy", value: "`script-src 'self'` with Trusted Types and no `unsafe-eval`", check: "A browser test runs both builds under that policy" },
         { name: "Node", value: "24 or newer, for the command line and the build tools", check: "`engines` in every package" },
         { name: "License", value: "Apache-2.0", check: "Every package and the crate" }
     ];
+    return { rows, measures };
 }
 
 /** Copies the site's scripts, the production build the islands hydrate from, each module written as it was read and pinned with its source map beside it, the playground's modules, and the brand assets into the site. */
@@ -860,12 +954,28 @@ await Promise.all(pages.map(async (page) =>
     }, page.markdown);
 }));
 
-const homeData = { version, figureCode: await figureCode(), characteristics: await characteristics(manifest), revisions: await revisions() };
+const benchmarksData = { runs: await readRuns(join(root, "benchmarks", "results")) };
+const [newestRun] = benchmarksData.runs;
+if (newestRun === undefined)
+{
+    throw new Error("benchmarks/results/ holds no run for the home page");
+}
+const homeCharacteristics = await characteristics(manifest);
+const homeData: HomeData = {
+    version,
+    figureCode: await figureCode(),
+    characteristics: homeCharacteristics.rows,
+    measures: homeCharacteristics.measures,
+    facts: homeFacts,
+    tour: await tour(),
+    scores: { date: newestRun.date, rows: ranked(newestRun).filter((row) => !row.before).map(({ name, entry, version: release, score }) => ({ name, entry, version: release, score })) },
+    doctor: await doctorSample(),
+    diagnosticCount: Object.keys(diagnosticCatalog).length
+};
 const homeDescription = "A full frontend framework with clear patterns for you and your agent: signals, HTML templates with no compiler, routing, forms, server rendering, and i18n.";
 await publish({ ...shared, title: "zerolith", description: homeDescription, path: "/", url: absolute("/"), layout: "wide", view: Home(homeData) }, homeMarkdown(homeData));
 const playgroundDescription = "Edit a zerolith app in the browser, run it with Ctrl+Enter, and share a link to what you made.";
 await publish({ ...shared, title: "Playground", description: playgroundDescription, path: "/playground/", url: absolute("/playground/"), layout: "wide", view: Playground() }, await playgroundMarkdown(root));
-const benchmarksData = { runs: await readRuns(join(root, "benchmarks", "results")) };
 await publish({ ...shared, title: "Benchmarks", description: benchmarksDescription(benchmarksData), path: "/benchmarks/", url: absolute("/benchmarks/"), layout: "wide", view: Benchmarks(benchmarksData) }, benchmarksMarkdown(benchmarksData));
 
 const known = new Set<string>(["/styles.css", "/highlight.js", "/smooth.js", "/llms.txt", "/llms-full.txt", "/api.json", "/search.json", "/sitemap.xml", "/zerolith/index.js"]);

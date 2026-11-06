@@ -161,21 +161,66 @@ describe("documentation site", () =>
         await page.close();
     });
 
-    it("runs the home page's figure and totals what the updates changed", { timeout: 60000 }, async () =>
+    it("runs launch control on the home page, totals what each change did to the DOM, and draws it only when the reader acts", { timeout: 60000 }, async () =>
     {
         const { page, errors } = await open("/");
         const readout = (): Promise<string[]> => page.$$eval(".readout dd", (values) => values.map((value) => value.textContent ?? ""));
-        await page.waitForFunction(() => document.querySelector(".run .output p")?.textContent === "Count: 1, doubled: 2");
-        expect(await readout()).toEqual(["0", "0", "1"]);
+        const display = (): Promise<string> => page.$eval(".run .output .display", (element) => element.textContent ?? "");
+        const drawing = (): Promise<number> => page.evaluate(() => document.querySelector(".flow")?.getAnimations({ subtree: true }).length ?? 0);
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
+        expect(await readout()).toEqual(["0", "0", "0", "1"]);
+        expect(await drawing()).toBe(0);
+        await page.locator(".run .output input[type=\"range\"]").fill("90");
+        await page.waitForFunction(() => document.querySelector(".run .output label:nth-of-type(3)")?.textContent?.includes("90%") === true);
+        expect(await drawing()).toBeGreaterThan(0);
         await page.click(".run .output button");
-        await page.waitForFunction(() => document.querySelector(".readout dd")?.textContent === "2");
-        expect(await page.textContent(".run .output p")).toBe("Count: 2, doubled: 4");
-        expect(await readout()).toEqual(["2", "0", "1"]);
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.startsWith("T-") === true);
+        expect(await page.textContent(".run .output button")).toBe("Abort");
+        await page.waitForFunction(() => document.querySelector("[data-run=\"tick\"]")?.hasAttribute("data-running") === true);
         await page.click(".run .output button");
-        await page.waitForFunction(() => document.querySelector(".readout dd")?.textContent === "4");
-        expect(await page.textContent(".run .output p")).toBe("Count: 3, doubled: 6");
-        expect(await readout()).toEqual(["4", "0", "1"]);
-        expect(await page.locator(".figure code [data-signal]").count()).toBe(2);
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Aborted");
+        expect(await page.textContent(".run .output button")).toBe("Reset");
+        expect(await page.locator("[data-run=\"tick\"][data-running]").count()).toBe(0);
+        await page.click(".run .output button");
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
+        const [texts, , created, calls] = await readout();
+        expect(Number(texts)).toBeGreaterThan(3);
+        expect(created).toBe("0");
+        expect(calls).toBe("1");
+        expect(await display()).toBe("Ready");
+        expect(await page.locator(".figure code [data-signal]").count()).toBe(6);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("flies launch control to orbit at the default throttle", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
+        await page.click(".run .output button");
+        await page.waitForFunction(() => ["In orbit", "Out of fuel", "Aborted"].includes(document.querySelector(".run .output .display")?.textContent ?? ""), null, { timeout: 30000 });
+        expect(await page.textContent(".run .output .display")).toBe("In orbit");
+        expect(await page.$$eval(".run .output progress", (bars) => bars.map((bar) => (bar as HTMLProgressElement).value > 0))).toEqual([true, true]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("switches the home page's tour between its patterns by click and arrow key", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        const shown = (): Promise<string[]> => page.$$eval(".tour [role=\"tabpanel\"]", (panels) => (panels as HTMLElement[]).filter((panel) => !panel.hidden).map((panel) => panel.id));
+        expect(await shown()).toEqual(["tour-signals-panel"]);
+        await page.click("#tour-forms");
+        expect(await shown()).toEqual(["tour-forms-panel"]);
+        expect(await page.getAttribute("#tour-forms", "aria-selected")).toBe("true");
+        expect(await page.getAttribute("#tour-signals", "aria-selected")).toBe("false");
+        expect(await page.textContent("#tour-forms-panel code")).toContain("createForm");
+        await page.focus("#tour-forms");
+        await page.keyboard.press("ArrowRight");
+        expect(await shown()).toEqual(["tour-server-rendering-panel"]);
+        expect(await page.evaluate(() => document.activeElement?.id)).toBe("tour-server-rendering");
+        await page.keyboard.press("ArrowRight");
+        expect(await shown()).toEqual(["tour-signals-panel"]);
         expect(errors).toEqual([]);
         await page.close();
     });
@@ -190,7 +235,8 @@ describe("documentation site", () =>
         const failures: string[] = [];
         for (const id of ids)
         {
-            await page.selectOption("select[name=\"example\"]", id);
+            await page.click(".picker-button");
+            await page.click(`.picker-list [role="option"][data-value="${id}"]`);
             await page.click("[data-action=\"run\"]");
             const frame = page.frameLocator(".preview iframe");
             await frame.locator("#app > *").first().waitFor({ timeout: 15000 });
@@ -201,6 +247,50 @@ describe("documentation site", () =>
         expect(failures).toEqual([]);
         expect(errors).toEqual([]);
         expect(await page.evaluate(() => history.length)).toBe(entries);
+        await page.close();
+    });
+
+    it("marks the section the reader is in on the table of contents as the page scrolls", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/guide/signals/");
+        const current = (): Promise<string[]> => page.$$eval(".toc a[aria-current]", (links) => links.map((link) => link.getAttribute("href") ?? ""));
+        expect(await current()).toEqual(["#reading-and-writing"]);
+        await page.evaluate(() => document.getElementById("effects")?.scrollIntoView());
+        await expect.poll(current).toEqual(["#effects"]);
+        await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+        const last = await page.$$eval(".toc a", (links) => links.at(-1)?.getAttribute("href") ?? "");
+        await expect.poll(current).toEqual([last]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("picks a playground example from its own listbox by pointer and by keyboard", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/");
+        const trigger = page.locator(".picker-button");
+        expect(await page.isVisible("select[name=\"example\"]")).toBe(false);
+        expect(await trigger.getAttribute("aria-expanded")).toBe("false");
+        await trigger.focus();
+        await page.keyboard.press("ArrowDown");
+        expect(await trigger.getAttribute("aria-expanded")).toBe("true");
+        expect(await page.evaluate(() => document.activeElement?.getAttribute("role"))).toBe("listbox");
+        await page.keyboard.press("ArrowDown");
+        const second = await page.$eval(".picker-list [role=\"option\"]:nth-child(2)", (option) => option.getAttribute("data-value"));
+        expect(await page.getAttribute(".picker-list", "aria-activedescendant")).toBe(`example-${second}`);
+        await page.keyboard.press("Enter");
+        expect(await page.inputValue("select[name=\"example\"]")).toBe(second);
+        expect(await trigger.getAttribute("aria-expanded")).toBe("false");
+        expect(await page.evaluate(() => document.activeElement?.classList.contains("picker-button"))).toBe(true);
+        expect(await page.getAttribute(`#example-${second}`, "aria-selected")).toBe("true");
+        expect(await page.textContent("#example-current")).toBe(await page.textContent(`#example-${second} .name`));
+        expect(page.url()).toContain(`#example=${second}`);
+        await trigger.click();
+        await page.keyboard.press("Escape");
+        expect(await trigger.getAttribute("aria-expanded")).toBe("false");
+        await trigger.click();
+        await page.mouse.click(5, 5);
+        expect(await trigger.getAttribute("aria-expanded")).toBe("false");
+        expect(errors).toEqual([]);
         await page.close();
     });
 
@@ -364,9 +454,12 @@ describe("documentation site", () =>
         await expect.poll(() => page.frameLocator(".preview iframe").locator("#app p").first().textContent()).toBe("edited");
 
         await page.click("header a.home");
-        await page.waitForFunction(() => document.querySelector(".run .output p")?.textContent === "Count: 1, doubled: 2");
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
         await page.click(".run .output button");
-        await page.waitForFunction(() => document.querySelector(".readout dd")?.textContent === "2");
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.startsWith("T-") === true);
+        await page.waitForFunction(() => Number(document.querySelector(".readout dd")?.textContent) > 0);
+        await page.click(".run .output button");
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Aborted");
         expect(await kept()).toBe(true);
         expect(loads).toEqual([]);
         expect(errors).toEqual([]);

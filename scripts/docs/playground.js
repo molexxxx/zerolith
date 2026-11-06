@@ -285,6 +285,7 @@ export function start(host)
         escaped = false;
     });
 
+    const stopPicker = picker(host, select);
     select.addEventListener("change", () =>
     {
         load(examples[select.value] ?? "");
@@ -362,5 +363,142 @@ export function start(host)
         themes.disconnect();
         preference.removeEventListener("change", followTheme);
         removeEventListener("message", onMessage);
+        stopPicker();
+    };
+}
+
+/**
+ * Drives the example picker: a button that opens a listbox of the examples,
+ * each with its summary, over the native select, which stays the source of
+ * the value and what a page without JavaScript shows. Choosing an option
+ * sets the select and fires its change event; a change made elsewhere, as
+ * from the address, is mirrored back. The list follows the listbox pattern:
+ * the arrow keys, Home, and End move, Enter and Space choose, and Escape or
+ * a press outside closes it. Each time it opens, every option takes the
+ * height of the tallest, so the rows line up whatever their summaries hold.
+ * @param {HTMLElement} host
+ * @param {HTMLSelectElement} select
+ * @returns {() => void}
+ */
+function picker(host, select)
+{
+    const root = host.querySelector("[data-picker]");
+    const trigger = root?.querySelector(".picker-button");
+    const list = root?.querySelector("[role=\"listbox\"]");
+    const current = root?.querySelector("#example-current");
+    if (!(root instanceof HTMLElement) || !(trigger instanceof HTMLButtonElement) || !(list instanceof HTMLElement))
+    {
+        return () => undefined;
+    }
+    const options = /** @type {HTMLElement[]} */ (Array.from(list.querySelectorAll("[role=\"option\"]")));
+    let active = 0;
+
+    const sync = () =>
+    {
+        for (const option of options)
+        {
+            const chosen = option.getAttribute("data-value") === select.value;
+            option.setAttribute("aria-selected", String(chosen));
+            if (chosen && current !== null)
+            {
+                current.textContent = option.querySelector(".name")?.textContent ?? "";
+            }
+        }
+    };
+    /** @param {number} index */
+    const point = (index) =>
+    {
+        active = (index + options.length) % options.length;
+        options.forEach((option, at) => option.toggleAttribute("data-active", at === active));
+        const option = options[active];
+        if (option !== undefined)
+        {
+            list.setAttribute("aria-activedescendant", option.id);
+            option.scrollIntoView({ block: "nearest" });
+        }
+    };
+    const open = () =>
+    {
+        list.hidden = false;
+        list.style.removeProperty("--picker-row");
+        list.style.setProperty("--picker-row", `${Math.max(...options.map((option) => option.offsetHeight))}px`);
+        trigger.setAttribute("aria-expanded", "true");
+        point(Math.max(0, options.findIndex((option) => option.getAttribute("data-value") === select.value)));
+        list.focus();
+    };
+    /** @param {boolean} refocus */
+    const close = (refocus) =>
+    {
+        list.hidden = true;
+        trigger.setAttribute("aria-expanded", "false");
+        if (refocus)
+        {
+            trigger.focus();
+        }
+    };
+    /** @param {number} index */
+    const choose = (index) =>
+    {
+        const value = options[index]?.getAttribute("data-value");
+        if (value !== undefined && value !== null && value !== select.value)
+        {
+            select.value = value;
+            select.dispatchEvent(new Event("change"));
+        }
+        close(true);
+    };
+
+    trigger.addEventListener("click", () => (list.hidden ? open() : close(false)));
+    trigger.addEventListener("keydown", (event) =>
+    {
+        if (["ArrowDown", "ArrowUp", "Enter", " "].includes(event.key))
+        {
+            event.preventDefault();
+            open();
+        }
+    });
+    list.addEventListener("keydown", (event) =>
+    {
+        const moves = { ArrowDown: active + 1, ArrowUp: active - 1, Home: 0, End: options.length - 1 };
+        if (event.key in moves)
+        {
+            event.preventDefault();
+            point(moves[/** @type {keyof typeof moves} */ (event.key)]);
+        }
+        else if (event.key === "Enter" || event.key === " ")
+        {
+            event.preventDefault();
+            choose(active);
+        }
+        else if (event.key === "Escape")
+        {
+            event.preventDefault();
+            close(true);
+        }
+        else if (event.key === "Tab")
+        {
+            close(false);
+        }
+    });
+    options.forEach((option, index) =>
+    {
+        option.addEventListener("click", () => choose(index));
+        option.addEventListener("pointermove", () => point(index));
+    });
+    /** @param {PointerEvent} event */
+    const outside = (event) =>
+    {
+        if (!list.hidden && event.target instanceof Node && !root.contains(event.target))
+        {
+            close(false);
+        }
+    };
+    document.addEventListener("pointerdown", outside);
+    select.addEventListener("change", sync);
+    sync();
+    return () =>
+    {
+        document.removeEventListener("pointerdown", outside);
+        select.removeEventListener("change", sync);
     };
 }
