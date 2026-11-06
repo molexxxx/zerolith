@@ -4,8 +4,10 @@
  * sandboxed frame when the reader presses Run or Ctrl+Enter, picks an
  * example, or resets one. The frame has an opaque origin, loads the
  * development builds through its own import map, and reports console output
- * and errors back with postMessage. Copy link puts the code, compressed, in
- * the address's fragment, which never reaches a server.
+ * and errors back with postMessage. The page keeps what the code stores in
+ * `localStorage` and `sessionStorage` for the tab, so it lasts through each
+ * run and a reload until Reset. Copy link puts the code, compressed, in the
+ * address's fragment, which never reaches a server.
  */
 import { computed, effect, scope, signal } from "zerolith";
 import { highlight } from "./highlight.js";
@@ -64,6 +66,95 @@ async function unpack(packed)
     }
 }
 
+/** The most characters of keys and values the preview's storage holds, local and session together, as a browser caps an origin's storage. */
+const STORAGE_LIMIT = 256 * 1024;
+
+/** The key under which this tab's sessionStorage keeps the preview's storage. */
+const STORAGE_KEY = "zerolith-playground-storage";
+
+/**
+ * What the preview's code keeps in `localStorage` and `sessionStorage`,
+ * each as its pairs of a key and a value.
+ * @typedef {{ local: Array<[string, string]>, session: Array<[string, string]> }} Kept
+ */
+
+/**
+ * Whether `list` holds pairs of strings, as a storage's entries do.
+ * @param {unknown} list
+ * @returns {list is Array<[string, string]>}
+ */
+function isEntries(list)
+{
+    return Array.isArray(list) && list.every((pair) => Array.isArray(pair) && pair.length === 2 && typeof pair[0] === "string" && typeof pair[1] === "string");
+}
+
+/**
+ * The preview's storage in `value`, as the frame sends it and this tab
+ * keeps it: entries for local and session storage, within
+ * `STORAGE_LIMIT` together. Anything else gives `undefined`, since the
+ * frame runs whatever code a link holds.
+ * @param {unknown} value
+ * @returns {Kept | undefined}
+ */
+function keptFrom(value)
+{
+    if (typeof value !== "object" || value === null)
+    {
+        return undefined;
+    }
+    const { local, session } = /** @type {{ local?: unknown, session?: unknown }} */ (value);
+    if (!isEntries(local) || !isEntries(session))
+    {
+        return undefined;
+    }
+    const size = [...local, ...session].reduce((total, [key, text]) => total + key.length + text.length, 0);
+    return size > STORAGE_LIMIT ? undefined : { local, session };
+}
+
+/**
+ * The preview's storage this tab kept, or empty storage when it kept none
+ * or refuses storage.
+ * @returns {Kept}
+ */
+function keptInTab()
+{
+    try
+    {
+        return keptFrom(JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? "null")) ?? { local: [], session: [] };
+    }
+    catch
+    {
+        return { local: [], session: [] };
+    }
+}
+
+/**
+ * Keeps the preview's storage in this tab for the next run and a reload,
+ * or forgets it for `undefined`; a tab that refuses storage keeps it for
+ * this visit alone.
+ * @param {Kept | undefined} kept
+ * @returns {boolean}
+ */
+function keepInTab(kept)
+{
+    try
+    {
+        if (kept === undefined)
+        {
+            sessionStorage.removeItem(STORAGE_KEY);
+        }
+        else
+        {
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(kept));
+        }
+        return true;
+    }
+    catch
+    {
+        return false;
+    }
+}
+
 /**
  * The site's theme: the reader's choice, or the system's preference.
  * @returns {"light" | "dark"}
@@ -81,18 +172,23 @@ function siteTheme()
 /**
  * The document the preview frame runs: an import map for the packages, a
  * reporter for console output and errors, a listener that takes the site's
- * theme, and the code as a module. The frame's opaque origin keeps it from
- * seeing the site's theme through `prefers-color-scheme`, so the theme
- * arrives as the root's `data-theme` and in messages when the reader
- * changes it. The app stays hidden until the brand's fonts have loaded,
- * or for a second and a half at most, so it never shows first in a
- * fallback face.
+ * theme, storage, and the code as a module. The frame's opaque origin keeps
+ * it from seeing the site's theme through `prefers-color-scheme`, so the
+ * theme arrives as the root's `data-theme` and in messages when the reader
+ * changes it. That origin has no storage either, and reading
+ * `localStorage` there throws, so the frame gets a `localStorage` and a
+ * `sessionStorage` of its own, filled with what `kept` holds, which send
+ * the page their entries after each change and refuse a write past
+ * `STORAGE_LIMIT` with a `QuotaExceededError`, as a full storage does.
+ * The app stays hidden until the brand's fonts have loaded, or for a
+ * second and a half at most, so it never shows first in a fallback face.
  * @param {string} code
  * @param {Record<string, string>} imports
  * @param {"light" | "dark"} theme
+ * @param {Kept} kept
  * @returns {string}
  */
-function frameDocument(code, imports, theme)
+function frameDocument(code, imports, theme, kept)
 {
     const reporter = `
         const plain = (_, item) => item instanceof Error ? item.name + ": " + item.message : item instanceof Map || item instanceof Set ? [...item] : item;
@@ -128,6 +224,44 @@ function frameDocument(code, imports, theme)
         }
         addEventListener("error", (event) => send("error", [event.error?.message ?? event.message]));
         addEventListener("unhandledrejection", (event) => send("error", [event.reason?.message ?? String(event.reason)]));
+        {
+            const kept = ${JSON.stringify(kept).replace(/</g, "\\u003c")};
+            const areas = { local: new Map(kept.local), session: new Map(kept.session) };
+            const used = () => [...areas.local, ...areas.session].reduce((total, [key, value]) => total + key.length + value.length, 0);
+            const save = () => parent.postMessage({ playgroundStorage: { local: [...areas.local], session: [...areas.session] } }, "*");
+            const storage = (entries) => ({
+                get length()
+                {
+                    return entries.size;
+                },
+                key: (index) => [...entries.keys()][index] ?? null,
+                getItem: (key) => entries.get(String(key)) ?? null,
+                setItem: (key, value) =>
+                {
+                    const name = String(key);
+                    const text = String(value);
+                    const before = entries.get(name);
+                    if (used() + text.length + (before === undefined ? name.length : -before.length) > ${STORAGE_LIMIT})
+                    {
+                        throw new DOMException("Setting the value of '" + name + "' exceeded the quota.", "QuotaExceededError");
+                    }
+                    entries.set(name, text);
+                    save();
+                },
+                removeItem: (key) =>
+                {
+                    entries.delete(String(key));
+                    save();
+                },
+                clear: () =>
+                {
+                    entries.clear();
+                    save();
+                }
+            });
+            Object.defineProperty(window, "localStorage", { value: storage(areas.local), configurable: true, enumerable: true });
+            Object.defineProperty(window, "sessionStorage", { value: storage(areas.session), configurable: true, enumerable: true });
+        }
         addEventListener("message", (event) =>
         {
             if (event.source === parent && (event.data?.playgroundTheme === "light" || event.data?.playgroundTheme === "dark"))
@@ -191,6 +325,7 @@ export function start(host)
     const notice = signal("");
     editor.value = code.get();
     let stopped = false;
+    let kept = keptInTab();
 
     const owner = scope(() =>
     {
@@ -230,7 +365,7 @@ export function start(host)
         const theme = siteTheme();
         const next = /** @type {HTMLIFrameElement} */ (frame.cloneNode(false));
         next.style.colorScheme = theme;
-        next.srcdoc = frameDocument(code.get(), imports, theme);
+        next.srcdoc = frameDocument(code.get(), imports, theme, kept);
         frame.replaceWith(next);
         frame = next;
     }
@@ -295,6 +430,8 @@ export function start(host)
     runButton?.addEventListener("click", run);
     host.querySelector("[data-action=\"reset\"]")?.addEventListener("click", () =>
     {
+        kept = { local: [], session: [] };
+        keepInTab(undefined);
         load(examples[select.value] ?? "");
         history.replaceState(history.state, "", location.pathname);
     });
@@ -322,7 +459,21 @@ export function start(host)
     /** @param {MessageEvent} event */
     const onMessage = (event) =>
     {
-        if (event.source !== frame.contentWindow || typeof event.data !== "object" || event.data === null || event.data.playground !== true)
+        if (event.source !== frame.contentWindow || typeof event.data !== "object" || event.data === null)
+        {
+            return;
+        }
+        if (Object.hasOwn(event.data, "playgroundStorage"))
+        {
+            const next = keptFrom(event.data.playgroundStorage);
+            if (next !== undefined)
+            {
+                kept = next;
+                keepInTab(next);
+            }
+            return;
+        }
+        if (event.data.playground !== true)
         {
             return;
         }

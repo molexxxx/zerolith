@@ -26,6 +26,9 @@ export const examples: Example[] = [
     { id: "list", title: "Packing list", summary: "A keyed list with `each`, a form that adds to it, and counts derived from the list." },
     { id: "conditions", title: "Conditions", summary: "Showing one view or another with `when`, and a branch that cleans up after itself with `onDispose`." },
     { id: "async", title: "Async data", summary: "A `resource` that fetches a city's record from this site and formats every fact for your locale, with loading, error, and reload, keeping its last value while the next one loads." },
+    { id: "retry", title: "Retry and timeout", summary: "A `resource` that gives a flaky service three tries: a `timeout` on each run, a wait that doubles before each retry, the `attempt` it is on, and reload." },
+    { id: "saved", title: "Saved state", summary: "Notes that survive a reload with `@zerolith/state`: `stored`, undo and redo from `history`, a `debounced` search, and a `selector` for the open note." },
+    { id: "browser", title: "Browser signals", summary: "The page as signals from `@zerolith/browser`: online, visible, the window's size, a box's size, and whether its badge is in view." },
     { id: "forms", title: "Forms", summary: "A native form with `@zerolith/forms`: validation in the browser first, then field errors from the server." },
     { id: "styles", title: "Scoped styles", summary: "Component styles with the `css` tag, where they stop, and a value set through a custom property." },
     { id: "dialog", title: "Accessible dialog", summary: "A dialog with a focus trap, Escape to close, and an announcement from `@zerolith/a11y`." },
@@ -111,7 +114,7 @@ function escapeText(text: string): string
 /** The playground as Markdown: what it does and every example's code. */
 export async function playgroundMarkdown(root: string): Promise<string>
 {
-    const parts = ["# Playground", "", "Edit a zerolith app in the browser and run it with one key. The code runs in a sandboxed frame with the development builds of `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/a11y`, `@zerolith/state`, `@zerolith/browser`, and `@zerolith/i18n`, so diagnostics carry their full text. A view renders into `<main id=\"app\">`, and `console` output shows under the preview. Copy link puts the code in the address, so a link opens with your code in the editor.", "", "## Examples"];
+    const parts = ["# Playground", "", "Edit a zerolith app in the browser and run it with one key. The code runs in a sandboxed frame with the development builds of `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/a11y`, `@zerolith/state`, `@zerolith/browser`, and `@zerolith/i18n`, so diagnostics carry their full text. A view renders into `<main id=\"app\">`, and `console` output shows under the preview. What the code keeps in `localStorage` or `sessionStorage` lasts for the tab, through each run and a reload, until Reset. Copy link puts the code in the address, so a link opens with your code in the editor.", "", "## Examples"];
     for (const example of examples)
     {
         const code = (await readFile(join(root, "scripts", "docs", "playground", `${example.id}.js`), "utf8")).trim();

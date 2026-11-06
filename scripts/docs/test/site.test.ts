@@ -392,6 +392,169 @@ describe("documentation site", () =>
         await page.close();
     });
 
+    it("keeps what the preview stores for the tab through a run and a reload, refuses a write past its quota and storage it did not send, and clears it on Reset", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/");
+        const count = [
+            "const runs = Number(localStorage.getItem(\"runs\") ?? 0) + 1;",
+            "const tab = sessionStorage.getItem(\"tab\");",
+            "localStorage.setItem(\"runs\", String(runs));",
+            "sessionStorage.setItem(\"tab\", \"kept\");",
+            "let refused = \"none\";",
+            "try",
+            "{",
+            "    localStorage.setItem(\"large\", \"x\".repeat(300000));",
+            "}",
+            "catch (error)",
+            "{",
+            "    refused = error.name;",
+            "}",
+            "console.log([runs, String(tab), refused, localStorage.length].join(\" \"));"
+        ].join("\n");
+        const forged = [
+            "parent.postMessage({ playgroundStorage: { local: [[\"runs\", \"100\"]], session: [[\"tab\", 7]] } }, \"*\");",
+            "parent.postMessage({ playgroundStorage: { local: [[\"runs\", \"100\"], [\"large\", \"x\".repeat(300000)]], session: [] } }, \"*\");",
+            "parent.postMessage({ playgroundStorage: { local: [[\"runs\", 100]], session: [] } }, \"*\");",
+            "parent.postMessage({ playgroundStorage: \"runs=100\" }, \"*\");",
+            "console.log(\"sent\");"
+        ].join("\n");
+        const lines = (): Promise<string[]> => page.$$eval(".console p", (items) => items.map((item) => item.textContent ?? ""));
+        const runProgram = async (program: string): Promise<void> =>
+        {
+            await page.fill("textarea[name=\"code\"]", program);
+            await page.click("[data-action=\"run\"]");
+        };
+        await runProgram(count);
+        await expect.poll(lines).toEqual(["1 null QuotaExceededError 1"]);
+        await page.click("[data-action=\"run\"]");
+        await expect.poll(lines).toEqual(["2 kept QuotaExceededError 1"]);
+        await page.reload();
+        await runProgram(count);
+        await expect.poll(lines).toEqual(["3 kept QuotaExceededError 1"]);
+        await runProgram(forged);
+        await expect.poll(lines).toEqual(["sent"]);
+        await page.evaluate(() => new Promise<void>((resolve) =>
+        {
+            addEventListener("message", () => resolve(), { once: true });
+            postMessage({ playgroundStorage: { local: [["runs", "100"]], session: [] } }, "*");
+        }));
+        await runProgram(count);
+        await expect.poll(lines).toEqual(["4 kept QuotaExceededError 1"]);
+        await page.click("[data-action=\"reset\"]");
+        await runProgram(count);
+        await expect.poll(lines).toEqual(["1 null QuotaExceededError 1"]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("keeps the saved state example's notes through a run and a reload, with undo, a search that waits for a pause, and Reset to start over", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/#example=saved");
+        const frame = page.frameLocator(".preview iframe");
+        const titles = async (): Promise<string[]> => (await frame.locator("li button").allTextContents()).map((title) => title.trim());
+        const undo = frame.locator("button", { hasText: "Undo" });
+        await expect.poll(titles).toEqual(["Passport", "Camping", "Porto"]);
+        await frame.locator("button", { hasText: "New" }).click();
+        await frame.locator("textarea").fill("Sunscreen\nThe tall bottle.");
+        await expect.poll(titles).toEqual(["Sunscreen", "Passport", "Camping", "Porto"]);
+        expect(await undo.isDisabled()).toBe(false);
+        await page.click("[data-action=\"run\"]");
+        await expect.poll(() => undo.isDisabled()).toBe(true);
+        expect(await titles()).toEqual(["Sunscreen", "Passport", "Camping", "Porto"]);
+        await page.reload();
+        await expect.poll(titles).toEqual(["Sunscreen", "Passport", "Camping", "Porto"]);
+        await frame.locator("li button", { hasText: "Camping" }).click();
+        expect(await frame.locator("li button[aria-current=\"true\"]").textContent()).toContain("Camping");
+        await frame.locator("button", { hasText: "Delete" }).click();
+        await expect.poll(titles).toEqual(["Sunscreen", "Passport", "Porto"]);
+        await undo.click();
+        await expect.poll(titles).toEqual(["Sunscreen", "Passport", "Camping", "Porto"]);
+        await frame.locator("input[type=\"search\"]").pressSequentially("port");
+        await expect.poll(titles).toEqual(["Passport", "Porto"]);
+        await expect.poll(() => page.$$eval(".console p", (items) => items.map((item) => item.textContent))).toEqual(["Searching for \"port\""]);
+        await page.click("[data-action=\"reset\"]");
+        await expect.poll(titles).toEqual(["Passport", "Camping", "Porto"]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("tries the retry example's flaky service three times on each request, one started midway through another included, shows the timeout on each try when one retry is all it has, and gives up at once on a 404", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/#example=retry");
+        const frame = page.frameLocator(".preview iframe");
+        const status = (): Promise<string | null> => frame.locator(".status").textContent();
+        const runs = (): Promise<string | null> => frame.locator(".runs").textContent();
+        const calls = (): Promise<string[]> => page.$$eval(".console p", (items) => items.map((item) => (item.textContent ?? "").replace(/^[\d.]+ s: /, "")));
+        const failing = ["call 1 gets a 503", "call 2 gets no answer"];
+        const request = [...failing, "call 3 goes through"];
+        await expect.poll(status, { timeout: 10000 }).toBe("status: resolved");
+        expect(await runs()).toBe("3 of 3");
+        expect(await frame.locator(".place").textContent()).toBe("Lisbon, Portugal");
+        expect(await calls()).toEqual(request);
+        await frame.locator("button", { hasText: "Reload" }).click();
+        await expect.poll(calls, { timeout: 5000 }).toEqual([...request, ...failing]);
+        await frame.locator("button", { hasText: "Reload" }).click();
+        await expect.poll(status, { timeout: 10000 }).toBe("status: resolved");
+        expect(await runs()).toBe("3 of 3");
+        expect(await calls()).toEqual([...request, ...failing, ...request]);
+        const code = await page.inputValue("textarea[name=\"code\"]");
+        expect(code).toContain("const RETRIES = 2;");
+        expect(code).toContain("const STATUS = 503;");
+        await page.fill("textarea[name=\"code\"]", code.replace("const RETRIES = 2;", "const RETRIES = 1;"));
+        await page.click("[data-action=\"run\"]");
+        await expect.poll(status, { timeout: 10000 }).toBe("status: error");
+        expect(await runs()).toBe("2 of 2");
+        expect(await frame.locator("[role=\"alert\"]").textContent()).toContain("The service did not answer within a second.");
+        expect(await calls()).toEqual(failing);
+        await frame.locator("button", { hasText: "Try again" }).click();
+        await expect.poll(calls, { timeout: 5000 }).toEqual([...failing, ...failing]);
+        await expect.poll(status, { timeout: 5000 }).toBe("status: error");
+        expect(await runs()).toBe("2 of 2");
+        await page.fill("textarea[name=\"code\"]", code.replace("const STATUS = 503;", "const STATUS = 404;"));
+        await page.click("[data-action=\"run\"]");
+        await expect.poll(status, { timeout: 10000 }).toBe("status: error");
+        expect(await runs()).toBe("1 of 3");
+        expect(await frame.locator("[role=\"alert\"]").textContent()).toContain("The service answered 404.");
+        expect(await calls()).toEqual(["call 1 gets a 404"]);
+        await frame.locator("button", { hasText: "Try again" }).click();
+        await expect.poll(calls, { timeout: 5000 }).toEqual(["call 1 gets a 404", "call 1 gets a 404"]);
+        await expect.poll(status, { timeout: 5000 }).toBe("status: error");
+        expect(await runs()).toBe("1 of 3");
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("shows the browser example's window and box sizes, the badge in view once all of it shows in its box and out of view with half of it hidden, and the network going offline", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/#example=browser");
+        const frame = page.frameLocator(".preview iframe");
+        const reading = (label: string): Promise<string | null> => frame.locator("dl > div").filter({ has: frame.locator("dt", { hasText: label }) }).locator("dd").textContent();
+        await expect.poll(() => reading("Badge")).toBe("Out of view");
+        const size = await frame.locator("body").evaluate(() => `${innerWidth} × ${innerHeight} px`);
+        expect(await reading("Window")).toBe(size);
+        expect(await reading("Box")).toMatch(/^[1-9]\d* × [1-9]\d* px$/);
+        expect(await reading("Network")).toBe("Online");
+        expect(await reading("Page")).toMatch(/^Shown for \d+ s$/);
+        await frame.locator(".box").evaluate((box) => box.scrollTo(0, box.scrollHeight));
+        await expect.poll(() => reading("Badge")).toBe("In view");
+        await frame.locator(".badge").evaluate((badge) =>
+        {
+            const box = badge.parentElement as HTMLElement;
+            const shown = badge.getBoundingClientRect();
+            const edge = box.getBoundingClientRect().top + box.clientTop + box.clientHeight;
+            box.scrollBy(0, shown.top + shown.height / 2 - edge);
+        });
+        await expect.poll(() => reading("Badge")).toBe("Out of view");
+        await page.setViewportSize({ width: 1000, height: 700 });
+        await expect.poll(() => reading("Window")).not.toBe(size);
+        await page.context().setOffline(true);
+        await expect.poll(() => reading("Network")).toBe("Offline");
+        await page.context().setOffline(false);
+        await expect.poll(() => reading("Network")).toBe("Online");
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
     it("keeps the preview in the site's theme when the reader switches it, without running the code again", { timeout: 60000 }, async () =>
     {
         const { page, errors } = await open("/playground/#example=counter");

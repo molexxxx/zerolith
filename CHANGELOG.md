@@ -7,6 +7,7 @@ Every package in this repository is released together and carries the same versi
 ### Changed
 
 - Docs site: a push to `main` deploys the site, and while `main` carries the stable line its stable docs are built from `main` itself, so a change to the site goes live with its push; a line branch such as `1.x`, or the release's tag, stands in otherwise.
+- Docs site: the playground has three more examples, for what 1.1.0 added. Retry and timeout loads a city's record through a stand-in for a flaky service, which gives the first call of every request a 503 and the second no answer, so `timeout`, `retry`, `backoff`, and `retryIf` play out the same way each time while `attempt` counts the runs. Saved state is a notes app whose notes survive a reload with `stored`, with undo and redo from `history`, a `debounced` search, and a `selector` for the open note. Browser signals reads out `online`, `visible`, `windowSize`, `size`, and `inView` as they change. The preview's sandboxed frame has an opaque origin, where reading `localStorage` throws, so the playground gives it a `localStorage` and a `sessionStorage` of its own, kept for the tab through each run and a reload until Reset, which refuse a write past 262,144 characters of keys and values with a `QuotaExceededError`, as a full storage does.
 
 ## 1.1.0 (2026-11-06)
 
