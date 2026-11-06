@@ -16,6 +16,7 @@ Every package in this repository is released together and carries the same versi
 - `@zerolith/client`: a 2xx JSON body that is empty or holds only the whitespace JSON allows, spaces, tabs, and line breaks, as a HEAD response's or a server's empty result does, resolves `undefined`, as the guide says, where it rejected with a `SyntaxError`.
 - `@zerolith/client`: a HEAD response is read without its body on every transport, as RFC 9110, section 9.3.2, gives it none and `fetch` reads it: JSON or text resolves `undefined`, any other type an empty `Blob` of its type, and a failed one rejects with the problem its status line gives, where a body that `portTransport` or another transport brought back was read and resolved, or read as the problem.
 - `@zerolith/client`: `generateClient` types a HEAD operation's output as `undefined` where its document gives the response a JSON or text body, which a HEAD response never carries and the client resolves as `undefined`, where it typed the body's schema or `string`; a binary type stays `Blob`, the empty one the client resolves.
+- `@zerolith/client`: a problem member of the wrong type, such as a string `status` or a numeric `title`, is left out, as RFC 9457, section 3.1, requires, where it replaced the response's status or became the error's message. `fields` is read as lists of messages, as `@zerolith/forms` reads it, and left out when it is not an object, such as a string, `null`, or an array, where any value reached the `FieldErrors` that promise lists of strings.
 
 ## 1.0.0 (2026-11-05)
 

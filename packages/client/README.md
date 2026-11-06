@@ -15,7 +15,7 @@ const note = await api.call("getNote", { params: { id } });
 const notes = api.query("listNotes", () => ({ query: { q: search.get() } }));
 ```
 
-A response outside 2xx rejects with a `ProblemError` carrying the RFC 9457 problem the server sent, or one built from the status line. `query` wraps an operation in a resource that calls again when the signals it reads change. A custom `transport` answers requests in process, for tests or an Electron bridge, and the client never assumes which server produced the document.
+A response outside 2xx rejects with a `ProblemError` carrying the RFC 9457 problem the server sent, with members of the wrong type left out, or one built from the status line. `query` wraps an operation in a resource that calls again when the signals it reads change. A custom `transport` answers requests in process, for tests or an Electron bridge, and the client never assumes which server produced the document.
 
 The guide is on the [docs site](https://zerolith.dev/guide/client/).
 

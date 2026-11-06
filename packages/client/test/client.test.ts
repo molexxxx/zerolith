@@ -408,4 +408,45 @@ describe("requests and responses at the edges", () =>
         expect(failure).toBeInstanceOf(ProblemError);
         expect((failure as ProblemError).problem).toEqual({ status: 404, title: "Not Found" });
     });
+
+    it("reads a problem as RFC 9457 says, leaving out members of the wrong type and keeping extension members", async () =>
+    {
+        const credit = { type: "https://example.com/probs/out-of-credit", title: "You do not have enough credit.", detail: "Your current balance is 30, but that costs 50.", instance: "/account/12345/msgs/abc", balance: 30, accounts: ["/account/12345", "/account/67890"] };
+        const validation = { type: "https://example.net/validation-error", title: "Your request is not valid.", errors: [{ detail: "must be a positive integer", pointer: "#/age" }, { detail: "must be 'green', 'red' or 'blue'", pointer: "#/profile/color" }] };
+        const answers: Response[] = [
+            problem(403, credit),
+            problem(422, validation),
+            problem(404, { type: 1, title: 5, status: "500", detail: "Gone", instance: [], extra: "kept" }),
+            problem(400, { title: "Conflict", status: 409 }),
+            problem(422, { title: "Invalid", fields: { email: "required", age: 5, tags: ["taken", 1], none: [2] } }),
+            problem(422, { title: "Invalid", fields: "email" }),
+            problem(422, { title: "Invalid", fields: ["email"] }),
+            problem(422, { title: "Invalid", fields: null }),
+            problem(422, { title: "Invalid", fields: JSON.parse('{"__proto__":"taken","email":"required"}') as unknown })
+        ];
+        const count = answers.length;
+        const api = createClient<Api>(routes, { baseUrl: "https://api.test", transport: async () => answers.shift() ?? Response.json({}) });
+        const failures: unknown[] = [];
+        for (let index = 0; index < count; index += 1)
+        {
+            failures.push(await api.call("getNote", { params: { id: "a" } }).catch((error: unknown) => error));
+        }
+        expect(failures.every((failure) => failure instanceof ProblemError)).toBe(true);
+        expect(failures.slice(0, 8).map((failure) => (failure as ProblemError).problem)).toEqual([
+            { ...credit, status: 403 },
+            { ...validation, status: 422 },
+            { detail: "Gone", extra: "kept", status: 404 },
+            { title: "Conflict", status: 409 },
+            { title: "Invalid", status: 422, fields: { email: ["required"], tags: ["taken"] } },
+            { title: "Invalid", status: 422 },
+            { title: "Invalid", status: 422 },
+            { title: "Invalid", status: 422 }
+        ]);
+        expect(failures.map((failure) => (failure as ProblemError).message)).toEqual(["You do not have enough credit.", "Your request is not valid.", "HTTP 404", "Conflict", "Invalid", "Invalid", "Invalid", "Invalid", "Invalid"]);
+        const fields = (failures[4] as ProblemError).problem.fields;
+        const named = (failures[8] as ProblemError).problem.fields;
+        expect(Object.getPrototypeOf(fields)).toBe(Object.prototype);
+        expect(Object.getPrototypeOf(named)).toBe(Object.prototype);
+        expect(Object.entries(named ?? {})).toEqual([["__proto__", ["taken"]], ["email", ["required"]]]);
+    });
 });

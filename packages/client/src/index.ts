@@ -70,7 +70,7 @@ export interface ClientOptions
 /** Thrown for a response outside 2xx, carrying the problem the server sent or one built from the status line. */
 export class ProblemError extends Error
 {
-    /** The problem the server sent, with `status` filled from the response when the body omits it; a body that is not a JSON problem yields `status` and a `title` from the status line. */
+    /** The problem the server sent, with `status` filled from the response when the body omits it, a standard member of the wrong type left out (RFC 9457, section 3.1), and `fields` read as lists of messages; a body that is not a JSON problem, or the response to a HEAD request, which carries no content, yields `status` and a `title` from the status line. */
     readonly problem: Problem;
     /** The response outside 2xx, for its status and headers; its body has already been read when the content type is JSON and the request was not HEAD. */
     readonly response: Response;
@@ -249,6 +249,61 @@ async function withSignals<T>(own: AbortSignal, caller: AbortSignal | undefined,
     }
 }
 
+/** The members RFC 9457 defines and the types section 3.1 gives them. */
+const MEMBERS: Readonly<Record<string, "string" | "number">> = { type: "string", title: "string", status: "number", detail: "string", instance: "string" };
+
+/** The messages of a problem's `fields`, as `@zerolith/forms` reads them: a lone message becomes a list of one, a list keeps its strings, and any other value is left out. The result is a plain object, as `JSON.parse` gives one, with a field named `__proto__` kept as a field. */
+function messagesOf(fields: Readonly<Record<string, unknown>>): Record<string, readonly string[]>
+{
+    const messages: [string, readonly string[]][] = [];
+    for (const [field, value] of Object.entries(fields))
+    {
+        if (typeof value === "string")
+        {
+            messages.push([field, [value]]);
+        }
+        else if (Array.isArray(value))
+        {
+            const kept = value.filter((message): message is string => typeof message === "string");
+            if (kept.length > 0)
+            {
+                messages.push([field, kept]);
+            }
+        }
+    }
+    return Object.fromEntries(messages);
+}
+
+/** `body` with every standard member of the wrong type left out, as RFC 9457, section 3.1, requires, `fields` read as lists of messages or left out when it is not an object, extension members kept, and `status` filled from the response when missing. */
+function standard(body: Problem, status: number): Problem
+{
+    const problem: Record<string, unknown> = { ...body };
+    for (const key of Object.keys(MEMBERS))
+    {
+        if (Object.prototype.hasOwnProperty.call(problem, key) && typeof problem[key] !== MEMBERS[key])
+        {
+            delete problem[key];
+        }
+    }
+    if (Object.prototype.hasOwnProperty.call(problem, "fields"))
+    {
+        const fields = problem["fields"];
+        if (fields === null || typeof fields !== "object" || Array.isArray(fields))
+        {
+            delete problem["fields"];
+        }
+        else
+        {
+            problem["fields"] = messagesOf(fields as Readonly<Record<string, unknown>>);
+        }
+    }
+    if (problem["status"] === undefined)
+    {
+        problem["status"] = status;
+    }
+    return problem as Problem;
+}
+
 async function settle(response: Response, method: string): Promise<unknown>
 {
     if (response.ok)
@@ -261,7 +316,7 @@ async function settle(response: Response, method: string): Promise<unknown>
         const body: unknown = await response.json().catch(() => undefined);
         if (isProblem(body))
         {
-            problem = { status: response.status, ...body };
+            problem = standard(body, response.status);
         }
     }
     throw new ProblemError(problem ?? { status: response.status, title: response.statusText === "" ? `HTTP ${response.status}` : response.statusText }, response);

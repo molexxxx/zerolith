@@ -99,7 +99,7 @@ catch (error)
 
 | Member | Holds |
 | --- | --- |
-| `problem` | The RFC 9457 document the server sent, with the response's status filled in when it left it out, or a problem built from the status line when the body was something else |
+| `problem` | The RFC 9457 document the server sent, with the response's status filled in when it left it out, a standard member of the wrong type left out, and `fields` read as lists of messages, as forms read them; or a problem built from the status line when the body was something else |
 | `response` | The `Response` itself |
 | `message` | The problem's title, or `HTTP` and the status |
 
