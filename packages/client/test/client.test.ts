@@ -230,6 +230,21 @@ describe("bodies beyond JSON and text", () =>
     });
 });
 
+/** The method and headers of a request's init, leaving out its body and its duplex setting, for a stand-in Request that gives the body itself. */
+function basics(init: RequestInit): RequestInit
+{
+    const copy: RequestInit = {};
+    if (init.method !== undefined)
+    {
+        copy.method = init.method;
+    }
+    if (init.headers !== undefined)
+    {
+        copy.headers = init.headers;
+    }
+    return copy;
+}
+
 describe("requests and responses at the edges", () =>
 {
     it("sends the query string where URLSearchParams has no size, and none for an empty query", async () =>
@@ -272,6 +287,54 @@ describe("requests and responses at the edges", () =>
         {
             expect(request.headers.get("content-type")).toMatch(/^multipart\/form-data; boundary=/);
             expect(await request.text()).toContain('name="title"');
+        }
+    });
+
+    it("refuses a stream body only where the platform would not keep it as a stream", () =>
+    {
+        const Original = globalThis.Request;
+        /** A Request that turns a stream body into its text, as Firefox and Chrome before 105 do. */
+        class Stringifying extends Original
+        {
+            constructor(input: RequestInfo | URL, init: RequestInit = {})
+            {
+                super(input, { ...basics(init), body: init.body instanceof ReadableStream ? String(init.body) : (init.body ?? null) });
+            }
+        }
+        /** A Request that keeps a stream body without a content type and without reading duplex, as Safari and Deno do. */
+        class Keeping extends Original
+        {
+            constructor(input: RequestInfo | URL, init: RequestInit = {})
+            {
+                super(input, init.body instanceof ReadableStream ? { ...basics(init), body: new Blob(["kept"]) } : init);
+            }
+        }
+        /** A Request that refuses a stream body outright. */
+        class Refusing extends Original
+        {
+            constructor(input: RequestInfo | URL, init: RequestInit = {})
+            {
+                if (init.body instanceof ReadableStream)
+                {
+                    throw new TypeError("no stream bodies here");
+                }
+                super(input, init);
+            }
+        }
+        const files = { download: { method: "get", path: "/files/{id}" }, upload: { method: "post", path: "/files" } } as const satisfies RouteTable<Files>;
+        const api = createClient<Files>(files, { baseUrl: "https://api.test", transport: () => Promise.resolve(new Response(null, { status: 204 })) });
+        try
+        {
+            vi.stubGlobal("Request", Stringifying);
+            expect(() => api.request("upload", { body: new ReadableStream<Uint8Array>() })).toThrow("cannot send as a stream");
+            vi.stubGlobal("Request", Refusing);
+            expect(() => api.request("upload", { body: new ReadableStream<Uint8Array>() })).toThrow("cannot send as a stream");
+            vi.stubGlobal("Request", Keeping);
+            expect(api.request("upload", { body: new ReadableStream<Uint8Array>() }).headers.has("content-type")).toBe(false);
+        }
+        finally
+        {
+            vi.unstubAllGlobals();
         }
     });
 });
