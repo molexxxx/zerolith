@@ -140,12 +140,29 @@ function streamsBodies(): boolean
     }
 }
 
+/** The value `key` names on `target`, read as a property is, except that a name `Object.prototype` defines counts only where `target` or a prototype before `Object.prototype` defines it too, and a function counts as missing; so a getter on a class and a proxy's `get` trap are read, while `toString`, `constructor`, or a method is never taken for a parameter or an operation. */
+function lookup(target: object, key: PropertyKey): unknown
+{
+    let found = !Object.prototype.hasOwnProperty.call(Object.prototype, key);
+    for (let current: object | null = target; !found && current !== null && current !== Object.prototype; current = Object.getPrototypeOf(current) as object | null)
+    {
+        found = Object.prototype.hasOwnProperty.call(current, key);
+    }
+    if (!found)
+    {
+        return undefined;
+    }
+    const value: unknown = (target as Record<PropertyKey, unknown>)[key];
+    return typeof value === "function" ? undefined : value;
+}
+
 function buildRequest(route: { method: Method; path: string }, input: LooseInput, options: CallOptions, client: ClientOptions): Request
 {
     const path = route.path.replace(/\{([^{}]+)\}/g, (_match, name: string) =>
     {
-        const value = input.params?.[name];
-        if (value === undefined)
+        const params: object | null | undefined = input.params;
+        const value = params === undefined || params === null ? undefined : lookup(params, name);
+        if (value === undefined || value === null)
         {
             throw new TypeError(`zerolith/client: ${route.method.toUpperCase()} ${route.path} needs the path parameter "${name}"`);
         }
@@ -332,7 +349,7 @@ export function createClient<A extends Contract<A>>(routes: RouteTable<A>, optio
     const transport: Transport = options.transport ?? ((request) => fetch(request));
     const request = (name: keyof A, input: LooseInput | undefined, callOptions: CallOptions | undefined): Request =>
     {
-        const route = routes[name] as { method: Method; path: string } | undefined;
+        const route = lookup(routes, name) as { method: Method; path: string } | undefined;
         if (route === undefined)
         {
             throw new TypeError(`zerolith/client: unknown operation "${String(name)}"`);

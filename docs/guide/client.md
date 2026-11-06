@@ -55,7 +55,7 @@ An operation is named by its `operationId` in camel case, or by its method and p
 
 `call` resolves with the operation's output. Its second argument holds the operation's `params`, `query`, and `body`, exactly as optional as the contract makes them, and it is omitted when the operation takes nothing. The request is built this way:
 
-- The path, with each parameter encoded; a missing one throws a `TypeError` that names it, and so does a parameter of `.` or `..`, which the URL would otherwise read as a step to another path.
+- The path, with each parameter read from the params object or a prototype it inherits from, never from `Object.prototype`, and encoded; a missing one, or one that is `null` or a function, throws a `TypeError` that names it, and so does a parameter of `.` or `..`, which the URL would otherwise read as a step to another path.
 - The query, with an array repeating its key, an object sent as JSON, and `undefined` and `null` left out, whatever `style` and `explode` the document declares for the parameter, which the client does not read yet.
 - The body as JSON with its content type, unless it is already a `FormData`, `URLSearchParams`, `Blob`, `ArrayBuffer` or typed array, string, or stream, which goes as it is. A `FormData` body leaves out any `content-type` header, so the platform writes its multipart boundary, and a stream body throws a `TypeError` on a platform that would send it as text, such as Firefox and Chrome before 105.
 - An `Accept` header asking for JSON or a problem, unless a header sets one.
