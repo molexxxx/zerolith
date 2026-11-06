@@ -500,4 +500,30 @@ describe("requests and responses at the edges", () =>
             expect(() => api.request("createNote", { body: body as never })).toThrow("does not serialize as JSON");
         }
     });
+
+    it("refuses a whole query that is iterable, a Date, or a non-empty string, and reads any other value by its own keys", () =>
+    {
+        const api = createClient<Api>(routes, { baseUrl: "https://api.test", transport: async () => Response.json({ items: [] }) });
+        for (const query of [new URLSearchParams("q=a"), new FormData(), new Map([["q", "a"]]), new Set(["q"]), new Headers({ q: "a" }), new Uint8Array([1, 2]), new Date(0), ["q"], "q=a"])
+        {
+            expect(() => api.request("listNotes", { query: query as never })).toThrow("takes its query as an object of names and values");
+        }
+        expect(() => api.request("listNotes", { query: new Map() as never })).toThrow(new TypeError("zerolith/client: GET /notes takes its query as an object of names and values, not Map"));
+        expect(() => api.request("listNotes", { query: "q=a" as never })).toThrow(new TypeError("zerolith/client: GET /notes takes its query as an object of names and values, not String"));
+        /** Query values in own fields, as a class instance holds them. */
+        class Filters
+        {
+            readonly q = "a";
+        }
+        const tagged = { q: "b", [Symbol.toStringTag]: "DOMStringMap" };
+        expect(api.request("listNotes", { query: new Filters() as never }).url).toBe("https://api.test/notes?q=a");
+        expect(api.request("listNotes", { query: tagged as never }).url).toBe("https://api.test/notes?q=b");
+        expect(api.request("listNotes", { query: null as never }).url).toBe("https://api.test/notes");
+        for (const query of [false, 0, ""])
+        {
+            expect(api.request("listNotes", { query: query as never }).url).toBe("https://api.test/notes");
+        }
+        expect(api.request("listNotes", { query: Object.assign(() => undefined, { q: "c" }) as never }).url).toBe("https://api.test/notes?q=c");
+        expect(api.request("listNotes", { query: { q: "d", [Symbol.iterator]: undefined } as never }).url).toBe("https://api.test/notes?q=d");
+    });
 });
