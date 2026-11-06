@@ -24,7 +24,7 @@ export interface PortRequest
 {
     /** Tags the message as a request, so `servePort` ignores other traffic on the port. */
     kind: "zerolith:request";
-    /** Pairs the request with its response; each `portTransport` numbers its requests from 1. */
+    /** Pairs the request with its response; every `portTransport` draws its ids from one counter, so several can share a port. */
     id: number;
     /** The request's absolute URL, from which `servePort` builds the `Request` its handler receives. */
     url: string;
@@ -70,6 +70,9 @@ function listen(port: PortLike, handler: (data: unknown) => void): void
     port.start?.();
 }
 
+/** The id of the next request any `portTransport` sends, counted across transports so that several can share one port. */
+let next = 1;
+
 /**
  * A `Transport` that sends each request over the port as a message and
  * resolves with the response that comes back under the same id. Aborting
@@ -79,7 +82,6 @@ function listen(port: PortLike, handler: (data: unknown) => void): void
 export function portTransport(port: PortLike): Transport
 {
     const pending = new Map<number, { resolve: (response: Response) => void; reject: (reason: unknown) => void }>();
-    let next = 1;
     listen(port, (data) =>
     {
         const message = data as Partial<PortResponse> | null;
