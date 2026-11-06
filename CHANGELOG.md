@@ -11,6 +11,7 @@ Every package in this repository is released together and carries the same versi
 ### Fixed
 
 - `@zerolith/client`: a query string is sent on browsers whose `URLSearchParams` has no `size`, Chrome before 113, Firefox before 112, and Safari before 17, all admitted by the support policy, where every query string was dropped.
+- `@zerolith/client`: a `FormData` body keeps its multipart boundary when the client's or the call's headers set a `content-type`, which the client now leaves out for it.
 
 ## 1.0.0 (2026-11-05)
 
