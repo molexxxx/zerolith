@@ -134,7 +134,11 @@ function searchOf(route: { method: Method; path: string }, query: unknown): stri
         }
         for (const item of Array.isArray(value) ? value : [value])
         {
-            search.append(key, typeof item === "object" && item !== null ? JSON.stringify(item) : String(item));
+            if (item === undefined || item === null)
+            {
+                continue;
+            }
+            search.append(key, typeof item === "object" ? JSON.stringify(item) : String(item));
         }
     }
     const text = search.toString();

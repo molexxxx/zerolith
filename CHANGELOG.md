@@ -29,6 +29,7 @@ Every package in this repository is released together and carries the same versi
 - `@zerolith/client`: an operation or a path parameter whose name only `Object.prototype` provides, such as `constructor` or `toString`, or whose value is a function, such as a class's `constructor` or a method, counts as missing, so `call("constructor")` throws the unknown-operation `TypeError` where it crashed and a `{toString}` or `{constructor}` placeholder throws where it was filled with the text of a function; a `null` parameter counts as missing too, where it went as the text `null`. Any other name is read as before, a getter on a class, an inherited route table, and a proxy's `get` trap included.
 - `@zerolith/client`: a body `JSON.stringify` turns into nothing, a function, a symbol, or a value whose `toJSON` returns `undefined`, throws a `TypeError`, where it went as no body under a JSON content type.
 - `@zerolith/client`: a whole query that is iterable, such as a `URLSearchParams`, `FormData`, `Map`, `Set`, `Headers`, array, or typed array, or that is a `Date` or a non-empty string, throws a `TypeError` naming its kind, where its values were dropped or sent as numbered keys; any other value is read by its own keys, as before.
+- `@zerolith/client`: an `undefined` or `null` item of a query array is left out, as the guide says of query values, where it went as the text `undefined` or `null`.
 
 ## 1.0.0 (2026-11-05)
 

@@ -526,4 +526,10 @@ describe("requests and responses at the edges", () =>
         expect(api.request("listNotes", { query: Object.assign(() => undefined, { q: "c" }) as never }).url).toBe("https://api.test/notes?q=c");
         expect(api.request("listNotes", { query: { q: "d", [Symbol.iterator]: undefined } as never }).url).toBe("https://api.test/notes?q=d");
     });
+
+    it("leaves undefined and null items of a query array out", () =>
+    {
+        const api = createClient<Api>(routes, { baseUrl: "https://api.test", transport: async () => Response.json({ items: [] }) });
+        expect(api.request("listNotes", { query: { tag: ["a", null, undefined, "b"] as never } }).url).toBe("https://api.test/notes?tag=a&tag=b");
+    });
 });
