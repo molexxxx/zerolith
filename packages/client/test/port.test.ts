@@ -200,4 +200,45 @@ describe("portTransport and servePort", () =>
             close();
         }
     });
+
+    it("sends no body in the answer to a HEAD request, a failure's included, and leaves the handler's body unread", async () =>
+    {
+        const reported = vi.fn();
+        vi.stubGlobal("reportError", reported);
+        const { client, server, close } = pair();
+        try
+        {
+            servePort(server, (request) =>
+            {
+                const path = new URL(request.url).pathname;
+                if (path === "/broken")
+                {
+                    throw new Error("the handler failed");
+                }
+                if (path === "/duck")
+                {
+                    return { status: 200, statusText: "", headers: new Headers(), body: {}, text: async () => "unread" } as unknown as Response;
+                }
+                if (path === "/stream")
+                {
+                    return new Response(new ReadableStream({
+                        start(controller)
+                        {
+                            controller.error(new Error("the connection dropped"));
+                        }
+                    }));
+                }
+                return Response.json({ title: "a note" });
+            });
+            const port = portTransport(client);
+            const answers = await Promise.all(["/notes", "/broken", "/stream", "/duck"].map((path) => port(new Request(`https://app.local${path}`, { method: "HEAD" }))));
+            expect(await Promise.all(answers.map(async (answer) => [answer.status, await answer.text()]))).toEqual([[200, ""], [500, ""], [200, ""], [200, ""]]);
+            expect(reported).toHaveBeenCalledTimes(1);
+        }
+        finally
+        {
+            close();
+            vi.unstubAllGlobals();
+        }
+    });
 });
