@@ -57,6 +57,8 @@ pub(super) struct Zerolith {
     pub(super) base: String,
     /// The input names, in the order the page loads the entries.
     pub(super) entries: Vec<String>,
+    /// Everything goes into one file, so a lazy module needs no chunk of its own.
+    pub(super) one_script: bool,
     pub(super) recorded: Arc<Mutex<Recorded>>,
 }
 
@@ -388,7 +390,7 @@ impl Plugin for Zerolith {
                 ));
             }
         }
-        if !merged.is_empty() {
+        if !merged.is_empty() && !self.one_script {
             return Err(failure(format!(
                 "lazy_module_not_split: {}. The bundler puts such a module in the importing chunk instead of a chunk of its own; import only its types with import type, or remove the static import. {DIAGNOSTIC_URL}lazy_module_not_split",
                 merged.join("; ")

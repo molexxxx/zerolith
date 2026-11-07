@@ -7,6 +7,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Added
 
+- `@zerolith/cli` and the `zerolith` crate: `zerolith build --entry <module>` writes a module and everything it imports as one script with a name that stays the same, for a page someone else writes, such as a custom element other sites embed. `--name` chooses the file's name. It needs no `index.html` and writes no page.
 - `@zerolith/router`: `createRouter` takes a `failed` option, a view the outlet shows in place of a page whose view throws as a navigation shows it, given the error and the URL, where the outlet could only stay empty. The navigation still fails with the error.
 
 ### Changed

@@ -4,7 +4,8 @@
 //! output is minified, tree-shaken chunks with hashed names, one stylesheet
 //! made from the stylesheets the page links and the modules import, the
 //! files they reference, the public folder, and an `index.html` that loads
-//! them.
+//! them. Given a module instead of a page, it writes that module as one
+//! script with a name that stays the same, for a page someone else writes.
 
 use std::collections::HashSet;
 use std::fs;
@@ -18,7 +19,7 @@ use rolldown::{
     Bundler, BundlerOptions, BundlerTransformOptions, Either, InputItem, OutputFormat, Platform,
     PreserveEntrySignatures, RawMinifyOptions, ResolveOptions, SourceMapType, TsConfig,
 };
-use rolldown_common::{Output, OutputChunk};
+use rolldown_common::{CodeSplittingMode, Output, OutputChunk};
 
 use crate::css::{self, Assets, Located};
 use crate::scan::DIAGNOSTIC_URL;
@@ -50,6 +51,41 @@ pub struct Options {
     pub minify: bool,
     pub sourcemap: bool,
     pub prepare: bool,
+    /// One script to write instead of the page and its chunks.
+    pub script: Option<Script>,
+}
+
+/// One script for a page someone else writes: a module and everything it imports, lazy imports included, under a name that stays the same from one build to the next.
+#[derive(Debug, Clone)]
+pub struct Script {
+    /// The module to start from, relative to the project unless absolute.
+    pub entry: PathBuf,
+    /// The file's name in the output folder, without `.js`.
+    pub name: String,
+}
+
+impl Script {
+    /// The script for `entry`, named `name` or, without one, after the module. `name` may carry the `.js` the file gets, and has to be a plain file name.
+    pub fn new(entry: PathBuf, name: Option<String>) -> io::Result<Self> {
+        let chosen = name.unwrap_or_else(|| {
+            entry
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().into_owned())
+                .unwrap_or_default()
+        });
+        let name = chosen.strip_suffix(".js").unwrap_or(&chosen).to_string();
+        let plain = !name.is_empty()
+            && !name.starts_with('.')
+            && name
+                .chars()
+                .all(|found| found.is_ascii_alphanumeric() || "-_.".contains(found));
+        if !plain {
+            return Err(failure(format!(
+                "--name {chosen} is not a plain file name; use letters, digits, dashes, underscores, and dots, as in --name feedback-widget"
+            )));
+        }
+        Ok(Self { entry, name })
+    }
 }
 
 /// One file the build wrote.
@@ -101,27 +137,42 @@ pub async fn build(options: &Options) -> io::Result<Built> {
     if options.prepare {
         check_core_version(&root)?;
     }
-    let page_path = root.join("index.html");
-    let page_source = fs::read_to_string(&page_path).map_err(|error| {
-        io::Error::new(
-            error.kind(),
-            format!(
-                "{} could not be read ({error}); zerolith build starts from index.html, or pass --unbundled to transform the sources file by file",
-                page_path.display()
-            ),
-        )
-    })?;
-    let mut page = html::scan(&page_source);
-    if page.scripts.is_empty() {
-        return Err(failure(
-            "index.html has no <script type=\"module\" src=\"...\"> with a local source, so there is nothing to bundle".to_string(),
-        ));
-    }
-    let entries = page
-        .scripts
-        .iter()
-        .map(|script| page_file(&root, &script.url))
-        .collect::<io::Result<Vec<PathBuf>>>()?;
+    let (page_source, mut page, entries) = if let Some(script) = &options.script {
+        let entry = root.join(&script.entry);
+        let entry = css::canonical(&entry).map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!(
+                    "{} could not be read ({error}); --entry names a module, relative to the project",
+                    entry.display()
+                ),
+            )
+        })?;
+        (String::new(), html::Page::default(), vec![entry])
+    } else {
+        let page_path = root.join("index.html");
+        let page_source = fs::read_to_string(&page_path).map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!(
+                    "{} could not be read ({error}); zerolith build starts from index.html, or pass --entry to write one module as one script, or --unbundled to transform the sources file by file",
+                    page_path.display()
+                ),
+            )
+        })?;
+        let page = html::scan(&page_source);
+        if page.scripts.is_empty() {
+            return Err(failure(
+                "index.html has no <script type=\"module\" src=\"...\"> with a local source, so there is nothing to bundle".to_string(),
+            ));
+        }
+        let entries = page
+            .scripts
+            .iter()
+            .map(|script| page_file(&root, &script.url))
+            .collect::<io::Result<Vec<PathBuf>>>()?;
+        (page_source, page, entries)
+    };
     let out_dir = resolve_out_dir(&root, &options.out)?;
     let mut warnings = Vec::new();
     let (styles, hosted): (Vec<_>, Vec<_>) = std::mem::take(&mut page.styles)
@@ -152,7 +203,9 @@ pub async fn build(options: &Options) -> io::Result<Built> {
     let mut inputs = Vec::new();
     let mut names: Vec<String> = Vec::new();
     for (index, file) in entries.iter().enumerate() {
-        let name = if entries.len() == 1 {
+        let name = if let Some(script) = &options.script {
+            script.name.clone()
+        } else if entries.len() == 1 {
             "index".to_string()
         } else {
             let stem = file
@@ -222,6 +275,7 @@ pub async fn build(options: &Options) -> io::Result<Built> {
         root: root.clone(),
         base: options.base.clone(),
         entries: names.clone(),
+        one_script: options.script.is_some(),
         recorded: recorded.clone(),
     };
     let mut bundler = Bundler::with_plugins(
@@ -237,7 +291,19 @@ pub async fn build(options: &Options) -> io::Result<Built> {
                 RawMinifyOptions::DeadCodeEliminationOnly
             }),
             sourcemap: options.sourcemap.then_some(SourceMapType::File),
-            entry_filenames: Some("assets/[name]-[hash].js".to_string().into()),
+            entry_filenames: Some(
+                if options.script.is_some() {
+                    "[name].js"
+                } else {
+                    "assets/[name]-[hash].js"
+                }
+                .to_string()
+                .into(),
+            ),
+            code_splitting: options
+                .script
+                .as_ref()
+                .map(|_| CodeSplittingMode::Bool(false)),
             chunk_filenames: Some("assets/[name]-[hash].js".to_string().into()),
             asset_filenames: Some("assets/[name]-[hash][extname]".to_string().into()),
             resolve: Some(ResolveOptions {
@@ -246,7 +312,11 @@ pub async fn build(options: &Options) -> io::Result<Built> {
             }),
             define: Some(define.into_iter().collect()),
             clean_dir: Some(false),
-            preserve_entry_signatures: Some(PreserveEntrySignatures::False),
+            preserve_entry_signatures: Some(if options.script.is_some() {
+                PreserveEntrySignatures::ExportsOnly
+            } else {
+                PreserveEntrySignatures::False
+            }),
             tsconfig: Some(TsConfig::Auto(false)),
             transform: Some(BundlerTransformOptions {
                 target: Some(Either::Left(SCRIPT_TARGET.to_string())),
@@ -339,6 +409,13 @@ pub async fn build(options: &Options) -> io::Result<Built> {
         warnings.extend(bundled.warnings);
         if bundled.code.trim().is_empty() {
             None
+        } else if let Some(script) = &options.script {
+            let name = format!("{}.css", script.name);
+            warnings.push(format!(
+                "the script imports stylesheets that are not scoped, so they are written to {name}, which the page has to link; a stylesheet imported with ?scoped stays in the script"
+            ));
+            fs::write(out_dir.join(&name), bundled.code)?;
+            Some(format!("{}{name}", options.base))
         } else {
             let name = format!("index-{}.css", css::short_hash(bundled.code.as_bytes()));
             fs::create_dir_all(out_dir.join("assets"))?;
@@ -347,6 +424,16 @@ pub async fn build(options: &Options) -> io::Result<Built> {
         }
     };
 
+    if options.script.is_some() {
+        let mut files = Vec::new();
+        list(&out_dir, &out_dir, &mut files)?;
+        files.sort_by(|a, b| a.path.cmp(&b.path));
+        return Ok(Built {
+            out_dir,
+            files,
+            warnings,
+        });
+    }
     let mut page_assets = Vec::new();
     for reference in &page.assets {
         page_assets.push(match css::locate(&root, &root, &reference.url) {

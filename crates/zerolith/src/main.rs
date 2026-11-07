@@ -100,7 +100,7 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Build the project for production: the modules index.html loads bundled into minified chunks with hashed names, lazy routes split out, and the stylesheets combined into one.
+    /// Build the project for production: the modules index.html loads bundled into minified chunks with hashed names, lazy routes split out, and the stylesheets combined into one. With --entry, one module as one script instead.
     Build {
         /// The project folder, holding index.html.
         #[arg(default_value = ".")]
@@ -127,8 +127,14 @@ enum Command {
         #[arg(long)]
         no_prepare: bool,
         /// Write the sources file by file, transformed to JavaScript, with the packages vendored behind an import map, instead of bundling.
-        #[arg(long, conflicts_with_all = ["base", "mode", "sourcemap", "no_minify"])]
+        #[arg(long, conflicts_with_all = ["base", "mode", "sourcemap", "no_minify", "entry"])]
         unbundled: bool,
+        /// Write this module and everything it imports as one script for a page someone else writes, such as a custom element other sites embed, instead of building index.html. Its name carries no hash, lazy imports stay in the file, and no page or public folder is written.
+        #[arg(long)]
+        entry: Option<PathBuf>,
+        /// The script's file name in the output folder, without .js; the module's name unless given.
+        #[arg(long, requires = "entry")]
+        name: Option<String>,
     },
     /// Write a starter application, or an example as a project of its own, and install its dependencies, asking for what the flags leave open: the starter in TSX on the command line, with the inspector, by default.
     New {
@@ -268,6 +274,8 @@ async fn main() -> ExitCode {
             no_minify,
             no_prepare,
             unbundled,
+            entry,
+            name,
         } => match config::Config::load(&root) {
             Err(error) => Err(error),
             Ok(config) => {
@@ -290,9 +298,12 @@ async fn main() -> ExitCode {
                     unbundled::run(&root, &out, !no_prepare, empty_out_dir)
                 } else {
                     let base = base.or(config.base).unwrap_or_else(|| "/".to_string());
-                    match build::normalize_base(&base) {
-                        Err(error) => Err(error),
-                        Ok(base) => {
+                    let script = entry
+                        .map(|entry| build::Script::new(entry, name))
+                        .transpose();
+                    match (build::normalize_base(&base), script) {
+                        (Err(error), _) | (_, Err(error)) => Err(error),
+                        (Ok(base), Ok(script)) => {
                             build::run(&build::Options {
                                 root,
                                 out,
@@ -302,6 +313,7 @@ async fn main() -> ExitCode {
                                 minify: !no_minify,
                                 sourcemap,
                                 prepare: !no_prepare,
+                                script,
                             })
                             .await
                         }

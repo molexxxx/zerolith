@@ -2,7 +2,7 @@
 //! parts.
 
 use super::plugin::development_module_of;
-use super::{Options, build, normalize_base};
+use super::{Options, Script, build, normalize_base};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -108,6 +108,7 @@ fn options(root: &Path, base: &str, mode: &str) -> Options {
         minify: true,
         sourcemap: false,
         prepare: true,
+        script: None,
     }
 }
 
@@ -413,6 +414,149 @@ async fn fails_when_a_lazy_view_is_also_imported_statically() {
         "{error}"
     );
     let _ = fs::remove_dir_all(&root);
+}
+
+#[tokio::test]
+async fn writes_one_module_as_one_script_with_a_name_that_stays() {
+    let root = project("script", MAIN);
+    fs::remove_file(root.join("index.html")).unwrap();
+    let mut settings = options(&root, "/", "production");
+    settings.script = Some(
+        Script::new(
+            PathBuf::from("src/main.ts"),
+            Some("feedback-widget".to_string()),
+        )
+        .unwrap(),
+    );
+    let built = build(&settings).await.unwrap();
+    let dist = root.join("dist");
+    let paths: Vec<&str> = built.files.iter().map(|file| file.path.as_str()).collect();
+    let scripts: Vec<&&str> = paths.iter().filter(|path| path.ends_with(".js")).collect();
+    assert_eq!(scripts, [&"feedback-widget.js"], "{paths:?}");
+    assert!(!paths.contains(&"index.html"), "{paths:?}");
+    assert!(!paths.contains(&"favicon.svg"), "{paths:?}");
+    let script = fs::read_to_string(dist.join("feedback-widget.js")).unwrap();
+    assert!(
+        script.contains("notes view"),
+        "the lazy view stays in the file"
+    );
+    assert!(
+        script.contains("LOCALE_EN"),
+        "the lazy locale stays in the file"
+    );
+    assert!(script.contains("PRODUCTION_CORE") && !script.contains("DEVELOPMENT_CORE"));
+    let styles = fs::read_to_string(dist.join("feedback-widget.css")).unwrap();
+    assert!(
+        styles.contains(".extra") && styles.contains(".notes"),
+        "{styles}"
+    );
+    assert!(
+        built
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("feedback-widget.css") && warning.contains("?scoped")),
+        "{:?}",
+        built.warnings
+    );
+
+    let first = fs::read(dist.join("feedback-widget.js")).unwrap();
+    fs::write(
+        root.join("src/prefix.ts"),
+        "export const prefix: string = \"Goodbye, \";\n",
+    )
+    .unwrap();
+    build(&settings).await.unwrap();
+    let second = fs::read(dist.join("feedback-widget.js")).unwrap();
+    assert_ne!(first, second, "the same name holds the new build");
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[tokio::test]
+async fn keeps_a_scripts_exports_and_writes_no_stylesheet_when_it_has_none() {
+    let root = project("script-exports", MAIN);
+    fs::write(
+        root.join("src/widget.ts"),
+        "export const kept: string = \"KEPT_EXPORT\";\n",
+    )
+    .unwrap();
+    let mut settings = options(&root, "/", "production");
+    settings.script = Some(Script::new(PathBuf::from("src/widget.ts"), None).unwrap());
+    let built = build(&settings).await.unwrap();
+    let paths: Vec<&str> = built.files.iter().map(|file| file.path.as_str()).collect();
+    assert_eq!(paths, ["widget.js"]);
+    assert!(built.warnings.is_empty(), "{:?}", built.warnings);
+    let script = fs::read_to_string(root.join("dist/widget.js")).unwrap();
+    assert!(
+        script.contains("KEPT_EXPORT") && script.contains("export"),
+        "{script}"
+    );
+    assert!(
+        !script.contains("notes view"),
+        "only what the module imports: {script}"
+    );
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[tokio::test]
+async fn leaves_a_lazy_view_also_imported_statically_to_one_script() {
+    let root = project(
+        "script-eager",
+        &format!("import {{ view }} from \"./views/notes.ts\";\nconsole.log(view);\n{MAIN}"),
+    );
+    let mut settings = options(&root, "/", "production");
+    settings.script = Some(Script::new(PathBuf::from("src/main.ts"), None).unwrap());
+    build(&settings).await.unwrap();
+    assert!(
+        fs::read_to_string(root.join("dist/main.js"))
+            .unwrap()
+            .contains("notes view")
+    );
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[tokio::test]
+async fn says_which_module_it_could_not_find() {
+    let root = project("script-missing", MAIN);
+    let mut settings = options(&root, "/", "production");
+    settings.script = Some(Script::new(PathBuf::from("src/absent.ts"), None).unwrap());
+    let error = build(&settings).await.unwrap_err().to_string();
+    assert!(
+        error.contains("absent.ts") && error.contains("--entry"),
+        "{error}"
+    );
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn names_a_script_after_its_module_or_a_plain_name() {
+    let named = |entry: &str, name: Option<&str>| {
+        Script::new(PathBuf::from(entry), name.map(str::to_string)).map(|script| script.name)
+    };
+    assert_eq!(named("src/main.ts", None).unwrap(), "main");
+    assert_eq!(
+        named("src/main.ts", Some("feedback-widget")).unwrap(),
+        "feedback-widget"
+    );
+    assert_eq!(
+        named("src/main.ts", Some("feedback-widget.js")).unwrap(),
+        "feedback-widget"
+    );
+    assert_eq!(
+        named("src/main.ts", Some("widget_1.2.0")).unwrap(),
+        "widget_1.2.0"
+    );
+    for refused in [
+        "../widget",
+        "a/b",
+        "a\\b",
+        ".hidden",
+        "",
+        ".js",
+        "with space",
+    ] {
+        let error = named("src/main.ts", Some(refused)).unwrap_err().to_string();
+        assert!(error.contains("--name"), "{refused}: {error}");
+    }
 }
 
 #[tokio::test]

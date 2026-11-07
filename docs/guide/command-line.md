@@ -168,6 +168,7 @@ const response = await fetch(`${import.meta.env.PUBLIC_API_URL}/tasks`);
 zerolith build
 zerolith build --base /app/ --out ../server/static
 zerolith build --unbundled
+zerolith build --entry src/main.ts --name feedback-widget
 ```
 
 Bundles the application for production with [Rolldown](https://rolldown.rs), the bundler Vite is built on, compiled into the binary: no Node tooling runs and nothing else needs installing. The command prints every file it wrote, with the gzip size of each text file:
@@ -194,6 +195,8 @@ Bundles the application for production with [Rolldown](https://rolldown.rs), the
 | `--no-prepare` | Keeps the template scanner and leaves every `html` literal as it is |
 | `--empty-out-dir` | Empties an output folder outside the project before writing into it |
 | `--unbundled` | Writes the buildless output, the modules behind an import map, instead of a bundle |
+| `--entry <module>` | Writes that module as [one script](#one-script) instead of building `index.html` |
+| `--name <name>` | With `--entry`: the script's file name, without `.js`, instead of the module's |
 
 ### Scripts and chunks
 
@@ -202,6 +205,28 @@ The build starts from `index.html`. Every `<script type="module" src="...">` wit
 The zerolith passes are the ones `vite build` runs through the [Vite plugin](vite.md), held to the same output by shared fixtures. JSX is lowered to `html` calls. Every module goes through the template prepare pass: each `html` literal is scanned ahead of time and registered next to the literal, a template with no bindings is created once at module scope, and the core's scanner is replaced by a stand-in that reports `template_not_prepared`, so the browser binds templates without scanning them and the scanner is not shipped. A template the scanner refuses fails the build at its line, and so does a module that uses `html` from zerolith other than as a template tag.
 
 A view loaded with the router's `lazy()` and each locale of a message index compiled by `zerolith-i18n` get chunks of their own, fetched when they are needed, and the build fails with `lazy_module_not_split` when one of them is also imported statically, which would merge it into the importing chunk. A module that an entry and a lazy chunk share gets a chunk both import. The page preloads every chunk its entries import statically with `<link rel="modulepreload">`, so the browser fetches them in parallel instead of discovering them one import at a time.
+
+### One script
+
+`--entry` writes a module and everything it imports as one file for a page someone else writes, such as a [custom element](elements.md) other sites embed. It needs no `index.html`, and writes no page and no `public/` folder.
+
+```text
+ zerolith  build  production, minified, one script, feedback-widget.js
+
+  dist/feedback-widget.js  14.60 kB  gzip 5.91 kB
+
+  built feedback-widget into dist in 31 ms
+```
+
+| What differs from building a page | |
+| --- | --- |
+| The name | `dist/<name>.js` with no hash, so a tag written once keeps working from one release to the next. Put a version in `--name` for a file that never changes |
+| Lazy imports | Stay in the file, so nothing else is fetched and `lazy_module_not_split` does not apply |
+| Exports | The module's exports are kept, so another module can import them |
+| Stylesheets | A stylesheet imported with `?scoped` or a `css` literal stays in the script. Any other stylesheet goes to `dist/<name>.css`, with a warning, since the page has to link it |
+| Other files | Images and fonts the code references are still written under `assets/`, with URLs from `--base` |
+
+The file is an ES module, so a page loads it with `<script type="module">`, and from another origin only when the response sends `Access-Control-Allow-Origin`.
 
 ### Stylesheets
 
