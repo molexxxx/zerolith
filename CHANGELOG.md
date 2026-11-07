@@ -2,6 +2,16 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
+## Unreleased
+
+
+### Added
+
+
+### Fixed
+
+- `@zerolith/cli` and the `zerolith` crate: `zerolith dev`, `serve`, and `preview` leave a backend whose address already answers as it is, and say so, where a second copy failed on the taken port, so `npm run preview` works beside `npm run dev`.
+
 ## 1.4.0 (2026-11-07)
 
 A minor release from `main`: a custom element's view receives what the tag held as `children`, `zerolith build --unbundled` gives the application's own modules addresses that carry their hash, and `zerolith preview` says what is wrong with a folder it cannot serve. A Content-Security-Policy that allows an unbundled page's import map by its hash has to take the new hash from each build, which the build prints.

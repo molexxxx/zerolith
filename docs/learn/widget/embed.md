@@ -25,7 +25,7 @@ That is everything a host page does: one script tag, the element with its attrib
 
 ## Serve it and post to the handler
 
-Stop the dev server if it is running, since it holds the handler's port, and start the handler on its own, from the project folder:
+The page posts to the handler on port 3000. If `npm run dev` is still running, the handler is already up. If not, start it on its own, from the project folder:
 
 ```sh
 node server/main.ts

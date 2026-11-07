@@ -110,6 +110,20 @@ impl Config {
         commands
     }
 
+    /// The host and port of the first proxy rule that starts its backend with `command`, where that backend listens.
+    pub fn backend_address(&self, command: &str) -> Option<(String, u16)> {
+        self.proxy.iter().find_map(|(prefix, entry)| match entry {
+            ProxyEntry::Detailed(detailed)
+                if detailed.run.as_deref().map(str::trim) == Some(command) =>
+            {
+                ProxyRule::new(prefix, &detailed.target, false)
+                    .ok()
+                    .map(|rule| (rule.target.host, rule.target.port))
+            }
+            _ => None,
+        })
+    }
+
     /// The proxy rules: the file's entries with the command line's `--proxy` values over them, longest prefix first.
     pub fn proxy_rules(&self, flags: &[String]) -> io::Result<Vec<ProxyRule>> {
         let mut entries: BTreeMap<String, (String, bool)> = self
@@ -397,6 +411,16 @@ mod tests {
             vec!["node auth.js"]
         );
         assert!(Config::default().backends(&[]).is_empty());
+        assert_eq!(
+            config.backend_address("node auth.js"),
+            config.proxy_rules(&[]).ok().and_then(|rules| {
+                rules
+                    .iter()
+                    .find(|rule| rule.prefix == "/auth")
+                    .map(|rule| (rule.target.host.clone(), rule.target.port))
+            })
+        );
+        assert_eq!(config.backend_address("no such command"), None);
     }
 
     #[test]

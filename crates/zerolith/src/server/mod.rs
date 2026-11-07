@@ -57,7 +57,7 @@ pub struct Options {
     /// The project folder, where the backends run.
     pub project: PathBuf,
     /// The commands that start the backends the proxy rules name with `run`, started once the port is bound and stopped with the server.
-    pub backends: Vec<String>,
+    pub backends: Vec<BackendCommand>,
 }
 
 struct AppState {
@@ -115,6 +115,26 @@ fn app(
         .fallback(any(entry))
         .layer(middleware::from_fn_with_state(state.clone(), guard_host))
         .with_state(state)
+}
+
+/// A backend a proxy rule names with `run`: its command, and where it listens.
+#[derive(Debug, Clone)]
+pub struct BackendCommand {
+    pub command: String,
+    pub address: Option<(String, u16)>,
+}
+
+/// True when something accepts a connection at the address, as a backend that `zerolith dev` or a terminal already runs does, so a second copy would find its port taken.
+fn answers(address: &(String, u16)) -> bool {
+    use std::net::ToSocketAddrs;
+    (address.0.as_str(), address.1)
+        .to_socket_addrs()
+        .is_ok_and(|mut found| {
+            found.any(|socket| {
+                std::net::TcpStream::connect_timeout(&socket, std::time::Duration::from_millis(250))
+                    .is_ok()
+            })
+        })
 }
 
 /// Fails with what to do when the folder `zerolith preview` would serve does not exist.
@@ -190,10 +210,15 @@ pub async fn run(options: Options) -> std::io::Result<()> {
         }
     };
     let address = listener.local_addr()?;
-    let backends: Backends = Arc::new(Mutex::new(start_backends(
-        &options.backends,
-        &options.project,
-    )?));
+    let (running, to_start): (Vec<&BackendCommand>, Vec<&BackendCommand>) = options
+        .backends
+        .iter()
+        .partition(|backend| backend.address.as_ref().is_some_and(answers));
+    let commands: Vec<String> = to_start
+        .iter()
+        .map(|backend| backend.command.clone())
+        .collect();
+    let backends: Backends = Arc::new(Mutex::new(start_backends(&commands, &options.project)?));
     let guard = Guard(backends.clone());
     let watching = tokio::spawn(backend::watch(backends.clone()));
     let title = match (options.reload, options.modules) {
@@ -248,14 +273,20 @@ pub async fn run(options: Options) -> std::io::Result<()> {
             term::row(if index == 0 { "Proxy" } else { "" }, term::label, shown)
         );
     }
-    for (index, command) in options.backends.iter().enumerate() {
+    let shown = commands
+        .iter()
+        .cloned()
+        .chain(running.iter().map(|backend| {
+            let (host, port) = backend.address.clone().unwrap_or_default();
+            format!(
+                "{}, left as it is, since {host}:{port} already answers",
+                backend.command
+            )
+        }));
+    for (index, line) in shown.enumerate() {
         anstream::println!(
             "{}",
-            term::row(
-                if index == 0 { "Backend" } else { "" },
-                term::label,
-                command
-            )
+            term::row(if index == 0 { "Backend" } else { "" }, term::label, line)
         );
     }
     if options.reload {

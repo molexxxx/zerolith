@@ -1,5 +1,6 @@
+import { createServer as createHttpServer } from "node:http";
 import { type ChildProcess, spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -138,6 +139,30 @@ describe("a proxy rule's run command", () =>
         expect(response.status).toBe(502);
         child.kill();
     }, 60000);
+
+    it("leaves a backend that already answers as it is, and forwards to it", async () =>
+    {
+        const running = createHttpServer((_request, response) =>
+        {
+            response.end("from the one already running");
+        });
+        await new Promise<void>((resolve) => running.listen(port, "127.0.0.1", resolve));
+        try
+        {
+            rmSync(join(root, "pid.txt"), { force: true });
+            writeFileSync(join(root, "zerolith.json"), settings(`node server.mjs ${port}`));
+            const { origin, child, output } = await startServer(["dev", root]);
+            servers.push(child);
+            expect(output()).toContain(`already answers`);
+            expect(await answer(`${origin}/api/ping`)).toBe("from the one already running");
+            expect(existsSync(join(root, "pid.txt")), "no second copy started").toBe(false);
+            child.kill();
+        }
+        finally
+        {
+            await new Promise((resolve) => running.close(resolve));
+        }
+    });
 
     it("leaves the backend to the user with --no-backends", async () =>
     {

@@ -18,13 +18,11 @@ npm run build
 
 ## Check it
 
-Stop `npm run dev` first, since its backend holds port 3000 and the one `preview` starts could not listen there. Then:
-
 ```sh
 npm run preview
 ```
 
-`zerolith preview` serves `dist/` the way a static host does, including the fallback that sends a deep link such as `/sign-up` to `index.html`. It also reads the same `proxy` from `zerolith.json`, so it starts the backend with the same `run` command and forwards `/api` to it. Open the address it prints and sign up once more, then sign up again with the same address to see the server's message.
+`zerolith preview` serves `dist/` the way a static host does, including the fallback that sends a deep link such as `/sign-up` to `index.html`. It also reads the same `proxy` from `zerolith.json`, so it starts the backend with the same `run` command, or uses the one `npm run dev` already runs, and forwards `/api` to it. Open the address it prints and sign up once more, then sign up again with the same address to see the server's message.
 
 ## Ship it
 

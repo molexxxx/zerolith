@@ -3,7 +3,7 @@
 use super::hosts::host_allowed;
 use super::live::inject_client;
 use super::paths::{Fallback, display, percent_decode, resolve, resolve_with, workspace_uuid};
-use super::{check_preview_folder, preview_note};
+use super::{answers, check_preview_folder, preview_note};
 use std::fs;
 use std::path::Path;
 
@@ -616,4 +616,14 @@ fn says_what_to_do_about_a_folder_preview_cannot_serve() {
     assert_eq!(preview_note(&root), None);
     assert!(preview_note(&script_only).is_some_and(|note| note.contains("--entry")));
     let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn knows_when_a_backend_already_answers() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    assert!(answers(&("127.0.0.1".to_string(), port)));
+    drop(listener);
+    assert!(!answers(&("127.0.0.1".to_string(), port)));
+    assert!(!answers(&("no-such-host.invalid".to_string(), port)));
 }

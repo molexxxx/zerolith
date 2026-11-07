@@ -234,7 +234,14 @@ impl ServerFlags {
             backends: if self.no_backends {
                 Vec::new()
             } else {
-                config.backends(&self.proxy)
+                config
+                    .backends(&self.proxy)
+                    .into_iter()
+                    .map(|command| {
+                        let address = config.backend_address(&command);
+                        server::BackendCommand { command, address }
+                    })
+                    .collect()
             },
         })
     }
