@@ -22,7 +22,7 @@ group: Tooling
 Every file under `assets/` has a content hash in its name, so a changed file gets a new name and the old one can be cached forever. `index.html` keeps its name, so it has to be checked on every visit.
 
 > [!WARNING]
-> A missing file with an extension, such as `/assets/old.js`, should get a 404 rather than `index.html`. A stale script then fails clearly instead of being parsed as HTML.
+> A missing script or stylesheet, such as `/assets/old.js`, should get a 404 rather than `index.html`, so a stale script fails clearly instead of being parsed as HTML. A page the browser loads should get `index.html` whatever its last segment holds, since a route such as `/releases/2.3.0` has a dot in it. `zerolith dev` and `zerolith preview` tell the two apart by the request's `Accept` header, which names HTML when the browser loads a page.
 
 ## What the build writes
 

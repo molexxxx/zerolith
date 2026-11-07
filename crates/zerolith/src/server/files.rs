@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use axum::body::Body;
 use axum::extract::State;
-use axum::http::{HeaderValue, Method, Request, StatusCode, Uri, header};
+use axum::http::{HeaderMap, HeaderValue, Method, Request, StatusCode, Uri, header};
 use axum::response::{IntoResponse, Response};
 
 use crate::css;
@@ -19,7 +19,7 @@ use crate::term;
 
 use super::AppState;
 use super::live::inject_client;
-use super::paths::{Mapped, display, map_base, public_file, resolve, resolve_with};
+use super::paths::{Fallback, Mapped, display, map_base, public_file, resolve, resolve_with};
 
 /// A response that is never cached.
 fn fresh(body: impl Into<Body>, mime: &'static str) -> Response {
@@ -179,13 +179,35 @@ pub(super) async fn entry(State(state): State<Arc<AppState>>, request: Request<B
         return StatusCode::METHOD_NOT_ALLOWED.into_response();
     }
     let uri = request.uri().clone();
-    file(&state, &uri).await
+    file(&state, &uri, loads_page(request.headers())).await
 }
 
-pub(super) async fn file(state: &Arc<AppState>, uri: &Uri) -> Response {
+/// True when the browser is loading a page, by `Sec-Fetch-Mode: navigate` or an `Accept` that names HTML, rather than asking for a script, a stylesheet, or data.
+fn loads_page(headers: &HeaderMap) -> bool {
+    let named = |name: header::HeaderName, value: &str| {
+        headers
+            .get(name)
+            .and_then(|found| found.to_str().ok())
+            .is_some_and(|found| found.contains(value))
+    };
+    named(
+        header::HeaderName::from_static("sec-fetch-mode"),
+        "navigate",
+    ) || named(header::ACCEPT, "text/html")
+}
+
+/// The answer for a path under the root: a module through the pipeline, a file, or, for a page the browser loads, the nearest index.html when no file is there.
+pub(super) async fn file(state: &Arc<AppState>, uri: &Uri, page: bool) -> Response {
     let (request_path, fallback) = match map_base(&state.base, uri.path()) {
-        Mapped::Inside(path) => (path, true),
-        Mapped::Outside(path) => (path, false),
+        Mapped::Inside(path) => (
+            path,
+            if page {
+                Fallback::Page
+            } else {
+                Fallback::Route
+            },
+        ),
+        Mapped::Outside(path) => (path, Fallback::None),
         Mapped::Redirect(to) => {
             let location = match uri.query() {
                 Some(query) => format!("{to}?{query}"),

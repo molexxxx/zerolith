@@ -62,11 +62,22 @@ pub fn percent_decode(input: &str) -> String {
 /// extensionless path serves the nearest index.html above it so client-side routes load directly.
 /// Paths that try to leave the root resolve to `None`.
 pub fn resolve(root: &Path, request_path: &str) -> Option<PathBuf> {
-    resolve_with(root, request_path, true)
+    resolve_with(root, request_path, Fallback::Route)
 }
 
-/// `resolve`, with the nearest-index fallback only when `fallback` is true.
-pub(super) fn resolve_with(root: &Path, request_path: &str, fallback: bool) -> Option<PathBuf> {
+/// When a missing file falls back to the nearest index.html.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Fallback {
+    /// Never, for a path outside the base the application is served under.
+    None,
+    /// For a path whose last segment has no extension, which names a route rather than a file.
+    Route,
+    /// For any path, since the browser is loading a page: a route's last segment can hold a dot, as `/releases/2.3.0` does.
+    Page,
+}
+
+/// `resolve`, falling back to the nearest index.html as `fallback` says.
+pub(super) fn resolve_with(root: &Path, request_path: &str, fallback: Fallback) -> Option<PathBuf> {
     let decoded = percent_decode(request_path);
     let relative = Path::new(decoded.trim_start_matches('/'));
     if relative
@@ -94,7 +105,9 @@ pub(super) fn resolve_with(root: &Path, request_path: &str, fallback: bool) -> O
             }
         }
     }
-    if !fallback || candidate.extension().is_some() {
+    if fallback == Fallback::None
+        || (fallback == Fallback::Route && candidate.extension().is_some())
+    {
         return None;
     }
     let mut folder = candidate.parent();

@@ -2,7 +2,7 @@
 
 use super::hosts::host_allowed;
 use super::live::inject_client;
-use super::paths::{display, percent_decode, resolve, workspace_uuid};
+use super::paths::{Fallback, display, percent_decode, resolve, resolve_with, workspace_uuid};
 use std::fs;
 use std::path::Path;
 
@@ -39,6 +39,16 @@ fn resolves_files_indexes_and_route_fallbacks() {
         Some(root.join("index.html"))
     );
     assert_eq!(resolve(&root, "/app/missing.js"), None);
+    assert_eq!(resolve(&root, "/app/releases/2.3.0"), None);
+    assert_eq!(
+        resolve_with(&root, "/app/releases/2.3.0", Fallback::Page),
+        Some(root.join("app/index.html"))
+    );
+    assert_eq!(
+        resolve_with(&root, "/app/missing.js", Fallback::Page),
+        Some(root.join("app/index.html"))
+    );
+    assert_eq!(resolve_with(&root, "/app/deep/route", Fallback::None), None);
     assert_eq!(
         resolve(&root, "/app/typed.js"),
         Some(root.join("app/typed.ts"))
@@ -133,6 +143,53 @@ mod served {
             .await;
         });
         address
+    }
+
+    #[tokio::test]
+    async fn loads_the_app_for_a_page_whose_route_holds_a_dot_and_refuses_a_missing_script() {
+        let root =
+            std::env::temp_dir().join(format!("zerolith-dotted-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("index.html"), "<p>app</p>").unwrap();
+        let address = listen(app(
+            root.clone(),
+            None,
+            None,
+            "/".to_string(),
+            Vec::new(),
+            Vec::new(),
+            Arc::new(Problems::new()),
+        ))
+        .await;
+        let get = |path: &str, headers: &str| {
+            format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\n{headers}Connection: close\r\n\r\n")
+        };
+        for headers in [
+            "Accept: text/html,application/xhtml+xml\r\n",
+            "Sec-Fetch-Mode: navigate\r\n",
+        ] {
+            let page = exchange(address, &get("/releases/2.3.0", headers)).await;
+            assert!(page.starts_with("HTTP/1.1 200"), "{headers}: {page}");
+            assert!(page.ends_with("<p>app</p>"), "{page}");
+        }
+        for (path, headers) in [
+            ("/releases/2.3.0", "Accept: */*\r\n"),
+            (
+                "/assets/old.js",
+                "Accept: */*\r\nSec-Fetch-Mode: no-cors\r\n",
+            ),
+            (
+                "/data/missing.json",
+                "Accept: application/json\r\nSec-Fetch-Mode: cors\r\n",
+            ),
+        ] {
+            let missing = exchange(address, &get(path, headers)).await;
+            assert!(missing.starts_with("HTTP/1.1 404"), "{path}: {missing}");
+        }
+        let route = exchange(address, &get("/releases/latest", "Accept: */*\r\n")).await;
+        assert!(route.starts_with("HTTP/1.1 200"), "{route}");
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[tokio::test]
