@@ -69,6 +69,9 @@ The server injects a small module into HTML pages and announces file changes ove
 | A stylesheet, linked or imported | `update`: the stylesheet is swapped in place |
 | Any other file | `reload`: the page reloads |
 | A file inside `node_modules`, `dist`, or another tooling folder | Nothing |
+| An editor's temporary file: no extension, as `sed -i` and Vim leave, or one ending in `~`, `.swp`, `.tmp`, or `.bak` | Nothing |
+
+A module that fails to compile is reported in the terminal and in the browser's console, with its file, even when the module that imports it fails first, as one that imports a name from it does. A stylesheet that lightningcss reads only in part, with a rule or a declaration the browser will skip, is reported the same way as a warning, with the line and column. Each problem is reported once per save, and a page that opens while it stands is told about it too.
 
 Before reloading, the client saves the values of every named signal, and the development build of zerolith restores them when signals with the same names are created again, so a form draft or a selected tab survives an edit with no component boundary:
 

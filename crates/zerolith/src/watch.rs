@@ -29,12 +29,29 @@ const IGNORED: [&str; 8] = [
     ".vitest",
 ];
 
-/// True for paths the dev server never serves, so their changes are not announced.
+/// True for paths the dev server never serves, so their changes are not announced: a file under a tooling folder, and an editor's temporary file, which has no extension, as `sed -i` and Vim's write check leave, or ends in `~`, `.swp`, `.swo`, `.swx`, `.tmp`, or `.bak`, or starts with `.#`.
 pub fn ignored(relative: &Path) -> bool {
-    relative.components().any(|component| match component {
+    let in_tooling = relative.components().any(|component| match component {
         Component::Normal(name) => IGNORED.iter().any(|folder| name == *folder),
         _ => false,
-    })
+    });
+    in_tooling || temporary(relative)
+}
+
+/// True for a file name an editor writes beside the file it saves.
+fn temporary(relative: &Path) -> bool {
+    let Some(name) = relative.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    let extension = relative
+        .extension()
+        .and_then(|extension| extension.to_str());
+    name.ends_with('~')
+        || name.starts_with(".#")
+        || matches!(
+            extension,
+            None | Some("swp" | "swo" | "swx" | "tmp" | "bak")
+        )
 }
 
 /// The root-relative URL path for a changed file, or `None` when it lies outside the root or in an ignored folder. Either path may carry the `\\?\` prefix of a Windows canonical path.
@@ -113,6 +130,25 @@ mod tests {
         assert_eq!(url_path(root, Path::new("/elsewhere/main.js")), None);
         assert!(ignored(Path::new("site/index.html")));
         assert!(!ignored(Path::new("examples/notes/index.html")));
+        for temporary in [
+            "src/components/sedmE54UD",
+            "src/4913",
+            "src/main.ts~",
+            "src/.main.ts.swp",
+            "src/.#main.ts",
+            "src/main.ts.tmp",
+            "src/styles.css.bak",
+        ] {
+            assert!(ignored(Path::new(temporary)), "{temporary}");
+        }
+        for served in [
+            "src/main.ts",
+            "index.html",
+            "public/robots.txt",
+            ".well-known/security.txt",
+        ] {
+            assert!(!ignored(Path::new(served)), "{served}");
+        }
     }
 
     #[cfg(windows)]

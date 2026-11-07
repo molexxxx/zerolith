@@ -2,8 +2,9 @@
 //! directory indexes and a nearest-index fallback for client-side routes,
 //! the `public` folder at the root, scripts through the module pipeline
 //! for `dev` and `serve`, a small client script injected into HTML pages
-//! when live reload is on, server-sent change events, and Chrome's
-//! automatic-workspace file.
+//! when live reload is on, server-sent change events and each file's
+//! compile error or stylesheet warnings, and Chrome's automatic-workspace
+//! file.
 
 use std::net::{Ipv4Addr, SocketAddr};
 use std::path::{Component, Path, PathBuf};
@@ -27,6 +28,7 @@ use crate::config::ProxyRule;
 use crate::css;
 use crate::mime::content_type;
 use crate::modules::{self, Pipeline};
+use crate::problems::Problems;
 use crate::proxy;
 use crate::term;
 use crate::watch::{self, Change};
@@ -59,6 +61,7 @@ struct AppState {
     base: String,
     proxy: Vec<ProxyRule>,
     allowed_hosts: Vec<String>,
+    problems: Arc<Problems>,
 }
 
 /// Where a request path falls relative to the base the application is served under.
@@ -260,19 +263,33 @@ pub fn workspace_uuid(root: &Path) -> String {
     )
 }
 
+/// One server-sent event of `kind` carrying `value` as JSON, or `None` for a value that does not serialize.
+fn event(
+    kind: &'static str,
+    value: &impl serde::Serialize,
+) -> Option<Result<Event, std::convert::Infallible>> {
+    serde_json::to_string(value)
+        .ok()
+        .map(|data| Ok(Event::default().event(kind).data(data)))
+}
+
+/// The live-reload stream: every problem still standing when the browser connects, then each change and each new problem as it happens.
 async fn events(State(state): State<Arc<AppState>>) -> Response {
     match &state.changes {
         Some(sender) => {
-            let stream = BroadcastStream::new(sender.subscribe()).filter_map(|change| {
-                change.ok().and_then(|change| {
-                    serde_json::to_string(&change).ok().map(|data| {
-                        Ok::<Event, std::convert::Infallible>(
-                            Event::default().event("change").data(data),
-                        )
-                    })
-                })
-            });
-            Sse::new(stream)
+            let changes = BroadcastStream::new(sender.subscribe())
+                .filter_map(|change| change.ok().and_then(|change| event("change", &change)));
+            let reported = BroadcastStream::new(state.problems.subscribe())
+                .filter_map(|problem| problem.ok().and_then(|problem| event("problem", &problem)));
+            let standing = tokio_stream::iter(
+                state
+                    .problems
+                    .current()
+                    .iter()
+                    .filter_map(|problem| event("problem", problem))
+                    .collect::<Vec<_>>(),
+            );
+            Sse::new(standing.chain(changes.merge(reported)))
                 .keep_alive(KeepAlive::default())
                 .into_response()
         }
@@ -322,10 +339,45 @@ fn fresh(body: impl Into<Body>, mime: &'static str) -> Response {
 /// A module that throws `message`, so a failure shows in the browser's console as well as the terminal.
 fn failed(message: &str) -> Response {
     anstream::eprintln!("{}", term::row("error", term::failure, message));
+    throwing(message)
+}
+
+/// A module that throws `message` if it runs. A module that imports a name from it fails before it runs, so the problem is also sent over the live-reload stream.
+fn throwing(message: &str) -> Response {
     fresh(
         format!("throw new Error({});\n", serde_json::Value::from(message)),
         content_type("js"),
     )
+}
+
+/// `message` with the file it is about leading, unless it names the file already, as a parse error's report does not.
+fn about(root: &Path, path: &Path, message: String) -> String {
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
+    if !name.is_empty() && message.contains(name) {
+        return message;
+    }
+    let shown = css::shown(root, path);
+    if message.starts_with('\n') {
+        format!("{shown}:{message}")
+    } else {
+        format!("{shown}: {message}")
+    }
+}
+
+/// Records what the browser will skip of the stylesheet at `path`, served as `request_path`, or forgets it when there is nothing.
+fn check_stylesheet(problems: &Problems, root: &Path, path: &Path, request_path: &str) {
+    let Ok(source) = std::fs::read_to_string(path) else {
+        return;
+    };
+    let found = css::problems(&source, &css::shown(root, path));
+    if found.is_empty() {
+        problems.clear(request_path);
+    } else {
+        problems.report(request_path, "warning", found.join("\n"));
+    }
 }
 
 /// A file of the project's `public` folder, served at the root as the build copies it.
@@ -337,6 +389,7 @@ fn public_file(root: &Path, request_path: &str) -> Option<PathBuf> {
 /// The dev server's answer for a module or a package file, or `None` for a file served as it is.
 fn module_response(
     pipeline: &Pipeline,
+    problems: &Problems,
     root: &Path,
     request_path: &str,
     query: &str,
@@ -355,25 +408,44 @@ fn module_response(
         .and_then(|extension| extension.to_str())
         .unwrap_or("");
     let script = |result: Result<String, String>| match result {
-        Ok(code) => fresh(code, content_type("js")),
-        Err(message) => failed(&message),
+        Ok(code) => {
+            problems.clear(request_path);
+            fresh(code, content_type("js"))
+        }
+        Err(message) => {
+            let message = about(root, &path, message);
+            problems.report(request_path, "error", message.clone());
+            throwing(&message)
+        }
+    };
+    let stylesheet = |result: Result<String, String>| match result {
+        Ok(code) => {
+            if !outside {
+                check_stylesheet(problems, root, &path, request_path);
+            }
+            fresh(code, content_type("js"))
+        }
+        Err(message) => {
+            problems.report(request_path, "error", message.clone());
+            throwing(&message)
+        }
     };
     if modules::wants(query, "scoped") {
         return Some(if extension == "css" {
-            script(
+            stylesheet(
                 pipeline
                     .scoped(&path)
                     .map_err(|error| format!("{}: {error}", display(&path))),
             )
         } else {
-            failed(&format!(
+            script(Err(format!(
                 "{}: ?scoped applies to a stylesheet, a .css file",
                 display(&path)
-            ))
+            )))
         });
     }
     if modules::wants(query, "import") && extension == "css" {
-        return Some(script(
+        return Some(stylesheet(
             pipeline
                 .stylesheet(&path)
                 .map_err(|error| format!("{}: {error}", display(&path))),
@@ -437,11 +509,12 @@ async fn file(state: &Arc<AppState>, uri: &Uri) -> Response {
     };
     if let Some(pipeline) = &state.pipeline {
         let pipeline = pipeline.clone();
+        let problems = state.problems.clone();
         let root = state.root.clone();
         let request_path = request_path.clone();
         let query = uri.query().unwrap_or("").to_string();
         match tokio::task::spawn_blocking(move || {
-            module_response(&pipeline, &root, &request_path, &query)
+            module_response(&pipeline, &problems, &root, &request_path, &query)
         })
         .await
         {
@@ -462,6 +535,19 @@ async fn file(state: &Arc<AppState>, uri: &Uri) -> Response {
         .extension()
         .and_then(|extension| extension.to_str())
         .unwrap_or("");
+    if state.pipeline.is_some() && extension == "css" {
+        let found = css::problems(
+            &String::from_utf8_lossy(&bytes),
+            &css::shown(&state.root, &path),
+        );
+        if found.is_empty() {
+            state.problems.clear(&request_path);
+        } else {
+            state
+                .problems
+                .report(&request_path, "warning", found.join("\n"));
+        }
+    }
     if state.changes.is_some() && (extension == "html" || extension == "htm") {
         return fresh(
             inject_client(&String::from_utf8_lossy(&bytes)),
@@ -471,7 +557,7 @@ async fn file(state: &Arc<AppState>, uri: &Uri) -> Response {
     fresh(bytes, content_type(extension))
 }
 
-/// Builds the application for a root, with change events when a sender is given, the module pipeline when one is, the base it is served under, the paths it forwards to backends, and the host names it answers besides localhost and IP addresses.
+/// Builds the application for a root, with change events when a sender is given, the module pipeline when one is, the base it is served under, the paths it forwards to backends, the host names it answers besides localhost and IP addresses, and the record of each file's problems.
 fn app(
     root: PathBuf,
     changes: Option<broadcast::Sender<Change>>,
@@ -479,6 +565,7 @@ fn app(
     base: String,
     proxy: Vec<ProxyRule>,
     allowed_hosts: Vec<String>,
+    problems: Arc<Problems>,
 ) -> Router {
     let state = Arc::new(AppState {
         root,
@@ -487,6 +574,7 @@ fn app(
         base,
         proxy,
         allowed_hosts,
+        problems,
     });
     Router::new()
         .route("/__zerolith/events", get(events))
@@ -500,8 +588,8 @@ fn app(
         .with_state(state)
 }
 
-/// Prints a line for each change the browsers are told about, once per save even when an editor writes a file several times.
-fn log_changes(sender: &broadcast::Sender<Change>) {
+/// Prints a line for each change the browsers are told about, once per save even when an editor writes a file several times, and forgets the changed file's problem, so the next request reports it again if it stands.
+fn log_changes(sender: &broadcast::Sender<Change>, problems: Arc<Problems>) {
     let mut receiver = sender.subscribe();
     tokio::spawn(async move {
         let mut last: Option<(String, std::time::Instant, usize)> = None;
@@ -511,6 +599,7 @@ fn log_changes(sender: &broadcast::Sender<Change>) {
                 Err(broadcast::error::RecvError::Lagged(_)) => continue,
                 Err(broadcast::error::RecvError::Closed) => break,
             };
+            problems.clear(&change.path);
             let now = std::time::Instant::now();
             let count = match &mut last {
                 Some((path, at, count)) if *path == change.path => {
@@ -667,8 +756,9 @@ pub async fn run(options: Options) -> std::io::Result<()> {
         );
     }
     anstream::println!("\n  {}\n", term::muted("Press Ctrl+C to stop."));
+    let problems = Arc::new(Problems::new());
     if let Some(sender) = &sender {
-        log_changes(sender);
+        log_changes(sender, problems.clone());
     }
     let result = axum::serve(
         listener,
@@ -679,6 +769,7 @@ pub async fn run(options: Options) -> std::io::Result<()> {
             options.base,
             options.proxy,
             options.allowed_hosts,
+            problems,
         )
         .into_make_service_with_connect_info::<SocketAddr>(),
     )
@@ -848,14 +939,18 @@ mod tests {
     }
 
     mod served {
-        use super::super::{Mapped, app, map_base};
+        use super::super::{Mapped, app, log_changes, map_base};
         use crate::config::ProxyRule;
+        use crate::modules::Pipeline;
+        use crate::problems::Problems;
+        use crate::watch::Change;
         use axum::Router;
         use axum::body::Body;
         use axum::http::{Request, Response, StatusCode, header};
         use axum::routing::{any, get};
         use hyper_util::rt::TokioIo;
         use std::net::SocketAddr;
+        use std::sync::Arc;
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         use tokio::net::{TcpListener, TcpStream};
 
@@ -886,6 +981,7 @@ mod tests {
                 "/".to_string(),
                 Vec::new(),
                 vec!["myapp.test".to_string()],
+                Arc::new(Problems::new()),
             ))
             .await;
             for host in [
@@ -916,6 +1012,126 @@ mod tests {
             .await;
             assert!(events.starts_with("HTTP/1.1 403"), "{events}");
             let _ = std::fs::remove_dir_all(&root);
+        }
+
+        /// Opens the live-reload stream and returns what it sent once `count` problems have arrived, or after five seconds.
+        async fn problems_sent(address: SocketAddr, count: usize) -> String {
+            let mut stream = TcpStream::connect(address).await.unwrap();
+            stream
+                .write_all(b"GET /__zerolith/events HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
+                .await
+                .unwrap();
+            let mut seen = Vec::new();
+            let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+            while String::from_utf8_lossy(&seen)
+                .matches("event: problem")
+                .count()
+                < count
+            {
+                let mut chunk = [0u8; 4096];
+                match tokio::time::timeout_at(deadline, stream.read(&mut chunk)).await {
+                    Ok(Ok(read)) if read > 0 => seen.extend_from_slice(&chunk[..read]),
+                    _ => break,
+                }
+            }
+            String::from_utf8_lossy(&seen).into_owned()
+        }
+
+        #[tokio::test]
+        async fn sends_compile_errors_and_stylesheet_warnings_to_the_browser() {
+            let folder =
+                std::env::temp_dir().join(format!("zerolith-problems-test-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&folder);
+            std::fs::create_dir_all(folder.join("src")).unwrap();
+            let root = crate::css::canonical(&folder).unwrap();
+            std::fs::write(root.join("src/broken.ts"), "export const a = ;\n").unwrap();
+            std::fs::write(root.join("src/fine.ts"), "export const b = 1;\n").unwrap();
+            std::fs::write(
+                root.join("src/linked.css"),
+                ".a { color: red; }\n.b:: { color: blue; }\n",
+            )
+            .unwrap();
+            std::fs::write(root.join("src/imported.css"), ".c { color red; }\n").unwrap();
+            std::fs::write(root.join("src/clean.css"), ".a { color: red; }\n").unwrap();
+            let (sender, _) = tokio::sync::broadcast::channel(16);
+            let problems = Arc::new(Problems::new());
+            log_changes(&sender, problems.clone());
+            let address = listen(app(
+                root.clone(),
+                Some(sender.clone()),
+                Some(Arc::new(Pipeline::new(root.clone(), "development", "/"))),
+                "/".to_string(),
+                Vec::new(),
+                Vec::new(),
+                problems.clone(),
+            ))
+            .await;
+            let get = |path: &str| {
+                format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
+            };
+            let broken = exchange(address, &get("/src/broken.ts")).await;
+            assert!(broken.contains("throw new Error"), "{broken}");
+            for path in [
+                "/src/fine.ts",
+                "/src/linked.css",
+                "/src/imported.css?import",
+                "/src/clean.css",
+                "/src/clean.css?import",
+            ] {
+                let response = exchange(address, &get(path)).await;
+                assert!(response.starts_with("HTTP/1.1 200"), "{path}: {response}");
+            }
+            let sent = problems_sent(address, 3).await;
+            let lines: Vec<&str> = sent
+                .lines()
+                .filter(|line| line.starts_with("data: "))
+                .collect();
+            assert_eq!(lines.len(), 3, "{sent}");
+            assert!(
+                lines[0].contains(
+                    r#""path":"/src/broken.ts","level":"error","message":"src/broken.ts:\n"#
+                ),
+                "{sent}"
+            );
+            assert!(
+                lines[1].contains(
+                    r#""path":"/src/imported.css","level":"warning","message":"src/imported.css:1:"#
+                ),
+                "{sent}"
+            );
+            assert!(
+                lines[2].contains(
+                    r#""path":"/src/linked.css","level":"warning","message":"src/linked.css:2:"#
+                ),
+                "{sent}"
+            );
+            std::fs::write(root.join("src/broken.ts"), "export const a = 1;\n").unwrap();
+            let fixed = exchange(address, &get("/src/broken.ts")).await;
+            assert!(!fixed.contains("throw new Error"), "{fixed}");
+            sender
+                .send(Change {
+                    path: "/src/linked.css".to_string(),
+                })
+                .unwrap();
+            for _ in 0..100 {
+                if problems.current().len() == 1 {
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+            assert_eq!(
+                problems
+                    .current()
+                    .iter()
+                    .map(|problem| problem.path.as_str())
+                    .collect::<Vec<_>>(),
+                ["/src/imported.css"]
+            );
+            std::fs::write(root.join("src/imported.css"), ".c { color: red; }\n").unwrap();
+            let mended = exchange(address, &get("/src/imported.css?import")).await;
+            assert!(mended.starts_with("HTTP/1.1 200"), "{mended}");
+            assert!(problems.current().is_empty());
+            let _ = std::fs::remove_dir_all(&folder);
         }
 
         /// Sends raw HTTP/1.1 and returns everything the server wrote before closing.
@@ -1048,6 +1264,7 @@ mod tests {
                 "/app/".to_string(),
                 rules,
                 vec!["dev.local".to_string()],
+                Arc::new(Problems::new()),
             ))
             .await;
 

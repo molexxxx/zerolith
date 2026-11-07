@@ -21,6 +21,7 @@ mod mime;
 mod modules;
 mod new;
 mod prepare;
+mod problems;
 mod proxy;
 mod scan;
 mod server;

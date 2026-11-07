@@ -2,10 +2,32 @@
 // stylesheet, linked, imported from a module, or imported with ?scoped, is
 // swapped in place; any other change reloads the page after saving the
 // values of named signals, which the development build of zerolith
-// restores on the next load.
+// restores on the next load. A module that fails to compile, or a
+// stylesheet the browser will read only in part, is printed in the console,
+// each once per page, since a module that imports a name from a failed one
+// fails before the failed one runs.
 const STORAGE_KEY = "zerolith:restore";
 const source = new EventSource("/__zerolith/events");
+const printed = new Set();
 let timer = 0;
+
+source.addEventListener("problem", (event) =>
+{
+    const { level, message } = JSON.parse(event.data);
+    if (printed.has(message))
+    {
+        return;
+    }
+    printed.add(message);
+    if (level === "error")
+    {
+        console.error(`zerolith dev: ${message}`);
+    }
+    else
+    {
+        console.warn(`zerolith dev: ${message}`);
+    }
+});
 
 source.addEventListener("change", (event) =>
 {

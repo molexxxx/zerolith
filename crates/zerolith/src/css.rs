@@ -428,6 +428,30 @@ pub fn find_import(root: &Path, folder: &Path, url: &str) -> Option<PathBuf> {
     None
 }
 
+/// What the browser will skip of a stylesheet, as lightningcss reads it with error recovery: each warning, or the error that stops it, with the file and the position.
+pub fn problems(source: &str, name: &str) -> Vec<String> {
+    let warnings = Arc::new(RwLock::new(Vec::new()));
+    let mut found = match StyleSheet::parse(
+        source,
+        ParserOptions {
+            filename: name.to_string(),
+            error_recovery: true,
+            warnings: Some(warnings.clone()),
+            ..ParserOptions::default()
+        },
+    ) {
+        Ok(_) => Vec::new(),
+        Err(error) => vec![located_error(&error, name)],
+    };
+    if let Ok(list) = warnings.read() {
+        found.extend(
+            list.iter()
+                .map(|warning: &Error<ParserError>| located_error(warning, name)),
+        );
+    }
+    found
+}
+
 /// A stylesheet with its relative `url(...)` and `@import` references made absolute through `url_of`, for a `<style>` element the dev server puts in the page, which resolves references against the page instead of the stylesheet. Root-absolute and remote references stay as written.
 pub fn absolute_urls(
     file: &Path,

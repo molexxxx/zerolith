@@ -1,5 +1,5 @@
 import { type ChildProcess, spawnSync } from "node:child_process";
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Browser, chromium } from "playwright";
@@ -89,6 +89,38 @@ describe("the starter zerolith new writes", () =>
     it("runs under zerolith dev", { timeout: 60000 }, async () =>
     {
         expect(await visit(await start(["dev", root]))).toEqual(expected);
+    });
+
+    it("prints a module that fails to compile and a stylesheet the browser reads in part in the console under zerolith dev", { timeout: 60000 }, async () =>
+    {
+        const routes = join(root, "src", "routes.ts");
+        const styles = join(root, "src", "styles.css");
+        const keptRoutes = readFileSync(routes, "utf8");
+        const keptStyles = readFileSync(styles, "utf8");
+        try
+        {
+            writeFileSync(routes, `${keptRoutes}\nexport const broken = ;\n`);
+            writeFileSync(styles, `${keptStyles}\n.broken:: { color: red; }\n`);
+            const origin = await start(["dev", root]);
+            const page = await browser.newPage();
+            const printed: string[] = [];
+            page.on("console", (message) =>
+            {
+                if (message.type() === "error" || message.type() === "warning")
+                {
+                    printed.push(`${message.type()} ${message.text()}`);
+                }
+            });
+            await page.goto(`${origin}/`);
+            await expect.poll(() => printed.filter((line) => line.startsWith("error zerolith dev: src/routes.ts:")).length, { timeout: 10000 }).toBe(1);
+            await expect.poll(() => printed.filter((line) => line.startsWith("warning zerolith dev: src/styles.css:")).length, { timeout: 10000 }).toBe(1);
+            await page.close();
+        }
+        finally
+        {
+            writeFileSync(routes, keptRoutes);
+            writeFileSync(styles, keptStyles);
+        }
     });
 
     it("builds with zerolith build and runs from zerolith preview", { timeout: 60000 }, async () =>
