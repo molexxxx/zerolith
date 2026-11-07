@@ -22,7 +22,7 @@ Pages appear through the route table in `src/routes.ts`. Import the component ne
 
 @include packages/zerolith/test/fixtures/tutorial/page/src/routes.ts#import excerpt
 
-Then add an entry to the table, next to `home`, `counter`, and `packages`:
+Then add an entry at the end of the table. The starter's last entry, `packages`, has no comma after it, so add one there first:
 
 @include packages/zerolith/test/fixtures/tutorial/page/src/routes.ts#route excerpt
 
@@ -30,7 +30,7 @@ The key, `packing`, is the route's name. The path is matched against the URL, th
 
 ## The link
 
-Links are plain anchors. The router handles clicks on links to its own routes, so the page changes without a reload, and every other link works as a link always does. The starter's layout in `src/components/layout.ts` already builds its navigation from the route names, so add one more line to the `nav` there: `${Link({ href: router.href("packing"), label: "Packing", exact: false })}`.
+Links are plain anchors. The router handles clicks on links to its own routes, so the page changes without a reload, and every other link works as a link always does. The starter's layout in `src/components/layout.ts` has one `Link` for each page in its `nav`, so add one more line there: `${Link({ href: router.href("packing"), label: "Packing", exact: false })}`.
 
 `router.href("packing")` builds the URL from the route's name. Since the route table is typed, a misspelled name or a missing parameter is a type error in your editor rather than a broken link in production.
 

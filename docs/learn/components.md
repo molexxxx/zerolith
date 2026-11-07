@@ -22,6 +22,8 @@ Props are an object, and TypeScript checks them like any function's arguments. T
 
 The remove button has visible text and an `aria-label` that names the item, because "Remove" on its own does not say which item a screen reader user is about to remove. An attribute can mix text and bindings: `aria-label="Remove ${name}"` stays current if the name changes.
 
+Removing a row removes the button that had focus, and keyboard focus would fall back to the page itself. `keepingFocus` wraps a change that can take the row off the list: it notes the row's neighbor first, and when the row is gone, moves focus to the next row's checkbox, the one before, or the new item field once the list is empty. It returns the handler, so `toggled` and `removed` are handlers made once per row. The checkbox goes through it too, for a reason the next step brings.
+
 ## The form
 
 Create `src/components/add-item.ts`, with the form from the last step:

@@ -2,23 +2,24 @@
 import { type View, computed, each, html } from "zerolith";
 import { add, items, toggle } from "../store.ts";
 
+function submitted(event: SubmitEvent): void
+{
+    event.preventDefault();
+    const form = event.currentTarget as HTMLFormElement;
+    const name = String(new FormData(form).get("name") ?? "").trim();
+    if (name !== "")
+    {
+        add(name);
+        form.reset();
+    }
+}
+
 export function Packing(): View
 {
     const count = computed(() => items.get().length);
-    const submitted = (event: SubmitEvent): void =>
-    {
-        event.preventDefault();
-        const form = event.currentTarget as HTMLFormElement;
-        const name = String(new FormData(form).get("name") ?? "").trim();
-        if (name !== "")
-        {
-            add(name);
-            form.reset();
-        }
-    };
     return html`
         <h1>Packing list</h1>
-        <p>${count} items</p>
+        <p>Items: ${count}</p>
         <ul>
             ${each(items, (item) => item.id, (item) => html`
                 <li>

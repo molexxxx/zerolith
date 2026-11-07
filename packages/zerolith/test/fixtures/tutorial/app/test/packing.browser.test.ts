@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { accessibilityIssues, cleanup, mount } from "@zerolith/test";
 import { Packing } from "../src/components/packing.ts";
-import { items } from "../src/store.ts";
+import { changes, filter, items } from "../src/store.ts";
 
 beforeEach(() =>
 {
@@ -10,6 +10,8 @@ beforeEach(() =>
         { id: 2, name: "Phone charger", packed: false },
         { id: 3, name: "Rain jacket", packed: false }
     ]);
+    filter.set("all");
+    changes.dispose();
 });
 afterEach(cleanup);
 

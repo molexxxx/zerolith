@@ -26,7 +26,7 @@ cd packing-list
 npm run dev
 ```
 
-`--template ts` picks the language and `--yes` takes the default for every other question: the zerolith command line as the dev server and build, one bundle for production, the in-page inspector, and the dependencies installed. Open the address `npm run dev` prints, http://127.0.0.1:8080/ unless that port is taken, and you see the starter's home page. Leave the server running; it reloads the page every time you save a file.
+The first time, `npx` asks before it downloads the command line; answer `y`. `--template ts` picks the language and `--yes` takes the default for every other question: the zerolith command line as the dev server and build, one bundle for production, the in-page inspector, and the dependencies installed. Open the address `npm run dev` prints, http://127.0.0.1:8080/ unless that port is taken, and you see the starter's home page. Leave the server running; it reloads the page every time you save a file.
 
 ## What the starter wrote
 
@@ -45,7 +45,7 @@ The starter is a small routed application, and its files are the layout every ze
 | `AGENTS.md` | The conventions, written for a coding agent working in the project |
 | `.agents/skills/`, `.claude/skills/` | The zerolith skill, which coding agents load when a task involves zerolith |
 
-Open `src/components/counter.ts`. It is the whole idea of zerolith in a dozen lines: a signal holds a number, the template binds it, and a click sets it. You will build the same way, one step further each page.
+Open `src/components/counter.ts`. It is the whole idea of zerolith in one short file: a signal holds a number, the template binds it, and a click sets it. You will build the same way, one step further each page.
 
 ## The steps
 

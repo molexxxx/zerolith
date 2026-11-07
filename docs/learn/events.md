@@ -32,7 +32,7 @@ An attribute that starts with `@` listens to an event: `@change` on the checkbox
 - `.checked=${...}` with a leading dot sets a property on the element instead of an attribute, which is what a checkbox's checked state needs.
 - A plain attribute, like `name="name"`, is static markup.
 
-The form is a real form: it has a label, a required field, and a submit button, so it works with the keyboard and with assistive technology, and pressing Enter submits it. The handler stops the browser's own submission, reads the field through `FormData`, and clears the form after adding.
+The form is a real form: it has a label, a required field, and a submit button, so it works with the keyboard and with assistive technology, and pressing Enter submits it. The handler stops the browser's own submission, reads the field through `FormData`, and clears the form after adding. It sits outside `Packing` because it uses nothing from inside it: the form it reads is the event's `currentTarget`. The starter's `npm run lint` asks for exactly that, and a function that does use something from the component, as the rows will, stays inside it.
 
 ## What you learned
 

@@ -16,7 +16,7 @@ Create `src/store.ts`, a module for the list's state:
 
 `signal` takes the starting value and returns an object with two methods: `get()` reads the value, and `set()` replaces it. State that more than one component reads lives in `src/store.ts`, the place every zerolith project keeps it, so any component can import it and it outlives a page that is closed and opened again.
 
-The second argument names the signal. A named signal keeps its value when you save a file: `zerolith dev` reloads the page and restores every named signal, so the list you were testing with is still there after an edit.
+The second argument, `{ name: "items" }`, names the signal. A named signal keeps its value when you save a file: `zerolith dev` reloads the page and restores every named signal, so the list you were testing with is still there after an edit.
 
 ## One row per item
 
@@ -42,7 +42,7 @@ Look at how the template uses `count`: it puts the signal itself in the slot, `$
 > [!IMPORTANT]
 > **Bind the signal, not its value.** `${count}` hands the template the signal, and the template keeps the text up to date for as long as the page is open. `${count.get()}` reads the number once, while the template is being made, and the page never changes again.
 
-Both are valid code, so the runtime cannot warn you; `zerolith doctor` and the Vite plugin report a frozen read like that before the code runs, under the code `template_frozen_read`.
+Both are valid code, so the runtime cannot warn you; `npx zerolith doctor` and the Vite plugin report a frozen read like that before the code runs, under the code `template_frozen_read`.
 
 There is no re-rendering in zerolith. `Packing()` runs once, when the page opens. After that, a change to `items` updates exactly the text nodes and rows that depend on it.
 

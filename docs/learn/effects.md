@@ -16,7 +16,7 @@ Update `src/store.ts`:
 
 @include packages/zerolith/test/fixtures/tutorial/effects/src/store.ts
 
-`stored()` runs once, when the module loads, and gives `items` its starting value: the saved list if there is one, the three starting items if not. Reading storage can fail, in a private window with storage turned off or with damaged data, so a failure falls back to the starting items instead of breaking the page.
+`stored()` runs once, when the module loads, and gives `items` its starting value: the saved list if there is one, the three starting items if not. Reading storage can throw, in a private window with storage turned off, and what it holds may not be your list at all: text that does not parse, or something another app saved under the same key, since every app you run at the same address while you develop shares one storage. `isItem` checks each entry, so anything that fails to parse, or is not a list of items, falls back to the starting items instead of breaking the page.
 
 The `effect` runs once right away and then again each time a signal it read changes. It reads `items`, so every `set()` saves the new list. It never reads `filter`, so changing the filter saves nothing. You never list the dependencies by hand: an effect depends on exactly what it read the last time it ran.
 

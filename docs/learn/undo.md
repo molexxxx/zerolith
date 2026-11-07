@@ -22,9 +22,9 @@ Update `src/store.ts`:
 
 @include packages/zerolith/test/fixtures/tutorial/undo/src/store.ts
 
-`stored` from `@zerolith/state` does what your `stored()` function and the effect did together. It reads the key when the module loads, takes the starting items when nothing is saved there or what is saved does not parse, and writes the list back as JSON on every `set()`. The key and the JSON are the ones the last step wrote, so the list you saved there loads as it was.
+`stored` from `@zerolith/state` does what your `stored()` function and the effect did together. It reads the key when the module loads, takes the starting items when nothing is saved there or what is saved does not parse, and writes the list back as JSON on every `set()`. It checks that the saved text parses, but not that it is a list of items, as `isItem` did. The key and the JSON are the ones the last step wrote, so the list you saved there loads as it was.
 
-It also does what the hand-written version did not. When the list changes in another tab, the browser tells this one with a `storage` event, and `stored` sets itself to match, so every open tab shows the same list. Nothing fails in silence either: a saved value that does not parse is reported as `state_storage_unreadable`, and storage the browser refuses as `state_storage_unavailable`, while the list keeps working for the visit.
+It also does what the hand-written version did not. When the list changes in another tab, the browser tells this one with a `storage` event, and `stored` sets itself to match, so every open tab shows the same list. Nothing fails in silence either: a saved value that does not parse is reported as `state_storage_unreadable`, and storage the browser refuses as `state_storage_unavailable`, while the list keeps working for the visit. While you develop, each report appears in the console; a production build keeps the console quiet and hands reports only to `onDiagnostic` listeners, as the [diagnostics guide](../guide/diagnostics.md) shows.
 
 `stored` takes no name, and needs none: after an edit, `zerolith dev` reloads the page and the list comes back from storage, as it does on any visit.
 
@@ -41,7 +41,7 @@ Create `src/components/undo-redo.ts`:
 
 @include packages/zerolith/test/fixtures/tutorial/undo/src/components/undo-redo.ts
 
-`canUndo` and `canRedo` are signals, true while there is somewhere to go, so the buttons follow them. `?disabled=${noUndo}` binds a boolean attribute, marked with `?` as an event is with `@` and a property with `.`: the attribute is there while the value is true and gone while it is false. A plain `disabled=${noUndo}` would not do, since `false` would become the attribute's text, and a button with a `disabled` attribute is disabled whatever the text says. The click handlers are the history's own `undo` and `redo`.
+`canUndo` and `canRedo` are signals, true while there is somewhere to go, so the buttons follow them. `?disabled=${noUndo}` binds a boolean attribute, marked with `?` as an event is with `@` and a property with `.`: the attribute is there while the value is true and gone while it is false. A plain `disabled=${noUndo}` would not do, since `false` would become the attribute's text, and a button with a `disabled` attribute is disabled whatever the text says. Each click runs the history's own `undo` or `redo` through `pressing`. A disabled button cannot hold focus, so when Undo takes back the last change and turns itself off, `pressing` moves focus to Redo, which that undo has just turned on, and the other way around.
 
 The [state guide](../guide/state.md) covers the rest of `@zerolith/state`: signals that wait for typing to stop or follow a scroll at a steady rate, and a selector that tells each of a thousand rows whether it is the selected one.
 
