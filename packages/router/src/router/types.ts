@@ -134,12 +134,17 @@ export interface RouterOptions
     /** Renders when no route matches. */
     fallback?: (url: URL) => Renderable;
     /**
+     * Renders in the outlet, given the error and the URL, in place of a page whose view throws as a navigation shows it.
+     * The navigation still fails with the error, through `onError` or `navigate()`. Without it the outlet is empty.
+     */
+    failed?: (error: unknown, url: URL) => Renderable;
+    /**
      * The head fields every page starts from, as an object or as a function of the URL and the matched route's name, undefined for the fallback.
      * A route's `head` overrides them field by field, and the fallback shows them as they are. On every commit the document shows the merged
      * head as a whole; a field neither gives goes back to what the document had when the router was created, as written in the page.
      */
     head?: Head | ((context: HeadContext) => Head);
-    /** Called when a loader, a lazy import, or a route's `head` throws, which leaves the page as it was, or when the new page throws as it renders, after the URL changed, which leaves the outlet empty. Without it the error propagates from `navigate()`, and a navigation a link or the history started rejects unobserved, which the browser reports. */
+    /** Called when a loader, a lazy import, or a route's `head` throws, which leaves the page as it was, or when the new page throws as it renders, after the URL changed, which leaves the outlet empty or shows `failed`. Without it the error propagates from `navigate()`, and a navigation a link or the history started rejects unobserved, which the browser reports. */
     onError?: (error: unknown, url: URL) => void;
     /** Set false to leave scrolling to the application. Defaults to true. */
     scroll?: boolean;

@@ -539,6 +539,37 @@ describe("router", () =>
         expect(onError).toHaveBeenCalledTimes(1);
     });
 
+    it("shows the failed view in the outlet, given the error and the URL, when the view navigated to throws", async () =>
+    {
+        history.replaceState(null, "", "/");
+        const onError = vi.fn();
+        const pages = defineRoutes({
+            home: route({ path: "/", view: () => html`<p>home</p>` }),
+            broken: route({
+                path: "/broken/:id",
+                view: (): View =>
+                {
+                    throw new Error("view");
+                }
+            })
+        });
+        router = createRouter(pages, {
+            window,
+            onError,
+            failed: (error, url) => html`<p role="alert">${(error as Error).message} at ${url.pathname}</p>`
+        });
+        await settled(router);
+        const el = mount(html`<main>${router.outlet()}</main>`);
+
+        await router.navigate("/broken/7");
+        expect(el.textContent).toBe("view at /broken/7");
+        expect(location.pathname).toBe("/broken/7");
+        expect(onError).toHaveBeenCalledTimes(1);
+
+        await router.navigate("/");
+        expect(el.textContent).toBe("home");
+    });
+
     it("throws a view's error from the mount that renders the outlet when no navigation is running", async () =>
     {
         history.replaceState(null, "", "/");

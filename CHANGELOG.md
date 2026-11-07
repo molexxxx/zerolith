@@ -4,6 +4,10 @@ Every package in this repository is released together and carries the same versi
 
 ## Unreleased
 
+### Added
+
+- `@zerolith/router`: `createRouter` takes a `failed` option, a view the outlet shows in place of a page whose view throws as a navigation shows it, given the error and the URL, where the outlet could only stay empty. The navigation still fails with the error.
+
 ### Changed
 
 - Docs: the tutorial's undo step passes `validate` to `stored` with the `isItem` check from the step before, so a saved value that is not a list of items takes the starting items there too.

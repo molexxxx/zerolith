@@ -264,9 +264,10 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
 
     /**
      * Shows the resolved page at `target`. A page view that throws leaves
-     * the outlet empty at the new URL, under the new head, rather than
-     * keeping the page before under a URL it does not match, and the commit
-     * then throws its error, so the navigation ends in an `error` event.
+     * the outlet empty at the new URL, or showing the `failed` view, under
+     * the new head, rather than keeping the page before under a URL it does
+     * not match, and the commit then throws its error, so the navigation
+     * ends in an `error` event.
      */
     const commit = (target: URL, resolved: Resolved, value: Head, restored: number | undefined, first: boolean): void =>
     {
@@ -512,7 +513,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             }
             committing.failed = true;
             committing.error = error;
-            return undefined;
+            return options.failed?.(error, matched.url);
         }
     }));
 
