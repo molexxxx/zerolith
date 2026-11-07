@@ -2,7 +2,7 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
-## Unreleased
+## 1.5.0 (2026-11-07)
 
 A minor release from `main`, the last of the fixes the tutorials turned up: the router takes a `focus` option, which the starter sets, `zerolith build --entry --classic` writes a plain script, the template lint reports a component bound without being called, and `zerolith preview` works beside `zerolith dev` by leaving a running backend as it is.
 
