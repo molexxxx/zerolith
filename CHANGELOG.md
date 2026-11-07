@@ -20,6 +20,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Fixed
 
+- `zerolith`: a keyed list checks every key of an update before it changes a row, so an update with a repeated or missing key fails with `each_key_duplicate` or `each_key_undefined` and leaves the list as it was, where the rows before the bad key had already changed: some updated, some added, and the ones it would remove still there.
 - `@zerolith/router`: a page whose view throws during a navigation leaves the outlet empty at the new URL, under the new page's head, and the navigation fails with the view's error as before, where the page before stayed on screen under a URL it did not match. A view that throws while no navigation runs, as when the outlet is first mounted, still throws from the mount.
 - Docs site: the playground's example list no longer scrolls when the pointer rests on an option at its edge, which moved the next option under the pointer and scrolled again; the pointer only marks an option, and the keyboard and opening the list scroll the list alone, never the page.
 

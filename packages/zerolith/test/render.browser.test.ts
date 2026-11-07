@@ -763,6 +763,37 @@ describe("each", () =>
         expect(() => items.set([{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }, { id: 2, name: "again" }])).toThrow(/each_key_duplicate/);
     });
 
+    it("leaves every row as it was when an update repeats or leaves out a key, and takes the next update whole", () =>
+    {
+        const items = signal<Item[]>([{ id: 1, name: "a" }, { id: 2, name: "b" }]);
+        const list = mount(html`<ul>${each(items, (item) => item.id, (item) => html`<li>${computed(() => item.get().name)}</li>`)}</ul>`);
+        const shown = (): string[] => [...list.querySelectorAll("li")].map((row) => row.textContent ?? "");
+        const [first, second] = list.querySelectorAll("li");
+        expect(() => items.set([{ id: 1, name: "A" }, { id: 2, name: "B" }, { id: 3, name: "c" }, { id: 3, name: "d" }])).toThrow(/each_key_duplicate/);
+        expect(shown()).toEqual(["a", "b"]);
+        expect(() => items.set([{ id: 1, name: "A" }, { id: 4, name: "x" }, { id: 4, name: "y" }, { id: 2, name: "B" }])).toThrow(/each_key_duplicate/);
+        expect(shown()).toEqual(["a", "b"]);
+        expect(() => items.set([{ id: 3, name: "c" }, { id: 1, name: "A" }, { id: 3, name: "d" }])).toThrow(/each_key_duplicate/);
+        expect(shown()).toEqual(["a", "b"]);
+        expect(() => items.set([{ id: 1, name: "A" }, { id: undefined as unknown as number, name: "x" }, { id: 2, name: "B" }])).toThrow(/each_key_undefined/);
+        expect(shown()).toEqual(["a", "b"]);
+        items.set([{ id: 2, name: "B" }, { id: 3, name: "c" }, { id: 1, name: "A" }]);
+        expect(shown()).toEqual(["B", "c", "A"]);
+        const rows = list.querySelectorAll("li");
+        expect(rows[0]).toBe(second);
+        expect(rows[2]).toBe(first);
+        items.set([{ id: 3, name: "C" }]);
+        expect(shown()).toEqual(["C"]);
+    });
+
+    it("updates the rows kept at either end of an update that swaps two rows", () =>
+    {
+        const items = signal<Item[]>([{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }, { id: 4, name: "d" }]);
+        const list = mount(html`<ul>${each(items, (item) => item.id, (item) => html`<li>${computed(() => item.get().name)}</li>`)}</ul>`);
+        items.set([{ id: 1, name: "A" }, { id: 3, name: "c" }, { id: 2, name: "b" }, { id: 4, name: "D" }]);
+        expect([...list.querySelectorAll("li")].map((row) => row.textContent)).toEqual(["A", "c", "b", "D"]);
+    });
+
     it("rejects duplicate and undefined keys", () =>
     {
         const dupes = [{ id: 1, name: "a" }, { id: 1, name: "b" }];

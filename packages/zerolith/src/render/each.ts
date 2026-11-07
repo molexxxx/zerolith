@@ -275,38 +275,39 @@ class Keyed<T> extends Directive
                 return;
             }
             let head = 0;
-            while (head < list.length && head < old.length)
+            while (head < list.length && head < old.length && this.key(list[head] as T, head) === (old[head] as Row<T>).key)
             {
-                const value = list[head] as T;
-                const row = old[head] as Row<T>;
-                if (this.key(value, head) !== row.key)
-                {
-                    break;
-                }
-                row.item.set(value);
                 head++;
-            }
-            if (head === list.length && head === old.length)
-            {
-                return;
             }
             let newTail = list.length;
             let oldTail = old.length;
-            while (newTail > head && oldTail > head)
+            while (newTail > head && oldTail > head && this.key(list[newTail - 1] as T, newTail - 1) === (old[oldTail - 1] as Row<T>).key)
             {
-                const value = list[newTail - 1] as T;
-                const row = old[oldTail - 1] as Row<T>;
-                if (this.key(value, newTail - 1) !== row.key)
-                {
-                    break;
-                }
-                row.item.set(value);
-                row.index?.set(newTail - 1);
                 newTail--;
                 oldTail--;
             }
+            /** Gives the rows kept at the start and at the end their new values, once nothing left to check can fail the update. */
+            const keepEnds = (): void =>
+            {
+                for (let i = 0; i < head; i++)
+                {
+                    (old[i] as Row<T>).item.set(list[i] as T);
+                }
+                for (let i = newTail, j = oldTail; i < list.length; i++, j++)
+                {
+                    const row = old[j] as Row<T>;
+                    row.item.set(list[i] as T);
+                    row.index?.set(i);
+                }
+            };
+            if (head === list.length && head === old.length)
+            {
+                keepEnds();
+                return;
+            }
             if (newTail - head > 1 && newTail === oldTail && swapped(list, old, head, newTail))
             {
+                keepEnds();
                 const first = old[head] as Row<T>;
                 const last = old[newTail - 1] as Row<T>;
                 for (let i = head + 1; i < newTail - 1; i++)
@@ -328,6 +329,7 @@ class Keyed<T> extends Directive
             }
             if (newTail === head)
             {
+                keepEnds();
                 for (let i = head; i < oldTail; i++)
                 {
                     const row = old[i] as Row<T>;
@@ -347,14 +349,19 @@ class Keyed<T> extends Directive
             {
                 keys.add((old[i] as Row<T>).key);
             }
+            const fresh = new Array<unknown>(newTail - head);
+            for (let i = head; i < newTail; i++)
+            {
+                fresh[i - head] = this.keyOf(list[i] as T, i, keys);
+            }
+            keepEnds();
             if (head === oldTail)
             {
                 const before = oldTail < old.length ? (old[oldTail] as Row<T>).start : end;
                 const added = new Array<Row<T>>(newTail - head);
                 for (let i = head; i < newTail; i++)
                 {
-                    const value = list[i] as T;
-                    added[i - head] = create(this.keyOf(value, i, keys), value, i, parent, before);
+                    added[i - head] = create(fresh[i - head], list[i] as T, i, parent, before);
                 }
                 order = old.length === 0 ? added : old.slice(0, head).concat(added, old.slice(oldTail));
                 return;
@@ -366,7 +373,7 @@ class Keyed<T> extends Directive
             for (let i = head; i < newTail; i++)
             {
                 const value = list[i] as T;
-                const key = this.keyOf(value, i, keys);
+                const key = fresh[i - head];
                 const existing = rows.get(key);
                 if (existing !== undefined)
                 {

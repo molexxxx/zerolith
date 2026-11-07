@@ -87,7 +87,7 @@ The row function receives the item as a signal, and, when it declares a second p
 > A row's key never changes, so the row function can read it once at its top, as `const { id } = item.get();`, and use `id` as a plain value. Every other field stays a binding of the item signal, so an edit to it reaches the page.
 
 > [!WARNING]
-> Keys must be unique and defined. A repeated key fails the render with `each_key_duplicate` and a missing one with `each_key_undefined`, rather than quietly showing the wrong row.
+> Keys must be unique and defined. A repeated key fails the render with `each_key_duplicate` and a missing one with `each_key_undefined`, rather than quietly showing the wrong row. An update that fails this way changes no row, so the list shows the last list it accepted until a valid one arrives.
 
 ## Conditions
 
