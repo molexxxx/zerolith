@@ -4,10 +4,12 @@ Every package in this repository is released together and carries the same versi
 
 ## Unreleased
 
+A minor release from `main`, the last of the fixes the tutorials turned up: the router takes a `focus` option, which the starter sets, `zerolith build --entry --classic` writes a plain script, the template lint reports a component bound without being called, and `zerolith preview` works beside `zerolith dev` by leaving a running backend as it is.
 
 ### Added
 
 - `@zerolith/router`: `createRouter` takes a `focus` option, a selector for the element that takes keyboard focus after each navigation to another page, so keyboard and screen reader users stay with the page when the link they pressed goes away. The starter sets it to `"h1"`, and its stylesheet keeps a ring off an element with `tabindex="-1"`.
+- `@zerolith/cli` and the `zerolith` crate: `zerolith build --entry --classic` writes a plain script instead of an ES module, which a page loads with `<script src>` from any origin, with no CORS header.
 - `@zerolith/vite`, `@zerolith/cli`, and the `zerolith` crate: the template lint reports `template_component_uncalled` for a component bound as content without being called, as `${AddItem}`, which type-checks and fails only when the page renders.
 
 ### Fixed

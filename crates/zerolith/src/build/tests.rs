@@ -534,6 +534,33 @@ async fn leaves_a_lazy_view_also_imported_statically_to_one_script() {
 }
 
 #[tokio::test]
+async fn writes_a_plain_script_on_request() {
+    let root = project("script-classic", MAIN);
+    let mut settings = options(&root, "/", "production");
+    settings.script = Some(Script {
+        classic: true,
+        ..Script::new(PathBuf::from("src/main.ts"), Some("widget".to_string())).unwrap()
+    });
+    build(&settings).await.unwrap();
+    let script = fs::read_to_string(root.join("dist/widget.js")).unwrap();
+    assert!(
+        script.contains("notes view"),
+        "the lazy view stays in the file"
+    );
+    assert!(
+        !script.contains("import(") && !script.contains("import.meta"),
+        "{script}"
+    );
+    assert!(
+        !script.trim_start().starts_with("import")
+            && !script.contains("export{")
+            && !script.contains("export {"),
+        "{script}"
+    );
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[tokio::test]
 async fn says_which_module_it_could_not_find() {
     let root = project("script-missing", MAIN);
     let mut settings = options(&root, "/", "production");

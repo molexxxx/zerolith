@@ -135,6 +135,9 @@ enum Command {
         /// The script's file name in the output folder, without .js; the module's name unless given.
         #[arg(long, requires = "entry")]
         name: Option<String>,
+        /// Write the script as a plain script instead of an ES module, so a page loads it with a plain <script src>, from another origin with no CORS header. It has no exports.
+        #[arg(long, requires = "entry")]
+        classic: bool,
     },
     /// Write a starter application, or an example as a project of its own, and install its dependencies, asking for what the flags leave open: the starter in TSX on the command line, with the inspector, by default.
     New {
@@ -283,6 +286,7 @@ async fn main() -> ExitCode {
             unbundled,
             entry,
             name,
+            classic,
         } => match config::Config::load(&root) {
             Err(error) => Err(error),
             Ok(config) => {
@@ -306,7 +310,10 @@ async fn main() -> ExitCode {
                 } else {
                     let base = base.or(config.base).unwrap_or_else(|| "/".to_string());
                     let script = entry
-                        .map(|entry| build::Script::new(entry, name))
+                        .map(|entry| {
+                            build::Script::new(entry, name)
+                                .map(|script| build::Script { classic, ..script })
+                        })
                         .transpose();
                     match (build::normalize_base(&base), script) {
                         (Err(error), _) | (_, Err(error)) => Err(error),

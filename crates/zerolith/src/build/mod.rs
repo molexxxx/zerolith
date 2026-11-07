@@ -62,6 +62,8 @@ pub struct Script {
     pub entry: PathBuf,
     /// The file's name in the output folder, without `.js`.
     pub name: String,
+    /// Write a plain script instead of an ES module, which any `<script src>` loads from any origin. It has no exports.
+    pub classic: bool,
 }
 
 impl Script {
@@ -84,7 +86,11 @@ impl Script {
                 "--name {chosen} is not a plain file name; use letters, digits, dashes, underscores, and dots, as in --name feedback-widget"
             )));
         }
-        Ok(Self { entry, name })
+        Ok(Self {
+            entry,
+            name,
+            classic: false,
+        })
     }
 }
 
@@ -283,7 +289,13 @@ pub async fn build(options: &Options) -> io::Result<Built> {
             input: Some(inputs),
             cwd: Some(root.clone()),
             dir: Some(out_dir.to_string_lossy().into_owned()),
-            format: Some(OutputFormat::Esm),
+            format: Some(
+                if options.script.as_ref().is_some_and(|script| script.classic) {
+                    OutputFormat::Iife
+                } else {
+                    OutputFormat::Esm
+                },
+            ),
             platform: Some(Platform::Browser),
             minify: Some(if options.minify {
                 RawMinifyOptions::Bool(true)

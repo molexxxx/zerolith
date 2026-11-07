@@ -197,6 +197,7 @@ Bundles the application for production with [Rolldown](https://rolldown.rs), the
 | `--unbundled` | Writes the buildless output, the modules behind an import map, instead of a bundle |
 | `--entry <module>` | Writes that module as [one script](#one-script) instead of building `index.html` |
 | `--name <name>` | With `--entry`: the script's file name, without `.js`, instead of the module's |
+| `--classic` | With `--entry`: a plain script instead of an ES module |
 
 ### Scripts and chunks
 
@@ -226,7 +227,7 @@ A view loaded with the router's `lazy()` and each locale of a message index comp
 | Stylesheets | A stylesheet imported with `?scoped` or a `css` literal stays in the script. Any other stylesheet goes to `dist/<name>.css`, with a warning, since the page has to link it |
 | Other files | Images and fonts the code references are still written under `assets/`, with URLs from `--base` |
 
-The file is an ES module, so a page loads it with `<script type="module">`, and from another origin only when the response sends `Access-Control-Allow-Origin`.
+The file is an ES module, so a page loads it with `<script type="module">`, and from another origin only when the response sends `Access-Control-Allow-Origin`. `--classic` writes a plain script instead, which a page loads with `<script src>` from any origin, with no such header. It keeps no exports, so use it for a module that does its work when it loads, as one that defines an element does.
 
 ### Stylesheets
 

@@ -34,10 +34,10 @@ Lazy imports stay in the file too, and the widget's styles are in it because the
 
 Publish `feedback-widget.js` wherever host pages can reach it: next to your backend, on a static host, or on a CDN. Its name stays the same, so serve it with `Cache-Control: no-cache`, so that a host page picks up a new release at once. For a page that wants to stay on one release, build a file that never changes, with the version in its name, as `--name feedback-widget-1.4.0`, and cache that one for good.
 
-The file is an ES module, the only format `zerolith build` writes, so a host page loads it with `type="module"`. A browser loads a module from another origin only when the response allows it, so a server that hosts the file for other sites sends `Access-Control-Allow-Origin: *` with it. A host page that serves the file itself, from its own origin, needs nothing more.
+The file is an ES module, so a host page loads it with `type="module"`. A browser loads a module from another origin only when the response allows it, so a server that hosts the file for other sites sends `Access-Control-Allow-Origin: *` with it. A host page that serves the file itself, from its own origin, needs nothing more. On a host where you cannot set that header, add `--classic` to the build, which writes a plain script that a page loads with `<script src>` from anywhere.
 
 ## What you learned
 
 - `zerolith build --entry` writes a module and everything it imports as one self-contained script.
 - `--name` gives that file a name a host page can keep.
-- The file is an ES module, loaded with `type="module"`, and from another origin only with `Access-Control-Allow-Origin`.
+- The file is an ES module, loaded with `type="module"`, and from another origin only with `Access-Control-Allow-Origin`; `--classic` writes a plain script that needs neither.

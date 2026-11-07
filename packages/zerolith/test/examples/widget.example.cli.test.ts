@@ -19,6 +19,7 @@ const sitePage = readFileSync(new URL("embed/site/index.html", fixtures), "utf8"
 
 let project: string;
 let script: string;
+let classicScript: string;
 let browser: Browser;
 let handler: ChildProcess;
 let handlerOutput = "";
@@ -73,6 +74,12 @@ beforeAll(async () =>
         throw new Error(`zerolith build failed: ${built.stderr}`);
     }
     script = readFileSync(join(project, "dist", "feedback-widget.js"), "utf8");
+    const plain = spawnSync(binary, ["build", root, "--entry", "src/main.ts", "--name", "feedback-widget", "--classic", "--out", join(project, "classic"), "--empty-out-dir"], { encoding: "utf8" });
+    if (plain.status !== 0)
+    {
+        throw new Error(`zerolith build --classic failed: ${plain.stderr}`);
+    }
+    classicScript = readFileSync(join(project, "classic", "feedback-widget.js"), "utf8");
     const listening = await serve(() => undefined);
     await new Promise((resolve) => listening.server.close(resolve));
     handlerOrigin = listening.origin;
@@ -97,6 +104,10 @@ beforeAll(async () =>
         {
             return { type: "text/javascript", body: script };
         }
+        if (path === "/classic/feedback-widget.js")
+        {
+            return { type: "text/javascript", body: classicScript };
+        }
         return path === "/cors/feedback-widget.js" ? { type: "text/javascript", body: script, headers: { "access-control-allow-origin": "*" } } : undefined;
     });
     cdn = hosting.server;
@@ -106,6 +117,7 @@ beforeAll(async () =>
             "/": page("feedback-widget.js"),
             "/plain.html": page(`${hosting.origin}/plain/feedback-widget.js`),
             "/cors.html": page(`${hosting.origin}/cors/feedback-widget.js`),
+            "/classic.html": page(`${hosting.origin}/classic/feedback-widget.js`).replace("<script type=\"module\" src=", "<script src="),
             "/fallback.html": page("feedback-widget.js").replace("</feedback-widget>", "Tell us what you think</feedback-widget>"),
             "/shadow.html": page("feedback-widget.js").replace(/<feedback-widget[\s\S]*?<\/feedback-widget>/, "<div id=\"outer\"></div>").replace("</body>", `<script>const made = document.createElement("feedback-widget"); made.setAttribute("api", "${handlerOrigin}"); document.querySelector("#outer").attachShadow({ mode: "open" }).append(made);</script></body>`)
         };
@@ -199,6 +211,12 @@ describe("widget tutorial's plain page", () =>
         await tab.close();
     });
 
+    it("writes a plain script with --classic, which holds no import or export of its own", () =>
+    {
+        expect(readdirSync(join(project, "classic"))).toEqual(["feedback-widget.js"]);
+        expect(classicScript).not.toMatch(/(?:^|[;}\s])(?:import\s*["'{*(]|export\s*[{*])/);
+    });
+
     it("replaces the text inside the element once the script runs", { timeout: 60000 }, async () =>
     {
         const tab = await browser.newPage();
@@ -233,6 +251,7 @@ describe("widget tutorial's plain page", () =>
         };
         expect(await load("/plain.html")).toBe(0);
         expect(await load("/cors.html")).toBe(1);
+        expect(await load("/classic.html"), "a plain script needs no header").toBe(1);
         await tab.close();
     });
 });

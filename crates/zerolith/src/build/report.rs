@@ -36,7 +36,11 @@ pub(super) fn describe(options: &Options) -> String {
         parts.push(format!("base {}", options.base));
     }
     if let Some(script) = &options.script {
-        parts.push(format!("one script, {}.js", script.name));
+        parts.push(format!(
+            "one {}script, {}.js",
+            if script.classic { "classic " } else { "" },
+            script.name
+        ));
     }
     if options.sourcemap {
         parts.push("source maps".to_string());

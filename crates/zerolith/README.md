@@ -11,7 +11,7 @@ zerolith doctor [root] [--json]
 zerolith skill [root]                                                                 write the zerolith skill for coding agents
 zerolith build [root] [--out dist] [--base /] [--mode production] [--sourcemap] [--no-minify] [--no-prepare] [--empty-out-dir]
 zerolith build [root] --unbundled [--out dist] [--no-prepare]
-zerolith build [root] --entry <module> [--name <name>] [--out dist] [--base /] [--mode production] [--sourcemap] [--no-minify] [--no-prepare] [--empty-out-dir]
+zerolith build [root] --entry <module> [--name <name>] [--classic] [--out dist] [--base /] [--mode production] [--sourcemap] [--no-minify] [--no-prepare] [--empty-out-dir]
 zerolith new [name] [--example fullstack] [--template tsx|ts|jsx|js] [--vite] [--buildless] [--no-devtools] [--no-skill] [--no-install] [--yes]
 ```
 
