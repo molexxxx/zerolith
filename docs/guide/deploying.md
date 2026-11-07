@@ -51,7 +51,9 @@ An application served under a path, such as `https://example.com/app/`, names th
 `zerolith build` then writes every URL under `/app/`, such as `/app/assets/index-<hash>.js`, and `zerolith dev` and `zerolith preview` serve the application there too, redirecting the site root to it. The router follows the same base when it is given `import.meta.env.BASE_URL`, as every starter does, so its links and its matching agree with the build:
 
 ```ts
-export const router = createRouter(routes, { base: import.meta.env.BASE_URL });
+export const router = createRouter(() => routes, {
+    base: import.meta.env.BASE_URL
+});
 ```
 
 `--base /app/` sets the base for one command instead. `--base ./` makes the build's URLs relative to the page, for a page opened from disk or embedded at a path that is not known in advance. The router cannot know that path, so such a page should not rely on client-side routes.

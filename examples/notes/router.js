@@ -5,4 +5,4 @@ import { NotFound } from "./components.js";
 import { routes } from "./routes.js";
 
 /** @type {import("@zerolith/router").Router<typeof routes>} */
-export const router = createRouter(routes, { fallback: () => NotFound() });
+export const router = createRouter(() => routes, { fallback: () => NotFound() });

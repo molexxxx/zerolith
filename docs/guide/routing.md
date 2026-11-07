@@ -66,7 +66,7 @@ Every page renders inside an owner of its own, so its signals, effects, and `onD
 
 ## The layout
 
-`src/router.ts` creates the router over the route table, and its fallback renders when no route matches:
+`src/router.ts` creates the router over the route table, and its fallback renders when no route matches. It takes the table as a function because the table imports the page components, and a component that builds links imports this module back; a function works whichever of them loads first, such as `routes.ts` in a test. A table given as it is suits a router no component imports, as on a server:
 
 @include packages/router/test/examples/router.ts
 
@@ -128,7 +128,7 @@ A page that throws as it renders fails the navigation after the URL changed: the
 An application served under a path, such as `/app/`, passes it as `base`; `import.meta.env.BASE_URL` carries the base `zerolith dev`, `zerolith build`, and Vite were given, so one line follows all of them:
 
 ```ts
-const router = createRouter(routes, { base: import.meta.env.BASE_URL });
+const router = createRouter(() => routes, { base: import.meta.env.BASE_URL });
 ```
 
 Route paths stay relative to the base: `"/notes/:id"` matches `/app/notes/7`, and `href("note", { id: "7" })` returns `/app/notes/7`. `navigate` and `matches` take a path with the base or without it, so `navigate("/notes/8")` and `navigate("/app/notes/8")` go to the same place. A URL outside the base renders the fallback, and a link outside it is left to the browser, so the rest of the site keeps working around the application. [Building and serving](deploying.md) covers setting the base for the build and the server.
@@ -140,7 +140,7 @@ Route paths stay relative to the base: `"/notes/:id"` matches `/app/notes/7`, an
 The router's own `head` option gives the fields every page starts from, so a site's name and description are written once:
 
 ```ts
-const router = createRouter(routes, {
+const router = createRouter(() => routes, {
     head: ({ name }) => ({
         title: name === undefined ? "Not found | Notes" : "Notes",
         description: "A notebook that runs on zerolith."

@@ -92,6 +92,30 @@ describe("the starter zerolith new writes", () =>
         expect(await visit(await start(["dev", root]))).toEqual(expected);
     });
 
+    it("loads whichever of its modules comes first, the route table or a component", { timeout: 60000 }, async () =>
+    {
+        const origin = await start(["dev", root]);
+        for (const [name, first] of [["routes-first", "/src/routes.ts"], ["component-first", "/src/components/home.tsx"], ["router-first", "/src/router.ts"]] as const)
+        {
+            const file = join(root, `${name}.html`);
+            try
+            {
+                writeFileSync(file, `<!doctype html><title>${name}</title><script type="module">\nawait import("${first}");\nconst { routes } = await import("/src/routes.ts");\nconst { router } = await import("/src/router.ts");\nawait router.ready;\ndocument.title = Object.keys(routes).join() + " " + router.href("counter");\n</script>\n`);
+                const page = await browser.newPage();
+                const problems: string[] = [];
+                page.on("pageerror", (error) => problems.push(error.message));
+                await page.goto(`${origin}/${name}.html`);
+                await expect.poll(() => page.title(), { timeout: 10000 }).toBe("home,counter,packages /counter");
+                expect(problems, name).toEqual([]);
+                await page.close();
+            }
+            finally
+            {
+                rmSync(file, { force: true });
+            }
+        }
+    });
+
     it("prints a module that fails to compile and a stylesheet the browser reads in part in the console under zerolith dev", { timeout: 60000 }, async () =>
     {
         const routes = join(root, "src", "routes.ts");

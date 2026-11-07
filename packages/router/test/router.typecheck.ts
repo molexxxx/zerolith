@@ -15,6 +15,18 @@ const routes = defineRoutes({
 
 const router = createRouter(routes, { window: null });
 
+const fromFunction = createRouter(() => routes, { window: null });
+
+/** A table given as a function types links as a table given as it is does. */
+export const fromFunctionLinks: string[] = [
+    fromFunction.href("home"),
+    fromFunction.href("release", { tag: "v1" }),
+    // @ts-expect-error no route has this name
+    fromFunction.href("nope"),
+    // @ts-expect-error the route's parameter is missing
+    fromFunction.href("release")
+];
+
 /** Narrowing a match by its name types its params and data. */
 export function describeMatch(): string
 {

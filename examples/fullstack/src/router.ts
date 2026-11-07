@@ -6,7 +6,7 @@ import { createRouter } from "@zerolith/router";
 import { NotFound } from "./components/not-found.ts";
 import { routes } from "./routes.ts";
 
-export const router = createRouter(routes, {
+export const router = createRouter(() => routes, {
     base: import.meta.env.BASE_URL,
     fallback: (url) => NotFound({ path: url.pathname })
 });

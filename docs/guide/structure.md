@@ -61,14 +61,14 @@ Some files appear only when an application needs them, and they have places of t
 
 - `main.ts` does the things that happen once, in order: it waits for what the first paint needs, `router.ready` and, in an app with messages, the current locale's catalog; it renders the layout around `router.outlet()`; and it mounts development-only tools such as the inspector, which the production build replaces with a module that does nothing. Nothing else is global.
 - `routes.ts` is the single list of pages. Each route names its view and can add a loader and head metadata; the router infers the parameters from each path, so a wrong `router.href` call fails `tsc`. The [routing guide](routing.md) builds a small application from these files.
-- `router.ts` creates the router in a module of its own, so components can import it for typed links and `navigate`.
+- `router.ts` creates the router in a module of its own, so components can import it for typed links and `navigate`. It passes the table as a function, for the loop the warning below explains.
 - `store.ts` is where state lives once more than one component reads it. State that only one component needs stays inside that component.
 - `components/` holds functions that return views, one screen or widget per file, each with its styles next to the markup they style: a `css` literal in the file, or a stylesheet beside it imported with `?scoped`, as in `import card from "./card.css?scoped"`.
 - `api.ts` and `src/messages/` are generated. They are checked in so the project builds without running the generators, and regenerated with `zerolith-client` and `zerolith-i18n` after their inputs change. `AGENTS.md` says so, so nobody edits them by hand.
 - `schema.ts` holds the Standard Schemas a form validates with, so the server can import the same module and run the same checks.
 
 > [!WARNING]
-> The imports form a loop: `router.ts` imports the route table, the table imports the components, and a component imports `router`. ES modules allow it, because a component reads `router` when it runs, after every module has loaded. A component module that uses `router` at its top level runs before the router exists and fails with "Cannot access 'router' before initialization", so read it inside functions only.
+> The imports form a loop: `router.ts` imports the route table, the table imports the components, and a component imports `router`. ES modules allow it, because a component reads `router` when it runs, after every module has loaded, and `router.ts` passes the table as a function, so any of them can load first. A component module that uses `router` at its top level runs before the router exists and fails with "Cannot access 'router' before initialization", so read it inside functions only.
 
 ## Conventions the tooling relies on
 

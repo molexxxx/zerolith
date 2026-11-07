@@ -33,18 +33,34 @@ interface Resolved
     compiled: Compiled | undefined;
 }
 
-/** Creates a router over the given table and attaches it to the window when one exists. */
-export function createRouter<const T extends RouteTable>(routes: T, options: RouterOptions = {}): Router<T>
+/**
+ * Creates a router over the given table and attaches it to the window when
+ * one exists. The table can be a function that returns it, for a table whose
+ * components import this router back: the router reads it on first use and
+ * starts its first navigation after the modules loading now have run, so the
+ * app works whichever of those modules loads first.
+ */
+export function createRouter<const T extends RouteTable>(routes: T | (() => T), options: RouterOptions = {}): Router<T>
 {
     const win = options.window === null ? undefined : (options.window ?? (typeof window === "undefined" ? undefined : window));
     let embedded = win === undefined ? undefined : readEmbeddedState(win.document);
-    const compiledRoutes: Compiled[] = Object.entries(routes as unknown as Record<string, RouteDefinition<string, unknown>>).map(([name, definition]) => ({
-        name,
-        pattern: (checkPath(name, definition.path), compile(definition.path)),
-        route: definition,
-        view: isLazy(definition.view) ? undefined : (definition.view as RouteView<unknown, unknown>)
-    }));
-    const byName = new Map(compiledRoutes.map((entry) => [entry.name, entry]));
+    const deferred = typeof routes === "function";
+    let compiledRoutes: Compiled[] | undefined;
+    let byName: Map<string, Compiled> | undefined;
+    const table = (): Compiled[] =>
+    {
+        compiledRoutes ??= Object.entries((deferred ? routes() : routes) as unknown as Record<string, RouteDefinition<string, unknown>>).map(([name, definition]) => ({
+            name,
+            pattern: (checkPath(name, definition.path), compile(definition.path)),
+            route: definition,
+            view: isLazy(definition.view) ? undefined : (definition.view as RouteView<unknown, unknown>)
+        }));
+        return compiledRoutes;
+    };
+    if (!deferred)
+    {
+        table();
+    }
 
     const initial = win === undefined ? new URL("http://localhost/") : new URL(win.location.href);
     const url = signal<URL>(initial, { equals: (a, b) => a.href === b.href });
@@ -151,7 +167,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         {
             return undefined;
         }
-        for (const compiled of compiledRoutes)
+        for (const compiled of table())
         {
             const params = match(compiled.pattern, path);
             if (params !== undefined)
@@ -496,7 +512,21 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
     {
         const state: unknown = win.history.state?.position;
         position = typeof state === "number" ? state : 0;
-        void go(initial, "replace", savedScroll(), true).catch(() => undefined);
+        const start = (): void =>
+        {
+            if (generation === 0)
+            {
+                void go(initial, "replace", savedScroll(), true).catch(() => undefined);
+            }
+        };
+        if (deferred)
+        {
+            queueMicrotask(start);
+        }
+        else
+        {
+            start();
+        }
     }
 
     /**
@@ -542,6 +572,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         ready,
         href(name, ...args)
         {
+            byName ??= new Map(table().map((found) => [found.name, found]));
             const entry = byName.get(name);
             if (entry === undefined)
             {

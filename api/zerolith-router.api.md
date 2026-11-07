@@ -3,7 +3,7 @@
 Every export of `@zerolith/router` with its signature, generated from the source by `npm run api`. The docs build fails while the exports differ from this file, so a change to the public API shows up here in review.
 
 ```ts
-function createRouter<const T extends RouteTable>(routes: T, options?: RouterOptions): Router<T>
+function createRouter<const T extends RouteTable>(routes: T | (() => T), options?: RouterOptions): Router<T>
 function defineRoutes<T extends RouteTable>(routes: T): T
 function lazy<Params, Data>(loader: () => Promise<RouteView<Params, Data>>): LazyView<Params, Data>
 function route<const Path extends string, Data = undefined>(definition: RouteDefinition<Path, Data>): RouteDefinition<Path, Data>

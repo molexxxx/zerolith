@@ -7,6 +7,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Added
 
+- `@zerolith/router`: `createRouter` takes the route table as a function, read on first use, for a table whose components import the router back.
 - `@zerolith/cli` and the `zerolith` crate: `zerolith build --entry <module>` writes a module and everything it imports as one script with a name that stays the same, for a page someone else writes, such as a custom element other sites embed. `--name` chooses the file's name. It needs no `index.html` and writes no page.
 - `@zerolith/router`: `createRouter` takes a `failed` option, a view the outlet shows in place of a page whose view throws as a navigation shows it, given the error and the URL, where the outlet could only stay empty. The navigation still fails with the error.
 
@@ -16,6 +17,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Fixed
 
+- `@zerolith/cli` and the `zerolith` crate: the starter passes its route table to `createRouter` as a function, so a test or a module that imports `src/routes.ts` first loads, where it failed with `Cannot access 'routes' before initialization`.
 - `zerolith/element`: an element replaces whatever it held when it connects, such as fallback text in the tag, where the view rendered beside it. The view can read it from the host as it runs, a view that throws leaves it in place, and an element that upgraded while the page was still parsing drops what the parser adds to it after that, instead of showing fallback or server markup under the view.
 - `zerolith`: a view rendered inside a shadow root gets the scoped stylesheets, the ones the document has and the ones created later, where a shadow tree saw none of them, so an element placed in another component's shadow root lost its styles.
 - `@zerolith/cli` and the `zerolith` crate: the starter's lint passes a module imported for its effects, such as `import "./print.css"` as the styles guide writes it or a module that defines an element, where `import/no-unassigned-import` failed it.

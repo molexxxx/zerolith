@@ -66,6 +66,96 @@ function table()
     });
 }
 
+/** A table holding a path the router refuses. */
+function badTable(): RouteTable
+{
+    return defineRoutes({ wrong: route({ path: "/:", view: () => html`<p>x</p>` }) });
+}
+
+describe("a route table given as a function", () =>
+{
+    it("is read on first use, once, after the modules that load with it have run", async () =>
+    {
+        let reads = 0;
+        router = createRouter(() =>
+        {
+            reads++;
+            return pages;
+        }, { window });
+        expect(reads).toBe(0);
+        const pages = table();
+        expect((router as unknown as Router<ReturnType<typeof table>>).href("release", { tag: "v1" })).toBe("/releases/v1");
+        expect(reads).toBe(1);
+        await router.ready;
+        expect(reads).toBe(1);
+        expect(router.current.get()?.name).toBe("home");
+        await router.navigate("/releases/v2");
+        expect(router.current.get()?.name).toBe("release");
+        expect(reads).toBe(1);
+    });
+
+    it("waits to navigate until the code running now has finished", async () =>
+    {
+        const pages = table();
+        const events: string[] = [];
+        router = createRouter(() => pages, { window, observe: (event) => events.push(event.type) });
+        expect(events).toEqual([]);
+        await Promise.resolve();
+        expect(events[0]).toBe("start");
+        await router.ready;
+        expect(router.current.get()?.name).toBe("home");
+    });
+
+    it("lets a navigation made first stand for the initial one", async () =>
+    {
+        const pages = table();
+        const started: string[] = [];
+        router = createRouter(() => pages, { window, observe: (event) => event.type === "start" ? started.push(event.url.pathname) : undefined });
+        const moved = router.navigate("/releases/v3");
+        await moved;
+        await router.ready;
+        expect(router.current.get()?.name).toBe("release");
+        expect(started).toEqual(["/releases/v3"]);
+    });
+
+    it("starts no navigation once it has been disposed", async () =>
+    {
+        const pages = table();
+        const events: string[] = [];
+        const early = createRouter(() => pages, { window, observe: (event) => events.push(event.type) });
+        early.dispose();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(events).toEqual([]);
+    });
+
+    it("rejects ready when the table still does not exist at the first navigation", async () =>
+    {
+        const early = createRouter((): ReturnType<typeof table> =>
+        {
+            throw new ReferenceError("Cannot access 'routes' before initialization");
+        }, { window });
+        router = early;
+        await expect(early.ready).rejects.toThrow("before initialization");
+    });
+
+    it("reports a bad path when the table is read, and at once for a table given as it is", async () =>
+    {
+        const later = createRouter(badTable, { window });
+        router = later;
+        await expect(later.ready).rejects.toThrow("route_path_invalid");
+        expect(() => createRouter(badTable(), { window })).toThrow("route_path_invalid");
+    });
+
+    it("works without a window, as on the server", async () =>
+    {
+        const pages = table();
+        const server = createRouter(() => pages, { window: null });
+        await server.ready;
+        await server.navigate("/releases/v4");
+        expect(server.current.get()?.name).toBe("release");
+    });
+});
+
 describe("router", () =>
 {
     it("types hrefs from the route table", () =>

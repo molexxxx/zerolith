@@ -46,31 +46,33 @@ mountDevtools();
 "##;
 
 pub(super) const ROUTER_TS: &str = r#"// The router. Components import it for typed links while the route table
-// it reads imports the components, so read `router` inside a component's
-// function, never at a module's top level, where it does not exist yet. It
-// follows the base path the app is served under, import.meta.env.BASE_URL,
-// which the build's base setting gives.
+// imports the components, so it takes the table as a function, which works
+// whichever module loads first. Read `router` inside a component's function,
+// never at a module's top level, where it does not exist yet. It follows the
+// base path the app is served under, import.meta.env.BASE_URL, which the
+// build's base setting gives.
 import { createRouter } from "@zerolith/router";
 import { NotFound } from "./components/not-found.__CEXT__";
 import { routes } from "./routes.__EXT__";
 
-export const router = createRouter(routes, {
+export const router = createRouter(() => routes, {
     base: import.meta.env.BASE_URL,
     fallback: (url) => NotFound({ path: url.pathname })
 });
 "#;
 
 pub(super) const ROUTER_JS: &str = r#"// The router. Components import it for typed links while the route table
-// it reads imports the components, so read `router` inside a component's
-// function, never at a module's top level, where it does not exist yet. It
-// follows the base path the app is served under, import.meta.env.BASE_URL,
-// which the build's base setting gives.
+// imports the components, so it takes the table as a function, which works
+// whichever module loads first. Read `router` inside a component's function,
+// never at a module's top level, where it does not exist yet. It follows the
+// base path the app is served under, import.meta.env.BASE_URL, which the
+// build's base setting gives.
 import { createRouter } from "@zerolith/router";
 import { NotFound } from "./components/not-found.__CEXT__";
 import { routes } from "./routes.__EXT__";
 
 /** @type {import("@zerolith/router").Router<typeof routes>} */
-export const router = createRouter(routes, {
+export const router = createRouter(() => routes, {
     base: import.meta.env.BASE_URL,
     fallback: (url) => NotFound({ path: url.pathname })
 });

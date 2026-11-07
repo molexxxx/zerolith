@@ -2,6 +2,6 @@
 import { createRouter } from "@zerolith/router";
 import { routes } from "./routes.ts";
 
-export const router = createRouter(routes, {
+export const router = createRouter(() => routes, {
     base: import.meta.env.BASE_URL
 });
