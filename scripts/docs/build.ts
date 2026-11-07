@@ -958,7 +958,7 @@ async function write(path: string, content: string): Promise<void>
 }
 
 const start = performance.now();
-await rm(out, { recursive: true, force: true });
+await rm(out, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 const production = join(root, "packages", "zerolith", "dist", "production");
 for (const build of [production, routerBuild])
 {

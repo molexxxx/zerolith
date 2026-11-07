@@ -89,7 +89,7 @@ async function rewrite(site: string, pages: ReadonlySet<string>, otherBase: stri
 /** Composes `stable` and `next` into `out`: the stable build at the root of the artifact, served under `stableBase`, the next build in the folder `nextBase` names under it, the switches retargeted, and the root pointing at pre-release-only diagnostic pages. */
 export async function compose(stable: string, next: string | undefined, out: string, stableBase = "/", nextBase = "/next/"): Promise<{ pages: number; redirects: number }>
 {
-    await rm(out, { recursive: true, force: true });
+    await rm(out, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     await mkdir(out, { recursive: true });
     await cp(stable, out, { recursive: true });
     const stablePages = await pagesOf(stable);
