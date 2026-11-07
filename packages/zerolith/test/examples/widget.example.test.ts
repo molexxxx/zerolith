@@ -1,17 +1,11 @@
-// Executed checks for the widget tutorial's files that run on Node: the
-// example handler on Node's HTTP server, and the script that copies the
-// built widget to a name that stays the same. Both run as the reader runs
-// them, with `node <file>`.
-import { type ChildProcess, spawn, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+// Executed checks for the widget tutorial's example handler on Node's HTTP
+// server, run as the reader runs it, with `node server/main.ts`.
+import { type ChildProcess, spawn } from "node:child_process";
 import { connect, createServer } from "node:net";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
 const main = fileURLToPath(new URL("../fixtures/widget/app/server/main.ts", import.meta.url));
-const embed = fileURLToPath(new URL("../fixtures/widget/app/scripts/embed.ts", import.meta.url));
 const cleanups: Array<() => void> = [];
 
 afterEach(() =>
@@ -75,19 +69,6 @@ function exchange(port: number, text: string): Promise<string>
     });
 }
 
-/** A folder holding dist/assets with the files given, as zerolith build leaves it. */
-function built(files: Record<string, string>): string
-{
-    const project = mkdtempSync(join(tmpdir(), "zl-widget-"));
-    cleanups.push(() => rmSync(project, { recursive: true, force: true }));
-    mkdirSync(join(project, "dist", "assets"), { recursive: true });
-    for (const [name, text] of Object.entries(files))
-    {
-        writeFileSync(join(project, "dist", "assets", name), text);
-    }
-    return project;
-}
-
 describe("widget tutorial on Node", () =>
 {
     it("serves the example handler, prints what it receives, and answers the preflight", { timeout: 20000 }, async () =>
@@ -108,21 +89,5 @@ describe("widget tutorial on Node", () =>
         expect(invalid.headers.get("content-type")).toBe("application/problem+json");
         expect(await exchange(port, `TRACE /feedback HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nConnection: close\r\n\r\n`)).toMatch(/^HTTP\/1\.1 400 /);
         expect((await fetch(`${origin}/feedback`)).status).toBe(405);
-    });
-
-    it("copies the one script zerolith build wrote to dist/feedback-widget.js", () =>
-    {
-        const project = built({ "index-B2fh7kQe.js": "customElements.define(\"x-y\", class extends HTMLElement {});", "index-3d5cc4bf.css": "body{margin:0}" });
-        const run = spawnSync(process.execPath, [embed], { cwd: project, encoding: "utf8" });
-        expect(run.status).toBe(0);
-        expect(readFileSync(join(project, "dist", "feedback-widget.js"), "utf8")).toBe("customElements.define(\"x-y\", class extends HTMLElement {});");
-    });
-
-    it("fails when the build wrote more than one script, since the widget would not be one file", () =>
-    {
-        const project = built({ "index-B2fh7kQe.js": "import \"./shared-Dx1.js\";", "shared-Dx1.js": "export {};" });
-        const run = spawnSync(process.execPath, [embed], { cwd: project, encoding: "utf8" });
-        expect(run.status).not.toBe(0);
-        expect(run.stderr).toContain("dist/assets holds 2 scripts, not one");
     });
 });

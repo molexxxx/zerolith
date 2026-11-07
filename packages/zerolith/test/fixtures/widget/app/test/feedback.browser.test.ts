@@ -3,8 +3,7 @@ import { html } from "zerolith";
 import { accessibilityIssues, cleanup, mount } from "@zerolith/test";
 import { feedbackHandler } from "../server/feedback.ts";
 import type { Feedback } from "../src/api.ts";
-
-await import("../src/main.ts");
+import "../src/main.ts";
 
 afterEach(() =>
 {

@@ -40,6 +40,12 @@
             }
         },
         {
+            "files": ["**/test/fixtures/**"],
+            "rules": {
+                "import/no-unassigned-import": "off"
+            }
+        },
+        {
             "files": ["**/test/fixtures/tutorial/**"],
             "rules": {
                 "oxc/no-map-spread": "off"

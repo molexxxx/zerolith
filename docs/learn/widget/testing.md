@@ -12,7 +12,7 @@ Create `test/feedback.browser.test.ts`:
 
 @include packages/zerolith/test/fixtures/widget/app/test/feedback.browser.test.ts test
 
-`await import("../src/main.ts")` runs the entry, which defines the element, as the script tag does on a host page. The dynamic form is what the starter's linter asks for, since it refuses an import that assigns nothing. `mount` renders the element, written in an `html` template like any other markup, into a container on the page, and `cleanup`, after each test, removes it, which disposes the widget's view.
+`import "../src/main.ts"` runs the entry, which defines the element, as the script tag does on a host page. `mount` renders the element, written in an `html` template like any other markup, into a container on the page, and `cleanup`, after each test, removes it, which disposes the widget's view.
 
 `vi.stubGlobal("fetch", ...)` replaces `fetch` for one test, and `vi.unstubAllGlobals()` puts it back. The client looks `fetch` up each time it sends, so the widget posts to the stand-in. In the first test the stand-in is the example handler, so the widget and the handler are checked against each other: what the handler saves is what the reader entered, and the event carries it with the handler's id. In the second, it answers `429` with a problem, as a backend that limits its senders would.
 

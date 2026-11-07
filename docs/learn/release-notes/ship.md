@@ -22,7 +22,7 @@ npm run build
 npm run preview
 ```
 
-`zerolith preview` serves `dist/` the way a static host does. Open the address it prints, then open a release's address directly, such as `/releases/2.3.0/notes`, and a search, such as `/releases#q=photo`. There is no file at either path: the preview answers with `index.html`, the app starts, and the router shows the page the address names.
+`zerolith preview` serves `dist/` the way a static host does. Open the address it prints, then open a release's address directly, such as `/releases/2.3.0`, and a search, such as `/releases?q=photo`. There is no file at either path: the preview answers with `index.html`, the app starts, and the router shows the page the address names.
 
 ## Ship it
 

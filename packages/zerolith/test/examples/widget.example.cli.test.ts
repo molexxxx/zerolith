@@ -1,8 +1,7 @@
 // Executed checks for the widget tutorial's build and embed steps, which need
-// the command line: `zerolith build` over the finished project, the script
-// that gives its output a name that stays the same, and the plain page that
-// embeds it, served by a server that is not zerolith's and posting to the
-// example handler on another origin.
+// the command line: `zerolith build --entry` over the finished project, and
+// the plain page that embeds the script it writes, served by a server that is
+// not zerolith's and posting to the example handler on another origin.
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { type Server, createServer } from "node:http";
@@ -15,7 +14,6 @@ import { zerolithBinary } from "../../../../scripts/zerolith.ts";
 
 const fixtures = new URL("../fixtures/widget/", import.meta.url);
 const root = fileURLToPath(new URL("app/", fixtures));
-const embed = fileURLToPath(new URL("app/scripts/embed.ts", fixtures));
 const main = fileURLToPath(new URL("app/server/main.ts", fixtures));
 const sitePage = readFileSync(new URL("embed/site/index.html", fixtures), "utf8");
 
@@ -69,15 +67,10 @@ beforeAll(async () =>
         throw new Error("No zerolith binary: run cargo build, or set ZEROLITH_BINARY_PATH");
     }
     project = mkdtempSync(join(tmpdir(), "zl-widget-"));
-    const built = spawnSync(binary, ["build", root, "--out", join(project, "dist"), "--empty-out-dir"], { encoding: "utf8" });
+    const built = spawnSync(binary, ["build", root, "--entry", "src/main.ts", "--name", "feedback-widget", "--out", join(project, "dist"), "--empty-out-dir"], { encoding: "utf8" });
     if (built.status !== 0)
     {
         throw new Error(`zerolith build failed: ${built.stderr}`);
-    }
-    const named = spawnSync(process.execPath, [embed], { cwd: project, encoding: "utf8" });
-    if (named.status !== 0)
-    {
-        throw new Error(`scripts/embed.ts failed: ${named.stderr}`);
     }
     script = readFileSync(join(project, "dist", "feedback-widget.js"), "utf8");
     const listening = await serve(() => undefined);
@@ -112,7 +105,9 @@ beforeAll(async () =>
         const pages: Record<string, string> = {
             "/": page("feedback-widget.js"),
             "/plain.html": page(`${hosting.origin}/plain/feedback-widget.js`),
-            "/cors.html": page(`${hosting.origin}/cors/feedback-widget.js`)
+            "/cors.html": page(`${hosting.origin}/cors/feedback-widget.js`),
+            "/fallback.html": page("feedback-widget.js").replace("</feedback-widget>", "Tell us what you think</feedback-widget>"),
+            "/shadow.html": page("feedback-widget.js").replace(/<feedback-widget[\s\S]*?<\/feedback-widget>/, "<div id=\"outer\"></div>").replace("</body>", `<script>const made = document.createElement("feedback-widget"); made.setAttribute("api", "${handlerOrigin}"); document.querySelector("#outer").attachShadow({ mode: "open" }).append(made);</script></body>`)
         };
         if (path === "/feedback-widget.js")
         {
@@ -143,25 +138,11 @@ afterAll(async () =>
 
 describe("widget tutorial's build", () =>
 {
-    it("writes one script that holds the widget, with the page's own files beside it", () =>
+    it("writes one file that holds the widget and imports nothing, under the name the tutorial gives it", () =>
     {
-        const assets = readdirSync(join(project, "dist", "assets"));
-        const scripts = assets.filter((name) => name.endsWith(".js"));
-        const [bundle] = scripts;
-        expect(scripts).toEqual([expect.stringMatching(/^index-[\w-]+\.js$/)]);
-        expect(assets.filter((name) => name.endsWith(".css"))).toHaveLength(1);
-        expect(script).toBe(readFileSync(join(project, "dist", "assets", bundle ?? ""), "utf8"));
+        expect(readdirSync(join(project, "dist"))).toEqual(["feedback-widget.js"]);
         expect(script).not.toMatch(/(?:^|[;}\s])(?:import\s*["'{*(]|export\s*[{*])/);
         expect(script).toContain("--feedback-border");
-        const stylesheet = assets.find((name) => name.endsWith(".css")) ?? "";
-        expect(readFileSync(join(project, "dist", "assets", stylesheet), "utf8")).not.toContain("--feedback-border");
-    });
-
-    it("leaves the development page's inline listener in the page and out of the script", () =>
-    {
-        const built = readFileSync(join(project, "dist", "index.html"), "utf8");
-        expect(built).toContain("document.addEventListener(\"feedback-sent\"");
-        expect(built).toMatch(/<script type="module" src="\/assets\/index-[\w-]+\.js"><\/script>/);
         expect(script).not.toContain("feedback-sent\",event");
     });
 });
@@ -215,6 +196,30 @@ describe("widget tutorial's plain page", () =>
         await tab.getByLabel("Yes", { exact: true }).check();
         await send.click();
         await tab.locator("[role=status]", { hasText: "Thanks for your feedback." }).waitFor({ timeout: 10000 });
+        await tab.close();
+    });
+
+    it("replaces the text inside the element once the script runs", { timeout: 60000 }, async () =>
+    {
+        const tab = await browser.newPage();
+        await tab.goto(`${siteOrigin}/fallback.html`);
+        await tab.locator("feedback-widget form").waitFor();
+        expect(await tab.locator("feedback-widget").textContent()).not.toContain("Tell us what you think");
+        await tab.close();
+    });
+
+    it("keeps its styles inside a shadow root of the page's", { timeout: 60000 }, async () =>
+    {
+        const tab = await browser.newPage();
+        const logged: string[] = [];
+        tab.on("console", (message) => logged.push(message.text()));
+        await tab.goto(`${siteOrigin}/shadow.html`);
+        const send = tab.getByRole("button", { name: "Send" });
+        expect(await send.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(31, 95, 209)");
+        await tab.getByLabel("Yes", { exact: true }).check();
+        await send.click();
+        await tab.locator("[role=status]", { hasText: "Thanks for your feedback." }).waitFor({ timeout: 10000 });
+        await expect.poll(() => logged.some((text) => text.startsWith("feedback-sent"))).toBe(true);
         await tab.close();
     });
 

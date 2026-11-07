@@ -10,7 +10,7 @@ export const routes = defineRoutes({
         head: { title: "Release notes" }
     }),
     release: route({
-        path: "/releases/:version/notes",
+        path: "/releases/:version",
         view: ({ params }) => ReleasePage({ version: params.version }),
         head: ({ params }) => ({ title: `${params.version} release notes` })
     })

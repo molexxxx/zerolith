@@ -13,7 +13,7 @@ export const routes = defineRoutes({
     }),
     // #region route
     release: route({
-        path: "/releases/:version/notes",
+        path: "/releases/:version",
         view: ({ params }) => ReleasePage({ version: params.version }),
         head: ({ params }) => ({ title: `${params.version} release notes` })
     })

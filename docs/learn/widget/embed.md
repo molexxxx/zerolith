@@ -21,7 +21,7 @@ Create `../site/index.html`:
 
 @include packages/zerolith/test/fixtures/widget/embed/site/index.html
 
-That is everything a host page does: one script tag, the element with its attributes, a custom property in its own styles, and, if it wants them, a listener for the events. Leave the element empty, since the widget renders after whatever it already holds, so fallback text inside it would stay on the page beside the form.
+That is everything a host page does: one script tag, the element with its attributes, a custom property in its own styles, and, if it wants them, a listener for the events. Text inside the element, such as a sentence for a visitor whose browser cannot run the script, shows until the script runs, and the widget replaces it.
 
 ## Serve it and post to the handler
 
@@ -56,11 +56,7 @@ The element is a DOM element, so a framework renders it as it renders a `div`. T
 
 Each sets `question` through the path it prefers, a property or an attribute, and both reach the same signal, so the widget follows the framework's state as it changes. In TypeScript, React's JSX types do not know the element until you declare it under `JSX.IntrinsicElements`. The [custom elements guide](../../guide/elements.md) covers the rest of the boundary, including a signal shared with the page around the element.
 
-A page that puts the widget inside a shadow root, as a web component of its own might, still hears the events, since they are `composed`, but the widget's styles stop at the shadow root: the browser adopts them into the document, and a shadow root sees only the sheets it adopts itself. Give it the document's once the script has run:
-
-```js
-shadowRoot.adoptedStyleSheets = [...document.adoptedStyleSheets];
-```
+A page that puts the widget inside a shadow root, as a web component of its own might, needs nothing more. The shadow root adopts the widget's styles when the widget renders there, and the page hears the events, since they are `composed`.
 
 ## Where to go next
 

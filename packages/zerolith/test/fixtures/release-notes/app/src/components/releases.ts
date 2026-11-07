@@ -37,10 +37,10 @@ function found(count: number): string
     return count === 1 ? "1 release matches." : `${count} releases match.`;
 }
 
-/** The search an address holds, after `#q=`. */
+/** The search an address holds, after `?q=`. */
 function searchIn(address: URL): string
 {
-    return new URLSearchParams(address.hash.slice(1)).get("q") ?? "";
+    return address.searchParams.get("q") ?? "";
 }
 
 /** Puts a search in the address, unless it is already there. */
@@ -49,28 +49,24 @@ function keepInAddress(search: string): void
     const address = new URL(location.href);
     if (search !== searchIn(address))
     {
-        address.hash = search === ""
-            ? ""
-            : new URLSearchParams({ q: search }).toString();
-        void router.navigate(address.href, { replace: true });
+        if (search === "")
+        {
+            address.searchParams.delete("q");
+        }
+        else
+        {
+            address.searchParams.set("q", search);
+        }
+        void router.navigate(address.href, { replace: true, shallow: true });
     }
 }
 
 export function Releases(): View
 {
-    const asked = computed(() => searchIn(router.url.get()));
-    const query = signal("");
-    effect(() => query.set(asked.get()));
+    const query = signal(searchIn(router.url.get()));
     const settled = debounced(query, 300);
-    effect(() =>
-    {
-        const search = settled.get();
-        if (search === query.get())
-        {
-            keepInAddress(search);
-        }
-    });
-    const words = computed(() => wordsOf(asked.get()));
+    effect(() => keepInAddress(settled.get()));
+    const words = computed(() => wordsOf(settled.get()));
     const shown = computed(() => (releases.get() ?? [])
         .filter((release) => mentions(release, words.get())));
     const summary = computed(() =>

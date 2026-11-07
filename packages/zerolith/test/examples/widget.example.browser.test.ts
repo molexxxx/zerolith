@@ -520,16 +520,17 @@ describe("widget tutorial", () =>
         await vi.waitFor(() => expect(status(host)).toBe("Thanks for your feedback."));
     });
 
-    it("renders after what the element already holds", () =>
+    it("replaces the text the element held", () =>
     {
         const element = document.createElement("feedback-widget");
+        element.setAttribute("api", "https://feedback.example");
         element.textContent = "Fallback";
         mount(element);
-        expect(element.firstChild?.textContent).toBe("Fallback");
+        expect(element.textContent).not.toContain("Fallback");
         expect(element.querySelectorAll("form")).toHaveLength(1);
     });
 
-    it("reports from inside a shadow root, where its styles need adopting", async () =>
+    it("keeps its styles inside a shadow root, and reports from there", async () =>
     {
         backend(feedbackHandler(() => undefined));
         const outer = document.createElement("div");
@@ -539,8 +540,6 @@ describe("widget tutorial", () =>
         shadowRoot.append(host);
         mount(outer);
         const button = host.querySelector("button") as HTMLButtonElement;
-        expect(getComputedStyle(button).backgroundColor).not.toBe("rgb(31, 95, 209)");
-        shadowRoot.adoptedStyleSheets = [...document.adoptedStyleSheets];
         expect(getComputedStyle(button).backgroundColor).toBe("rgb(31, 95, 209)");
         const heard: unknown[] = [];
         const listen = (event: Event): void =>

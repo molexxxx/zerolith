@@ -43,7 +43,7 @@ it("lists the releases once they load", async () =>
     const { container } = mount(() => Releases());
     await vi.waitFor(() => expect(rowCount(container)).toBe(2));
     const link = container.querySelector("li a");
-    expect(link?.getAttribute("href")).toBe("/releases/1.1.0/notes");
+    expect(link?.getAttribute("href")).toBe("/releases/1.1.0");
 });
 
 it("searches once you pause typing, and puts the search in the address",
@@ -60,12 +60,12 @@ it("searches once you pause typing, and puts the search in the address",
         field.dispatchEvent(new Event("input"));
         expect(rowCount(container)).toBe(2);
         await vi.waitFor(() => expect(rowCount(container)).toBe(1));
-        expect(location.hash).toBe("#q=tag");
+        expect(router.url.get().searchParams.get("q")).toBe("tag");
     });
 
 it("opens on the search in the address", async () =>
 {
-    await router.navigate("#q=tag", { replace: true });
+    await router.navigate("?q=tag", { replace: true });
     const { container } = mount(() => Releases());
     await vi.waitFor(() => expect(rowCount(container)).toBe(1));
     expect(container.querySelector("input")?.value).toBe("tag");
@@ -87,7 +87,7 @@ it("offers to try again when the releases do not load", async () =>
 
 it("shows a release's notes at its address, with its title", async () =>
 {
-    await router.navigate("/releases/1.1.0/notes");
+    await router.navigate("/releases/1.1.0");
     const { container } = mount(router.outlet());
     const note = (): string | null | undefined =>
         container.querySelector("li")?.textContent;

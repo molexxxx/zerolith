@@ -12,7 +12,7 @@
 // app's own test file runs first; its hooks run around every check here as
 // well, and each check sets up the stand-in it needs after them. The check
 // that leaves a page without an owner comes last, since that page's effects
-// keep following the address.
+// keep writing to the address.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResourceStatus, ZerolithError } from "zerolith";
 import { createRouter, route } from "@zerolith/router";
@@ -267,7 +267,7 @@ describe("release notes tutorial", () =>
         const { routes } = await import("../fixtures/release-notes/release/src/routes.ts");
         const { releases } = await import("../fixtures/release-notes/release/src/store.ts");
         const router = createRouter(routes, { window: null });
-        await router.navigate("/releases/9.9.9/notes");
+        await router.navigate("/releases/9.9.9");
         const { container } = mount(router.outlet());
         expect(heading(container)).toBe("Version 9.9.9");
         expect(router.head.get().title).toBe("9.9.9 release notes");
@@ -276,7 +276,7 @@ describe("release notes tutorial", () =>
         serve(ok);
         releases.reload();
         await vi.waitFor(() => expect(container.textContent).toContain("There is no release with this version."));
-        await router.navigate("/releases/2.2.0/notes");
+        await router.navigate("/releases/2.2.0");
         expect(heading(container)).toBe("Version 2.2.0");
         expect(router.head.get().title).toBe("2.2.0 release notes");
         expect(rows(container)).toEqual(file[2]?.notes);
@@ -303,16 +303,15 @@ describe("release notes tutorial", () =>
         await vi.waitFor(() => expect(releases.status.get()).toBe("resolved"));
         const { container } = mount(Releases());
         expect(versions(container)).toEqual(file.map((release) => release.version));
-        expect([...container.querySelectorAll("li > a")].map((link) => link.getAttribute("href"))).toEqual(file.map((release) => `/releases/${release.version}/notes`));
+        expect([...container.querySelectorAll("li > a")].map((link) => link.getAttribute("href"))).toEqual(file.map((release) => `/releases/${release.version}`));
     });
 
     it("types a release's parameter and its links from the path", async () =>
     {
         const { routes } = await import("../fixtures/release-notes/release/src/routes.ts");
         const router = createRouter(routes, { window: null });
-        expect(router.href("release", { version: "2.3.0" })).toBe("/releases/2.3.0/notes");
-        expect(router.href("release", { version: "2.3.0" }).split("/").at(-1)).not.toContain(".");
-        expect(router.href("release", { version: "a b/c" })).toBe("/releases/a%20b%2Fc/notes");
+        expect(router.href("release", { version: "2.3.0" })).toBe("/releases/2.3.0");
+        expect(router.href("release", { version: "a b/c" })).toBe("/releases/a%20b%2Fc");
         const unchecked = (): void =>
         {
             // @ts-expect-error a link to a release needs its version
@@ -321,12 +320,12 @@ describe("release notes tutorial", () =>
             router.href("release", { verison: "2.3.0" });
         };
         const misspelled = route({
-            path: "/releases/:version/notes",
+            path: "/releases/:version",
             // @ts-expect-error the view's parameters come from the path
             view: ({ params }) => params.verison
         });
         expect(typeof unchecked).toBe("function");
-        expect(misspelled.path).toBe("/releases/:version/notes");
+        expect(misspelled.path).toBe("/releases/:version");
         router.dispose();
     });
 
@@ -390,7 +389,7 @@ describe("release notes tutorial", () =>
         expect(times[0]?.textContent).toBe("October 20, 2026");
         expect(rows(list)[0]).toBe("Version 2.3.0 October 20, 2026 A calendar of your entries");
         const router = createRouter(routes, { window: null });
-        await router.navigate("/releases/2.3.0/notes");
+        await router.navigate("/releases/2.3.0");
         const page = mount(router.outlet()).container;
         expect(page.querySelector("p:not([role])")?.textContent?.replace(/\s+/g, " ")).toBe("A calendar of your entries, released October 20, 2026.");
         expect(page.querySelector("time")?.getAttribute("datetime")).toBe("2026-10-20");
@@ -480,7 +479,7 @@ describe("release notes tutorial", () =>
     it("opens on the search in the address at once, and follows each pause in place", async () =>
     {
         const { router, Releases } = await finished();
-        await router.navigate("/releases#q=photo", { replace: true });
+        await router.navigate("/releases?q=photo", { replace: true });
         const scrolled = vi.spyOn(window, "scrollTo");
         const { container } = mount(() => Releases());
         const field = searchField(container);
@@ -494,10 +493,10 @@ describe("release notes tutorial", () =>
         vi.useFakeTimers();
         typeInto(field, "photo import");
         vi.advanceTimersByTime(299);
-        expect(location.hash).toBe("#q=photo");
+        expect(location.search).toBe("?q=photo");
         expect(versions(container)).toEqual(["2.2.1", "2.2.0"]);
         vi.advanceTimersByTime(1);
-        expect(location.hash).toBe("#q=photo+import");
+        expect(location.search).toBe("?q=photo+import");
         vi.useRealTimers();
         expect(versions(container)).toEqual(["2.2.1"]);
         expect(statuses(container)[1]).toBe("1 release matches.");
@@ -508,12 +507,12 @@ describe("release notes tutorial", () =>
         expect(versions(container)).toHaveLength(7);
         expect(history.length).toBe(entries);
         typeInto(field, "a&b#c d");
-        await vi.waitFor(() => expect(location.hash).not.toBe(""));
-        expect(new URLSearchParams(location.hash.slice(1)).get("q")).toBe("a&b#c d");
+        await vi.waitFor(() => expect(location.search).not.toBe(""));
+        expect(new URLSearchParams(location.search.slice(1)).get("q")).toBe("a&b#c d");
         expect(field.value).toBe("a&b#c d");
     });
 
-    it("keeps the page and the field's focus while only the hash changes, where a new query string replaces them", async () =>
+    it("keeps the page, the field's focus, and the scroll position through each pause, where a link to a search builds the page again", async () =>
     {
         const { router } = await finished();
         await router.navigate("/releases", { replace: true });
@@ -523,79 +522,83 @@ describe("release notes tutorial", () =>
         field.focus();
         const scrolled = vi.spyOn(window, "scrollTo");
         typeInto(field, "sync");
-        await vi.waitFor(() => expect(location.hash).toBe("#q=sync"));
-        expect(scrolled).toHaveBeenCalledWith(0, 0);
+        await vi.waitFor(() => expect(location.search).toBe("?q=sync"));
+        expect(scrolled).not.toHaveBeenCalled();
         scrolled.mockRestore();
         expect(versions(container)).toEqual(["2.0.0"]);
         expect(searchField(container)).toBe(field);
         expect(document.activeElement).toBe(field);
         await router.navigate("/releases?q=photo", { replace: true });
         expect(field.isConnected).toBe(false);
-        expect(document.activeElement).not.toBe(searchField(container));
+        expect(searchField(container).value).toBe("photo");
+        expect(versions(container)).toEqual(["2.2.1", "2.2.0"]);
     });
 
-    it("follows a link that clears the search, and the back button that returns it, on the same page", async () =>
+    it("follows a link that clears the search, and the back button that returns it", async () =>
     {
         const { router } = await finished();
-        await router.navigate("/releases#q=photo");
+        await router.navigate("/releases?q=photo");
         const { container } = mount(router.outlet());
-        const field = searchField(container);
-        expect(field.value).toBe("photo");
+        expect(searchField(container).value).toBe("photo");
         const link = document.createElement("a");
         link.href = "/releases";
         document.body.append(link);
         link.click();
         link.remove();
-        await vi.waitFor(() => expect(field.value).toBe(""));
-        expect(location.hash).toBe("");
+        await vi.waitFor(() => expect(searchField(container).value).toBe(""));
+        expect(location.search).toBe("");
         expect(versions(container)).toHaveLength(7);
         expect(statuses(container)[1]).toBe("");
         history.back();
-        await vi.waitFor(() => expect(field.value).toBe("photo"));
-        expect(location.hash).toBe("#q=photo");
+        await vi.waitFor(() => expect(searchField(container).value).toBe("photo"));
+        expect(location.search).toBe("?q=photo");
         expect(versions(container)).toEqual(["2.2.1", "2.2.0"]);
-        expect(searchField(container)).toBe(field);
     });
 
-    it("writes what the field holds even when typing follows a change of address inside the pause", async () =>
+    it("writes the same search again once a link has cleared it", async () =>
+    {
+        const { router } = await finished();
+        await router.navigate("/releases?q=photo");
+        const { container } = mount(router.outlet());
+        const link = document.createElement("a");
+        link.href = "/releases";
+        document.body.append(link);
+        link.click();
+        link.remove();
+        await vi.waitFor(() => expect(searchField(container).value).toBe(""));
+        expect(location.search).toBe("");
+        typeInto(searchField(container), "photo");
+        await vi.waitFor(() => expect(location.search).toBe("?q=photo"));
+        expect(versions(container)).toEqual(["2.2.1", "2.2.0"]);
+    });
+
+    it("writes nothing to the address when a pause ends after the page was left", async () =>
     {
         const { router } = await finished();
         await router.navigate("/releases", { replace: true });
         const { container } = mount(router.outlet());
-        const field = searchField(container);
-        await router.navigate("#q=photo", { replace: true });
-        expect(field.value).toBe("photo");
-        typeInto(field, "");
-        await vi.waitFor(() => expect(location.hash).toBe(""));
-        expect(versions(container)).toHaveLength(7);
-        typeInto(field, "photo");
-        await vi.waitFor(() => expect(location.hash).toBe("#q=photo"));
+        typeInto(searchField(container), "sync");
+        await router.navigate("/releases/2.3.0");
         await new Promise((resolve) => setTimeout(resolve, 350));
-        const link = document.createElement("a");
-        link.href = "/releases";
-        document.body.append(link);
-        link.click();
-        link.remove();
-        await vi.waitFor(() => expect(field.value).toBe(""));
-        typeInto(field, "photo");
-        await vi.waitFor(() => expect(location.hash).toBe("#q=photo"));
-        expect(versions(container)).toEqual(["2.2.1", "2.2.0"]);
+        expect(location.pathname).toBe("/releases/2.3.0");
+        expect(location.search).toBe("");
+        await router.navigate("/releases", { replace: true });
     });
 
     it("goes to a release by its link without a reload, with its title, and back to the search", async () =>
     {
         const { router } = await finished();
-        await router.navigate("/releases#q=photo");
+        await router.navigate("/releases?q=photo");
         const { container } = mount(router.outlet());
         let prevented: boolean | undefined;
         document.addEventListener("click", (event) =>
         {
             prevented = event.defaultPrevented;
         }, { once: true });
-        container.querySelector<HTMLAnchorElement>("a[href=\"/releases/2.2.0/notes\"]")?.click();
+        container.querySelector<HTMLAnchorElement>("a[href=\"/releases/2.2.0\"]")?.click();
         await vi.waitFor(() => expect(heading(container)).toBe("Version 2.2.0"));
         expect(prevented).toBe(true);
-        expect(location.pathname).toBe("/releases/2.2.0/notes");
+        expect(location.pathname).toBe("/releases/2.2.0");
         expect(document.title).toBe("2.2.0 release notes");
         expect(rows(container)).toEqual(file[2]?.notes);
         await settle();
@@ -606,7 +609,7 @@ describe("release notes tutorial", () =>
         await vi.waitFor(() => expect(heading(container)).toBe("Release notes"));
         await settle();
         expect(document.activeElement).toBe(container.querySelector("h1"));
-        expect(location.hash).toBe("#q=photo");
+        expect(location.search).toBe("?q=photo");
         expect(searchField(container).value).toBe("photo");
         expect(versions(container)).toEqual(["2.2.1", "2.2.0"]);
         expect(router.matches(router.href("releases"), { exact: false }).get()).toBe(true);
@@ -615,7 +618,7 @@ describe("release notes tutorial", () =>
     it("leaves the scroll position to the router when a page's heading takes focus", async () =>
     {
         const { router } = await finished();
-        await router.navigate("/releases/2.3.0/notes");
+        await router.navigate("/releases/2.3.0");
         document.body.style.minHeight = "5000px";
         try
         {
@@ -635,7 +638,7 @@ describe("release notes tutorial", () =>
     it("draws no focus ring around a page's heading, whatever the page's styles give focused elements", async () =>
     {
         const { router } = await finished();
-        await router.navigate("/releases/2.3.0/notes");
+        await router.navigate("/releases/2.3.0");
         const rule = document.createElement("style");
         rule.textContent = "h1:focus { outline: 2px solid red; }";
         document.head.append(rule);
@@ -657,7 +660,7 @@ describe("release notes tutorial", () =>
     it("opens a release from its own address, with its title and its date", async () =>
     {
         const { router } = await finished();
-        await router.navigate("/releases/2.3.0/notes");
+        await router.navigate("/releases/2.3.0");
         const { container } = mount(router.outlet());
         expect(heading(container)).toBe("Version 2.3.0");
         expect(document.title).toBe("2.3.0 release notes");
@@ -673,11 +676,11 @@ describe("release notes tutorial", () =>
         typeInto(searchField(owned), "sync");
         cleanup();
         await new Promise((resolve) => setTimeout(resolve, 400));
-        expect(location.hash).toBe("");
+        expect(location.search).toBe("");
         const unowned = mount(Releases()).container;
         typeInto(searchField(unowned), "sync");
         cleanup();
         await new Promise((resolve) => setTimeout(resolve, 400));
-        expect(location.hash).toBe("#q=sync");
+        expect(location.search).toBe("?q=sync");
     });
 });
