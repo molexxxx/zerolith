@@ -32,7 +32,7 @@ A prop named like a property every element has, such as `title`, `hidden`, or `i
 
 | When | What happens |
 | --- | --- |
-| The element connects | The view renders into it, or hydrates the markup it already holds from the server |
+| The element connects | The view renders into it in place of whatever it held, or hydrates the markup it already holds from the server |
 | An attribute or a property changes | Its signal updates, and only the bindings that read it change |
 | The element disconnects | The view is disposed with the effects and `onDispose` cleanups it registered |
 | It connects again, as when it moves | The view renders again, with the props it had |
@@ -40,6 +40,14 @@ A prop named like a property every element has, such as `title`, `hidden`, or `i
 | `define` runs again for the same name | Nothing happens, so hot replacement can run the module again |
 
 The content lives in light DOM, as every zerolith view does, so scoped styles, design tokens, and global stylesheets apply unchanged, and there is no shadow root to pierce.
+
+Text inside the tag is what a visitor sees until the script loads, as a fallback, and the view replaces it. The view can read it from the host as it runs, for a label the page chose, and a view that throws leaves it in place:
+
+```html
+<note-count label="Drafts" count="2">Loading the count</note-count>
+```
+
+An element inside another component's shadow root still gets its scoped styles, because the shadow root adopts them when the view renders there, including stylesheets created later. Global stylesheets stop at that shadow root, as they do for any element.
 
 ## Use it anywhere
 

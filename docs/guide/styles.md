@@ -41,6 +41,8 @@ The `to` clause is the lower edge: the rules stop at the children of any `zl-s` 
 > [!NOTE]
 > There is no shadow DOM and no rewriting of selectors. The browser applies the `@scope` rule, global styles reach every component, and the elements in DevTools are the elements you wrote.
 
+A view you render into a shadow root, or a [custom element](elements.md) another component places inside one, gets these styles too: when a view renders inside a shadow root, that root adopts every scoped stylesheet the document has and every one created later. Render it once its mount point is in the shadow root, since a view can't see a shadow root it joins afterward.
+
 ## Composing styles
 
 A `css` literal interpolated into another adds its rules to the new one, so shared rules are written once and composed where they apply:

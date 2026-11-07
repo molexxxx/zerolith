@@ -73,6 +73,19 @@ function wrap(scope: string, rules: string): string
     return `@scope (.${scope}) to (:scope .${SCOPE_MARKER} > *) {\n${rules}\n}`;
 }
 
+/** The shadow roots a view was rendered into, held weakly, which adopt every scoped stylesheet the document does. */
+let shadowRoots: Array<WeakRef<ShadowRoot>> = [];
+const heldShadowRoots: WeakSet<ShadowRoot> = new WeakSet();
+let pruneShadowRootsAt = 64;
+
+function adoptBy(root: Document | ShadowRoot, sheet: CSSStyleSheet): void
+{
+    if (!root.adoptedStyleSheets.includes(sheet))
+    {
+        root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
+    }
+}
+
 function adopt(text: string): CSSStyleSheet | undefined
 {
     if (typeof document === "undefined" || typeof CSSStyleSheet === "undefined")
@@ -81,8 +94,48 @@ function adopt(text: string): CSSStyleSheet | undefined
     }
     const sheet = new CSSStyleSheet();
     sheet.replaceSync(text);
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    adoptBy(document, sheet);
+    for (const known of shadowRoots)
+    {
+        const root = known.deref();
+        if (root !== undefined)
+        {
+            adoptBy(root, sheet);
+        }
+    }
     return sheet;
+}
+
+/**
+ * Has the shadow root that holds `node`, when there is one, adopt every
+ * scoped stylesheet the document has adopted and every one created later,
+ * since a shadow tree sees none of the document's. A view rendered inside
+ * another component's shadow root, as a custom element can be, is then
+ * styled as it is in the page, and a stylesheet file changed during
+ * development changes there too, being the same stylesheet. A node that
+ * joins a shadow tree after its view rendered is not seen here.
+ */
+export function adoptStylesAt(node: Node): void
+{
+    const root = node.getRootNode();
+    if (typeof ShadowRoot === "undefined" || !(root instanceof ShadowRoot) || root.ownerDocument !== document || heldShadowRoots.has(root))
+    {
+        return;
+    }
+    heldShadowRoots.add(root);
+    if (shadowRoots.length >= pruneShadowRootsAt)
+    {
+        shadowRoots = shadowRoots.filter((known) => known.deref() !== undefined);
+        pruneShadowRootsAt = Math.max(64, shadowRoots.length * 2);
+    }
+    shadowRoots.push(new WeakRef(root));
+    for (const styles of created)
+    {
+        if (styles.sheet !== undefined)
+        {
+            adoptBy(root, styles.sheet);
+        }
+    }
 }
 
 function create(scope: string, rules: string): ScopedStyles

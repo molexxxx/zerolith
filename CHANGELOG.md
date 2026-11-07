@@ -4,22 +4,21 @@ Every package in this repository is released together and carries the same versi
 
 ## Unreleased
 
+
 ### Added
 
-- `@zerolith/router`: `navigate` takes a `shallow` option, which keeps the page shown when the URL's path is the page's own, whatever its query, so a page can write a search to the query string as the reader types without losing the field's focus. Back and forward between such entries keep the page too. A navigation that changed only the query rebuilt the page.
-- Docs: three more tutorials, each a small app built step by step from a fresh project and walked end to end on the published 1.2.0, with every file a step shows run by the test suite. Build a sign-up form uses `@zerolith/forms` and `@zerolith/a11y` against a small backend the reader runs; Build a release notes reader uses route parameters, `resource`, `@zerolith/i18n`, and `debounced`; and Build a widget for any backend makes a custom element posting through `@zerolith/client` to an OpenAPI contract, built into one script any page loads.
 - `@zerolith/router`: `createRouter` takes a `failed` option, a view the outlet shows in place of a page whose view throws as a navigation shows it, given the error and the URL, where the outlet could only stay empty. The navigation still fails with the error.
 
 ### Changed
 
-- Docs site: /learn/ lists the tutorials, and each has a folder, a sidebar, and a pager of its own. The packing list moved to /learn/packing-list/, and each of its old step addresses redirects to the new one.
 - Docs: the tutorial's undo step passes `validate` to `stored` with the `isItem` check from the step before, so a saved value that is not a list of items takes the starting items there too.
 
 ### Fixed
 
+- `zerolith/element`: an element replaces whatever it held when it connects, such as fallback text in the tag, where the view rendered beside it. The view can read it from the host as it runs, a view that throws leaves it in place, and an element that upgraded while the page was still parsing drops what the parser adds to it after that, instead of showing fallback or server markup under the view.
+- `zerolith`: a view rendered inside a shadow root gets the scoped stylesheets, the ones the document has and the ones created later, where a shadow tree saw none of them, so an element placed in another component's shadow root lost its styles.
 - `@zerolith/cli` and the `zerolith` crate: the starter's lint passes a module imported for its effects, such as `import "./print.css"` as the styles guide writes it or a module that defines an element, where `import/no-unassigned-import` failed it.
 - `@zerolith/cli` and the `zerolith` crate: `zerolith dev` and `zerolith preview` serve the app's `index.html` for a page the browser loads whose last path segment holds a dot, such as `/releases/2.3.0`, where they answered 404. A request for a missing script, stylesheet, or data file still gets 404; the two are told apart by the request's `Accept` and `Sec-Fetch-Mode` headers.
-- Docs: the deploying guide warns that an unbundled app upgraded to a new zerolith version can show a blank page to returning visitors on a host that lets browsers keep files, and says how to avoid it.
 - Docs site: a page no longer loses its styles when a browser holds a copy of the stylesheet from another deploy. The stylesheet carried an integrity hash on an address that stayed the same between deploys, and GitHub Pages lets a browser keep a file for ten minutes, so a browser could refuse it and show the page with no styles at all. The stylesheet and the theme script now have an address with a short form of their hash and no integrity hash.
 - Docs site: a page paints in the brand's fonts from its first frame, where it painted in a system font and reflowed when each font arrived, on any visit whose fonts had to come over the network or be checked again. The fonts are held in a stylesheet of their own, which a browser waits for before it paints, and whose address changes only with the fonts, so a deploy that changes only the site's styles leaves a returning reader's copy of the fonts in place.
 

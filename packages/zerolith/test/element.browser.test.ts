@@ -71,6 +71,112 @@ describe("define", () =>
         expect(element.querySelector("b")?.textContent).toBe("server");
     });
 
+    it("replaces whatever the element held, which the view can still read as it runs", () =>
+    {
+        let readDuringView = "";
+        define("zl-fallback", {
+            props: [],
+            view: (_props, element) =>
+            {
+                readDuringView = element.textContent;
+                return html`<p>ready</p>`;
+            }
+        });
+        host = document.createElement("div");
+        host.innerHTML = "<zl-fallback>Loading the app</zl-fallback>";
+        document.body.append(host);
+        const element = host.firstElementChild as HTMLElement;
+        expect(readDuringView).toBe("Loading the app");
+        expect(element.textContent).toBe("ready");
+        expect(element.querySelectorAll("p")).toHaveLength(1);
+
+        const moved = document.createElement("section");
+        host.append(moved);
+        moved.append(element);
+        expect(element.textContent).toBe("ready");
+        element.remove();
+        element.append("Added while away");
+        moved.append(element);
+        expect(element.textContent).toBe("ready");
+    });
+
+    it("keeps a node the view moved into its own content, and what it held when the view throws", () =>
+    {
+        define("zl-framed", {
+            props: [],
+            view: (_props, element) =>
+            {
+                const box = document.createElement("section");
+                box.append(element.querySelector("em") as HTMLElement);
+                return html`<div>${element.querySelector("b")}</div>${box}`;
+            }
+        });
+        define("zl-broken", {
+            props: [],
+            view: () =>
+            {
+                throw new Error("the view failed");
+            }
+        });
+        host = document.createElement("div");
+        document.body.append(host);
+        const framed = document.createElement("zl-framed");
+        framed.innerHTML = "<b>kept</b><em>moved</em><i>dropped</i>";
+        host.append(framed);
+        expect(framed.querySelector("div > b")?.textContent).toBe("kept");
+        expect(framed.querySelector("section > em")?.textContent).toBe("moved");
+        expect(framed.querySelector("i")).toBeNull();
+
+        const broken = document.createElement("zl-broken");
+        broken.textContent = "Still here";
+        const failures: unknown[] = [];
+        const onError = (event: ErrorEvent): void =>
+        {
+            failures.push(event.message);
+            event.preventDefault();
+        };
+        window.addEventListener("error", onError);
+        host.append(broken);
+        window.removeEventListener("error", onError);
+        expect(failures).toHaveLength(1);
+        expect(broken.textContent).toBe("Still here");
+    });
+
+    it("drops what the parser adds after a script ran before the page finished parsing, and leaves the view's own updates", () =>
+    {
+        const label = signal("first");
+        define("zl-parsed", { props: [], view: () => html`<p>${label}</p>` });
+        host = document.createElement("div");
+        document.body.append(host);
+        const element = document.createElement("zl-parsed");
+        const early = document.createElement("zl-parsed");
+        Object.defineProperty(document, "readyState", { configurable: true, get: () => "loading" });
+        try
+        {
+            host.append(element, early);
+        }
+        finally
+        {
+            delete (document as unknown as { readyState?: string }).readyState;
+        }
+        expect(element.textContent).toBe("first");
+
+        element.append("Fallback the parser reached later", document.createElement("hr"));
+        early.remove();
+        host.append(early);
+        early.append("Added by the page after it moved");
+        document.dispatchEvent(new Event("DOMContentLoaded"));
+        expect(element.textContent).toBe("first");
+        expect(element.querySelector("hr")).toBeNull();
+        expect(early.textContent).toContain("Added by the page after it moved");
+
+        label.set("second");
+        expect(element.textContent).toBe("second");
+        element.append("Added by the page after it loaded");
+        document.dispatchEvent(new Event("DOMContentLoaded"));
+        expect(element.textContent).toContain("Added by the page after it loaded");
+    });
+
     it("ends the effects and cleanups its view registers when it disconnects", () =>
     {
         const tick = signal(0);

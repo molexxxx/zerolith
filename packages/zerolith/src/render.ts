@@ -13,6 +13,7 @@
  * markers.ts, template instances and child parts in instance.ts, element
  * parts in attributes.ts, and the directives in each.ts and when.ts.
  */
+import { adoptStylesAt } from "./css.js";
 import { measure, trackRoot, untrackRoot } from "./devtools.js";
 import { fail } from "./diagnostics.js";
 import { ChildPart } from "./render/instance.js";
@@ -94,6 +95,7 @@ export function produce(view: unknown): unknown
 export function render(view: Renderable | (() => Renderable), target: MountTarget): Root
 {
     const container = resolveTarget(target);
+    adoptStylesAt(container);
     const anchor = document.createComment("");
     container.append(anchor);
     const part = new ChildPart(anchor);
@@ -140,6 +142,7 @@ export function render(view: Renderable | (() => Renderable), target: MountTarge
 export function hydrate(view: Renderable | (() => Renderable), target: MountTarget): HydrateResult
 {
     const container = resolveTarget(target);
+    adoptStylesAt(container);
     const found: HydrationMismatch[] = [];
     const start = firstStart(container);
     const end = start === undefined ? undefined : matchingEnd(start);

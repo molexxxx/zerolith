@@ -41,10 +41,14 @@ function store(host: HTMLElement, props: readonly string[]): Record<string, Sign
  * Registers a custom element for the view. Declared props are observed as
  * attributes and exposed as properties, both feeding the same signals, and
  * values assigned before the element was upgraded are kept. The content is
- * rendered when the element connects, hydrated when it already holds
- * server-rendered markup, and disposed when it disconnects. The view runs
- * inside the root's owner, so the effects and `onDispose` cleanups it
- * registers end when the element disconnects. Without a
+ * rendered when the element connects, in place of whatever the element
+ * held, such as fallback text for a page whose script has not loaded yet;
+ * the view can still read that from the host as it runs, and a view that
+ * throws leaves it in place. It is hydrated instead when the element holds
+ * server-rendered markup, and disposed when the element disconnects. A view
+ * inside another component's shadow root gets the scoped styles there too.
+ * The view runs inside the root's owner, so the effects and `onDispose`
+ * cleanups it registers end when the element disconnects. Without a
  * `customElements` registry, as on the server, nothing is registered.
  * Defining a name twice is a no-op, so modules can re-run under hot
  * replacement.
@@ -88,7 +92,37 @@ export function define<const Props extends readonly string[]>(name: string, opti
                 return;
             }
             const view = (): Renderable => options.view(store(this, props) as unknown as ElementProps<Props>, this);
-            roots.set(this, hasServerMarkup(this) ? hydrate(view, this) : render(view, this));
+            if (hasServerMarkup(this))
+            {
+                roots.set(this, hydrate(view, this));
+                return;
+            }
+            const held = [...this.childNodes];
+            roots.set(this, render(() =>
+            {
+                const content = view();
+                for (const node of held)
+                {
+                    if (node.parentNode === this)
+                    {
+                        node.remove();
+                    }
+                }
+                return content;
+            }, this));
+            if (document.readyState === "loading")
+            {
+                const end = this.lastChild as ChildNode;
+                document.addEventListener("DOMContentLoaded", () =>
+                {
+                    let added = end.nextSibling;
+                    while (added !== null)
+                    {
+                        added.remove();
+                        added = end.nextSibling;
+                    }
+                }, { once: true });
+            }
         }
 
         disconnectedCallback(): void
