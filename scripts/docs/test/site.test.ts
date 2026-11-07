@@ -187,7 +187,6 @@ describe("documentation site", () =>
     {
         const { page, errors } = await open("/");
         const readout = (): Promise<string[]> => page.$$eval(".readout dd", (values) => values.map((value) => value.textContent ?? ""));
-        const display = (): Promise<string> => page.$eval(".run .output .display", (element) => element.textContent ?? "");
         const drawing = (): Promise<number> => page.evaluate(() => document.querySelector(".flow .landscape")?.getAnimations({ subtree: true }).length ?? 0);
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
         expect(await readout()).toEqual(["0", "0", "0", "1"]);
@@ -202,16 +201,70 @@ describe("documentation site", () =>
         await page.waitForFunction(() => document.querySelector("[data-run=\"tick\"]")?.hasAttribute("data-running") === true);
         await page.click(".run .output button");
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Aborted");
-        expect(await page.textContent(".run .output button")).toBe("Reset");
+        expect(await page.textContent(".run .output button")).toBe("Launch");
         expect(await page.locator("[data-run=\"tick\"][data-running]").count()).toBe(0);
         await page.click(".run .output button");
-        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.startsWith("T-") === true);
         const [texts, , created, calls] = await readout();
         expect(Number(texts)).toBeGreaterThan(3);
         expect(created).toBe("0");
         expect(calls).toBe("1");
-        expect(await display()).toBe("Ready");
+        expect(await page.textContent(".run .output button")).toBe("Abort");
         expect(await page.locator(".figure code [data-signal]").count()).toBe(6);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("sends a square along each edge of launch control's flow only where its code ran", { timeout: 90000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.evaluate(() =>
+        {
+            const pulses: string[] = [];
+            Object.assign(window, { pulses });
+            const animate = Element.prototype.animate;
+            Element.prototype.animate = function lit(this: Element, ...args: Parameters<Element["animate"]>)
+            {
+                const edge = this.getAttribute("data-for");
+                if (edge !== null && this.closest(".landscape") !== null)
+                {
+                    pulses.push(edge);
+                }
+                return animate.apply(this, args);
+            };
+        });
+        const lit = () => page.evaluate(() => (window as unknown as { pulses: string[] }).pulses.splice(0));
+        await page.$eval(".run .output input[type=\"range\"]", (input) =>
+        {
+            (input as HTMLInputElement).value = "90";
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+        await expect.poll(lit).toEqual(["steer>throttle", "throttle>dom-throttle"]);
+
+        await page.click(".run .output button");
+        await page.waitForFunction(() => (window as unknown as { pulses: string[] }).pulses.includes("live>clock"));
+        const launched = await lit();
+        expect(launched).toEqual(expect.arrayContaining(["press>stage", "stage>live", "live>clock", "live>action", "action>dom-action", "stage>readout", "readout>dom-readout"]));
+        expect(launched).not.toContain("throttle>clock");
+        expect(await page.getAttribute(".flow .landscape [data-edge=\"throttle>clock\"]", "data-reading")).toBeNull();
+
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.endsWith("km") === true, null, { timeout: 15000 });
+        await page.waitForTimeout(400);
+        const flying = await lit();
+        expect(flying).toEqual(expect.arrayContaining(["clock>stage", "clock>countdown", "clock>altitude", "clock>fuel", "altitude>readout"]));
+        expect(flying).not.toContain("live>clock");
+        expect(flying).not.toContain("throttle>clock");
+        expect(await page.getAttribute(".flow .landscape [data-edge=\"throttle>clock\"]", "data-reading")).toBe("");
+
+        await page.waitForFunction(() => ["In orbit", "Out of fuel"].includes(document.querySelector(".run .output .display")?.textContent ?? ""), null, { timeout: 30000 });
+        await page.waitForTimeout(400);
+        expect(await lit()).toEqual(expect.arrayContaining(["clock>stage", "stage>live", "live>clock", "live>action"]));
+        expect(await page.textContent(".run .output button")).toBe("Launch");
+        expect(await page.getAttribute(".flow .landscape [data-edge=\"throttle>clock\"]", "data-reading")).toBeNull();
+
+        await page.click(".run .output button");
+        await expect.poll(lit).toEqual(expect.arrayContaining(["press>stage", "live>clock", "clock>countdown", "clock>altitude", "clock>fuel"]));
         expect(errors).toEqual([]);
         await page.close();
     });
@@ -248,7 +301,7 @@ describe("documentation site", () =>
             const apart = boxes.every(({ rect: a }, index) => boxes.slice(index + 1).every(({ rect: b }) => a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y));
             return { nodes: boxes.length, edges: svg.querySelectorAll("[data-edge]").length, inside, fitted, apart };
         });
-        expect(layout).toEqual({ nodes: 16, edges: 17, inside: true, fitted: true, apart: true });
+        expect(layout).toEqual({ nodes: 16, edges: 18, inside: true, fitted: true, apart: true });
         const ids = await page.evaluate(() => [".flow .portrait", ".flow .landscape"].map((drawing) => Array.from(document.querySelectorAll(`${drawing} [data-node], ${drawing} [data-edge]`), (element) => element.getAttribute("data-node") ?? element.getAttribute("data-edge")).toSorted().join(" ")));
         expect(ids[0]).toBe(ids[1]);
         const crossed = await page.$$eval(".flow svg", (drawings) => drawings.flatMap((svg) =>
@@ -266,9 +319,9 @@ describe("documentation site", () =>
         const drawn = await page.evaluate(() => document.querySelector(".flow .portrait")?.getAnimations({ subtree: true }).map((animation) =>
         {
             const target = (animation.effect as KeyframeEffect).target as Element;
-            return target.closest("[data-node]")?.getAttribute("data-node") ?? target.getAttribute("class");
+            return target.closest("[data-node]")?.getAttribute("data-node") ?? target.getAttribute("data-for");
         }) ?? []);
-        expect(drawn).toEqual(expect.arrayContaining(["press", "stage", "live", "spark"]));
+        expect(drawn).toEqual(expect.arrayContaining(["press", "stage", "live", "press>stage", "stage>live"]));
         expect(await page.evaluate(() => document.querySelector(".flow .landscape")?.getAnimations({ subtree: true }).length)).toBe(0);
         await page.setViewportSize({ width: 960, height: 844 });
         expect(await page.isVisible(".flow .portrait")).toBe(true);

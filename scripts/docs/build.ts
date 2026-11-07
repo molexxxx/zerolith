@@ -673,7 +673,7 @@ async function figureCode(): Promise<string>
     };
     mark("tick", (line) => line === "function tick()", (line) => line === "}");
     mark("press", (line) => line === "function press()", (line) => line === "}");
-    mark("clock", (line) => line === "    effect(() =>", (line) => line === "    });");
+    mark("clock", (line) => line === "function fly()", (line) => line === "}");
     mark("steer", (line) => line.startsWith("    const steer = "), () => true);
     return html
         .split("\n")

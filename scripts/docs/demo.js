@@ -13,29 +13,38 @@ import { batch, computed, effect, html, signal } from "zerolith";
 
 // #region figure
 const ORBIT = 100;
+const CLIMB = 2;
+const BURN = 2.4;
+const RUNNING = new Set(["countdown", "flight"]);
+
 const stage = signal("ready");
 const countdown = signal(3);
 const altitude = signal(0);
 const fuel = signal(100);
 const throttle = signal(70);
 
-const live = computed(() =>
-    stage.get() === "countdown" || stage.get() === "flight");
-const action = computed(() =>
-    (live.get() ? "Abort" : stage.get() === "ready" ? "Launch" : "Reset"));
-const words = new Map([
+const live = computed(() => RUNNING.has(stage.get()));
+const action = computed(() => (live.get() ? "Abort" : "Launch"));
+
+const labels = new Map([
     ["ready", "Ready"],
     ["orbit", "In orbit"],
     ["empty", "Out of fuel"],
     ["aborted", "Aborted"]
 ]);
+
 const readout = computed(() =>
 {
-    if (stage.get() === "countdown")
+    const current = stage.get();
+    if (current === "countdown")
     {
         return `T-${countdown.get().toFixed(1)}`;
     }
-    return words.get(stage.get()) ?? `${Math.round(altitude.get())} km`;
+    if (current === "flight")
+    {
+        return `${Math.round(altitude.get())} km`;
+    }
+    return labels.get(current);
 });
 
 function tick()
@@ -43,54 +52,59 @@ function tick()
     if (stage.get() === "countdown")
     {
         countdown.set(Math.max(0, countdown.get() - 0.1));
-        stage.set(countdown.get() === 0 ? "flight" : "countdown");
+        if (countdown.get() === 0)
+        {
+            stage.set("flight");
+        }
         return;
     }
     const power = throttle.get() / 100;
-    altitude.set(Math.min(ORBIT, altitude.get() + power * 2));
-    fuel.set(Math.max(0, fuel.get() - power * power * 2.4));
-    stage.set(altitude.get() === ORBIT ? "orbit"
-        : fuel.get() === 0 ? "empty" : "flight");
+    altitude.set(Math.min(ORBIT, altitude.get() + CLIMB * power));
+    fuel.set(Math.max(0, fuel.get() - BURN * power ** 2));
+    if (altitude.get() === ORBIT)
+    {
+        stage.set("orbit");
+    }
+    else if (fuel.get() === 0)
+    {
+        stage.set("empty");
+    }
+}
+
+function fly()
+{
+    countdown.set(3);
+    altitude.set(0);
+    fuel.set(100);
+    const clock = setInterval(tick, 100);
+    return () => clearInterval(clock);
 }
 
 function press()
 {
-    if (live.get())
-    {
-        stage.set("aborted");
-        return;
-    }
-    batch(() =>
-    {
-        stage.set(stage.get() === "ready" ? "countdown" : "ready");
-        countdown.set(3);
-        altitude.set(0);
-        fuel.set(100);
-    });
+    stage.set(live.get() ? "aborted" : "countdown");
 }
 
 function LaunchControl()
 {
-    effect(() =>
-    {
-        if (!live.get())
-        {
-            return undefined;
-        }
-        const clock = setInterval(tick, 100);
-        return () => clearInterval(clock);
-    });
+    effect(() => (live.get() ? fly() : undefined));
     /** @param {{ target: HTMLInputElement }} event */
     const steer = (event) => throttle.set(Number(event.target.value));
     return html`
         <p class="display">${readout}</p>
-        <label>Altitude
-            <progress max=${ORBIT} value=${altitude}></progress></label>
-        <label>Fuel
-            <progress max="100" value=${fuel}></progress></label>
-        <label>Throttle ${throttle}%
-            <input type="range" min="40" max="100"
-                .value=${throttle} @input=${steer}></label>
+        <label>
+            Altitude
+            <progress max=${ORBIT} value=${altitude}></progress>
+        </label>
+        <label>
+            Fuel
+            <progress max="100" value=${fuel}></progress>
+        </label>
+        <label>
+            Throttle ${throttle}%
+            <input type="range" min="40"
+                .value=${throttle} @input=${steer}>
+        </label>
         <button @click=${press}>${action}</button>`;
 }
 // #endregion figure
@@ -209,6 +223,7 @@ export function watch(host)
     /** @type {Set<string>} */
     let changed = new Set();
     let scheduled = false;
+    let before = stage.get();
     const schedule = () =>
     {
         if (!scheduled)
@@ -219,7 +234,8 @@ export function watch(host)
                 scheduled = false;
                 const seen = changed;
                 changed = new Set();
-                draw(flow, figure, seen);
+                draw(flow, figure, seen, before);
+                before = stage.get();
             });
         }
     };
@@ -239,6 +255,15 @@ export function watch(host)
             schedule();
         });
     });
+    const reads = figure?.querySelectorAll("[data-edge=\"throttle>clock\"]") ?? [];
+    stops.push(effect(() =>
+    {
+        const reading = stage.get() === "flight";
+        for (const edge of reads)
+        {
+            edge.toggleAttribute("data-reading", reading);
+        }
+    }));
     const tickLines = figure?.querySelectorAll("[data-run=\"tick\"]") ?? [];
     const pane = figure?.querySelector(".code pre");
     let ran = false;
@@ -257,22 +282,36 @@ export function watch(host)
         }
         ran = running;
     }));
-    /** @param {Event} event */
+    /**
+     * Records the click before the button's handler runs, in the capture
+     * phase, so the click and the changes it makes land in one round: the
+     * browser drains microtasks between listeners, so a mark made while the
+     * event bubbles would come a round after them.
+     * @param {Event} event
+     */
     const pressed = (event) =>
     {
         if (event.target instanceof Element && event.target.closest("button") !== null)
         {
             changed.add("press");
-            schedule();
         }
     };
     const steered = () =>
     {
         changed.add("steer");
-        schedule();
     };
-    output.addEventListener("click", pressed);
-    output.addEventListener("input", steered);
+    /** Draws an event that changed nothing, which no signal's change scheduled. */
+    const settle = () =>
+    {
+        if (changed.size > 0)
+        {
+            schedule();
+        }
+    };
+    output.addEventListener("click", pressed, { capture: true });
+    output.addEventListener("input", steered, { capture: true });
+    output.addEventListener("click", settle);
+    output.addEventListener("input", settle);
 
     const observer = new MutationObserver((records) =>
     {
@@ -343,8 +382,10 @@ export function watch(host)
     return () =>
     {
         observer.disconnect();
-        output.removeEventListener("click", pressed);
-        output.removeEventListener("input", steered);
+        output.removeEventListener("click", pressed, { capture: true });
+        output.removeEventListener("input", steered, { capture: true });
+        output.removeEventListener("click", settle);
+        output.removeEventListener("input", settle);
         for (const stop of stops)
         {
             stop();
@@ -359,18 +400,28 @@ export function watch(host)
 }
 
 /**
- * Draws one round of changes: lights each node that changed, sends a spark
- * along each edge a change ran along, and flashes the lines of code that ran.
- * It draws on whichever drawing of the flow is showing, the one that runs
- * across a wide screen or the one that runs down a narrow one.
+ * Draws one round of changes: outlines each node that changed, sends a small
+ * square along each edge a change ran along, and flashes the lines of code
+ * that ran.
+ * The click writes only the stage; the clock resets the countdown,
+ * altitude, and fuel when a flight starts, writes them on each tick, and
+ * writes the stage when a countdown or a flight ends. The readout takes a
+ * change only from what it reads in the stage the round began or ended in.
+ * The throttle read, the dashed edge, is not a change, so it never lights
+ * here: its dashes march while the clock reads it. It draws on whichever drawing of
+ * the flow is showing, the one that runs across a wide screen or the one
+ * that runs down a narrow one.
  * A change runs through the whole graph synchronously, in well under a
- * millisecond, so the drawing keeps the order but runs the whole path in
- * about a quarter of a second and leaves a short afterglow.
+ * millisecond, so the drawing keeps the order as a wave: each square leaves
+ * its layer 180 ms after the one before and eases along its edge in 260 ms,
+ * and each node outlines as the squares reach it. A clock that ticks every
+ * 100 ms sends a steady stream of squares along its paths while it runs.
  * @param {Element | null} flow
  * @param {Element | null} figure
  * @param {Set<string>} seen
+ * @param {string} before the stage when the round began
  */
-function draw(flow, figure, seen)
+function draw(flow, figure, seen, before)
 {
     if (flow === null || still?.matches !== false)
     {
@@ -382,7 +433,9 @@ function draw(flow, figure, seen)
     const node = (id) => hits.push(["node", id, layers[/** @type {keyof typeof layers} */ (id)] ?? 0]);
     /** @param {string} from @param {string} to */
     const edge = (from, to) => hits.push(["edge", `${from}>${to}`, layers[/** @type {keyof typeof layers} */ (from)] ?? 0]);
-    if (seen.has("press"))
+    const clicked = seen.has("press");
+    const current = stage.get();
+    if (clicked)
     {
         node("press");
         edge("press", "stage");
@@ -396,6 +449,11 @@ function draw(flow, figure, seen)
     }
     if (seen.has("stage"))
     {
+        if (!clicked)
+        {
+            node("clock");
+            edge("clock", "stage");
+        }
         node("stage");
     }
     if (seen.has("live"))
@@ -406,25 +464,16 @@ function draw(flow, figure, seen)
         node("clock");
         flash(figure, "clock");
     }
-    const ticked = ["countdown", "altitude", "fuel"].filter((name) => seen.has(name));
-    if (ticked.length > 0 && !seen.has("press"))
+    const written = ["countdown", "altitude", "fuel"].filter((name) => seen.has(name));
+    for (const name of written)
     {
         node("clock");
-        for (const name of ticked)
-        {
-            edge("clock", name);
-        }
-    }
-    for (const name of ticked)
-    {
+        edge("clock", name);
         node(name);
     }
     if (seen.has("action"))
     {
-        if (seen.has("live"))
-        {
-            edge("live", "action");
-        }
+        edge("live", "action");
         node("action");
         edge("action", "dom-action");
         node("dom-action");
@@ -434,16 +483,13 @@ function draw(flow, figure, seen)
         node("throttle");
         edge("throttle", "dom-throttle");
         node("dom-throttle");
-        if (live.get())
-        {
-            edge("throttle", "clock");
-        }
     }
     if (seen.has("readout"))
     {
-        for (const source of ["countdown", "altitude", "stage"])
+        const read = { stage: true, countdown: before === "countdown" || current === "countdown", altitude: before === "flight" || current === "flight" };
+        for (const source of /** @type {const} */ (["stage", "countdown", "altitude"]))
         {
-            if (seen.has(source))
+            if (seen.has(source) && read[source])
             {
                 edge(source, "readout");
             }
@@ -469,53 +515,105 @@ function draw(flow, figure, seen)
     const shown = Array.from(flow.children).find((child) => child.getClientRects().length > 0) ?? flow;
     for (const [kind, id, layer] of hits)
     {
-        const delay = (layer - first) * 20;
+        const delay = (layer - first) * 180;
         if (kind === "node")
         {
-            light(shown.querySelector(`[data-node="${id}"]`), delay + 20, accent);
+            const box = shown.querySelector(`[data-node="${id}"]`);
+            light(box?.querySelector("rect") ?? null, "stroke", delay, accent);
+            light(box?.querySelector("text") ?? null, "fill", delay, accent);
         }
         else
         {
-            spark(shown.querySelector(`[data-edge="${id}"]`), delay, 140);
+            travel(shown.querySelector(`[data-edge="${id}"]`), id, delay);
         }
     }
 }
 
 /**
- * Outlines a node of the diagram in the accent color for a moment.
- * @param {Element | null} node
+ * Outlines one part of a node, its box or its label, in the accent color and
+ * fades it back.
+ * @param {Element | null} part
+ * @param {"stroke" | "fill"} property
  * @param {number} delay
  * @param {string} accent
  */
-function light(node, delay, accent)
+function light(part, property, delay, accent)
 {
-    const timing = { duration: 500, delay, easing: "ease-out" };
-    node?.querySelector("rect")?.animate([{ stroke: accent, offset: 0 }, { stroke: accent, offset: 0.4 }], timing);
-    node?.querySelector("text")?.animate([{ fill: accent, offset: 0 }, { fill: accent, offset: 0.4 }], timing);
+    part?.animate([{ [property]: accent, offset: 0 }, { [property]: accent, offset: 0.3 }], { duration: 600, delay, easing: "ease-out" });
 }
 
 /**
- * Sends a spark along one edge of the diagram and removes it when it arrives.
- * @param {Element | null} edge
- * @param {number} delay
- * @param {number} duration
+ * The corners of an edge's path, which the drawing writes as one absolute
+ * move followed by horizontal and vertical lines.
+ * @param {string} path
+ * @returns {Array<[number, number]>}
  */
-function spark(edge, delay, duration)
+function corners(path)
 {
-    if (!(edge instanceof SVGPathElement))
+    /** @type {Array<[number, number]>} */
+    const points = [];
+    let x = 0;
+    let y = 0;
+    for (const [, command, first, second] of path.matchAll(/([MHV])(-?[\d.]+)(?:\s(-?[\d.]+))?/g))
+    {
+        if (command === "M")
+        {
+            x = Number(first);
+            y = Number(second);
+        }
+        else if (command === "H")
+        {
+            x = Number(first);
+        }
+        else
+        {
+            y = Number(first);
+        }
+        points.push([x, y]);
+    }
+    return points;
+}
+
+/**
+ * Sends a small square along one edge, from its source to its target, and
+ * removes it when it arrives. It stays hidden while it waits its turn in the
+ * wave, and it moves by transform alone, so the line under it is never
+ * repainted.
+ * @param {Element | null} edge
+ * @param {string} id
+ * @param {number} delay
+ */
+function travel(edge, id, delay)
+{
+    const points = corners(edge?.getAttribute("d") ?? "");
+    if (edge === null || points.length < 2)
     {
         return;
     }
-    const length = edge.getTotalLength();
-    const copy = /** @type {SVGPathElement} */ (edge.cloneNode());
-    copy.removeAttribute("data-edge");
-    copy.setAttribute("class", "spark");
-    copy.style.strokeDasharray = `12 ${length + 12}`;
-    copy.style.strokeDashoffset = "12";
-    edge.after(copy);
-    const run = copy.animate([{ strokeDashoffset: 12 }, { strokeDashoffset: -length }], { duration, delay, easing: "linear" });
-    run.addEventListener("finish", () => copy.remove());
-    run.addEventListener("cancel", () => copy.remove());
+    const lengths = points.map((point, index) =>
+    {
+        const before = points[index - 1] ?? point;
+        return Math.abs(point[0] - before[0]) + Math.abs(point[1] - before[1]);
+    });
+    const total = lengths.reduce((sum, length) => sum + length, 0);
+    let walked = 0;
+    const keyframes = points.map(([x, y], index) =>
+    {
+        walked += lengths[index] ?? 0;
+        return { transform: `translate(${x}px, ${y}px)`, opacity: 1, offset: total === 0 ? 0 : walked / total };
+    });
+    const square = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    square.setAttribute("class", "pulse");
+    square.setAttribute("data-for", id);
+    square.setAttribute("x", "-2");
+    square.setAttribute("y", "-2");
+    square.setAttribute("width", "4");
+    square.setAttribute("height", "4");
+    square.style.opacity = "0";
+    edge.parentElement?.append(square);
+    const run = square.animate(keyframes, { duration: 260, delay, easing: "ease-in-out" });
+    run.addEventListener("finish", () => square.remove());
+    run.addEventListener("cancel", () => square.remove());
 }
 
 /**

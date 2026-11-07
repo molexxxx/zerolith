@@ -1720,8 +1720,8 @@ main[tabindex="-1"]:focus
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
     grid-template-areas:
         "code run"
+        "code readout"
         "cue cue"
-        "readout readout"
         "flow flow";
     margin: 0;
 }
@@ -1908,11 +1908,38 @@ main[tabindex="-1"]:focus
     stroke-dasharray: 4 4;
 }
 
-.flow .spark
+.flow .pulse
 {
-    fill: none;
+    fill: var(--zl-accent-text);
+}
+
+.flow .read[data-reading]
+{
     stroke: var(--zl-accent-text);
-    stroke-width: 2;
+    animation: zl-read 0.8s linear infinite;
+}
+
+@keyframes zl-read
+{
+    to
+    {
+        stroke-dashoffset: -8;
+    }
+}
+
+@media (prefers-reduced-motion: reduce)
+{
+    .flow .read[data-reading]
+    {
+        animation: none;
+    }
+}
+
+.flow .flow-key
+{
+    margin: var(--zl-space-2) 0 0;
+    color: var(--zl-text-muted);
+    font-size: var(--zl-text-xs);
 }
 
 .flow .node rect
@@ -2545,10 +2572,11 @@ main[tabindex="-1"]:focus
 {
     display: grid;
     grid-area: readout;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     margin: 0;
     border: var(--zl-rule) solid var(--zl-line);
     border-top: 0;
+    border-left: 0;
     background: var(--zl-surface);
 }
 
@@ -2557,9 +2585,14 @@ main[tabindex="-1"]:focus
     padding: var(--zl-space-4);
 }
 
-.readout div + div
+.readout div:nth-child(even)
 {
     border-left: var(--zl-rule) solid var(--zl-line);
+}
+
+.readout div:nth-child(n + 3)
+{
+    border-top: var(--zl-rule) solid var(--zl-line);
 }
 
 .readout dt
@@ -3436,6 +3469,7 @@ main[tabindex="-1"]:focus
     }
 
     .run .output,
+    .readout,
     .result,
     .terminal
     {
@@ -3613,24 +3647,9 @@ main[tabindex="-1"]:focus
         white-space: nowrap;
     }
 
-    .readout
-    {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
     .readout div
     {
         padding: var(--zl-space-3);
-    }
-
-    .readout div:nth-child(3)
-    {
-        border-left: 0;
-    }
-
-    .readout div:nth-child(n + 3)
-    {
-        border-top: var(--zl-rule) solid var(--zl-line);
     }
 
     .flow

@@ -277,7 +277,7 @@ interface FlowNode
 
 const flowColumns = ["event", "signal", "computed", "effect", "signal", "computed", "DOM"];
 const flowX = [72, 232, 392, 552, 712, 872, 1048];
-const flowY = [48, 82, 116, 150, 184];
+const flowY = [58, 92, 126, 160, 194];
 const nodeHeight = 24;
 
 const flowNodes: FlowNode[] = [
@@ -339,25 +339,34 @@ function flowEdges(): Array<{ id: string; d: string; dashed: boolean }>
         return `M${x0} ${y0}H${turn}V${y1}H${x1}`;
     };
     const [stageTopX, stageTopY] = port("stage", "top");
+    const [stageBottomX, stageBottomY] = port("stage", "bottom");
     const [readoutTopX, readoutTopY] = port("readout", "top");
+    const [liveRightX, liveRightY] = port("live", "right");
     const [liveBottomX, liveBottomY] = port("live", "bottom");
     const [, actionTopY] = port("action", "top");
+    const [throttleRightX, throttleRightY] = port("throttle", "right");
     const [throttleBottomX, throttleBottomY] = port("throttle", "bottom");
     const [domThrottleX, domThrottleY] = port("dom-throttle", "left");
+    const [clockTopX, clockTopY] = port("clock", "top");
+    const [, clockBottomY] = port("clock", "bottom");
+    const [clockLeftX, clockLeftY] = port("clock", "left");
+    const [altitudeRightX, altitudeRightY] = port("altitude", "right");
+    const [readoutBottomX, readoutBottomY] = port("readout", "bottom");
     return [
         { id: "press>stage", d: straight("press", "stage"), dashed: false },
         { id: "stage>live", d: straight("stage", "live"), dashed: false },
-        { id: "live>clock", d: elbow("live", "clock", 472), dashed: false },
+        { id: "live>clock", d: `M${liveRightX} ${liveRightY}H${clockTopX}V${clockTopY}`, dashed: false },
         { id: "live>action", d: `M${liveBottomX} ${liveBottomY}V${actionTopY}`, dashed: false },
         { id: "steer>throttle", d: straight("steer", "throttle"), dashed: false },
-        { id: "throttle>clock", d: elbow("throttle", "clock", 452), dashed: true },
+        { id: "throttle>clock", d: `M${throttleRightX} ${throttleRightY}H${clockTopX}V${clockBottomY}`, dashed: true },
         { id: "throttle>dom-throttle", d: `M${throttleBottomX} ${throttleBottomY}V${domThrottleY}H${domThrottleX}`, dashed: false },
+        { id: "clock>stage", d: `M${clockLeftX} ${clockLeftY}H${stageBottomX}V${stageBottomY}`, dashed: false },
         { id: "clock>countdown", d: elbow("clock", "countdown", 632), dashed: false },
         { id: "clock>altitude", d: straight("clock", "altitude"), dashed: false },
         { id: "clock>fuel", d: elbow("clock", "fuel", 632), dashed: false },
-        { id: "stage>readout", d: `M${stageTopX} ${stageTopY}V27H${readoutTopX}V${readoutTopY}`, dashed: false },
+        { id: "stage>readout", d: `M${stageTopX} ${stageTopY}V37H${readoutTopX}V${readoutTopY}`, dashed: false },
         { id: "countdown>readout", d: straight("countdown", "readout"), dashed: false },
-        { id: "altitude>readout", d: elbow("altitude", "readout", 792), dashed: false },
+        { id: "altitude>readout", d: `M${altitudeRightX} ${altitudeRightY}H${readoutBottomX}V${readoutBottomY}`, dashed: false },
         { id: "readout>dom-readout", d: straight("readout", "dom-readout"), dashed: false },
         { id: "altitude>dom-altitude", d: straight("altitude", "dom-altitude"), dashed: false },
         { id: "fuel>dom-fuel", d: straight("fuel", "dom-fuel"), dashed: false },
@@ -387,7 +396,7 @@ function flowDrawing(shape: string, size: string, heads: string, edges: Array<{ 
 function flowSvg(): string
 {
     const heads = flowColumns.map((head, column) => `<text class="head" x="${flowX[column] ?? 0}" y="12">${head}</text>`).join("");
-    return flowDrawing("landscape", "1152 198", heads, flowEdges(), widePlace);
+    return flowDrawing("landscape", "1152 208", heads, flowEdges(), widePlace);
 }
 
 /** Martian Mono's advance at the diagram's 11 px, so a box in the tall drawing fits its label. */
@@ -462,7 +471,11 @@ function tallEdges(): Array<{ id: string; d: string; dashed: boolean }>
     const [throttleRightX, throttleRightY] = tallPort("throttle", "right");
     const [domThrottleRightX, domThrottleRightY] = tallPort("dom-throttle", "right");
     const [stageLeftX, stageLeftY] = tallPort("stage", "left");
+    const [stageRightX, stageRightY] = tallPort("stage", "right");
     const [readoutLeftX, readoutLeftY] = tallPort("readout", "left");
+    const [clockLeftX, clockLeftY] = tallPort("clock", "left");
+    const [altitudeBottomX, altitudeBottomY] = tallPort("altitude", "bottom");
+    const [readoutRightX, readoutRightY] = tallPort("readout", "right");
     return [
         { id: "press>stage", d: down("press", "stage"), dashed: false },
         { id: "stage>live", d: down("stage", "live"), dashed: false },
@@ -471,12 +484,13 @@ function tallEdges(): Array<{ id: string; d: string; dashed: boolean }>
         { id: "steer>throttle", d: down("steer", "throttle"), dashed: false },
         { id: "throttle>clock", d: elbow("throttle", "clock", 141), dashed: true },
         { id: "throttle>dom-throttle", d: `M${throttleRightX} ${throttleRightY}H388V${domThrottleRightY}H${domThrottleRightX}`, dashed: false },
+        { id: "clock>stage", d: `M${clockLeftX} ${clockLeftY}H170V${stageRightY}H${stageRightX}`, dashed: false },
         { id: "clock>countdown", d: elbow("clock", "countdown", 196), dashed: false },
         { id: "clock>altitude", d: down("clock", "altitude"), dashed: false },
         { id: "clock>fuel", d: elbow("clock", "fuel", 196), dashed: false },
         { id: "stage>readout", d: `M${stageLeftX} ${stageLeftY}H70V${readoutLeftY}H${readoutLeftX}`, dashed: false },
         { id: "countdown>readout", d: down("countdown", "readout"), dashed: false },
-        { id: "altitude>readout", d: elbow("altitude", "readout", 246), dashed: false },
+        { id: "altitude>readout", d: `M${altitudeBottomX} ${altitudeBottomY}V${readoutRightY}H${readoutRightX}`, dashed: false },
         { id: "readout>dom-readout", d: down("readout", "dom-readout"), dashed: false },
         { id: "altitude>dom-altitude", d: into("altitude", "dom-altitude"), dashed: false },
         { id: "fuel>dom-fuel", d: into("fuel", "dom-fuel"), dashed: false },
@@ -665,7 +679,7 @@ export function Home(data: HomeData): View
             <figure class="figure" aria-label="Launch control running on this page: its code, the rocket, the signal graph each change runs along, and what each change did to the DOM">
                 <div class="code" data-language="js"><pre tabindex="0" role="region" aria-label="Launch control's code" data-scroll-on-focus><code>${unsafeHtml(data.figureCode)}</code></pre></div>
                 <div class="run" data-island="figure">${Figure()}</div>
-                <div class="flow">${unsafeHtml(flowSvg())}${unsafeHtml(flowSvgTall())}</div>
+                <div class="flow">${unsafeHtml(flowSvg())}${unsafeHtml(flowSvgTall())}<p class="flow-key">Solid: a change runs along it. Dashed: read on each tick, not tracked; it moves while the clock reads it.</p></div>
             </figure>
         </section>
         ${Tour(data.tour)}
