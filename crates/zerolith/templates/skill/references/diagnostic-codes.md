@@ -208,6 +208,12 @@ Cause: The stored signal's value does not serialize as JSON, so it is kept in me
 
 Fix: Keep JSON values in a stored signal: objects, arrays, strings, numbers, booleans, and null; convert a BigInt or a cyclic object first.
 
+## template_component_uncalled
+
+Cause: A function named like a component is bound as a template's content without being called, as ${AddItem}, which the renderer cannot display; `zerolith doctor` and the Vite plugin report it before the code runs, since the type checker cannot tell it from an event handler.
+
+Fix: Call it, as ${AddItem()}, or write <AddItem /> in JSX.
+
 ## template_frozen_read
 
 Cause: A .get() read is bound in a template, so the value was read once when the template was created and never updates; the Vite plugin reports it in development, since the runtime cannot tell a frozen read from a deliberate one.

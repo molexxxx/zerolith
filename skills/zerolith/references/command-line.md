@@ -95,7 +95,7 @@ When the default port is taken, as 8080 often is on Windows, the command takes t
 | `--no-backends` | Starts none of the backends the proxy rules name with `run`, for one that already runs, as under a debugger |
 | `--out <folder>` | For `preview`: the folder to serve |
 
-A proxy rule in `zerolith.json` can name the command that starts its backend, as `"run": "npm run api"` beside its `target`: the server runs it in the project folder through the shell when it starts, shows its output in the same terminal, and stops it with every process it started when the server stops, so one command runs an app and its backend. The same command under several prefixes starts once, and a `--proxy` flag for a prefix replaces the file's rule, its command included. Until the backend listens, a request to its path gets a 502 that says it is out of reach, and a backend that ends on its own, as one whose port is taken does, is reported under the banner, with its paths answering 502 until it runs again.
+A proxy rule in `zerolith.json` can name the command that starts its backend, as `"run": "npm run api"` beside its `target`: the server runs it in the project folder through the shell when it starts, shows its output in the same terminal, and stops it with every process it started when the server stops, so one command runs an app and its backend. The same command under several prefixes starts once, and a `--proxy` flag for a prefix replaces the file's rule, its command included. Until the backend listens, a request to its path gets a 502 that says it is out of reach, and a backend that ends on its own is reported under the banner, with its paths answering 502 until it runs again. A backend whose address already answers when the server starts, as when `zerolith dev` holds it and `zerolith preview` starts, is left as it is, and the banner says so.
 
 [Building and serving](deploying.md) describes the proxy in full. On loopback, the server also answers `/.well-known/appspecific/com.chrome.devtools.json`, which lets Chrome DevTools edit the project's files in place.
 
@@ -192,6 +192,7 @@ Bundles the application for production with [Rolldown](https://rolldown.rs), the
 | `--unbundled` | Writes the buildless output, the modules behind an import map, instead of a bundle |
 | `--entry <module>` | Writes that module as [one script](#one-script) instead of building `index.html` |
 | `--name <name>` | With `--entry`: the script's file name, without `.js`, instead of the module's |
+| `--classic` | With `--entry`: a plain script instead of an ES module |
 
 ### Scripts and chunks
 
@@ -221,7 +222,7 @@ A view loaded with the router's `lazy()` and each locale of a message index comp
 | Stylesheets | A stylesheet imported with `?scoped` or a `css` literal stays in the script. Any other stylesheet goes to `dist/<name>.css`, with a warning, since the page has to link it |
 | Other files | Images and fonts the code references are still written under `assets/`, with URLs from `--base` |
 
-The file is an ES module, so a page loads it with `<script type="module">`, and from another origin only when the response sends `Access-Control-Allow-Origin`.
+The file is an ES module, so a page loads it with `<script type="module">`, and from another origin only when the response sends `Access-Control-Allow-Origin`. `--classic` writes a plain script instead, which a page loads with `<script src>` from any origin, with no such header. It keeps no exports, so use it for a module that does its work when it loads, as one that defines an element does.
 
 ### Stylesheets
 

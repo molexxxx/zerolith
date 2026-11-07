@@ -113,6 +113,10 @@ announcer.announce("Report saved");
 > [!TIP]
 > Announce what changed out of sight: an item saved, a filter that left no results, an upload that finished. A change the reader caused and can already see, such as text they typed, needs no announcement.
 
+## Moving between pages
+
+A router replaces the page, and the link that had the keyboard focus goes with it. The router's [`focus` option](routing.md#the-layout), which the starter sets to `"h1"`, moves focus to the new page's heading, so a screen reader reads it and the next Tab starts from there. A rule such as `[tabindex="-1"]:focus { outline: none; }`, which the starter's stylesheet holds, keeps a ring off a heading, which is not a control.
+
 ## Focus origin
 
 Focus rings belong on keyboard focus and are noise on pointer focus. `focusOrigin` watches how focus arrives and exposes it as a signal, `origin`, and as a `data-focus-origin` attribute on the root element, so one stylesheet rule does the rest:
