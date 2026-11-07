@@ -4,13 +4,12 @@
  * change along its signal graph, then a tour of the core patterns in code
  * that runs as tests, the benchmark scores, a coded diagnostic as the
  * command line prints it, the packages, the numbers the build checks, the
- * ways in, and the create command again beside the playground's examples.
+ * ways in, and the create command again with the two commands after it.
  * The Markdown twin says the same for agents.
  */
 import { type View, html, unsafeHtml } from "zerolith";
 import { Figure } from "./demo.js";
-import { diagnosticIcon, glyph, icon, repository } from "./layout.ts";
-import { examples } from "./playground.ts";
+import { diagnosticIcon, glyph, icon } from "./layout.ts";
 
 export interface Characteristic
 {
@@ -595,42 +594,41 @@ function Diagnostics(doctor: DoctorSample, count: number)
         </section>`;
 }
 
-/** The numbers the build measures, set large, with the check behind each and the facts that hold beside them. */
+/** The numbers the build measures as a ruled datasheet, with the check behind each, and the facts that hold beside them. */
 function Numbers(measures: Measure[], facts: string[])
 {
     return html`
-        <section class="band numbers inverse roomy">
+        <section class="band numbers inverse">
             <h2>${`${["No", "One", "Two", "Three", "Four", "Five", "Six"][measures.length] ?? measures.length} numbers, checked on every build`}</h2>
-            <dl class="measures">
-                ${measures.map((measure) => html`
-                    <div>
-                        <dt>${measure.name}</dt>
-                        <dd class="value">${measure.value}${measure.unit === "" ? null : html`<span class="unit">${measure.unit}</span>`}</dd>
-                        <dd class="check">${inline(measure.check)}</dd>
-                    </div>`)}
-            </dl>
+            <table class="datasheet">
+                <thead>
+                    <tr><th scope="col">Measure</th><th scope="col" class="value">Value</th><th scope="col">How the build checks it</th></tr>
+                </thead>
+                <tbody>${measures.map((measure) => html`
+                    <tr>
+                        <th scope="row">${measure.name}</th>
+                        <td class="value">${measure.value}${measure.unit === "" ? null : html`<span class="unit">${measure.unit}</span>`}</td>
+                        <td class="check">${inline(measure.check)}</td>
+                    </tr>`)}
+                </tbody>
+            </table>
             <ul class="facts">${facts.map((fact) => html`<li>${inline(fact)}</li>`)}</ul>
         </section>`;
 }
 
-/** The closing section: the create command again, beside the playground's other examples. */
+/** The closing band: the create command and the two that follow it, as a terminal shows them, beside the ways in. */
 function Start()
 {
     return html`
-        <section class="band closing">
-            <div class="split">
-                <div class="copy-column">
-                    <h2>Start a zerolith project</h2>
-                    <p>Node 24 or newer is required. The command writes a starter that asks for the language, the build tool, and the inspector; <code>--yes</code> takes every default.</p>
-                    ${Command()}
-                    <p class="ways-in"><a href="/learn/">Start the tutorial</a><a href="/guide/command-line/#importmap">Serve with no build step</a></p>
-                </div>
-                <nav class="examples" aria-label="Playground examples">
-                    <span class="pane-label">Open an example in the playground</span>
-                    <ul>${examples.filter((example) => example.id !== "launch" && example.id !== "counter").map((example) => html`
-                        <li><a href=${`/playground/#example=${example.id}`}><span class="name">${example.title}</span><span class="text">${inline(example.summary)}</span>${unsafeHtml(icon("arrow-right"))}</a></li>`)}
-                    </ul>
-                </nav>
+        <section class="band start">
+            <div class="start-copy">
+                <h2>Start a zerolith project</h2>
+                <p>Node 24 or newer is required. The command writes a starter that asks for the language, the build tool, and the inspector; <code>--yes</code> takes every default.</p>
+                <p class="ways-in"><a href="/learn/">Start the tutorial</a><a href="/guide/command-line/#importmap">Serve with no build step</a><a href="/playground/">Open the playground</a></p>
+            </div>
+            <div class="shell">
+                <div class="bar"><span>Terminal</span><button class="copy button primary" type="button" data-copy=${createCommand} aria-label="Copy the command"><span class="idle">${unsafeHtml(icon("copy"))}Copy</span><span class="done">${unsafeHtml(icon("check"))}Copied</span></button></div>
+                <samp class="screen">${startCode.split("\n").map((line) => html`<span class="line"><span class="prompt">$</span> ${line}</span>`)}</samp>
             </div>
         </section>`;
 }
@@ -639,7 +637,7 @@ function Start()
 export function Home(data: HomeData): View
 {
     return html`
-        <section class="hero roomy lime">
+        <section class="hero roomy plane">
             <div class="title">
                 <h1><span>Full framework.</span> <span>Zero guesswork.</span></h1>
                 <div class="intro">
@@ -673,21 +671,7 @@ export function Home(data: HomeData): View
             <h2>Learn zerolith</h2>
             <ul class="index">${ways.map((way) => html`<li><a href=${way.href}><span class="name">${way.name}</span><span class="text">${way.text}</span>${unsafeHtml(icon("arrow-right"))}</a></li>`)}</ul>
         </section>
-        ${Start()}
-        <footer class="site-foot">
-            <nav aria-label="Site">
-                <a href="/learn/">Tutorial</a>
-                <a href="/guide/">Guide</a>
-                <a href="/reference/zerolith/">Reference</a>
-                <a href="/e/">Diagnostics</a>
-                <a href="/playground/">Playground</a>
-                <a href="/benchmarks/">Benchmarks</a>
-                <a href=${repository}>GitHub</a>
-                <a href="https://www.npmjs.com/package/zerolith">npm</a>
-                <a href=${`${repository}/blob/main/CHANGELOG.md`}>Changelog</a>
-            </nav>
-            <p>zerolith ${data.version}, Apache-2.0. <a href="/index.md">This page as Markdown</a></p>
-        </footer>`;
+        ${Start()}`;
 }
 
 /** The page a missing address shows. */

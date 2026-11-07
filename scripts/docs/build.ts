@@ -96,7 +96,7 @@ const entries: Entry[] = [
     { specifier: "@zerolith/otel", file: "packages/otel/src/index.ts", title: "@zerolith/otel" }
 ];
 
-type Section = "Learn" | "Guide" | "Reference" | "Diagnostics";
+type Section = "Learn" | "Guide" | "Reference" | "Diagnostics" | "Legal";
 
 interface Page
 {
@@ -349,7 +349,7 @@ function frontMatter(source: string, file: string): FrontMatter
 }
 
 /** The hand-written pages of one docs folder: `index.md` at `/<folder>/`, every other file below it. */
-async function collect(folder: "learn" | "guide", section: Section): Promise<Page[]>
+async function collect(folder: "learn" | "guide" | "legal", section: Section): Promise<Page[]>
 {
     const directory = join(root, "docs", folder);
     const names = (await readdir(directory)).filter((name) => name.endsWith(".md"));
@@ -429,7 +429,7 @@ function diagnostics(): Page[]
 
 const linkOf = (page: Page): Link => ({ title: page.title, href: page.path });
 
-/** The sidebar of a page: the tutorial's steps, the guides by group, or the reference with the diagnostics. */
+/** The sidebar of a page: the tutorial's steps, the guides by group, the legal pages, or the reference with the diagnostics. */
 function sidebar(page: Page, pages: Page[]): { label: string; groups: NavGroup[] }
 {
     const of = (section: Section): Page[] => pages.filter((candidate) => candidate.section === section);
@@ -440,6 +440,10 @@ function sidebar(page: Page, pages: Page[]): { label: string; groups: NavGroup[]
     if (page.section === "Guide")
     {
         return { label: "Guide", groups: guideGroups.map((group) => ({ title: group, pages: of("Guide").filter((candidate) => candidate.group === group).map(linkOf) })) };
+    }
+    if (page.section === "Legal")
+    {
+        return { label: "Legal", groups: [{ title: "Legal", pages: of("Legal").map(linkOf) }] };
     }
     const codes = of("Diagnostics");
     return {
@@ -454,7 +458,7 @@ function sidebar(page: Page, pages: Page[]): { label: string; groups: NavGroup[]
 /** The previous and next pages in reading order: the tutorial leads into the guide, and the guide reads in group order. */
 function pagerOf(page: Page, pages: Page[]): { previous?: Link; next?: Link } | undefined
 {
-    if (page.section === "Diagnostics")
+    if (page.section === "Diagnostics" || page.section === "Legal")
     {
         return undefined;
     }
@@ -869,9 +873,10 @@ const routerLoaded = loaded(routerBuild);
 
 const learnPages = await collect("learn", "Learn");
 const guidePages = await collect("guide", "Guide");
+const legalPages = await collect("legal", "Legal");
 const { pages: referencePages, manifest, reports } = await reference();
 await checkApi(reports);
-const pages = [...learnPages, ...guidePages, ...referencePages, ...diagnostics()];
+const pages = [...learnPages, ...guidePages, ...referencePages, ...diagnostics(), ...legalPages];
 /** Lenis, the wheel scroller's library: its stylesheet joins the site's, and its license heads the file the site ships it in. */
 const lenis = dirname(dirname(fileURLToPath(import.meta.resolve("lenis/dist/lenis.css"))));
 const styles = `${siteStyles()}\n${await readFile(join(lenis, "dist", "lenis.css"), "utf8")}`;

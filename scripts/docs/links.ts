@@ -62,7 +62,7 @@ export function sitePath(target: string, folder: string, file: string): string
     const hash = target.indexOf("#");
     const path = hash === -1 ? target : target.slice(0, hash);
     const anchor = hash === -1 ? "" : target.slice(hash);
-    const page = /^(guide|learn)\/([a-z0-9-]+)\.md$/.exec(posix.normalize(posix.join(folder, path)));
+    const page = /^(guide|learn|legal)\/([a-z0-9-]+)\.md$/.exec(posix.normalize(posix.join(folder, path)));
     if (page === null)
     {
         throw new Error(`${file}: the link ${target} is not a page of the docs; link a file elsewhere in the repository by its full GitHub address`);

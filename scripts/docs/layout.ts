@@ -168,6 +168,39 @@ function Header(page: PageData)
         </nav>`;
 }
 
+/** The footer's columns: the docs, the project, its community files, and the legal pages. */
+const footerColumns: Array<{ title: string; links: Array<{ text: string; href: string }> }> = [
+    { title: "Docs", links: [{ text: "Tutorial", href: "/learn/" }, { text: "Guide", href: "/guide/" }, { text: "Reference", href: "/reference/zerolith/" }, { text: "Diagnostics", href: "/e/" }, { text: "Playground", href: "/playground/" }, { text: "Benchmarks", href: "/benchmarks/" }] },
+    { title: "Project", links: [{ text: "GitHub", href: repository }, { text: "npm", href: "https://www.npmjs.com/package/zerolith" }, { text: "Releases", href: `${repository}/releases` }, { text: "Changelog", href: `${repository}/blob/main/CHANGELOG.md` }, { text: "Roadmap", href: `${repository}/blob/main/docs/ROADMAP.md` }] },
+    { title: "Community", links: [{ text: "Discussions", href: `${repository}/discussions` }, { text: "Contributing", href: `${repository}/blob/main/CONTRIBUTING.md` }, { text: "Code of conduct", href: `${repository}/blob/main/CODE_OF_CONDUCT.md` }, { text: "Support", href: `${repository}/blob/main/SUPPORT.md` }] },
+    { title: "Legal", links: [{ text: "License", href: `${repository}/blob/main/LICENSE` }, { text: "Security", href: `${repository}/security/policy` }, { text: "Privacy", href: "/legal/privacy/" }, { text: "Terms of use", href: "/legal/terms/" }, { text: "Contact", href: "/legal/contact/" }] }
+];
+
+/** The footer under every page: the name and its line, the link columns, and the license line, with the page's Markdown twin where the page has no footer of its own. */
+function SiteFooter(page: PageData, twin: boolean)
+{
+    return html`
+        <footer class="site-foot">
+            <div class="foot-top">
+                <div class="foot-brand">
+                    <a class="word" href="/">zerolith</a>
+                    <p>Full framework. Zero guesswork.</p>
+                </div>
+                <nav class="foot-links" aria-label="Footer">
+                    ${footerColumns.map((column) => html`
+                        <div>
+                            <h2>${column.title}</h2>
+                            <ul>${column.links.map((link) => html`<li><a href=${link.href}>${link.text}</a></li>`)}</ul>
+                        </div>`)}
+                </nav>
+            </div>
+            <div class="foot-base">
+                <p>${`zerolith ${page.version}. © 2026 molexxxx, released under the Apache License 2.0.`}</p>
+                ${twin ? html`<a href=${markdownTwin(page.path)}>This page as Markdown</a>` : null}
+            </div>
+        </footer>`;
+}
+
 function Pager({ previous, next }: { previous?: Link; next?: Link })
 {
     return html`
@@ -206,14 +239,16 @@ function Docs(page: PageData)
                     <h2>On this page</h2>
                     <ul>${contents.map((heading) => html`<li><a href=${`#${heading.id}`}>${heading.text}</a></li>`)}</ul>
                 </nav>`}
-        </div>`;
+        </div>
+        ${SiteFooter(page, false)}`;
 }
 
 function Wide(page: PageData)
 {
     return html`
         ${Header(page)}
-        <main id="content" class="wide">${page.view ?? null}</main>`;
+        <main id="content" class="wide">${page.view ?? null}</main>
+        ${SiteFooter(page, true)}`;
 }
 
 /** The `.md` path that mirrors a page path. */

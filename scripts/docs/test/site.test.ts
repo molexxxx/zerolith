@@ -837,6 +837,47 @@ describe("documentation site", () =>
         await page.close();
     });
 
+    it("ends every page with the site footer and its legal links, and serves the legal pages behind them", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        for (const path of ["/", "/guide/signals/", "/playground/"])
+        {
+            await page.goto(`${origin}${path}`);
+            const links = await page.$$eval(".site-foot nav a", (anchors) => anchors.map((anchor) => anchor.textContent));
+            expect(links, path).toEqual(expect.arrayContaining(["Privacy", "Terms of use", "Contact", "License", "Security", "Code of conduct"]));
+        }
+        for (const [path, title] of [["/legal/privacy/", "Privacy"], ["/legal/terms/", "Terms of use"], ["/legal/contact/", "Contact"]])
+        {
+            await page.goto(`${origin}${path}`);
+            expect(await page.textContent("h1")).toBe(title);
+            expect(await page.textContent("#sidebar")).toContain("Terms of use");
+        }
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("loads nothing from another origin and sets no cookie, as the privacy page says", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        const foreign: string[] = [];
+        page.on("request", (request) =>
+        {
+            const url = new URL(request.url());
+            if (/^https?:$/.test(url.protocol) && url.origin !== origin)
+            {
+                foreign.push(request.url());
+            }
+        });
+        for (const path of ["/", "/learn/", "/guide/signals/", "/reference/zerolith/", "/playground/", "/benchmarks/", "/legal/privacy/"])
+        {
+            await page.goto(`${origin}${path}`, { waitUntil: "networkidle" });
+        }
+        expect(foreign).toEqual([]);
+        expect(await page.context().cookies()).toEqual([]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
     it("eases wheel scrolling on a fine pointer, lands each navigation where the router puts it, and takes heading links through history", { timeout: 60000 }, async () =>
     {
         const { page, errors } = await open("/guide/routing/");
