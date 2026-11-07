@@ -48,21 +48,46 @@ const lockup = [
     ["fill=\"#E8EAED\"", "fill=\"currentColor\""]
 ].reduce((svg, [from, to]) => replaceOnce(svg, from ?? "", to ?? ""), brandFile("lockup/horizontal-on-dark.svg"));
 
+const faces = [
+    ["Unbounded", "600", "unbounded-latin.woff2"],
+    ["Onest", "400 600", "onest-latin.woff2"],
+    ["Martian Mono", "400", "martian-mono-latin.woff2"]
+];
+
+/** One face's rule. */
+function fontFace(family: string, weight: string, display: string, source: string): string
+{
+    return `@font-face\n{\n    font-family: "${family}";\n    font-style: normal;\n    font-weight: ${weight};\n    font-display: ${display};\n    src: url("${source}") format("woff2");\n}\n`;
+}
+
 /** The brand's three faces, with their files under `folder` relative to the stylesheet that holds the rules. */
 export function fontFaces(folder: string): string
 {
-    return [
-        ["Unbounded", "600", "unbounded-latin.woff2"],
-        ["Onest", "400 600", "onest-latin.woff2"],
-        ["Martian Mono", "400", "martian-mono-latin.woff2"]
-    ].map(([family, weight, file]) => `@font-face\n{\n    font-family: "${family}";\n    font-style: normal;\n    font-weight: ${weight};\n    font-display: swap;\n    src: url("${folder}${file}") format("woff2");\n}\n`).join("\n");
+    return faces.map(([family, weight, file]) => fontFace(family as string, weight as string, "swap", `${folder}${file as string}`)).join("\n");
+}
+
+/**
+ * The brand's three faces with each font held in the stylesheet itself. A
+ * browser holds a page's first paint for its stylesheet, so a page never
+ * paints in a fallback face and reflows when a font lands, as it did on any
+ * visit whose fonts had to come over the network or be checked again.
+ * Compression undoes base64's overhead, so a first visit downloads about what
+ * the separate files took.
+ */
+function embeddedFontFaces(): string
+{
+    return faces.map(([family, weight, file]) =>
+    {
+        const font = readFileSync(new URL(`fonts/${file as string}`, brand)).toString("base64");
+        return fontFace(family as string, weight as string, "block", `data:font/woff2;base64,${font}`);
+    }).join("\n");
 }
 
 /** The brand's tokens, the font faces, and the site's own rules, as the site's one stylesheet. */
 export function siteStyles(): string
 {
     const own = readFileSync(new URL("site.css", import.meta.url), "utf8");
-    return `${fontFaces("fonts/")}\n${brandFile("tokens.css")}\n\n${own}`;
+    return `${embeddedFontFaces()}\n${brandFile("tokens.css")}\n\n${own}`;
 }
 
 /** A link in the sidebar or the pager. */
@@ -262,6 +287,22 @@ function integrityOf(page: PageData, path: string): string
     return hash === undefined ? "" : ` integrity="${hash}"`;
 }
 
+/**
+ * The address of a file that paints the page, carrying a short form of its
+ * hash. A page from a new deploy then never takes an older copy from a
+ * browser's cache. These files carry no integrity hash: GitHub Pages lets a
+ * browser keep a file for ten minutes, so a page and a copy from either side
+ * of a deploy could meet, and a browser refuses a file whose hash differs,
+ * which leaves the page with no styles at all. The stylesheet comes from the
+ * same place as the page, so a hash guards against nothing the page's own
+ * markup could not do.
+ */
+function versioned(page: PageData, path: string): string
+{
+    const hash = page.integrity[path];
+    return hash === undefined ? path : `${path}?v=${hash.slice(7, 19).replace(/[+/=]/g, "")}`;
+}
+
 /** The import map: `zerolith` and `@zerolith/router` resolve to their production builds, and every module the page can load carries its hash. */
 function importMap(page: PageData): string
 {
@@ -297,11 +338,9 @@ export function renderPage(page: PageData): string
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="preload" href="/fonts/onest-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/fonts/unbounded-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/styles.css"${integrityOf(page, "/styles.css")}>
+<link rel="stylesheet" href="${versioned(page, "/styles.css")}">
 <link rel="alternate" type="text/markdown" href="${markdownTwin(page.path)}">
-<script src="/theme.js"${integrityOf(page, "/theme.js")}></script>
+<script src="${versioned(page, "/theme.js")}"></script>
 <noscript><style>@media (max-width: 960px) { .top { flex-wrap: wrap; height: auto; padding-block: 12px; } .sections { display: flex !important; flex-basis: 100%; flex-wrap: wrap; order: 1; } #sidebar { display: block !important; } .menu-toggle { display: none !important; } }</style></noscript>
 ${renderStyles()}
 <script type="importmap">${importMap(page)}</script>

@@ -12,6 +12,11 @@ Every package in this repository is released together and carries the same versi
 
 - Docs: the tutorial's undo step passes `validate` to `stored` with the `isItem` check from the step before, so a saved value that is not a list of items takes the starting items there too.
 
+### Fixed
+
+- Docs site: a page no longer loses its styles when a browser holds a copy of the stylesheet from another deploy. The stylesheet carried an integrity hash on an address that stayed the same between deploys, and GitHub Pages lets a browser keep a file for ten minutes, so a browser could refuse it and show the page with no styles at all. The stylesheet and the theme script now have an address with a short form of their hash and no integrity hash.
+- Docs site: a page paints in the brand's fonts from its first frame, where it painted in a system font and reflowed when each font arrived, on any visit whose fonts had to come over the network or be checked again. The fonts are held in the stylesheet, which a browser waits for before it paints.
+
 ## 1.2.0 (2026-11-07)
 
 A minor release from `main`: `stored` takes a `validate` option, and the fixes the packing-list tutorial turned up when it was built step by step from a fresh starter. A keyed list no longer half-applies an update with a bad key, a page whose view throws no longer stays behind a new URL, an undo no longer takes back another tab's change, and `zerolith dev` shows compile errors and skipped CSS in the browser's console.

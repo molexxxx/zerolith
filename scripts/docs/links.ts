@@ -99,7 +99,7 @@ export function brokenLinks(known: ReadonlySet<string>, rendered: ReadonlyMap<st
                 continue;
             }
             const hash = href.indexOf("#");
-            const target = hash === -1 ? href : href.slice(0, hash);
+            const target = (hash === -1 ? href : href.slice(0, hash)).split("?")[0] ?? "";
             const fragment = hash === -1 ? "" : href.slice(hash + 1);
             const page = target === "" ? path : [target, `${target}/`].find((candidate) => rendered.has(candidate));
             if (target !== "" && !known.has(target) && !known.has(target.endsWith("/") ? target : `${target}/`))

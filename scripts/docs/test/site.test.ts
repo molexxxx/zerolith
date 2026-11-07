@@ -1095,6 +1095,92 @@ describe("documentation site", () =>
         expect(status).toBe(403);
     });
 
+    it("paints in the brand's fonts from the first frame, with no font to fetch and no reflow when one lands", { timeout: 60000 }, async () =>
+    {
+        const styles = await readFile(join(site, "styles.css"), "utf8");
+        expect(styles.match(/font-display: block;\s+src: url\("data:font\/woff2;base64,/g)).toHaveLength(3);
+        const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+        const fetched: string[] = [];
+        page.on("request", (request) =>
+        {
+            if (request.resourceType() === "font")
+            {
+                fetched.push(request.url());
+            }
+        });
+        await page.addInitScript(() =>
+        {
+            const faces: { at: Array<string[]> } = { at: [] };
+            const decoding: string[] = [];
+            Object.assign(window, { paintedFaces: faces, decoding, reflow: 0 });
+            const load = FontFace.prototype.load;
+            FontFace.prototype.load = function(this: FontFace)
+            {
+                if (document.body === null)
+                {
+                    decoding.push(this.family.replace(/"/g, ""));
+                }
+                return load.call(this);
+            };
+            new PerformanceObserver(() =>
+            {
+                faces.at.push([...document.fonts].map((font) => `${font.family} ${font.status}`));
+            }).observe({ type: "paint", buffered: true });
+            new PerformanceObserver((list) =>
+            {
+                for (const entry of list.getEntries() as Array<PerformanceEntry & { value: number }>)
+                {
+                    Object.assign(window, { reflow: (window as unknown as { reflow: number }).reflow + entry.value });
+                }
+            }).observe({ type: "layout-shift", buffered: true });
+        });
+        await page.goto(`${origin}/guide/`, { waitUntil: "load" });
+        await page.waitForTimeout(500);
+        const seen = await page.evaluate(() =>
+        {
+            const { paintedFaces, decoding, reflow } = window as unknown as { paintedFaces: { at: string[][] }; decoding: string[]; reflow: number };
+            return { first: paintedFaces.at[0], decoding, reflow, heading: getComputedStyle(document.querySelector("h1") as Element).fontFamily };
+        });
+        expect(fetched).toEqual([]);
+        expect(seen.decoding.toSorted()).toEqual(["Martian Mono", "Onest", "Unbounded"]);
+        expect(seen.heading).toContain("Unbounded");
+        expect(seen.first?.filter((face) => face.startsWith("Unbounded") || face.startsWith("Onest"))).toEqual(["Unbounded loaded", "Onest loaded"]);
+        expect(seen.reflow).toBeLessThan(0.01);
+        await page.close();
+    });
+
+    it("keeps a page styled when a browser holds a copy of the stylesheet or the theme script from another deploy", { timeout: 60000 }, async () =>
+    {
+        const head = await readFile(join(site, "guide", "index.html"), "utf8");
+        const stylesheet = /<link rel="stylesheet" href="\/styles\.css\?v=[\w-]+">/.exec(head);
+        expect(stylesheet, "a versioned stylesheet with no integrity hash").not.toBeNull();
+        expect(head).toMatch(/<script src="\/theme\.js\?v=[\w-]+"><\/script>/);
+        expect(head).not.toContain("rel=\"preload\" href=\"/fonts/");
+        const page = await browser.newPage();
+        const errors: string[] = [];
+        page.on("console", (message) =>
+        {
+            if (message.type() === "error")
+            {
+                errors.push(message.text());
+            }
+        });
+        await page.addInitScript(() => localStorage.setItem("zerolith-docs-theme", "dark"));
+        for (const pattern of ["**/styles.css*", "**/theme.js*"])
+        {
+            await page.route(pattern, async (route) =>
+            {
+                const response = await route.fetch();
+                await route.fulfill({ response, body: `${await response.text()}\n/* from another deploy */\n` });
+            });
+        }
+        await page.goto(`${origin}/guide/`, { waitUntil: "load" });
+        expect(await page.evaluate(() => getComputedStyle(document.body).margin)).toBe("0px");
+        expect(await page.evaluate(() => document.documentElement.getAttribute("data-theme"))).toBe("dark");
+        expect(errors.filter((error) => error.includes("integrity"))).toEqual([]);
+        await page.close();
+    });
+
     it("pins every module the pages load with an integrity hash", async () =>
     {
         const home = await readFile(join(site, "index.html"), "utf8");
@@ -1125,8 +1211,8 @@ describe("documentation site", () =>
             expect(guide).toContain("href=\"/guide/\" data-version-switch");
             expect(guide.match(/data-version-switch rel="external"/g)).toHaveLength(2);
             expect(guide).toContain("0.0 docs</a>");
-            expect(guide).toContain("href=\"/next/styles.css\"");
-            expect(guide).not.toContain("href=\"/styles.css\"");
+            expect(guide).toContain("href=\"/next/styles.css?v=");
+            expect(guide).not.toContain("href=\"/styles.css");
             const stableShown = JSON.stringify({ stable: { version: version.version, base: "/" }, next: { version: "9.0.0-alpha.1", base: "/next/" } });
             await run(process.execPath, ["--conditions=development", "scripts/docs/build.ts"], { cwd: repositoryRoot, env: { ...process.env, ZEROLITH_DOCS_OUT: join(scratch, "stable"), ZEROLITH_DOCS_VERSIONS: stableShown } });
             const stable = unmarked(await readFile(join(scratch, "stable", "guide", "index.html"), "utf8"));
