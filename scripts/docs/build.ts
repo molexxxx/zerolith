@@ -107,6 +107,8 @@ interface Page
     section: Section;
     /** The guide group the page sits in. */
     group?: string;
+    /** The tutorial a Learn page belongs to, by its folder under docs/learn; none for the page that lists them. */
+    track?: string;
     order: number;
     /** The repository path of a hand-written page's Markdown. */
     source?: string;
@@ -348,8 +350,8 @@ function frontMatter(source: string, file: string): FrontMatter
     return { title, description, order: Number(fields.get("order") ?? 100), group: fields.get("group"), body: source.slice(match[0].length) };
 }
 
-/** The hand-written pages of one docs folder: `index.md` at `/<folder>/`, every other file below it. */
-async function collect(folder: "learn" | "guide" | "legal", section: Section): Promise<Page[]>
+/** The hand-written pages of one docs folder, such as `guide` or a tutorial's `learn/packing-list`: `index.md` at `/<folder>/`, every other file below it. */
+async function collect(folder: string, section: Section): Promise<Page[]>
 {
     const directory = join(root, "docs", folder);
     const names = (await readdir(directory)).filter((name) => name.endsWith(".md"));
@@ -435,7 +437,20 @@ function sidebar(page: Page, pages: Page[]): { label: string; groups: NavGroup[]
     const of = (section: Section): Page[] => pages.filter((candidate) => candidate.section === section);
     if (page.section === "Learn")
     {
-        return { label: "Tutorial", groups: [{ title: "Tutorial", pages: of("Learn").map(linkOf), numbered: true }] };
+        const introductions = trackIntroductions(pages);
+        if (page.track === undefined)
+        {
+            return { label: "Tutorials", groups: [{ title: "Tutorials", pages: introductions.map(linkOf) }] };
+        }
+        const own = introductions.find((candidate) => candidate.track === page.track) ?? page;
+        const others = introductions.filter((candidate) => candidate.track !== page.track);
+        return {
+            label: own.title,
+            groups: [
+                { title: own.title, pages: trackOf(page, pages).map(linkOf), numbered: true },
+                ...(others.length === 0 ? [] : [{ title: "Other tutorials", pages: others.map(linkOf) }])
+            ]
+        };
     }
     if (page.section === "Guide")
     {
@@ -455,14 +470,56 @@ function sidebar(page: Page, pages: Page[]): { label: string; groups: NavGroup[]
     };
 }
 
-/** The previous and next pages in reading order: the tutorial leads into the guide, and the guide reads in group order. */
+/**
+ * The tutorials: `docs/learn/index.md` at `/learn/`, which lists them, then
+ * each tutorial's folder in the order its `index.md` gives, its pages in
+ * their own order. The build fails while the list misses a tutorial.
+ */
+async function collectLearn(): Promise<Page[]>
+{
+    const [picker] = await collect("learn", "Learn");
+    if (picker === undefined)
+    {
+        throw new Error("docs/learn/index.md is missing; it lists the tutorials");
+    }
+    const folders = (await readdir(join(root, "docs", "learn"), { withFileTypes: true })).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+    const tracks = await Promise.all(folders.map(async (track) => (await collect(`learn/${track}`, "Learn")).map((page): Page => ({ ...page, track }))));
+    for (const track of folders)
+    {
+        if (!picker.markdown.includes(`(/learn/${track}/)`))
+        {
+            throw new Error(`docs/learn/index.md does not list the tutorial in docs/learn/${track}; add a row that links ${track}/index.md`);
+        }
+    }
+    const first = (pages: Page[]): number => pages.find((page) => page.path === `/learn/${page.track ?? ""}/`)?.order ?? 100;
+    return [picker, ...tracks.toSorted((a, b) => first(a) - first(b)).flat()];
+}
+
+/** The pages of the tutorial `page` belongs to, in reading order, its introduction first. */
+function trackOf(page: Page, pages: Page[]): Page[]
+{
+    return pages.filter((candidate) => candidate.section === "Learn" && candidate.track === page.track);
+}
+
+/** The introduction of every tutorial, in the order the list of tutorials gives. */
+function trackIntroductions(pages: Page[]): Page[]
+{
+    return pages.filter((candidate) => candidate.section === "Learn" && candidate.track !== undefined && candidate.path === `/learn/${candidate.track}/`);
+}
+
+/** The previous and next pages in reading order: a tutorial reads from its introduction to its last step and leads into the guide, and the guide reads in group order. */
 function pagerOf(page: Page, pages: Page[]): { previous?: Link; next?: Link } | undefined
 {
     if (page.section === "Diagnostics" || page.section === "Legal")
     {
         return undefined;
     }
-    const sequence = pages.filter((candidate) => candidate.section === page.section);
+    if (page.section === "Learn" && page.track === undefined)
+    {
+        const first = trackIntroductions(pages)[0];
+        return first === undefined ? {} : { next: linkOf(first) };
+    }
+    const sequence = page.section === "Learn" ? trackOf(page, pages) : pages.filter((candidate) => candidate.section === page.section);
     const index = sequence.indexOf(page);
     const previous = sequence[index - 1];
     const following = sequence[index + 1];
@@ -891,7 +948,7 @@ const loaded = (build: string): Map<string, string> => new Map([...moduleGraph(j
 const coreLoaded = loaded(production);
 const routerLoaded = loaded(routerBuild);
 
-const learnPages = await collect("learn", "Learn");
+const learnPages = await collectLearn();
 const guidePages = await collect("guide", "Guide");
 const legalPages = await collect("legal", "Legal");
 const { pages: referencePages, manifest, reports } = await reference();
@@ -1033,6 +1090,31 @@ const broken = brokenLinks(known, rendered);
 if (broken.length > 0)
 {
     throw new Error(`broken internal links:\n${broken.join("\n")}`);
+}
+
+/**
+ * The packing list's steps lived at /learn/<step>/ before the tutorials had
+ * folders of their own; each old address sends the reader to the step's
+ * page under /learn/packing-list/.
+ */
+for (const page of learnPages.filter((candidate) => candidate.track === "packing-list" && candidate.path !== "/learn/packing-list/"))
+{
+    const step = page.path.slice("/learn/packing-list/".length);
+    const target = rebasePath(page.path, base);
+    await write(`learn/${step}index.html`, `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="0; url=${target}">
+<link rel="canonical" href="${absolute(page.path)}">
+<meta name="robots" content="noindex">
+<title>${page.title}</title>
+</head>
+<body>
+<p>This step of the packing list tutorial moved to <a href="${target}">${target}</a>.</p>
+</body>
+</html>
+`);
 }
 
 const missing = renderPage({

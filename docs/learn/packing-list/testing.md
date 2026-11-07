@@ -16,7 +16,7 @@ Create `test/packing.browser.test.ts`:
 
 `beforeEach` puts back the list, the filter, and the undo history, because all three are module state that every test in the file shares, and the list is kept in storage between runs. `changes.dispose()` forgets every checkpoint and leaves the list as it is. Resetting all three at the start of each test makes the tests independent of each other and of what you clicked in the browser.
 
-`accessibilityIssues` finds the defects a test can see without an accessibility tree: images without alternative text, form controls without a label, and buttons or links without a name. The remove buttons pass because they have text; their `aria-label` goes further and says which item each one removes, which no test can judge. Delete the `<label>` around a checkbox and the third test fails, naming the control. The [testing guide](../guide/testing.md) covers the rest of `@zerolith/test`.
+`accessibilityIssues` finds the defects a test can see without an accessibility tree: images without alternative text, form controls without a label, and buttons or links without a name. The remove buttons pass because they have text; their `aria-label` goes further and says which item each one removes, which no test can judge. Delete the `<label>` around a checkbox and the third test fails, naming the control. The [testing guide](../../guide/testing.md) covers the rest of `@zerolith/test`.
 
 Vitest drives a real Chromium through Playwright. On a machine that has not run Playwright before, download the browser once:
 

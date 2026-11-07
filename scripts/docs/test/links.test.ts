@@ -14,6 +14,10 @@ describe("docs links", () =>
         expect(sitePath("index.md#install", "guide", "docs/guide/a.md")).toBe("/guide/#install");
         expect(sitePath("../learn/state.md", "guide", "docs/guide/a.md")).toBe("/learn/state/");
         expect(sitePath("../guide/forms.md#fields", "learn", "docs/learn/a.md")).toBe("/guide/forms/#fields");
+        expect(sitePath("state.md#effects", "learn/packing-list", "docs/learn/packing-list/a.md")).toBe("/learn/packing-list/state/#effects");
+        expect(sitePath("index.md", "learn/packing-list", "docs/learn/packing-list/a.md")).toBe("/learn/packing-list/");
+        expect(sitePath("../../guide/forms.md", "learn/packing-list", "docs/learn/packing-list/a.md")).toBe("/guide/forms/");
+        expect(sitePath("packing-list/index.md", "learn", "docs/learn/index.md")).toBe("/learn/packing-list/");
         expect(sitePath("contact.md", "legal", "docs/legal/terms.md")).toBe("/legal/contact/");
         expect(sitePath("https://zerolith.dev/e/template_frozen_read/", "guide", "docs/guide/a.md")).toBe("/e/template_frozen_read/");
         expect(sitePath("https://vite.dev", "guide", "docs/guide/a.md")).toBe("https://vite.dev");

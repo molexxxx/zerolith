@@ -378,7 +378,11 @@ mod tests {
         for folder in ["docs/guide", "docs/learn", "packages", "examples"] {
             for entry in std::fs::read_dir(root.join(folder)).expect("a docs folder") {
                 let path = entry.expect("a folder entry").path();
-                if path.is_dir() {
+                if path.is_dir() && folder == "docs/learn" {
+                    for page in std::fs::read_dir(&path).expect("a tutorial's folder") {
+                        files.push(page.expect("a folder entry").path());
+                    }
+                } else if path.is_dir() {
                     files.push(path.join("README.md"));
                 } else if path.extension().is_some_and(|extension| extension == "md") {
                     files.push(path);

@@ -781,8 +781,8 @@ describe("documentation site", () =>
     it("links each tutorial step to the next, and the last into the guide", { timeout: 60000 }, async () =>
     {
         const first = await readFile(join(site, "learn", "index.html"), "utf8");
-        expect(first).toContain("href=\"/learn/page/\" rel=\"next\"");
-        const last = await readFile(join(site, "learn", "ship", "index.html"), "utf8");
+        expect(first).toContain("href=\"/learn/packing-list/\" rel=\"next\"");
+        const last = await readFile(join(site, "learn", "packing-list", "ship", "index.html"), "utf8");
         expect(last).toContain("href=\"/guide/\" rel=\"next\"");
     });
 
@@ -1213,7 +1213,7 @@ describe("documentation site", () =>
         expect(await readFile(join(site, "styles.css"), "utf8")).toContain(".lenis.lenis-smooth iframe");
         expect(home).toContain("<link rel=\"canonical\" href=\"https://zerolith.dev/\">");
         const sitemap = await readFile(join(site, "sitemap.xml"), "utf8");
-        expect(sitemap).toContain("<loc>https://zerolith.dev/learn/state/</loc>");
+        expect(sitemap).toContain("<loc>https://zerolith.dev/learn/packing-list/state/</loc>");
     });
 
     it("builds a pre-release's site under /next/ with a switch to the stable docs that the rebase leaves alone, and the stable site with a switch to /next/", async () =>

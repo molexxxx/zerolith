@@ -18,7 +18,7 @@ Update `src/components/item.ts`:
 
 `min-width: 0` and `overflow-wrap: anywhere` let a long name with no spaces wrap inside its row; without them, the name sets the row's width, and on a phone the page scrolls sideways.
 
-`data-packed=${packed}` turns the item's state into an attribute the style sheet can select, which keeps the rule in CSS rather than in a class name built in JavaScript. The [styles guide](../guide/styles.md) shows where a scope stops when one styled component sits inside another.
+`data-packed=${packed}` turns the item's state into an attribute the style sheet can select, which keeps the rule in CSS rather than in a class name built in JavaScript. The [styles guide](../../guide/styles.md) shows where a scope stops when one styled component sits inside another.
 
 ## A styled page
 

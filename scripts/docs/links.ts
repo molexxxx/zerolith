@@ -39,8 +39,9 @@ export function mapLinks(markdown: string, replace: (target: string) => string):
 }
 
 /**
- * The site path of a link on a page in `docs/<folder>`: `structure.md#x`
- * from `guide` is `/guide/structure/#x`, a full site address is its path,
+ * The site path of a link on a page in `docs/<folder>`, which may be a
+ * tutorial's folder such as `learn/packing-list`: `structure.md#x` from
+ * `guide` is `/guide/structure/#x`, a full site address is its path,
  * and an outside address or an anchor is kept. Throws for a root-relative
  * link, which GitHub cannot resolve, and for a relative link to anything
  * other than a docs page.
@@ -62,12 +63,13 @@ export function sitePath(target: string, folder: string, file: string): string
     const hash = target.indexOf("#");
     const path = hash === -1 ? target : target.slice(0, hash);
     const anchor = hash === -1 ? "" : target.slice(hash);
-    const page = /^(guide|learn|legal)\/([a-z0-9-]+)\.md$/.exec(posix.normalize(posix.join(folder, path)));
+    const page = /^(guide|learn|legal)\/(?:([a-z0-9-]+)\/)?([a-z0-9-]+)\.md$/.exec(posix.normalize(posix.join(folder, path)));
     if (page === null)
     {
         throw new Error(`${file}: the link ${target} is not a page of the docs; link a file elsewhere in the repository by its full GitHub address`);
     }
-    return `${page[2] === "index" ? `/${page[1]}/` : `/${page[1]}/${page[2]}/`}${anchor}`;
+    const directory = page[2] === undefined ? `/${page[1]}/` : `/${page[1]}/${page[2]}/`;
+    return `${page[3] === "index" ? directory : `${directory}${page[3]}/`}${anchor}`;
 }
 
 /** The header's switch to the other release the site shows, whose address lies in that release's build, not this one. */

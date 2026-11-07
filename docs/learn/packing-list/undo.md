@@ -24,7 +24,7 @@ Update `src/store.ts`:
 
 `stored` from `@zerolith/state` does what your `stored()` function and the effect did together. It reads the key when the module loads, takes the starting items when nothing is saved there or what is saved does not parse, and writes the list back as JSON on every `set()`. `isItem` comes along from the last step: `validate` receives what parses, and anything that is not a list of items takes the starting items as well. The key and the JSON are the ones the last step wrote, so the list you saved there loads as it was.
 
-It also does what the hand-written version did not. When the list changes in another tab, the browser tells this one with a `storage` event, and `stored` sets itself to match, so every open tab shows the same list. Nothing fails in silence either: a saved value that does not parse, or that `validate` refuses, is reported as `state_storage_unreadable`, and storage the browser refuses as `state_storage_unavailable`, while the list keeps working for the visit. While you develop, each report appears in the console; a production build keeps the console quiet and hands reports only to `onDiagnostic` listeners, as the [diagnostics guide](../guide/diagnostics.md) shows.
+It also does what the hand-written version did not. When the list changes in another tab, the browser tells this one with a `storage` event, and `stored` sets itself to match, so every open tab shows the same list. Nothing fails in silence either: a saved value that does not parse, or that `validate` refuses, is reported as `state_storage_unreadable`, and storage the browser refuses as `state_storage_unavailable`, while the list keeps working for the visit. While you develop, each report appears in the console; a production build keeps the console quiet and hands reports only to `onDiagnostic` listeners, as the [diagnostics guide](../../guide/diagnostics.md) shows.
 
 `stored` takes no name, and needs none: after an edit, `zerolith dev` reloads the page and the list comes back from storage, as it does on any visit.
 
@@ -43,7 +43,7 @@ Create `src/components/undo-redo.ts`:
 
 `canUndo` and `canRedo` are signals, true while there is somewhere to go, so the buttons follow them. `?disabled=${noUndo}` binds a boolean attribute, marked with `?` as an event is with `@` and a property with `.`: the attribute is there while the value is true and gone while it is false. A plain `disabled=${noUndo}` would not do, since `false` would become the attribute's text, and a button with a `disabled` attribute is disabled whatever the text says. Each click runs the history's own `undo` or `redo` through `pressing`. A disabled button cannot hold focus, so when Undo takes back the last change and turns itself off, `pressing` moves focus to Redo, which that undo has just turned on, and the other way around.
 
-The [state guide](../guide/state.md) covers the rest of `@zerolith/state`: signals that wait for typing to stop or follow a scroll at a steady rate, and a selector that tells each of a thousand rows whether it is the selected one.
+The [state guide](../../guide/state.md) covers the rest of `@zerolith/state`: signals that wait for typing to stop or follow a scroll at a steady rate, and a selector that tells each of a thousand rows whether it is the selected one.
 
 ## Offline
 
@@ -55,7 +55,7 @@ Update `src/components/packing.ts`:
 
 The status paragraph stays on the page, empty while the browser is online. Assistive technology reads a `status` region aloud when its text changes, and a region that appears together with its text can go unread, so the paragraph stays and only its text changes.
 
-The [browser guide](../guide/browser.md) covers the rest of `@zerolith/browser`: whether the tab is visible, the window's size, and an element's size and whether it is in view.
+The [browser guide](../../guide/browser.md) covers the rest of `@zerolith/browser`: whether the tab is visible, the window's size, and an element's size and whether it is in view.
 
 Remove an item and press Undo, and it is back. Then set the network to offline in the browser's developer tools, and the note appears.
 
