@@ -50,7 +50,7 @@ describe("prepareModule", () =>
     {
         const out = prepare("import { html } from \"zerolith\";\nexport const view = (cls, name) => html`<p class=\"${cls}\">${name}</p>`;\n");
         expect(out).toMatch(/^import \{ prepared as __zl_prepared \} from "zerolith\/internal";import \{ html \} from "zerolith";\n/);
-        expect(out).toContain("const __zl_t0 = __zl_prepared([\"<p class=\\\"\",\"\\\">\",\"</p>\"], \"<p zl$0><!--zl$--></p>\", [[1,\"class\",[\"\",\"\"]],[0,\"\",[]]]);");
+        expect(out).toContain("const __zl_t0 = /*#__PURE__*/__zl_prepared([\"<p class=\\\"\",\"\\\">\",\"</p>\"], \"<p zl$0><!--zl$--></p>\", [[1,\"class\",[\"\",\"\"]],[0,\"\",[]]]);");
         expect(out).toContain("export const view = (cls, name) => html(__zl_t0, cls, name);");
     });
 
@@ -59,25 +59,25 @@ describe("prepareModule", () =>
         const code = "import { html } from \"zerolith\";\n\nexport const list = (items) => html`\n    <ul>\n        ${items.map((item) => html`<li>${item}</li>`)}\n    </ul>\n`;\n";
         const out = prepare(code);
         expect(out?.split("\n").length).toBe(code.split("\n").length);
-        expect(out).toContain("const __zl_t0 = __zl_prepared([\"\\n    <ul>\\n        \",\"\\n    </ul>\\n\"], \"\\n    <ul>\\n        <!--zl$-->\\n    </ul>\\n\", [[0,\"\",[]]]);");
-        expect(out).toContain("const __zl_t1 = __zl_prepared([\"<li>\",\"</li>\"], \"<li><!--zl$--></li>\", [[0,\"\",[]]]);");
+        expect(out).toContain("const __zl_t0 = /*#__PURE__*/__zl_prepared([\"\\n    <ul>\\n        \",\"\\n    </ul>\\n\"], \"\\n    <ul>\\n        <!--zl$-->\\n    </ul>\\n\", [[0,\"\",[]]]);");
+        expect(out).toContain("const __zl_t1 = /*#__PURE__*/__zl_prepared([\"<li>\",\"</li>\"], \"<li><!--zl$--></li>\", [[0,\"\",[]]]);");
         expect(out).toContain("html(__zl_t0,\n\n items.map((item) => html(__zl_t1, item))\n\n)");
     });
 
     it("follows an alias and a namespace import", () =>
     {
         const aliased = prepare("import { html as h } from \"zerolith\";\nexport const v = h`<p></p>`;\n");
-        expect(aliased).toContain("const __zl_v0 = h(__zl_t0);");
+        expect(aliased).toContain("const __zl_v0 = /*#__PURE__*/h(__zl_t0);");
         expect(aliased).toContain("export const v = (__zl_v0);");
         const namespaced = prepare("import * as z from \"zerolith\";\nexport const v = z.html`<p></p>`;\n");
-        expect(namespaced).toContain("const __zl_v0 = z.html(__zl_t0);");
+        expect(namespaced).toContain("const __zl_v0 = /*#__PURE__*/z.html(__zl_t0);");
         expect(namespaced).toContain("export const v = (__zl_v0);");
     });
 
     it("hoists before the first statement so top-level renders see the templates", () =>
     {
         const out = prepare("import { html, render } from \"zerolith\";\nrender(html`<p></p>`, \"#app\");\n");
-        expect(out?.split("\n")[1]).toBe("const __zl_t0 = __zl_prepared([\"<p></p>\"], \"<p></p>\", []);const __zl_v0 = html(__zl_t0);render((__zl_v0), \"#app\");");
+        expect(out?.split("\n")[1]).toBe("const __zl_t0 = /*#__PURE__*/__zl_prepared([\"<p></p>\"], \"<p></p>\", []);const __zl_v0 = /*#__PURE__*/html(__zl_t0);render((__zl_v0), \"#app\");");
     });
 
     it("creates a template with no bindings once, at module scope, keeping the line count", () =>
@@ -85,7 +85,7 @@ describe("prepareModule", () =>
         const code = "import { html } from \"zerolith\";\nexport const icon = () => html`\n    <svg aria-hidden=\"true\"></svg>\n`;\nexport const row = (label) => html`<li>${label}</li>`;\n";
         const out = prepare(code);
         expect(out?.split("\n").length).toBe(code.split("\n").length);
-        expect(out).toContain("const __zl_v0 = html(__zl_t0);const __zl_t1 = ");
+        expect(out).toContain("const __zl_v0 = /*#__PURE__*/html(__zl_t0);const __zl_t1 = ");
         expect(out).toContain("export const icon = () => (__zl_v0\n\n);");
         expect(out).toContain("export const row = (label) => html(__zl_t1, label);");
         expect(out).not.toContain("__zl_v1");

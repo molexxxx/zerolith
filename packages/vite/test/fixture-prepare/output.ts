@@ -3,7 +3,7 @@ import { html, render } from "zerolith";
 import { html as litHtml } from "lit";
 import type { View } from "zerolith";
 
-const __zl_t0 = __zl_prepared(["<p class=\"card\">","</p>"], "<p class=\"card\"><!--zl$--></p>", [[0,"",[]]]);const __zl_t1 = __zl_prepared(["<li>","</li>"], "<li><!--zl$--></li>", [[0,"",[]]]);const __zl_t2 = __zl_prepared(["<main>","</main>"], "<main><!--zl$--></main>", [[0,"",[]]]);interface Sanitizer
+const __zl_t0 = /*#__PURE__*/__zl_prepared(["<p class=\"card\">","</p>"], "<p class=\"card\"><!--zl$--></p>", [[0,"",[]]]);const __zl_t1 = /*#__PURE__*/__zl_prepared(["<li>","</li>"], "<li><!--zl$--></li>", [[0,"",[]]]);const __zl_t2 = /*#__PURE__*/__zl_prepared(["<main>","</main>"], "<main><!--zl$--></main>", [[0,"",[]]]);interface Sanitizer
 {
     clean(html: string): string;
 }

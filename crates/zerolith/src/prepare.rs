@@ -302,7 +302,7 @@ pub fn prepare_source(source: &str, source_type: SourceType) -> Result<String, T
             .map(|part| (part.kind, part.name.as_str(), part.strings.as_slice()))
             .collect();
         hoisted.push_str(&format!(
-            "const {name} = {PREPARED_BINDING}({}, {}, {});",
+            "const {name} = /*#__PURE__*/{PREPARED_BINDING}({}, {}, {});",
             serde_json::to_string(strings).unwrap_or_else(|_| "[]".to_string()),
             json(&scanned.markup),
             serde_json::to_string(&table).unwrap_or_else(|_| "[]".to_string())
@@ -311,7 +311,7 @@ pub fn prepare_source(source: &str, source_type: SourceType) -> Result<String, T
         let tag = slice(template.tag);
         let Some(first) = template.expressions.first() else {
             let view = format!("{VIEW_BINDING}{index}");
-            hoisted.push_str(&format!("const {view} = {tag}({name});"));
+            hoisted.push_str(&format!("const {view} = /*#__PURE__*/{tag}({name});"));
             edits.push(Edit {
                 start: template.span.start,
                 end: template.span.end,
@@ -406,7 +406,7 @@ mod tests {
         assert!(out.starts_with(
             "import { prepared as __zl_prepared } from \"zerolith/internal\";import { html } from \"zerolith\";\n"
         ));
-        assert!(out.contains("const __zl_t0 = __zl_prepared([\"<p class=\\\"\",\"\\\">\",\"</p>\"], \"<p zl$0><!--zl$--></p>\", [[1,\"class\",[\"\",\"\"]],[0,\"\",[]]]);"));
+        assert!(out.contains("const __zl_t0 = /*#__PURE__*/__zl_prepared([\"<p class=\\\"\",\"\\\">\",\"</p>\"], \"<p zl$0><!--zl$--></p>\", [[1,\"class\",[\"\",\"\"]],[0,\"\",[]]]);"));
         assert!(out.contains("export const view = (cls, name) => html(__zl_t0, cls, name);"));
     }
 
@@ -419,12 +419,14 @@ mod tests {
         assert!(
             prepare("import { html as h } from \"zerolith\";\nexport const v = h`<p></p>`;\n")
                 .unwrap()
-                .contains("const __zl_v0 = h(__zl_t0);")
+                .contains("const __zl_v0 = /*#__PURE__*/h(__zl_t0);")
         );
         assert!(
             prepare("import * as z from \"zerolith\";\nexport const v = z.html`<p></p>`;\n")
                 .unwrap()
-                .contains("const __zl_v0 = z.html(__zl_t0);export const v = (__zl_v0);")
+                .contains(
+                    "const __zl_v0 = /*#__PURE__*/z.html(__zl_t0);export const v = (__zl_v0);"
+                )
         );
         let top = prepare(
             "import { html, render } from \"zerolith\";\nrender(html`<p></p>`, \"#app\");\n",
@@ -433,7 +435,7 @@ mod tests {
         assert_eq!(
             top.lines().nth(1),
             Some(
-                "const __zl_t0 = __zl_prepared([\"<p></p>\"], \"<p></p>\", []);const __zl_v0 = html(__zl_t0);render((__zl_v0), \"#app\");"
+                "const __zl_t0 = /*#__PURE__*/__zl_prepared([\"<p></p>\"], \"<p></p>\", []);const __zl_v0 = /*#__PURE__*/html(__zl_t0);render((__zl_v0), \"#app\");"
             )
         );
         assert_eq!(

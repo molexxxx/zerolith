@@ -331,14 +331,14 @@ export function prepareModule(code: string, id: string, parse: ModuleParser, sca
         }
         const name = `${TEMPLATE_BINDING}${index}`;
         const table = parts.map((part) => [part.kind, part.name, part.strings]);
-        hoisted += `const ${name} = ${PREPARED_BINDING}(${JSON.stringify(strings)}, ${JSON.stringify(markup)}, ${JSON.stringify(table)});`;
+        hoisted += `const ${name} = /*#__PURE__*/${PREPARED_BINDING}(${JSON.stringify(strings)}, ${JSON.stringify(markup)}, ${JSON.stringify(table)});`;
         const tag = code.slice(template.tag.start, template.tag.end);
         const { expressions } = template.quasi;
         const first = expressions[0];
         if (first === undefined)
         {
             const view = `${VIEW_BINDING}${index}`;
-            hoisted += `const ${view} = ${tag}(${name});`;
+            hoisted += `const ${view} = /*#__PURE__*/${tag}(${name});`;
             edits.push({ start: template.start, end: template.end, text: `(${view}${newlines(code.slice(template.start, template.end))})` });
             continue;
         }

@@ -417,6 +417,25 @@ async fn fails_when_a_lazy_view_is_also_imported_statically() {
 }
 
 #[tokio::test]
+async fn drops_a_template_in_a_branch_the_mode_rules_out() {
+    let root = project(
+        "dead-template",
+        "import { html, render } from \"zerolith\";\nconst hint = import.meta.env.DEV ? html`<p>DEAD_TEMPLATE ${1}</p>` : html`<p>LIVE_TEMPLATE ${2}</p>`;\nconst note = import.meta.env.DEV ? html`<p>DEAD_STATIC</p>` : html`<p>LIVE_STATIC</p>`;\nrender(html`<main>${hint}${note}</main>`, \"#app\");\n",
+    );
+    build(&options(&root, "/", "production")).await.unwrap();
+    let scripts = read_all(&root.join("dist/assets"), "js");
+    assert!(
+        scripts.contains("LIVE_TEMPLATE") && scripts.contains("LIVE_STATIC"),
+        "{scripts}"
+    );
+    assert!(
+        !scripts.contains("DEAD_TEMPLATE") && !scripts.contains("DEAD_STATIC"),
+        "{scripts}"
+    );
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[tokio::test]
 async fn writes_one_module_as_one_script_with_a_name_that_stays() {
     let root = project("script", MAIN);
     fs::remove_file(root.join("index.html")).unwrap();

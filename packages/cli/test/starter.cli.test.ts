@@ -1,5 +1,5 @@
 import { type ChildProcess, spawnSync } from "node:child_process";
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Browser, chromium } from "playwright";
@@ -167,6 +167,8 @@ describe("the starter zerolith new writes", () =>
     it("builds with zerolith build and runs from zerolith preview", { timeout: 60000 }, async () =>
     {
         const result = spawnSync(binary(), ["build", root], { encoding: "utf8" });
+        const scripts = readdirSync(join(root, "dist", "assets")).filter((name) => name.endsWith(".js")).map((name) => readFileSync(join(root, "dist", "assets", name), "utf8")).join("\n");
+        expect(scripts, "the inspector hint only the development build shows").not.toContain("for the inspector");
         expect(result.status, result.stderr).toBe(0);
         expect(result.stdout).toMatch(/assets\/index-[\w-]+\.js/);
         expect(await visit(await start(["preview", root]))).toEqual({ ...expected, footer: "Built with zerolith." });
