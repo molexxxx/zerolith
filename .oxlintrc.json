@@ -26,7 +26,7 @@
             }
         },
         {
-            "files": ["**/scripts/**"],
+            "files": ["**/scripts/**", "crates/zerolith/src/client.js"],
             "rules": {
                 "no-console": "off",
                 "no-await-in-loop": "off"

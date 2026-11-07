@@ -3,7 +3,7 @@
  * keeps them.
  */
 import { type ReadableSignal, type Signal, batch, hasOwner, onDispose, signal, untracked } from "zerolith";
-import { onOutsideWrite } from "./stored.ts";
+import { onOutsideWrite } from "./stored.js";
 
 /** Options for `history`. */
 export interface HistoryOptions
