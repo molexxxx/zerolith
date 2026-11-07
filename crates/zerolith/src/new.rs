@@ -471,7 +471,15 @@ const MARK: &str = r#"<svg viewBox="14.29 4 35.42 56" aria-hidden="true"><path f
 
 const FOOTER: &str = r#"Built with <a href="https://zerolith.dev/">zerolith</a>."#;
 
-const FOOTER_DEVTOOLS: &str = r#"Built with <a href="https://zerolith.dev/">zerolith</a>. Press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> for the inspector."#;
+/// The footer with the inspector's shortcut, which `import.meta.env.DEV` keeps out of a production build, where the inspector is not there.
+const FOOTER_DEVTOOLS: &str = r#"Built with <a href="https://zerolith.dev/">zerolith</a>.${import.meta.env.DEV
+                ? html` Press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> for the inspector.`
+                : ""}"#;
+
+/// The same footer in JSX.
+const FOOTER_DEVTOOLS_JSX: &str = r#"Built with <a href="https://zerolith.dev/">zerolith</a>.{import.meta.env.DEV
+                ? <> Press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> for the inspector.</>
+                : ""}"#;
 
 const LAYOUT_STYLES: &str = r#"const frame = css`
     :scope { min-height: 100vh; display: grid; grid-template-rows: auto 1fr auto; }
@@ -1412,10 +1420,10 @@ fn fill(template: &str, choice: Choice, name: &str) -> String {
         .replace("__MARK__", MARK)
         .replace(
             "__FOOTER__",
-            if choice.devtools {
-                FOOTER_DEVTOOLS
-            } else {
-                FOOTER
+            match (choice.devtools, choice.jsx) {
+                (false, _) => FOOTER,
+                (true, false) => FOOTER_DEVTOOLS,
+                (true, true) => FOOTER_DEVTOOLS_JSX,
             },
         )
         .replace("__DEV__", develop)
@@ -1517,7 +1525,7 @@ fn write(root: &Path, relative: &str, content: &str) -> io::Result<()> {
     fs::write(path, content)
 }
 
-const GITIGNORE: &str = "node_modules/\ndist/\n.env.local\n.env.*.local\n";
+const GITIGNORE: &str = "node_modules/\ndist/\n.vitest/\n.env.local\n.env.*.local\n";
 
 /// Writes the project for `name` into `root`, which must not exist yet or must be empty: the starter, or the example the choice names. Returns the files it wrote.
 pub fn scaffold(root: &Path, name: &str, choice: Choice) -> io::Result<Vec<String>> {

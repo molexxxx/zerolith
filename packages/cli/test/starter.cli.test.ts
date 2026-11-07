@@ -57,11 +57,12 @@ async function visit(origin: string): Promise<Record<string, unknown>>
     await page.goto(`${origin}/nowhere`);
     await page.waitForSelector("main h1");
     const missing = await page.textContent("main h1");
+    const footer = await page.textContent("footer");
     await page.close();
-    return { heading, count, current, listed, found, missing, problems };
+    return { heading, count, current, listed, found, missing, footer, problems };
 }
 
-const expected = { heading: `starter-${process.pid}`, count: "2", current: "/counter", listed: 13, found: 1, missing: "Not found", problems: [] };
+const expected = { heading: `starter-${process.pid}`, count: "2", current: "/counter", listed: 13, found: 1, missing: "Not found", footer: "Built with zerolith. Press Alt+Shift+Z for the inspector.", problems: [] };
 
 beforeAll(async () =>
 {
@@ -128,6 +129,6 @@ describe("the starter zerolith new writes", () =>
         const result = spawnSync(binary(), ["build", root], { encoding: "utf8" });
         expect(result.status, result.stderr).toBe(0);
         expect(result.stdout).toMatch(/assets\/index-[\w-]+\.js/);
-        expect(await visit(await start(["preview", root]))).toEqual(expected);
+        expect(await visit(await start(["preview", root]))).toEqual({ ...expected, footer: "Built with zerolith." });
     });
 });

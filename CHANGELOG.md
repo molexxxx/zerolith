@@ -24,6 +24,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Fixed
 
+- `@zerolith/cli` and the `zerolith` crate: the starter's footer names the inspector's shortcut only while developing, through `import.meta.env.DEV`, where a production build said to press Alt+Shift+Z for an inspector it does not include, and the starter's `.gitignore` leaves out `.vitest/`, where Vitest keeps the screenshots of failed browser tests.
 - `@zerolith/cli` and the `zerolith` crate: `zerolith dev` prints a module that fails to compile in the browser's console as well as the terminal, with its file, where the browser showed only that the module importing it lacked an export, since a module that imports a name from a failed one fails before the failed one runs. A page that opens while the error stands is told about it as well.
 - `@zerolith/cli` and the `zerolith` crate: `zerolith dev` reports a stylesheet with a rule or a declaration the browser will skip, linked, imported, or imported with `?scoped`, as a warning with its line and column in the terminal and the browser's console, where a broken stylesheet gave no message anywhere.
 - `@zerolith/cli` and the `zerolith` crate: `zerolith dev` no longer reloads the page for an editor's temporary file, such as the extensionless file `sed -i` writes or a Vim swap file.
