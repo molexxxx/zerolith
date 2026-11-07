@@ -8,6 +8,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use crate::importmap::page_url;
 use crate::transform;
 use crate::{css, modules, prepare};
 
@@ -114,14 +115,14 @@ fn quoted(text: &str) -> String {
     serde_json::Value::from(text).to_string()
 }
 
-/// Writes the module that serves an imported file in its form, next to the file's copy.
+/// Writes the module that serves an imported file in its form, next to the file's copy, and returns where.
 pub(super) fn write_import(
     root: &Path,
     out: &Path,
     file: &Path,
     form: Form,
     importer: &str,
-) -> io::Result<()> {
+) -> io::Result<PathBuf> {
     if !file.is_file() {
         return Err(io::Error::other(format!("{importer} names no file")));
     }
@@ -175,7 +176,51 @@ pub(super) fn write_import(
     if let Some(parent) = target.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(target, code)
+    fs::write(&target, code)?;
+    Ok(target)
+}
+
+/// The address of `file`, a file under `out`: its root-relative URL carrying a short form of its hash.
+pub(super) fn address_of(out: &Path, file: &Path) -> io::Result<(String, String)> {
+    let relative = file.strip_prefix(out).map_err(io::Error::other)?;
+    let url = format!("/{}", relative.to_string_lossy().replace('\\', "/"));
+    let address = format!("{url}?v={}", css::short_hash(&fs::read(file)?));
+    Ok((url, address))
+}
+
+/// A page with its own module scripts and stylesheets at the addresses their content gives. A script or a link is not read through the import map, so the page has to name these itself.
+pub(super) fn versioned_page(
+    html: &str,
+    page: &str,
+    out: &Path,
+    addresses: &BTreeMap<String, String>,
+) -> io::Result<String> {
+    let scanned = crate::html::scan(html);
+    let mut insertions: Vec<(usize, String)> = Vec::new();
+    for reference in &scanned.scripts {
+        if let Some((_, query)) = addresses
+            .get(&page_url(page, &reference.url))
+            .and_then(|address| address.split_once('?'))
+        {
+            insertions.push((reference.value.1, format!("?{query}")));
+        }
+    }
+    for reference in &scanned.styles {
+        let url = page_url(page, &reference.url);
+        let file = out.join(url.trim_start_matches('/'));
+        if !reference.url.contains(['?', '#']) && file.is_file() {
+            let (_, address) = address_of(out, &file)?;
+            if let Some((_, query)) = address.split_once('?') {
+                insertions.push((reference.value.1, format!("?{query}")));
+            }
+        }
+    }
+    insertions.sort_by_key(|(at, _)| std::cmp::Reverse(*at));
+    let mut written = html.to_string();
+    for (at, text) in insertions {
+        written.insert_str(at, &text);
+    }
+    Ok(written)
 }
 
 /// What every module's `import.meta.env` and `process.env.NODE_ENV` become in the output.

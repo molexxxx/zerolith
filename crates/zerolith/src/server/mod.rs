@@ -117,10 +117,33 @@ fn app(
         .with_state(state)
 }
 
+/// Fails with what to do when the folder `zerolith preview` would serve does not exist.
+fn check_preview_folder(folder: &std::path::Path) -> std::io::Result<()> {
+    if folder.is_dir() {
+        return Ok(());
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        format!(
+            "{} does not exist, so there is nothing to preview; run zerolith build first, or name another folder with --out",
+            display(folder)
+        ),
+    ))
+}
+
+/// What to say of a folder `zerolith preview` serves that holds no page, as after `zerolith build --entry`.
+fn preview_note(folder: &std::path::Path) -> Option<&'static str> {
+    (!folder.join("index.html").is_file())
+        .then_some("no index.html here, so a path that names no file answers 404, as after zerolith build --entry")
+}
+
 /// Serves `options.root` until the process is interrupted.
 /// Serves until Ctrl+C, or on Unix a termination signal or a hangup, stopping the backends as soon as the signal arrives, since a stream one of them answers would keep the graceful shutdown waiting, and through the guard on any other way out.
 pub async fn run(options: Options) -> std::io::Result<()> {
     let started = std::time::Instant::now();
+    if !options.modules {
+        check_preview_folder(&options.root)?;
+    }
     let root = css::canonical(&options.root)?;
     let pipeline = options
         .modules
@@ -203,6 +226,11 @@ pub async fn run(options: Options) -> std::io::Result<()> {
         );
     }
     anstream::println!("{}", term::row("Root", term::label, display(&root)));
+    if !options.modules
+        && let Some(note) = preview_note(&root)
+    {
+        anstream::println!("{}", term::row("Note", term::caution, note));
+    }
     for (index, rule) in options.proxy.iter().enumerate() {
         let shown = format!(
             "{} to {}{}{}",

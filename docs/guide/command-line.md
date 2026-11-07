@@ -83,7 +83,7 @@ Under Vite, the plugin in `@zerolith/vite` does the same restore without reloadi
 
 ### Serving and previewing
 
-`serve` serves the project the way `dev` does, without watching it. `preview` serves a build's output folder, `dist` unless `--out` names another, as a static host would: every file as it is, and `index.html` for any path that names no file, so client-side routes load directly.
+`serve` serves the project the way `dev` does, without watching it. `preview` serves a build's output folder, `dist` unless `--out` names another, as a static host would: every file as it is, and `index.html` for any path that names no file, so client-side routes load directly. A folder that does not exist fails with what to do, and one with no `index.html`, as after `zerolith build --entry`, serves its files with a note in the banner.
 
 | Command | Default port |
 | --- | --- |
@@ -268,6 +268,7 @@ The output folder is emptied first when it is inside the project. One outside th
 - `.ts`, `.tsx`, `.jsx`, and `.mts` sources are transformed to JavaScript the same way `dev` serves them and renamed to `.js`, and the relative imports that named them, static and dynamic, are rewritten to `.js`, as are the module scripts in HTML pages.
 - An import of a file that is not a module works as it does under `dev`: the build points it at a small module written next to the file, such as `card.css.js`, which links the stylesheet and waits for it before the importer runs. A stylesheet imported with `?scoped` gets `card.css.scoped.js`, which holds its rules with local imports inlined; a JSON file gives its value, parsed with `JSON.parse` so a `__proto__` key stays a key; an image, a font, or a file with `?url` gives its URL; and `?raw` gives a file's text. An import that names a file outside the project fails the build, and so does one that names a file in `public/`, which is served as it is and is referenced by its URL instead.
 - Every module goes through the same template prepare pass.
+- Each page's import map resolves every module the build wrote to an address carrying its hash, as `/src/app.js?v=x7f2k9`, and the page names its module scripts, preloads, and stylesheets the same way, so a browser never mixes an old copy of one module with a new copy of another. The modules are served as written. An entry the page's own map holds for the same file is kept. The map's text follows the modules, so the build prints the hash a Content-Security-Policy needs to allow it.
 - The installed zerolith packages, the ones `zerolith importmap` lists, are vendored into `vendor/` inside the output as `zerolith importmap --html` vendors them for a page, through the prepare pass as well: the entries the pages' modules import, with the modules they load, and every entry when no page imports one. An import map carrying integrity hashes is written into every page, nested ones such as `about/index.html` included, and each page preloads the modules its own entries load statically and the vendored modules they import. Entries the page's own import map holds for other specifiers are kept, so a third-party library mapped to a CDN or a local copy still loads; the build warns of a bare import, such as `lit`, that neither map covers, since the browser cannot load it.
 
 ## new

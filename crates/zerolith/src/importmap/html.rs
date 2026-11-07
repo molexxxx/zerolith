@@ -2,6 +2,7 @@
 //! written back in place.
 
 use super::graph::{PageGraph, resolve_url};
+use super::plan::integrity;
 use super::{ImportMap, Vendored};
 
 /// True for a URL with a scheme, such as `https://cdn.example/lit.js` or `data:`, which the browser does not read against the page.
@@ -17,7 +18,7 @@ fn has_scheme(url: &str) -> bool {
 }
 
 /// A URL of a page's import map as the browser reads it: root-relative or with a scheme as written, a relative one read against the page, root-relative, with its trailing slash kept for a folder prefix; one the browser would read otherwise stays as written.
-fn page_url(page: &str, url: &str) -> String {
+pub fn page_url(page: &str, url: &str) -> String {
     if url.starts_with('/') || has_scheme(url) {
         return url.to_string();
     }
@@ -49,13 +50,23 @@ fn first_module_script(html: &str) -> Option<usize> {
     None
 }
 
-/// The text of the first import map in an HTML document, found as the build finds it: past comments, and whatever the element's other attributes, such as a `nonce`.
-pub fn import_map_of(html: &str) -> Option<&str> {
+/// The text of the first import map in an HTML document, exactly as the page holds it, found as the build finds it: past comments, and whatever the element's other attributes, such as a `nonce`.
+fn import_map_text(html: &str) -> Option<&str> {
     let (start, end) = *crate::html::scan(html).import_maps.first()?;
     let element = &html[start..end];
     let open = element.find('>')? + 1;
     let close = element.to_ascii_lowercase().rfind("</script")?;
-    Some(element[open..close].trim())
+    Some(&element[open..close])
+}
+
+/// The text of the first import map in an HTML document, without the space around it.
+pub fn import_map_of(html: &str) -> Option<&str> {
+    import_map_text(html).map(str::trim)
+}
+
+/// What a Content-Security-Policy names in `script-src` to allow a page's import map, an inline script: the hash of its exact text.
+pub fn import_map_hash(html: &str) -> Option<String> {
+    import_map_text(html).map(|text| integrity(text.as_bytes()))
 }
 
 /// The page's own import map, parsed, or None when it has none or it is not valid JSON.
@@ -79,13 +90,15 @@ pub fn html_tags(vendored: &Vendored) -> String {
 
 /// The tags for one page, at `page` root-relative: the vendored map with the entries of the page's own import map kept where the vendored map names a different specifier, so a package mapped by hand survives an update, and the preloads for the page's graph when one is given. An entry of the page's map that points into a package folder this run wrote, at a file or a folder prefix the run no longer vendors anything under, is dropped, since the run prunes what it no longer vendors there, and so is an integrity hash of the page's own for a file this run vendors, whose hash the vendored map carries; a relative URL is read against the page, as the browser reads it, so a hash under a relative key cannot come before the vendored one under the root-relative key, which the browser would take first.
 pub fn page_tags(vendored: &Vendored, page: &str, html: &str, graph: Option<&PageGraph>) -> String {
-    let modules = graph.map_or_else(
-        || vendored.modules.clone(),
-        |graph| vendored.preloads(graph),
-    );
-    let Some(mut map) = page_map(html) else {
-        return tags(&vendored.map, &modules);
-    };
+    let modules: Vec<String> = graph
+        .map_or_else(
+            || vendored.modules.clone(),
+            |graph| vendored.preloads(graph),
+        )
+        .into_iter()
+        .map(|module| vendored.addresses.get(&module).cloned().unwrap_or(module))
+        .collect();
+    let mut map = page_map(html).unwrap_or_default();
     let gone = |url: &str| {
         let resolved = page_url(page, url);
         let url = resolved.as_str();
@@ -117,6 +130,11 @@ pub fn page_tags(vendored: &Vendored, page: &str, html: &str, graph: Option<&Pag
     map.scopes.retain(|_, scope| !scope.is_empty());
     map.imports.extend(vendored.map.imports.clone());
     map.integrity.extend(vendored.map.integrity.clone());
+    for (url, address) in &vendored.addresses {
+        map.imports
+            .entry(url.clone())
+            .or_insert_with(|| address.clone());
+    }
     tags(&map, &modules)
 }
 

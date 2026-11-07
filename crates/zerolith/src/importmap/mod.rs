@@ -18,7 +18,9 @@ mod tests;
 
 pub use graph::{PageGraph, page_graph};
 use html::html_tags;
-pub use html::{covers, import_map_of, page_map, page_tags, update_html};
+pub use html::{
+    covers, import_map_hash, import_map_of, page_map, page_tags, page_url, update_html,
+};
 pub use plan::integrity;
 use plan::{
     GIT_ATTRIBUTES, GIT_IGNORE, LICENSE_FILES, older_versions, plan, reached_by, remove_entry,
@@ -64,6 +66,8 @@ pub struct Vendored {
     pub stale: Vec<PathBuf>,
     /// Every folder under the package folders this run wrote, each after its parent, which `prune` removes when pruning leaves it empty.
     written_folders: Vec<PathBuf>,
+    /// The address each of the application's own modules is served at, by its plain URL, which a build fills so a page's map resolves them.
+    pub addresses: BTreeMap<String, String>,
 }
 
 impl Vendored {
@@ -316,14 +320,22 @@ pub fn run(root: &Path, out: &Path, development: bool, html: &[PathBuf]) -> io::
         return Ok(());
     }
     for (file, path, url, current, graph) in &pages {
-        fs::write(
-            path,
-            update_html(current, &page_tags(&vendored, url, current, Some(graph))),
-        )?;
+        let written = update_html(current, &page_tags(&vendored, url, current, Some(graph)));
+        fs::write(path, &written)?;
         anstream::println!(
             "{}",
             crate::term::row("updated", crate::term::done, file.display())
         );
+        if let Some(hash) = import_map_hash(&written) {
+            anstream::println!(
+                "{}",
+                crate::term::row(
+                    "policy",
+                    crate::term::label,
+                    format!("'{hash}' in script-src allows this page's import map")
+                )
+            );
+        }
     }
     if let Err(error) = vendored.prune() {
         anstream::println!(

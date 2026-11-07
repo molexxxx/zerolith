@@ -11,6 +11,8 @@ Every package in this repository is released together and carries the same versi
 
 ### Fixed
 
+- `@zerolith/cli` and the `zerolith` crate: `zerolith build --unbundled` resolves each of the application's own modules through the import map to an address carrying its hash, and names the page's module scripts, preloads, and stylesheets the same way, so a host that sets its own cache time cannot give a returning visitor an old copy of one module beside a new copy of another, which could fail with a missing export and leave the page blank until the copy expired. A module that did not change keeps its address and stays cached, and no module is rewritten. The import map's text now changes with most changes to the code, so a Content-Security-Policy that allows the map by its hash has to take the new hash from each build, which `zerolith build --unbundled` and `zerolith importmap --html` print; a nonce, or the bundled build, needs nothing new.
+- `@zerolith/cli` and the `zerolith` crate: `zerolith preview` on a folder that does not exist says to run `zerolith build`, where it printed only that the system could not find the file, and on a folder with no `index.html`, as after `zerolith build --entry`, says so in its banner.
 
 ## 1.3.0 (2026-11-07)
 

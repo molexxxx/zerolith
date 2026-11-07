@@ -3,6 +3,7 @@
 
 use super::build;
 use super::rewrite::rewrite_html;
+use crate::css;
 use std::fs;
 use std::path::Path;
 
@@ -97,7 +98,7 @@ fn transforms_renames_rewrites_and_copies() {
     assert!(
         fs::read_to_string(out.join("index.html"))
             .unwrap()
-            .contains("src=\"/src/main.js\"")
+            .contains("src=\"/src/main.js?v=")
     );
     assert!(out.join("styles.css").is_file());
     assert!(out.join("vendor/importmap.json").is_file());
@@ -378,7 +379,7 @@ fn preloads_each_pages_own_modules_and_vendors_what_the_pages_reach() {
     assert!(!out.join("vendor/zerolith@0.0.0/dist/ssr.js").exists());
     let home = fs::read_to_string(out.join("index.html")).unwrap();
     assert!(
-        home.contains("<link rel=\"modulepreload\" href=\"/src/app.js\" data-zerolith-preload>"),
+        home.contains("<link rel=\"modulepreload\" href=\"/src/app.js?v="),
         "{home}"
     );
     assert!(
@@ -392,7 +393,7 @@ fn preloads_each_pages_own_modules_and_vendors_what_the_pages_reach() {
         "{about}"
     );
     assert!(!about.contains("modulepreload"), "{about}");
-    assert!(about.contains("src=\"about.js\""), "{about}");
+    assert!(about.contains("src=\"about.js?v="), "{about}");
 
     fs::write(root.join("src/main.ts"), "export const main = 1;\n").unwrap();
     let (out, _, _) = build(&root, Path::new("dist"), false, false).unwrap();
@@ -563,5 +564,140 @@ fn serves_imports_of_other_files_through_modules_next_to_them() {
     );
     assert!(!root.join(format!("{name}.raw.js")).exists());
     let _ = fs::remove_file(&outside);
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn gives_each_own_module_and_stylesheet_an_address_that_follows_its_content() {
+    let root = std::env::temp_dir().join(format!(
+        "zerolith-unbundled-addresses-test-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&root);
+    let page = "<!doctype html><head><link rel=\"stylesheet\" href=\"/src/styles.css\"><link rel=\"stylesheet\" href=\"/src/kept.css?v=mine\"><script type=\"importmap\">{\"imports\":{\"/src/mine.js\":\"/elsewhere/mine.js\"}}</script></head><script type=\"module\" src=\"/src/main.ts\"></script><script type=\"module\">import \"./src/inline.js\";</script>";
+    for (path, text) in [
+        ("index.html", page),
+        (
+            "about/index.html",
+            "<!doctype html><head></head><script type=\"module\" src=\"about.ts\"></script>",
+        ),
+        ("about/about.ts", "export const about: number = 1;\n"),
+        (
+            "src/main.ts",
+            "import { two } from \"./two.ts\";\nimport \"./kept.js\";\nimport \"./mine.js\";\nimport data from \"./data.json\";\nconsole.log(two, data, () => import(\"./lazy.ts\"));\n",
+        ),
+        ("src/two.ts", "export const two: number = 2;\n"),
+        ("src/data.json", "{\"a\":1}"),
+        ("src/kept.js", "export const kept = 1;\n"),
+        ("src/mine.js", "export const mine = 1;\n"),
+        ("src/lazy.ts", "export const lazy: number = 3;\n"),
+        ("src/inline.js", "export const inline = 1;\n"),
+        ("src/styles.css", "body { margin: 0; }\n"),
+        ("src/kept.css", "p { margin: 0; }\n"),
+        ("public/worker.js", "self.onmessage = () => undefined;\n"),
+    ] {
+        let file = root.join(path);
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(file, text).unwrap();
+    }
+    let read = |out: &Path| {
+        let written = fs::read_to_string(out.join("index.html")).unwrap();
+        let map = crate::importmap::page_map(&written).expect("the page has a map");
+        (written, map)
+    };
+    let hash_of = |out: &Path, file: &str| css::short_hash(&fs::read(out.join(file)).unwrap());
+    let (out, built, _) = build(&root, Path::new("dist"), false, false).unwrap();
+    let (first, map) = read(&out);
+    let opening = "<script type=\"importmap\">";
+    let start = first.find(opening).unwrap() + opening.len();
+    let end = start + first[start..].find("</script>").unwrap();
+    let hash = crate::importmap::integrity(&first.as_bytes()[start..end]);
+    assert_eq!(
+        built.map_hashes.get(&hash).map(Vec::as_slice),
+        Some(["/index.html".to_string()].as_slice()),
+        "{:?}",
+        built.map_hashes
+    );
+    for file in [
+        "src/main.js",
+        "src/two.js",
+        "src/kept.js",
+        "src/lazy.js",
+        "src/inline.js",
+        "about/about.js",
+    ] {
+        assert_eq!(
+            map.imports.get(&format!("/{file}")),
+            Some(&format!("/{file}?v={}", hash_of(&out, file))),
+            "{file}: {first}"
+        );
+    }
+    assert!(
+        map.imports
+            .iter()
+            .any(|(url, address)| url.starts_with("/src/data.json")
+                && address.starts_with(&format!("{url}?v="))),
+        "the module written for an imported file: {first}"
+    );
+    assert!(!map.imports.contains_key("/worker.js"), "{first}");
+    assert_eq!(
+        map.imports.get("/src/mine.js").map(String::as_str),
+        Some("/elsewhere/mine.js")
+    );
+    assert!(map.integrity.is_empty(), "{first}");
+    assert!(
+        first.contains(&format!(
+            "src=\"/src/main.js?v={}\"",
+            hash_of(&out, "src/main.js")
+        )),
+        "{first}"
+    );
+    assert!(
+        first.contains(&format!(
+            "href=\"/src/two.js?v={}\"",
+            hash_of(&out, "src/two.js")
+        )),
+        "{first}"
+    );
+    assert!(
+        first.contains(&format!(
+            "href=\"/src/styles.css?v={}\"",
+            hash_of(&out, "src/styles.css")
+        )),
+        "{first}"
+    );
+    assert!(first.contains("href=\"/src/kept.css?v=mine\""), "{first}");
+    assert!(
+        !first.contains("href=\"/src/lazy.js"),
+        "a lazy module stays unpreloaded: {first}"
+    );
+    let about = fs::read_to_string(out.join("about/index.html")).unwrap();
+    assert!(
+        about.contains(&format!(
+            "src=\"about.js?v={}\"",
+            hash_of(&out, "about/about.js")
+        )),
+        "{about}"
+    );
+
+    fs::write(root.join("src/two.ts"), "export const two: number = 22;\n").unwrap();
+    let (out, again, _) = build(&root, Path::new("dist"), false, false).unwrap();
+    assert!(
+        !again.map_hashes.contains_key(&hash),
+        "the map's text follows the modules"
+    );
+    let (_, after) = read(&out);
+    assert_ne!(
+        after.imports.get("/src/two.js"),
+        map.imports.get("/src/two.js")
+    );
+    assert_eq!(
+        after.imports.get("/src/main.js"),
+        map.imports.get("/src/main.js")
+    );
+    assert_eq!(
+        after.imports.get("/src/kept.js"),
+        map.imports.get("/src/kept.js")
+    );
     let _ = fs::remove_dir_all(&root);
 }

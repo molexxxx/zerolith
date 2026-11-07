@@ -3,6 +3,7 @@
 use super::hosts::host_allowed;
 use super::live::inject_client;
 use super::paths::{Fallback, display, percent_decode, resolve, resolve_with, workspace_uuid};
+use super::{check_preview_folder, preview_note};
 use std::fs;
 use std::path::Path;
 
@@ -593,4 +594,26 @@ mod served {
         assert!(posted_file.starts_with("HTTP/1.1 405"), "{posted_file}");
         let _ = std::fs::remove_dir_all(&root);
     }
+}
+
+#[test]
+fn says_what_to_do_about_a_folder_preview_cannot_serve() {
+    let root = std::env::temp_dir().join(format!(
+        "zerolith-preview-folder-test-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&root);
+    let script_only = root.join("script-only");
+    fs::create_dir_all(&script_only).unwrap();
+    fs::write(root.join("index.html"), "<html></html>").unwrap();
+    let missing = root.join("no-such-folder");
+    let error = check_preview_folder(&missing).unwrap_err().to_string();
+    assert!(
+        error.contains("no-such-folder") && error.contains("zerolith build"),
+        "{error}"
+    );
+    assert_eq!(check_preview_folder(&root).unwrap(), ());
+    assert_eq!(preview_note(&root), None);
+    assert!(preview_note(&script_only).is_some_and(|note| note.contains("--entry")));
+    let _ = fs::remove_dir_all(&root);
 }

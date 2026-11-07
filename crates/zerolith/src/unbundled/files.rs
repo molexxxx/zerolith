@@ -100,6 +100,7 @@ pub(super) fn walk(
                 .and_then(|code| prepared(code, prepare_templates))
                 .map_err(|error| io::Error::other(format!("{}: {error}", relative.display())))?;
             fs::write(target.with_extension("js"), code)?;
+            built.own_modules.push(target.with_extension("js"));
             built.modules += 1;
             built.transformed += 1;
         } else if extension == "js" || extension == "mjs" {
@@ -110,6 +111,7 @@ pub(super) fn walk(
                 .and_then(|code| prepared(code, prepare_templates))
                 .map_err(|error| io::Error::other(format!("{}: {error}", relative.display())))?;
             fs::write(&target, code)?;
+            built.own_modules.push(target.clone());
             built.modules += 1;
         } else if extension == "html" || extension == "htm" {
             claim(built, &target)?;
