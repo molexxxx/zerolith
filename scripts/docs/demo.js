@@ -15,9 +15,9 @@ import { batch, computed, effect, html, signal } from "zerolith";
 const ORBIT = 100;
 const CLIMB = 2;
 const BURN = 2.4;
-const RUNNING = new Set(["countdown", "flight"]);
+const RUNNING = new Set(["Countdown", "Flight"]);
 
-const stage = signal("ready");
+const stage = signal("Ready");
 const countdown = signal(3);
 const altitude = signal(0);
 const fuel = signal(100);
@@ -26,35 +26,28 @@ const throttle = signal(70);
 const live = computed(() => RUNNING.has(stage.get()));
 const action = computed(() => (live.get() ? "Abort" : "Launch"));
 
-const labels = new Map([
-    ["ready", "Ready"],
-    ["orbit", "In orbit"],
-    ["empty", "Out of fuel"],
-    ["aborted", "Aborted"]
-]);
-
 const readout = computed(() =>
 {
     const current = stage.get();
-    if (current === "countdown")
+    if (current === "Countdown")
     {
         return `T-${countdown.get().toFixed(1)}`;
     }
-    if (current === "flight")
+    if (current === "Flight")
     {
         return `${Math.round(altitude.get())} km`;
     }
-    return labels.get(current);
+    return current;
 });
 
 function tick()
 {
-    if (stage.get() === "countdown")
+    if (stage.get() === "Countdown")
     {
         countdown.set(Math.max(0, countdown.get() - 0.1));
         if (countdown.get() === 0)
         {
-            stage.set("flight");
+            stage.set("Flight");
         }
         return;
     }
@@ -63,31 +56,29 @@ function tick()
     fuel.set(Math.max(0, fuel.get() - BURN * power ** 2));
     if (altitude.get() === ORBIT)
     {
-        stage.set("orbit");
+        stage.set("In orbit");
     }
     else if (fuel.get() === 0)
     {
-        stage.set("empty");
+        stage.set("Out of fuel");
     }
-}
-
-function fly()
-{
-    countdown.set(3);
-    altitude.set(0);
-    fuel.set(100);
-    const clock = setInterval(tick, 100);
-    return () => clearInterval(clock);
-}
-
-function press()
-{
-    stage.set(live.get() ? "aborted" : "countdown");
 }
 
 function LaunchControl()
 {
-    effect(() => (live.get() ? fly() : undefined));
+    effect(() =>
+    {
+        if (!live.get())
+        {
+            return undefined;
+        }
+        countdown.set(3);
+        altitude.set(0);
+        fuel.set(100);
+        const clock = setInterval(tick, 100);
+        return () => clearInterval(clock);
+    });
+    const press = () => stage.set(live.get() ? "Aborted" : "Countdown");
     /** @param {{ target: HTMLInputElement }} event */
     const steer = (event) => throttle.set(Number(event.target.value));
     return html`
@@ -126,7 +117,7 @@ export function reset()
 {
     batch(() =>
     {
-        stage.set("ready");
+        stage.set("Ready");
         countdown.set(3);
         altitude.set(0);
         fuel.set(100);
@@ -143,7 +134,7 @@ export function Figure()
 {
     return html`
         <div class="output">${counted()}</div>
-        <p class="cue">Press Launch: the text nodes change, and LaunchControl() still runs only once.</p>
+        <p class="cue">The page called LaunchControl() once to draw this panel. Press Launch: from here, each change updates only the text it touches.</p>
         <dl class="readout">
             <div><dt>Text nodes changed</dt><dd>${textNodes}</dd></div>
             <div><dt>Attributes changed</dt><dd>${attributes}</dd></div>
@@ -224,6 +215,7 @@ export function watch(host)
     let changed = new Set();
     let scheduled = false;
     let before = stage.get();
+    const hold = { name: "", until: 0 };
     const schedule = () =>
     {
         if (!scheduled)
@@ -234,7 +226,12 @@ export function watch(host)
                 scheduled = false;
                 const seen = changed;
                 changed = new Set();
+                const wait = follow(figure?.querySelector(".code pre") ?? null, seen, before, hold);
                 draw(flow, figure, seen, before);
+                if (still?.matches === false)
+                {
+                    flash(figure, ran(seen, before), wait);
+                }
                 before = stage.get();
             });
         }
@@ -258,29 +255,11 @@ export function watch(host)
     const reads = figure?.querySelectorAll("[data-edge=\"throttle>clock\"]") ?? [];
     stops.push(effect(() =>
     {
-        const reading = stage.get() === "flight";
+        const reading = stage.get() === "Flight";
         for (const edge of reads)
         {
             edge.toggleAttribute("data-reading", reading);
         }
-    }));
-    const tickLines = figure?.querySelectorAll("[data-run=\"tick\"]") ?? [];
-    const pane = figure?.querySelector(".code pre");
-    let ran = false;
-    stops.push(effect(() =>
-    {
-        const running = live.get();
-        for (const line of tickLines)
-        {
-            line.toggleAttribute("data-running", running);
-        }
-        const [first] = tickLines;
-        if (running && !ran && pane instanceof HTMLElement && first !== undefined)
-        {
-            const top = first.getBoundingClientRect().top - pane.getBoundingClientRect().top + pane.scrollTop - pane.clientHeight / 3;
-            pane.scrollTo({ top: Math.max(0, top), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-        }
-        ran = running;
     }));
     /**
      * Records the click before the button's handler runs, in the capture
@@ -308,6 +287,11 @@ export function watch(host)
             schedule();
         }
     };
+    const pane = figure?.querySelector(".code pre");
+    for (const type of ["focusin", "wheel", "pointerdown"])
+    {
+        pane?.addEventListener(type, stopGlide, { passive: true });
+    }
     output.addEventListener("click", pressed, { capture: true });
     output.addEventListener("input", steered, { capture: true });
     output.addEventListener("click", settle);
@@ -382,6 +366,11 @@ export function watch(host)
     return () =>
     {
         observer.disconnect();
+        for (const type of ["focusin", "wheel", "pointerdown"])
+        {
+            pane?.removeEventListener(type, stopGlide);
+        }
+        stopGlide();
         output.removeEventListener("click", pressed, { capture: true });
         output.removeEventListener("input", steered, { capture: true });
         output.removeEventListener("click", settle);
@@ -439,13 +428,11 @@ function draw(flow, figure, seen, before)
     {
         node("press");
         edge("press", "stage");
-        flash(figure, "press");
     }
     if (seen.has("steer"))
     {
         node("steer");
         edge("steer", "throttle");
-        flash(figure, "steer");
     }
     if (seen.has("stage"))
     {
@@ -462,7 +449,6 @@ function draw(flow, figure, seen, before)
         node("live");
         edge("live", "clock");
         node("clock");
-        flash(figure, "clock");
     }
     const written = ["countdown", "altitude", "fuel"].filter((name) => seen.has(name));
     for (const name of written)
@@ -486,7 +472,7 @@ function draw(flow, figure, seen, before)
     }
     if (seen.has("readout"))
     {
-        const read = { stage: true, countdown: before === "countdown" || current === "countdown", altitude: before === "flight" || current === "flight" };
+        const read = { stage: true, countdown: before === "Countdown" || current === "Countdown", altitude: before === "Flight" || current === "Flight" };
         for (const source of /** @type {const} */ (["stage", "countdown", "altitude"]))
         {
             if (seen.has(source) && read[source])
@@ -617,16 +603,186 @@ function travel(edge, id, delay)
 }
 
 /**
- * Flashes the lines of the figure's code that a change ran.
- * @param {Element | null} figure
- * @param {string} name
+ * The blocks of the figure's code that one round of changes ran: the
+ * handler the reader used; the derived values and the clock's effect when
+ * the stage turns live or still; the half of the tick the stage the round
+ * began in runs; and the branch of the readout the stage is in now.
+ * @param {Set<string>} seen
+ * @param {string} before the stage when the round began
+ * @returns {string[]}
  */
-function flash(figure, name)
+function ran(seen, before)
 {
-    for (const line of figure?.querySelectorAll(`[data-run="${name}"]`) ?? [])
+    const blocks = [];
+    const clicked = seen.has("press");
+    if (clicked)
     {
-        const shade = getComputedStyle(line).getPropertyValue("--zl-code-selection");
-        line.animate([{ backgroundColor: shade, offset: 0 }, { backgroundColor: shade, offset: 0.3 }], { duration: 900, easing: "ease-out" });
+        blocks.push("press");
+    }
+    if (seen.has("steer"))
+    {
+        blocks.push("steer");
+    }
+    if (seen.has("live"))
+    {
+        blocks.push("live", "action", "clock");
+    }
+    const ticked = !clicked && !(seen.has("live") && live.get()) && ["countdown", "altitude", "fuel"].some((name) => seen.has(name));
+    if (ticked)
+    {
+        blocks.push(before === "Countdown" ? "tick-countdown" : "tick-flight");
+    }
+    if (seen.has("readout"))
+    {
+        const current = stage.get();
+        blocks.push(current === "Countdown" ? "readout-countdown" : current === "Flight" ? "readout-flight" : "readout-rest");
+    }
+    return blocks;
+}
+
+/**
+ * The stretch of the figure's code to show for a round: the clock's effect
+ * and the handlers when the stage turns live or still or the reader clicks,
+ * the slider's handler when the reader steers, the readout's countdown
+ * branch with the tick's countdown half while counting down, and the tick's
+ * flight half while flying.
+ * @param {Set<string>} seen
+ * @param {string} before
+ * @returns {string[]}
+ */
+function view(seen, before)
+{
+    if (seen.has("press") || seen.has("live"))
+    {
+        return ["clock", "press"];
+    }
+    if (seen.has("steer"))
+    {
+        return ["steer"];
+    }
+    if (before === "Countdown")
+    {
+        return ["readout-countdown", "tick-countdown"];
+    }
+    if (before === "Flight")
+    {
+        return ["tick-flight"];
+    }
+    return [];
+}
+
+/**
+ * Brings the stretch of code a round ran into view in the figure's code
+ * pane, so the reader sees each phase as the run goes: the launch, the
+ * countdown, the flight, and the landing. A stretch is centered, or its top
+ * shown when it is taller than the pane, in one glide when the stretch
+ * changes; a stretch already in view stays put; a stretch the clock brought
+ * into view holds for 1.2 s so its pulse is seen, though the reader's own
+ * click or throttle move is shown at once; and the pane is left alone while
+ * the reader is in it.
+ * @param {Element | null} pane
+ * @param {Set<string>} seen
+ * @param {string} before
+ * @param {{ name: string, until: number }} hold
+ * @returns {number} how long the glide it started takes, so the pulse can wait for it
+ */
+function follow(pane, seen, before, hold)
+{
+    if (!(pane instanceof HTMLElement) || pane.matches(":focus-within"))
+    {
+        return 0;
+    }
+    const blocks = view(seen, before);
+    const name = blocks.join(" ");
+    const now = performance.now();
+    const acted = seen.has("press") || seen.has("steer");
+    if (name === "" || name === hold.name || (now < hold.until && !acted))
+    {
+        return 0;
+    }
+    hold.name = name;
+    hold.until = now + 1200;
+    const lines = blocks.flatMap((block) => Array.from(pane.querySelectorAll(`[data-run~="${block}"]`), (line) => line.getBoundingClientRect()));
+    if (lines.length === 0)
+    {
+        return 0;
+    }
+    const box = pane.getBoundingClientRect();
+    const top = Math.min(...lines.map((rect) => rect.top)) - box.top + pane.scrollTop;
+    const bottom = Math.max(...lines.map((rect) => rect.bottom)) - box.top + pane.scrollTop;
+    if (top >= pane.scrollTop && bottom <= pane.scrollTop + pane.clientHeight)
+    {
+        return 0;
+    }
+    const room = pane.clientHeight - (bottom - top);
+    const target = Math.max(0, room > 0 ? top - room / 2 : top);
+    if (still?.matches === false)
+    {
+        glide(pane, target);
+        return 500;
+    }
+    pane.scrollTop = target;
+    return 0;
+}
+
+/** The frame of the code pane's glide in flight, so a new glide replaces it and the reader can stop it. */
+let gliding = 0;
+
+/** Stops the code pane's glide, when the reader clicks, scrolls, or tabs into the pane. */
+function stopGlide()
+{
+    cancelAnimationFrame(gliding);
+}
+
+/**
+ * Scrolls the code pane to `top` over half a second, easing in and out. It
+ * steps the scroll itself, frame by frame, because the browser drops its own
+ * smooth scroll while the figure updates the page ten times a second.
+ * @param {HTMLElement} pane
+ * @param {number} top
+ */
+function glide(pane, top)
+{
+    cancelAnimationFrame(gliding);
+    const from = pane.scrollTop;
+    const start = performance.now();
+    /** @param {number} now */
+    const step = (now) =>
+    {
+        const progress = Math.min(1, (now - start) / 500);
+        const eased = progress < 0.5 ? 4 * progress ** 3 : 1 - (2 - 2 * progress) ** 3 / 2;
+        pane.scrollTop = from + (top - from) * eased;
+        if (progress < 1)
+        {
+            gliding = requestAnimationFrame(step);
+        }
+    };
+    gliding = requestAnimationFrame(step);
+}
+
+/**
+ * Pulses the lines of the figure's code that a round ran: a faint wash of
+ * the accent color that fades within 600 ms, so a stretch the clock runs ten
+ * times a second glows while it runs and settles when it stops. The pulse
+ * waits for a glide that is bringing its lines into view.
+ * @param {Element | null} figure
+ * @param {string[]} blocks
+ * @param {number} delay
+ */
+function flash(figure, blocks, delay)
+{
+    if (figure === null || blocks.length === 0)
+    {
+        return;
+    }
+    const accent = getComputedStyle(figure).getPropertyValue("--zl-accent-text");
+    const wash = `color-mix(in srgb, ${accent} 12%, transparent)`;
+    for (const block of blocks)
+    {
+        for (const line of figure.querySelectorAll(`[data-run~="${block}"]`))
+        {
+            line.animate([{ backgroundColor: wash }, { backgroundColor: "transparent" }], { duration: 600, delay, easing: "ease-out", fill: "backwards" });
+        }
     }
 }
 

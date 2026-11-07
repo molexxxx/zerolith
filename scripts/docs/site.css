@@ -1740,11 +1740,6 @@ main[tabindex="-1"]:focus
     overflow: auto;
 }
 
-.figure .line[data-running]
-{
-    box-shadow: inset 3px 0 0 var(--zl-accent-text);
-}
-
 .run
 {
     display: contents;

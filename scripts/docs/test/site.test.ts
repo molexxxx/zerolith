@@ -198,11 +198,9 @@ describe("documentation site", () =>
         await page.click(".run .output button");
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.startsWith("T-") === true);
         expect(await page.textContent(".run .output button")).toBe("Abort");
-        await page.waitForFunction(() => document.querySelector("[data-run=\"tick\"]")?.hasAttribute("data-running") === true);
         await page.click(".run .output button");
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Aborted");
         expect(await page.textContent(".run .output button")).toBe("Launch");
-        expect(await page.locator("[data-run=\"tick\"][data-running]").count()).toBe(0);
         await page.click(".run .output button");
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.startsWith("T-") === true);
         const [texts, , created, calls] = await readout();
@@ -954,6 +952,40 @@ describe("documentation site", () =>
         }
         expect(foreign).toEqual([]);
         expect(await page.context().cookies()).toEqual([]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("follows the code that runs in the home figure's code pane, and leaves the pane alone while the reader is in it", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        await page.setViewportSize({ width: 1440, height: 900 });
+        const pane = page.locator(".figure .code pre");
+        const shown = (block: string) => pane.evaluate((element, name) =>
+        {
+            const box = element.getBoundingClientRect();
+            const lines = Array.from(element.querySelectorAll(`[data-run~="${name}"]`), (line) => line.getBoundingClientRect());
+            const top = lines[0]?.top ?? -Infinity;
+            const bottom = lines.at(-1)?.bottom ?? Infinity;
+            return top >= box.top - 1 && (bottom <= box.bottom + 1 || bottom - top > element.clientHeight);
+        }, block);
+        expect(await shown("clock")).toBe(false);
+        await page.click(".run .output button");
+        await expect.poll(() => shown("clock")).toBe(true);
+        await expect.poll(async () => (await shown("readout-countdown")) && (await shown("tick-countdown")), { timeout: 5000 }).toBe(true);
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.endsWith("km") === true, null, { timeout: 10000 });
+        await expect.poll(() => shown("tick-flight"), { timeout: 5000 }).toBe(true);
+        await page.click(".run .output button");
+        await expect.poll(() => shown("press")).toBe(true);
+
+        await pane.focus();
+        await pane.evaluate((element) =>
+        {
+            element.scrollTop = 0;
+        });
+        await page.$eval(".run .output button", (button) => (button as HTMLButtonElement).click());
+        await page.waitForTimeout(1500);
+        expect(await pane.evaluate((element) => element.scrollTop)).toBe(0);
         expect(errors).toEqual([]);
         await page.close();
     });

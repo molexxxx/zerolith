@@ -657,8 +657,8 @@ async function figureCode(): Promise<string>
         throw new Error(`${path}: the figure's template no longer binds ${missing.join(", ")}`);
     }
     const source = code.split("\n");
-    const runs = new Map<number, string>();
-    const mark = (name: string, opens: (line: string) => boolean, closes: (line: string) => boolean) =>
+    const runs = new Map<number, string[]>();
+    const mark = (name: string, opens: (line: string) => boolean, closes: (line: string) => boolean, through = 0) =>
     {
         const first = source.findIndex(opens);
         const last = first === -1 ? -1 : source.findIndex((line, index) => index >= first && closes(line));
@@ -666,22 +666,31 @@ async function figureCode(): Promise<string>
         {
             throw new Error(`${path}: the figure's code no longer holds ${name}, which the page animates`);
         }
-        for (let index = first; index <= last; index++)
+        for (let index = first; index <= last + through; index++)
         {
-            runs.set(index, name);
+            runs.set(index, [...(runs.get(index) ?? []), name]);
         }
     };
-    mark("tick", (line) => line === "function tick()", (line) => line === "}");
-    mark("press", (line) => line === "function press()", (line) => line === "}");
-    mark("clock", (line) => line === "function fly()", (line) => line === "}");
-    mark("steer", (line) => line.startsWith("    const steer = "), () => true);
+    const single = (name: string, start: string) => mark(name, (text) => text.startsWith(start), () => true);
+    single("live", "const live = ");
+    single("action", "const action = ");
+    mark("readout", (text) => text === "const readout = computed(() =>", (text) => text === "});");
+    mark("readout-countdown", (text) => text === "    if (current === \"Countdown\")", (text) => text === "    }");
+    mark("readout-flight", (text) => text === "    if (current === \"Flight\")", (text) => text === "    }");
+    single("readout-rest", "    return current;");
+    mark("tick", (text) => text === "function tick()", (text) => text === "}");
+    mark("tick-countdown", (text) => text === "    if (stage.get() === \"Countdown\")", (text) => text === "    }");
+    mark("tick-flight", (text) => text.startsWith("    const power = "), (text) => text === "}", -1);
+    mark("clock", (text) => text === "    effect(() =>", (text) => text === "    });");
+    single("press", "    const press = ");
+    single("steer", "    const steer = ");
     return html
         .split("\n")
         .map((line, index) =>
         {
             const indent = /^ */.exec(line)?.[0].length ?? 0;
             const run = runs.get(index);
-            return `<span class="line"${run === undefined ? "" : ` data-run="${run}"`} style="--indent: ${indent}ch">${line.slice(indent)}</span>`;
+            return `<span class="line"${run === undefined ? "" : ` data-run="${run.join(" ")}"`} style="--indent: ${indent}ch">${line.slice(indent)}</span>`;
         })
         .join("");
 }
