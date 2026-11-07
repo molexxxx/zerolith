@@ -330,8 +330,9 @@ export function createRouter<const T extends RouteTable>(routes: T | (() => T), 
      * the route and its head before the URL changes, then commits. A failure
      * at any step clears `pending` and ends in an `error` event. A navigation
      * to the path and query shown keeps the page, and so does a `shallow` one
-     * to the path shown; the entry either adds carries the page's key, so
-     * back and forward to it keep the page too.
+     * to the path shown, which also stays where it is scrolled; the entry
+     * either adds carries the page's key, so back and forward to it keep the
+     * page too.
      */
     const go = async (target: URL, mode: "push" | "replace" | "pop", restored?: number, first = false, reload = false, moved = 0, shallow = false): Promise<void> =>
     {
@@ -355,7 +356,7 @@ export function createRouter<const T extends RouteTable>(routes: T | (() => T), 
                 win.history.replaceState({ ...entryState(), position, page: pageKey }, "", target.href);
             }
             url.set(target);
-            scrollTo(target, mode === "pop" && target.hash === "" ? restored : undefined);
+            scrollTo(target, mode === "pop" && target.hash === "" ? restored : undefined, !shallow);
             options.observe?.({ type: "commit", id: run, url: target, mode, name: current.get()?.name });
             return;
         }

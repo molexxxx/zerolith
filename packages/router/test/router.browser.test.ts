@@ -248,6 +248,37 @@ describe("router", () =>
         expect(document.querySelector("meta[name=\"description\"]")).toBeNull();
     });
 
+    it("stays where the page is scrolled through a shallow navigation, unless its URL names a hash", async () =>
+    {
+        history.replaceState(null, "", "/");
+        const pages = defineRoutes({
+            home: route({ path: "/", view: () => html`<h1>Home</h1>` }),
+            releases: route({ path: "/releases", view: () => html`<h2 id="notes">Notes</h2>` })
+        });
+        router = createRouter(pages, { window });
+        await settled(router);
+        mount(html`<main>${router.outlet()}</main>`);
+        await router.navigate("/releases");
+        const scrolled = vi.spyOn(window, "scrollTo");
+        const moved = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => undefined);
+        try
+        {
+            await router.navigate("/releases?q=draft", { replace: true, shallow: true });
+            await router.navigate("/releases?q=photo", { shallow: true });
+            expect(scrolled).not.toHaveBeenCalled();
+            expect(moved).not.toHaveBeenCalled();
+            await router.navigate("/releases?q=photo#notes", { shallow: true });
+            expect(moved).toHaveBeenCalledOnce();
+            await router.navigate("/releases?q=photo");
+            expect(scrolled).toHaveBeenCalledWith(0, 0);
+        }
+        finally
+        {
+            scrolled.mockRestore();
+            moved.mockRestore();
+        }
+    });
+
     it("keeps the page and its focused field through a shallow navigation that changes the query, and through back and forward between such entries", async () =>
     {
         history.replaceState(null, "", "/");
