@@ -778,6 +778,49 @@ describe("documentation site", () =>
         await page.close();
     });
 
+    it("lists every tutorial as a row on one line, with its step count and the first one marked", { timeout: 60000 }, async () =>
+    {
+        const expected = [
+            ["/learn/packing-list/", "Packing list", 10, true],
+            ["/learn/sign-up-form/", "Sign-up form", 8, false],
+            ["/learn/release-notes/", "Release notes reader", 8, false],
+            ["/learn/widget/", "Widget for any backend", 9, false]
+        ] as const;
+        for (const device of [{ viewport: { width: 1440, height: 900 } }, { viewport: { width: 360, height: 800 } }])
+        {
+            const { page, errors } = await open("/learn/", device);
+            const rows = await page.locator(".tracks a").evaluateAll((anchors) => anchors.map((anchor) =>
+            {
+                const name = anchor.querySelector(".name") as HTMLElement;
+                const meta = anchor.querySelector(".meta") as HTMLElement;
+                return {
+                    href: anchor.getAttribute("href"),
+                    name: name.textContent,
+                    meta: meta.textContent,
+                    text: anchor.querySelector(".text")?.textContent,
+                    first: anchor.querySelector(".begin") !== null,
+                    nameLines: Math.round(name.getBoundingClientRect().height / parseFloat(getComputedStyle(name).lineHeight)),
+                    metaLines: Math.round(meta.getBoundingClientRect().height / parseFloat(getComputedStyle(meta).lineHeight)),
+                    ruleTop: getComputedStyle(anchor.querySelector(".begin") ?? meta).borderTopStyle,
+                    inList: anchor.closest("li")?.getBoundingClientRect().width === anchor.closest("ol")?.getBoundingClientRect().width
+                };
+            }));
+            expect(rows.map((row) => [row.href, row.name, parseInt((row.meta ?? "").replace("Start here", ""), 10), row.first])).toEqual(expected);
+            for (const row of rows)
+            {
+                expect(row.nameLines).toBe(1);
+                expect(row.metaLines).toBe(1);
+                expect(row.ruleTop).toBe("none");
+                expect(row.inList).toBe(true);
+                expect(row.text?.charAt(0)).toBe(row.text?.charAt(0).toUpperCase());
+                expect(row.text).not.toContain("Start here");
+            }
+            expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+            expect(errors).toEqual([]);
+            await page.close();
+        }
+    });
+
     it("links each tutorial step to the next, and the last into the guide", { timeout: 60000 }, async () =>
     {
         const first = await readFile(join(site, "learn", "index.html"), "utf8");
@@ -1183,7 +1226,7 @@ describe("documentation site", () =>
             }
         });
         await page.addInitScript(() => localStorage.setItem("zerolith-docs-theme", "dark"));
-        for (const pattern of ["**/fonts.css*", "**/styles.css*", "**/theme.js*"])
+        for (const pattern of ["**/fonts.css*", "**/styles.css*", "**/theme.js*", "**/island.js*", "**/search.js*", "**/zerolith/render.js*", "**/router/router.js*"])
         {
             await page.route(pattern, async (route) =>
             {

@@ -14,6 +14,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Changed
 
+- Docs site: /learn/ lists the tutorials as ruled rows with each one's name, line, and number of steps, and each tutorial has a folder, a sidebar, and a pager of its own. The packing list moved to /learn/packing-list/, and each of its old step addresses redirects to the new one.
 - Docs: the tutorial's undo step passes `validate` to `stored` with the `isItem` check from the step before, so a saved value that is not a list of items takes the starting items there too.
 
 ### Fixed

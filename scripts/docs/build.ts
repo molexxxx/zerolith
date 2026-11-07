@@ -498,6 +498,35 @@ async function collectLearn(): Promise<Page[]>
     return [picker, ...tracks.toSorted((a, b) => first(a) - first(b)).flat()];
 }
 
+const arrowIcon = icon("arrow-right");
+
+/**
+ * The list of tutorials on /learn/ as the site's ruled index: one row per
+ * tutorial, the whole row its link, with the tutorial's name in the display
+ * face, its line from the list in docs/learn/index.md, and how many steps it
+ * has. A line that ends "Start here." marks its row instead. The Markdown
+ * keeps the plain list, which is how GitHub and the Markdown twin show it.
+ */
+function trackRows(content: string, pages: Page[]): string
+{
+    return content.replace(/<ul>([\s\S]*?)<\/ul>/, (_, items: string) =>
+    {
+        const rows = Array.from(items.matchAll(/<li><a href="(\/learn\/([a-z0-9-]+)\/)">([^<]+)<\/a>: ([^<]+)<\/li>/g), ([, href, track, name, line]) =>
+        {
+            const introduction = pages.find((page) => page.path === href);
+            if (introduction === undefined)
+            {
+                throw new Error(`docs/learn/index.md lists ${track ?? ""}, which has no tutorial folder`);
+            }
+            const steps = trackOf(introduction, pages).length - 1;
+            const start = (line ?? "").endsWith(" Start here.");
+            const text = (line ?? "").replace(/ Start here\.$/, "");
+            return `<li><a href="${href ?? ""}"><span class="name">${name ?? ""}</span><span class="meta">${start ? "<span class=\"begin\">Start here</span>" : ""}${steps} steps</span><span class="text">${text.charAt(0).toUpperCase()}${text.slice(1)}</span>${arrowIcon}</a></li>`;
+        });
+        return `<ol class="index tracks">${rows.join("")}</ol>`;
+    });
+}
+
 /** The pages of the tutorial `page` belongs to, in reading order, its introduction first. */
 function trackOf(page: Page, pages: Page[]): Page[]
 {
@@ -1038,7 +1067,8 @@ if (tooLong.length > 0)
 
 await Promise.all(pages.map(async (page) =>
 {
-    const content = await marked.parse(page.markdown);
+    const parsed = await marked.parse(page.markdown);
+    const content = page.path === "/learn/" ? trackRows(parsed, pages) : parsed;
     const pager = pagerOf(page, pages);
     await publish({
         ...shared,
