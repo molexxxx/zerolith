@@ -6,12 +6,19 @@ order: 3
 
 # Build a release notes reader
 
-You build a reader for the release notes of Driftwood, a made-up journaling app: a list of releases, a page for each, dates in the reader's language, and a search that stays in the URL. The releases come from a JSON file, so several steps cover loading: what the page shows while it waits, when the request fails, and how it tries again.
+You'll build a reader for the release notes of Driftwood, a made-up journaling app. It has:
+
+- a list of releases
+- a page for each release
+- dates in the reader's own language
+- a search that stays in the address, so you can reload it or share it
+
+The releases come from a JSON file. So several steps cover loading data: what the page shows while it waits, what happens when the request fails, and how it tries again.
 
 ## What you need
 
 - Node 24 or newer.
-- The ideas from the [packing list](../packing-list/index.md): signals, `html` templates, `each`, and `when`.
+- The [packing list](../packing-list/index.md) tutorial, or the same ideas: signals, `html` templates, `each`, and `when`.
 
 ## Start a project
 
@@ -21,7 +28,7 @@ cd release-notes
 npm run dev
 ```
 
-Answer `y` if `npx` asks to download the command line, and leave the server running. The steps change `src/routes.ts`, `src/components/layout.ts`, and `public/`; the packing list describes [the rest of the starter](../packing-list/index.md#what-the-starter-wrote).
+If `npx` asks to download the command line, answer `y`. Leave the server running. The steps change `src/routes.ts`, `src/components/layout.ts`, and `public/`. The packing list explains [the rest of the starter](../packing-list/index.md#what-the-starter-wrote).
 
 ## The steps
 

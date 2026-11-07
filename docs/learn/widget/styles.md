@@ -6,7 +6,10 @@ order: 6
 
 # Styles and theming
 
-The widget has worked unstyled so far, wearing whatever the development page gives it. A widget that goes into other people's pages needs styles of its own that never touch the rest of the page, and a way for each page to fit it to its own look without editing it.
+So far the widget has no styles of its own. It just looks like whatever the development page gives it. A widget that goes on other people's sites needs two things:
+
+- its own styles, which never change the rest of the page
+- a way for each site to match it to its own look, without editing the widget
 
 ## A stylesheet for the widget
 
@@ -14,17 +17,19 @@ Create `src/components/feedback.css`:
 
 @include packages/zerolith/test/fixtures/widget/app/src/components/feedback.css
 
-Then import it in `src/components/feedback.ts`, and bind it to the `div` around the form:
+Then import it in `src/components/feedback.ts`, and apply it to the `div` around the form:
 
 @include packages/zerolith/test/fixtures/widget/app/src/components/feedback.ts
 
-`?scoped` on the import turns the file into a scoped style sheet, and `class=${styles}` applies it: `:scope` is the `div`, and every other rule matches only inside it, so the widget's `button` rule styles the widget's button and no other button on the page. The rules reach the page through the browser's `@scope` rule, once however many widgets the page holds, and in the build they travel inside the widget's script, so a host page loads no stylesheet for it.
+`?scoped` on the import makes the styles apply only inside the widget, and `class=${styles}` applies them. `:scope` means the `div`, and every other rule only matches inside it. So the widget's `button` rule styles the widget's button and no other button on the page.
 
-Send dims while a request runs, through the `aria-disabled` attribute from the sending step, and the panel fits a narrow column, such as a sidebar or a phone.
+The styles are added to the page once, no matter how many widgets it holds. When you build the widget, they travel inside its script, so a site doesn't need to load a stylesheet for it.
 
-## Custom properties for the host page
+The Send button dims while a request is running, through its `aria-disabled` attribute from the sending step. The panel also fits a narrow column, such as a sidebar or a phone screen.
 
-Every color, the border, and the corner radius come from a custom property, with a default after the comma:
+## Settings for the site
+
+Every color, the border, and the corner radius come from a **custom property**, a CSS variable the site can set. Each has a default after the comma:
 
 | Property | Sets | Default |
 | --- | --- | --- |
@@ -35,22 +40,27 @@ Every color, the border, and the corner radius come from a custom property, with
 | `--feedback-border` | The borders of the panel and the comment field | `#6e7781` |
 | `--feedback-radius` | The corners | `0.5rem` |
 
-A custom property is inherited, so a host page sets it on the element or on anything around it, in its own stylesheet, and the widget follows. The page owns its colors without knowing how the widget is built, and a page with a dark theme sets them in its dark rules as well. The defaults keep the text and the button's label at a contrast of at least 4.5 to 1, the level WCAG asks for, and a page that sets its own colors should keep to it too.
+Custom properties pass down from parent to child. So a site sets them on the element, or on anything around it, in its own stylesheet, and the widget follows. A site with a dark theme can set them in its dark styles too.
 
-Theme the development page. Update `src/styles.css`:
+The defaults keep the text readable against its background, at a contrast of at least 4.5 to 1, the level the WCAG accessibility guidelines ask for. A site that sets its own colors should keep to that too.
+
+Give the development page its own theme. Update `src/styles.css`:
 
 @include packages/zerolith/test/fixtures/widget/app/src/styles.css
 
-## What the page's styles reach
+## What the site's styles reach
 
-The widget has no shadow root, so its markup sits in the page's DOM like the page's own: the widget's rules stop at its edge, but the page's rules reach in. Two things follow.
+The widget has no shadow root, so its HTML sits in the page like the page's own. The widget's styles stop at its edge, but the page's styles reach in. That has two effects:
 
-The widget takes the page's font. Text inherits it, and the button and the comment field, which browsers set in a font of their own, take `font: inherit`, so the widget reads as part of the page it is on, with no property to set.
+- **The widget uses the page's font.** Text inherits it. The button and the comment field, which browsers give a font of their own, use `font: inherit`. So the widget looks like part of the site it's on, with nothing to set.
+- **The page's broad rules apply too.** If a site has a rule for every `button` that sets something the widget doesn't, such as `text-transform`, the widget's button changes too. A site that wants the widget left alone can skip it, as in `button:not(feedback-widget button)`.
 
-A page's broad rules apply as well. A page rule for every `button` that sets something the widget leaves alone, such as `text-transform`, changes the widget's button too. A page that wants the widget left alone writes such a rule so it skips the element, as in `button:not(feedback-widget button)`.
+## Try it
+
+The widget now sits in a panel with a border. The development page sets two of the properties: a purple accent, so the Send button is purple, and `--feedback-radius: 0`, so the corners are square. Change `--feedback-accent` in `src/styles.css` and save. The button changes color.
 
 ## What you learned
 
-- A stylesheet imported with `?scoped` and bound with `class` styles the widget and nothing outside it, and ships inside its script.
-- Custom properties with defaults are the theme a host page sets, in its own stylesheet.
-- With no shadow root, the page's font and its broad rules reach the widget; `font: inherit` makes the first one work for the controls too.
+- A stylesheet imported with `?scoped` and applied with `class` styles the widget and nothing else, and ships inside its script.
+- Custom properties with defaults let a site theme the widget from its own stylesheet.
+- Without a shadow root, the page's font and its broad rules reach the widget. `font: inherit` makes the font work for the controls too.

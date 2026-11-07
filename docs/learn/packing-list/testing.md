@@ -6,19 +6,33 @@ order: 9
 
 # Testing
 
-The starter came with a test for its counter, in `test/counter.browser.test.ts`, and `npm test` runs it in a real browser with Vitest. A test for the packing list works the same way: mount the page, act on it the way a person would, and check what changed.
+The starter came with a test for its counter, in `test/counter.browser.test.ts`. `npm test` runs it in a real browser. A test for the packing list works the same way:
+
+1. Put the page on the screen.
+2. Use it the way a person would.
+3. Check what changed.
 
 Create `test/packing.browser.test.ts`:
 
 @include packages/zerolith/test/fixtures/tutorial/app/test/packing.browser.test.ts test
 
-`mount` from `@zerolith/test` renders a view into a container attached to the document and returns it; `cleanup`, registered after each test, removes every mounted view. Bindings and effects run as soon as a signal changes, so a click updates the page at once and the test checks the result on the next line. The starter's counter test awaits `settle()` after each click, which waits for promises and timers to run; this page has none, so it needs no waiting.
+**`mount`** from `@zerolith/test` puts a view on the page for the test. **`cleanup`** runs after each test and removes it.
 
-`beforeEach` puts back the list, the filter, and the undo history, because all three are module state that every test in the file shares, and the list is kept in storage between runs. `changes.dispose()` forgets every checkpoint and leaves the list as it is. Resetting all three at the start of each test makes the tests independent of each other and of what you clicked in the browser.
+A click updates the page right away, so the test can check the result on the next line. The starter's counter test waits with `await settle()` after each click. `settle()` waits for promises and timers, and this page has none, so its tests don't need to wait.
 
-`accessibilityIssues` finds the defects a test can see without an accessibility tree: images without alternative text, form controls without a label, and buttons or links without a name. The remove buttons pass because they have text; their `aria-label` goes further and says which item each one removes, which no test can judge. Delete the `<label>` around a checkbox and the third test fails, naming the control. The [testing guide](../../guide/testing.md) covers the rest of `@zerolith/test`.
+**`beforeEach`** resets three things before each test: the list, the filter, and the undo history. Every test in the file shares them, and the list is also saved in storage. Resetting them means one test can't change the result of the next, and neither can what you clicked in the browser. `changes.dispose()` clears the undo history without touching the list.
 
-Vitest drives a real Chromium through Playwright. On a machine that has not run Playwright before, download the browser once:
+**`accessibilityIssues`** finds problems a test can see in the page's HTML:
+
+- images without alternative text
+- form fields without a label
+- buttons or links without a name
+
+The Remove buttons pass because they have text. Their `aria-label` also says which item each one removes, which a test can't judge for you. Try deleting the `<label>` around a checkbox: the third test fails and names the control. The [testing guide](../../guide/testing.md) covers the rest of `@zerolith/test`.
+
+## Run the tests
+
+The tests run in Chromium. If you've never used Playwright on this computer, download the browser once:
 
 ```sh
 npx playwright install chromium
@@ -30,8 +44,10 @@ Then run the tests:
 npm test
 ```
 
+All the tests should pass.
+
 ## What you learned
 
-- `mount` renders a view for a test and `cleanup` removes it.
-- A click updates the page at once, so a test checks the result directly.
-- `accessibilityIssues` catches unnamed controls and missing labels in every test run.
+- `mount` puts a view on the page for a test, and `cleanup` removes it.
+- A click updates the page right away, so a test can check the result directly.
+- `accessibilityIssues` catches missing labels and unnamed buttons every time the tests run.

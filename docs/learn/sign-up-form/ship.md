@@ -6,7 +6,7 @@ order: 8
 
 # Build and ship
 
-The page is done. What is left is turning it into files a host can serve, and giving those files a backend to talk to.
+The page is done. Now turn it into files a website can serve, and give those files a server to talk to.
 
 ## Build
 
@@ -14,7 +14,7 @@ The page is done. What is left is turning it into files a host can serve, and gi
 npm run build
 ```
 
-`zerolith build` bundles the application with the packages it imports and writes everything to `dist/`. Your `server/` folder is not part of it: nothing in the page imports `server/`, and the page's import of `src/schema.ts` carries only the rules, which is all the browser needs of them.
+`zerolith build` packs the app and the packages it uses into `dist/`. Your `server/` folder isn't part of it, because nothing in the page imports it. The page does import `src/schema.ts`, but only the rules come along, which is all the browser needs.
 
 ## Check it
 
@@ -22,24 +22,35 @@ npm run build
 npm run preview
 ```
 
-`zerolith preview` serves `dist/` the way a static host does, including the fallback that sends a deep link such as `/sign-up` to `index.html`. It also reads the same `proxy` from `zerolith.json`, so it starts the backend with the same `run` command, or uses the one `npm run dev` already runs, and forwards `/api` to it. Open the address it prints and sign up once more, then sign up again with the same address to see the server's message.
+`zerolith preview` serves `dist/` the way a website host would. It also reads the `proxy` setting from `zerolith.json`. So it starts your server with the same `run` command, or uses the one `npm run dev` already started, and sends `/api` to it.
+
+Open the address it prints and sign up again. Then sign up a second time with the same address to see the server's message.
 
 ## Ship it
 
-`dist/` is static files, and any static host or web server can serve it. The one thing that depends on your setup is `/api`. The proxy in `zerolith.json` belongs to `zerolith dev` and `zerolith preview` alone, and a host knows nothing about it, while the form posts to `/api/sign-ups` on the page's own origin. So the backend has to answer on that origin:
+Any static host or web server can serve `dist/`. The one part that depends on your setup is `/api`.
 
-- A web server in front of both, such as nginx, serves `dist/` and forwards `/api` to the backend.
-- The backend serves `dist/` itself, from its own static file handler.
+The proxy in `zerolith.json` only works with `zerolith dev` and `zerolith preview`. A host doesn't know about it. The form sends to `/api/sign-ups` on the page's own address, so the server has to answer there. There are two common ways:
 
-[Building and serving](../../guide/deploying.md) has the setup for each of these, from nginx to Express and ASP.NET Core, along with the caching rules and the fallback every host needs.
+- A web server such as nginx serves `dist/` and forwards `/api` to your server.
+- Your server serves `dist/` itself, along with the API.
 
-`server/main.ts` stays behind. It holds accounts in memory and is there to give the page something to talk to while you build it. What replaces it answers the contract from the [backend step](backend.md), whatever language it is written in, and does what a sign-up needs and this script does not: it keeps accounts in a database, stores a slow hash of each password, refuses passwords from a list of commonly used and leaked ones, limits how often one address or client can try, and sends a message that confirms the email address.
+[Building and serving](../../guide/deploying.md) has the setup for each, from nginx to Express and ASP.NET Core. It also covers caching, and the one setting every host needs.
+
+`server/main.ts` stays behind. It keeps accounts in memory, and it's only there so the page has something to talk to while you build it. A real server answers the same contract from the [backend step](backend.md), in any language, and also does what a sign-up needs:
+
+- keeps accounts in a database
+- stores a slow hash of each password, never the password itself
+- refuses common and leaked passwords
+- limits how often one address or visitor can try
+- sends an email to confirm the address
 
 ## Where to go next
 
-You have built a form that checks what you type, sends with `fetch`, shows a server's messages next to its fields, and works from the keyboard and with a screen reader. From here:
+You've built a form that checks what you type, sends without leaving the page, shows the server's messages next to the right fields, and works with the keyboard and with a screen reader. From here:
 
-- The [forms guide](../../guide/forms.md) covers the rest of `@zerolith/forms`: other encodings, redirects, and forms that work before their script loads.
-- The [accessibility guide](../../guide/accessibility.md) covers the other primitives in `@zerolith/a11y`: focus traps, roving tabindex, and media query signals.
-- The [fullstack example](https://github.com/molexxxx/zerolith/tree/main/examples/fullstack) puts a form like this one inside an application with sessions and live updates. `zerolith new my-app --example fullstack` starts a project of your own from it.
-- The [reference](https://zerolith.dev/reference/zerolith-forms/) lists every export of `@zerolith/forms` with its documentation.
+- The next tutorial, [a release notes reader](../release-notes/index.md), loads data, gives each release its own page, and keeps a search in the address.
+- The [forms guide](../../guide/forms.md) covers the rest of `@zerolith/forms`, including forms that work before their script loads.
+- The [accessibility guide](../../guide/accessibility.md) covers the rest of `@zerolith/a11y`, such as keeping the focus inside a dialog.
+- The [fullstack example](https://github.com/molexxxx/zerolith/tree/main/examples/fullstack) puts a form like this one in a full app with sign-in and live updates. `npx @zerolith/cli new my-app --example fullstack` starts your own project from it.
+- The [reference](https://zerolith.dev/reference/zerolith-forms/) lists everything `@zerolith/forms` exports.

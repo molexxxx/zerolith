@@ -6,11 +6,13 @@ order: 8
 
 # Build one script
 
-A host page loads the widget with one script tag, so the build has to produce one file that holds everything: the element, zerolith, the client, and the styles. That tag is written once, on someone else's site, so the file's name has to stay the same from release to release.
+A site adds the widget with one script tag, so the build needs to make one file that holds everything: the element, zerolith, the client, and the styles.
+
+That script tag is written once, on someone else's site. So the file's name has to stay the same from one release to the next.
 
 ## The build
 
-`zerolith build` normally starts from `index.html` and writes a page with hashed files. `--entry` starts from one module instead. In the `scripts` of `package.json`, change `build`:
+`zerolith build` usually starts from `index.html` and writes a whole page, with a code in each file's name. `--entry` starts from one file instead. In the `scripts` section of `package.json`, change `build`:
 
 ```json
 "build": "zerolith build --entry src/main.ts --name feedback-widget",
@@ -24,20 +26,28 @@ npm run build
 
 | File | What it is |
 | --- | --- |
-| `dist/feedback-widget.js` | The widget: your code, zerolith, the client, and the scoped styles |
+| `dist/feedback-widget.js` | The widget: your code, zerolith, the client, and the styles |
 
-That is the whole output. The script imports nothing and loads nothing else, and its name has no hash in it, so a host page's tag keeps working when you release a new version. `index.html` stays the page you develop on, and the build does not write it, so `npm run preview` has no page to serve; the [next step](embed.md) tries the script on a page of its own.
+That's the whole output:
 
-Lazy imports stay in the file too, and the widget's styles are in it because they are scoped. A stylesheet imported without `?scoped` would go to `dist/feedback-widget.css`, with a warning, since a host page would have to link it. [One script](../../guide/command-line.md#one-script) in the command line guide lists the rest.
+- **One file.** It doesn't load anything else, so it's the whole widget.
+- **A name that stays the same.** A site's script tag keeps working when you release a new version.
+- **The styles are inside.** They were imported with `?scoped`. A stylesheet imported without `?scoped` would go to its own file, `dist/feedback-widget.css`, and the build would warn you, because every site would have to load it too.
+
+`index.html` is still the page you develop on, but the build doesn't write it. So `npm run preview` has no page to show. The [next step](embed.md) tries the script on a page of its own. [One script](../../guide/command-line.md#one-script) in the command line guide has the details.
 
 ## Serving it
 
-Publish `feedback-widget.js` wherever host pages can reach it: next to your backend, on a static host, or on a CDN. Its name stays the same, so serve it with `Cache-Control: no-cache`, so that a host page picks up a new release at once. For a page that wants to stay on one release, build a file that never changes, with the version in its name, as `--name feedback-widget-1.4.0`, and cache that one for good.
+Put `feedback-widget.js` somewhere sites can reach it: next to your server, on a static host, or on a CDN.
 
-The file is an ES module, so a host page loads it with `type="module"`. A browser loads a module from another origin only when the response allows it, so a server that hosts the file for other sites sends `Access-Control-Allow-Origin: *` with it. A host page that serves the file itself, from its own origin, needs nothing more. On a host where you cannot set that header, add `--classic` to the build, which writes a plain script that a page loads with `<script src>` from anywhere.
+Its name stays the same, so serve it with `Cache-Control: no-cache`. Then sites get a new release right away. For a site that wants to stay on one release, build a file with the version in its name, such as `--name feedback-widget-1.4.0`. That file never changes, so it can be cached forever.
+
+The file is a JavaScript module, so a site loads it with `<script type="module">`. A browser only loads a module from another site if that server allows it, so the server hosting the file sends `Access-Control-Allow-Origin: *` with it. A site that serves the file from its own address doesn't need that.
+
+If your host doesn't let you set that header, add `--classic` to the build. It writes a plain script that any page can load with `<script src>`, from anywhere.
 
 ## What you learned
 
-- `zerolith build --entry` writes a module and everything it imports as one self-contained script.
-- `--name` gives that file a name a host page can keep.
-- The file is an ES module, loaded with `type="module"`, and from another origin only with `Access-Control-Allow-Origin`; `--classic` writes a plain script that needs neither.
+- `zerolith build --entry` packs one file and everything it uses into one script.
+- `--name` gives that script a name that stays the same.
+- The script is a module, loaded with `type="module"`, and from another site only with `Access-Control-Allow-Origin`. `--classic` writes a plain script that needs neither.

@@ -6,7 +6,14 @@ order: 6
 
 # Search in the URL
 
-Reload the page and the search is gone, since it lives only in the page. A search worth keeping belongs where the browser keeps the rest of the page's place: in the address. `/releases?q=photo` opens the list already searched for `photo`, after a reload, from a bookmark, from a link someone sent you, and when the back button returns from a release.
+Reload the page and your search is gone, because it only lives in the page. A search worth keeping belongs in the address, where the browser keeps the rest of your place.
+
+With the search in the address, `/releases?q=photo` opens the list already searched for "photo":
+
+- after a reload
+- from a bookmark
+- from a link someone sent you
+- when the back button returns from a release
 
 ## The address holds the search
 
@@ -14,22 +21,29 @@ Update `src/components/releases.ts`:
 
 @include packages/zerolith/test/fixtures/release-notes/app/src/components/releases.ts
 
-`query` now starts from the address: `router.url` is a signal of the page's address, and `searchIn` reads `q` from it. That one line covers every way onto the page. A reload, a link, and the back button each build the page from the address they arrive at, so they need no code of their own.
+**`query` now starts from the address.** `router.url` is a signal of the page's address, and `searchIn` reads `q` from it. That one line covers every way to reach the page. A reload, a link, and the back button each open the page at an address, so none of them needs code of its own.
 
-The effect writes the address. It runs when `settled` changes, once you pause, and `keepInAddress` sets `q`, or removes it when the search is empty. It leaves the address alone when it already holds the search, as it does when the page has just opened. `searchParams` writes the search the way addresses write text, a space as `+` and an `&` as `%26`, and reads it back, so any text survives the trip.
+**The effect writes the address.** It runs when `settled` changes, once you pause typing. `keepInAddress` sets `q` to the search, or removes it when the search is empty. If the address already holds the search, as it does when the page has just opened, it leaves it alone.
+
+`searchParams` writes the search the way addresses write text. A space becomes `+` and `&` becomes `%26`, and it reads them back the same way, so any text survives the trip.
 
 ## Keeping the page
 
-`router.navigate` gets two options here.
+`router.navigate` gets two options here:
 
-`shallow: true` keeps the page on the screen. An address with a different query string is normally a different page, which the router loads and renders again, and that would replace the field you are typing in and take the keyboard focus with it. A shallow navigation to the page's own path changes only the address and `router.url`, so the field stays, with your cursor in it, and the page stays where it is scrolled.
+- **`shallow: true`** keeps the page on the screen. Normally, an address with a different `?q=` counts as a different page, and the router builds it again. That would replace the field you're typing in and take away your cursor. A shallow change only updates the address and `router.url`. The field stays, with your cursor in it, and the page doesn't scroll.
+- **`replace: true`** replaces the current history entry instead of adding a new one. The back button then goes to the page before the list, not through every search you typed.
 
-`replace: true` replaces the current history entry rather than adding one, so the back button goes to the page before the list, not through every search you typed.
+## Try it
 
-Search for `photo`, and the address reads `/releases?q=photo` with the cursor still in the field. Reload, and the search and its two releases are still there. Open one of them and press the back button: the list comes back searched. Click Releases in the header: the address loses the search, the field clears, and every release is back. The back button returns the search.
+1. Search for `photo`. The address reads `/releases?q=photo`, and your cursor stays in the field.
+2. Reload. The search and its two releases are still there.
+3. Open one of them and press the back button. The list comes back with the search.
+4. Click **Releases** in the header. The search clears, and every release is back.
+5. Press the back button. The search returns.
 
 ## What you learned
 
 - `router.url` is a signal of the address, so a page can start from what the address holds.
-- `navigate` with `shallow: true` changes the query without building the page again, and `replace: true` changes it without adding a history entry.
-- With the page built from the address, links, reloads, and the back button work with no code of their own.
+- `navigate` with `shallow: true` changes the query without building the page again. `replace: true` changes it without adding a history entry.
+- When the page starts from the address, links, reloads, and the back button work without extra code.

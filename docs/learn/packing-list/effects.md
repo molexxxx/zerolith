@@ -6,9 +6,9 @@ order: 6
 
 # Saving with effects
 
-Reload the page and the list resets, because it lives only in memory. The fix is to read the list from the browser's storage when the app starts and write it back whenever it changes.
+Reload the page and your list is back to the three starting items. That's because the list only lives in memory. In this step you'll save it in the browser's storage and load it again when the app starts.
 
-Writing to storage is a side effect: it reaches outside the page's own state. In zerolith, code that should run whenever some signals change is an `effect`.
+Saving to storage is a **side effect**: it does something outside the page. In zerolith, code that runs whenever some signals change is called an **effect**.
 
 ## Load, then save
 
@@ -16,21 +16,33 @@ Update `src/store.ts`:
 
 @include packages/zerolith/test/fixtures/tutorial/effects/src/store.ts
 
-`stored()` runs once, when the module loads, and gives `items` its starting value: the saved list if there is one, the three starting items if not. Reading storage can throw, in a private window with storage turned off, and what it holds may not be your list at all: text that does not parse, or something another app saved under the same key, since every app you run at the same address while you develop shares one storage. `isItem` checks each entry, so anything that fails to parse, or is not a list of items, falls back to the starting items instead of breaking the page.
+`stored()` runs once, when the app starts. It gives `items` its starting value: the saved list if there is one, or the three starting items if not.
 
-The `effect` runs once right away and then again each time a signal it read changes. It reads `items`, so every `set()` saves the new list. It never reads `filter`, so changing the filter saves nothing. You never list the dependencies by hand: an effect depends on exactly what it read the last time it ran.
+Reading storage can go wrong in a few ways:
+
+- In a private window, storage may be turned off, and reading it throws an error.
+- The saved text might not be valid JSON.
+- Another app might have saved something under the same key. While you develop, every app at the same address shares one storage.
+
+`isItem` checks each saved entry. If anything is wrong, the app uses the starting items instead of breaking.
+
+The `effect` runs once right away. After that, it runs again whenever a signal it read changes. It reads `items`, so every change to the list saves it. It never reads `filter`, so changing the filter saves nothing.
+
+You don't list what an effect depends on. It depends on exactly the signals it read the last time it ran.
 
 ## Where effects belong
 
-An effect at the top of a module, like this one, lasts as long as the page. An effect created inside a component belongs to that component and stops when the component is removed, so a page that closes takes its effects with it.
+An effect at the top of a file, like this one, runs for as long as the page is open. An effect created inside a component stops when that component is removed. When a page closes, its effects stop with it.
 
 > [!TIP]
-> Keep effects for work outside the page, such as storage, timers, or logging. Anything the page shows should be a computed value bound into a template, not an effect that writes to the DOM.
+> Use effects for work outside the page, such as storage, timers, or logging. For anything the page shows, use a computed value in the template instead of an effect that changes the page.
 
-Open the page, check a few items off, and reload: the list is still there.
+## Try it
+
+Check a few items off and add one. Reload the page. Your list is still there.
 
 ## What you learned
 
-- `effect` runs code now and again whenever a signal it read changes.
-- Dependencies are tracked from what the code read; there is no list to keep up to date.
-- Effects are for side effects; what the page shows comes from bindings.
+- An `effect` runs right away, then again whenever a signal it read changes.
+- zerolith tracks what an effect reads, so there's no list of dependencies to keep up to date.
+- Use effects for side effects. What the page shows comes from the template.

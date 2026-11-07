@@ -6,7 +6,14 @@ order: 1
 
 # The form
 
-A sign-up page is a form, and the browser already knows a lot about forms. A native `<form>` focuses a field when you click its label, submits when you press Enter, lets a password manager offer a password, and refuses a missing field on its own. Start with the markup that gets all of that; the later steps add to it and take nothing away.
+The browser already does a lot for a plain HTML `<form>`:
+
+- Clicking a label focuses its field.
+- Pressing Enter submits the form.
+- A password manager can offer a password.
+- A required field that's empty stops the form from sending.
+
+Start with a form that gets all of that. Later steps add to it without taking any of it away.
 
 ## The page
 
@@ -14,47 +21,62 @@ Create `src/components/sign-up.ts`:
 
 @include packages/zerolith/test/fixtures/sign-up-form/form/src/components/sign-up.ts
 
-Every control has a name a screen reader can read, in the way that suits it:
+Every field has a name that a screen reader can read:
 
-- A text field and its `<label>` are joined by `for` and `id`.
-- A checkbox or a radio button sits inside its `<label>`, so the whole line is a click target.
-- The radio buttons share a `name`, which makes them one choice, and the `<fieldset>` and `<legend>` name the group.
+- A text field is joined to its `<label>` by the label's `for` and the field's `id`.
+- A checkbox or a radio button sits inside its `<label>`, so you can click anywhere on the line.
+- The radio buttons share one `name`, so you can only pick one. The `<fieldset>` and `<legend>` give the group its name, "Plan".
 
-`type` and `autocomplete` tell the browser what each field holds. `type="email"` brings up the email keyboard on a phone, and `type="password"` hides what you type. `autocomplete="name"` and `autocomplete="email"` let the browser fill in what it knows about you, and `autocomplete="new-password"` tells a password manager this is a new password, to offer one rather than fill in a saved one.
+`type` and `autocomplete` tell the browser what each field is for:
 
-`method` and `action` say where the form goes: a `POST` to `/api/sign-ups`, on the page's own origin. They stay on the element for the whole tutorial.
+- `type="email"` shows the email keyboard on a phone.
+- `type="password"` hides what you type.
+- `autocomplete="name"` and `autocomplete="email"` let the browser fill in what it knows about you.
+- `autocomplete="new-password"` tells a password manager to suggest a new password instead of filling in a saved one.
 
-The page's layout goes in a stylesheet beside it. Create `src/components/sign-up.css`:
+`method` and `action` say where the form is sent: a `POST` to `/api/sign-ups`, on the same site. They stay on the form for the whole tutorial.
+
+The page's layout goes in a stylesheet next to it. Create `src/components/sign-up.css`:
 
 @include packages/zerolith/test/fixtures/sign-up-form/form/src/components/sign-up.css
 
-`?scoped` on the import makes these rules apply inside the `section` and nowhere else, as the packing list's [styles step](../packing-list/styles.md) explains. `overflow-wrap: anywhere` lets a long name wrap on a phone rather than push the page wider than the screen. This file stays as it is for the rest of the tutorial.
+`?scoped` on the import means these rules only apply inside this page's `section`, as the packing list's [styles step](../packing-list/styles.md) explains. `overflow-wrap: anywhere` lets a long name wrap on a phone, instead of making the page wider than the screen. This file stays the same for the rest of the tutorial.
 
 ## The route
 
-Import the component next to the other imports in `src/routes.ts`:
+In `src/routes.ts`, import the component next to the other imports:
 
 @include packages/zerolith/test/fixtures/sign-up-form/form/src/routes.ts#import excerpt
 
-Then add an entry at the end of the table. The starter's last entry, `packages`, has no comma after it, so add one there first:
+Then add the route at the end of the list. The starter's last route, `packages`, has no comma after it, so add a comma there first:
 
 @include packages/zerolith/test/fixtures/sign-up-form/form/src/routes.ts#route excerpt
 
 ## The link
 
-The starter's layout in `src/components/layout.ts` has one `Link` for each page in its `nav`, so add one more line there: `${Link({ href: router.href("signUp"), label: "Sign up", exact: false })}`.
+Open `src/components/layout.ts`. Its `nav` has one `Link` for each page. Add one for the sign-up page:
+
+```ts
+${Link({ href: router.href("signUp"), label: "Sign up", exact: false })}
+```
 
 ## Try it
 
-Save and click Sign up in the header. The form appears, with its title in the browser tab.
+Save your files and click **Sign up** in the header. The form appears, and the browser tab shows its title.
 
-Click the word Name and the field takes focus. Press Create account with the form empty and the browser refuses to send it, moves focus to Name, and says the field is required. Fill in everything, type `grace` under Email, and it refuses again, this time pointing at Email. All of this comes from `required` and `type="email"`, with no script of yours.
+Now try what the browser does on its own:
 
-Correct the email address and press Create account once more, and the browser posts the form to `/api/sign-ups` and leaves the page. Nothing answers there yet, so you see an error from the dev server. Go back; the next step keeps the page in place.
+1. Click the word **Name**. The field gets the focus.
+2. Press **Create account** with the form empty. The browser doesn't send it. It moves to Name and says the field is required.
+3. Fill in everything, but type `grace` as the email. The browser stops again, this time at Email.
+
+All of that comes from `required` and `type="email"`. You haven't written any script for it.
+
+Fix the email and press **Create account** again. The browser sends the form to `/api/sign-ups` and leaves the page. There's nothing there yet, so the dev server shows an error. Go back. The next step keeps you on the page.
 
 ## What you learned
 
-- A native form gets labels, the keyboard, autofill, and basic checks from the browser.
-- `<label>`, `<fieldset>`, and `<legend>` give every control a name.
-- `autocomplete` tells the browser and password managers what each field holds.
-- `method` and `action` stay on the form and say where it goes.
+- A plain HTML form gets labels, keyboard support, autofill, and basic checks from the browser.
+- `<label>`, `<fieldset>`, and `<legend>` give every field a name.
+- `autocomplete` tells the browser and password managers what each field is for.
+- `method` and `action` stay on the form and say where it's sent.

@@ -6,9 +6,9 @@ order: 4
 
 # Components
 
-The page now does two jobs in one function: it renders rows and it handles a form. As it grows, splitting it keeps each part readable. A component is a function, so splitting is moving code into another function.
+The page function now shows the rows and handles the form. As it grows, it gets harder to read. Since a component is just a function, you can split it by moving code into other functions.
 
-First add a `remove` function next to `toggle` and `add`, so a row can delete its item:
+First, add a `remove` function next to `toggle` and `add`, so each row can delete its item:
 
 @include packages/zerolith/test/fixtures/tutorial/components/src/store.ts
 
@@ -18,11 +18,17 @@ Create `src/components/item.ts`:
 
 @include packages/zerolith/test/fixtures/tutorial/components/src/components/item.ts
 
-Props are an object, and TypeScript checks them like any function's arguments. The row receives `item` as a signal, the same signal `each` hands to its row function, so the row's bindings follow the item.
+A component's inputs are called **props**. They're one object, and TypeScript checks them like any function's arguments. The row gets `item` as a signal, the same one `each` passes in, so the row stays up to date when the item changes.
 
-The remove button has visible text and an `aria-label` that names the item, because "Remove" on its own does not say which item a screen reader user is about to remove. An attribute can mix text and bindings: `aria-label="Remove ${name}"` stays current if the name changes.
+The Remove button shows the word "Remove". It also has an `aria-label` with the item's name, such as "Remove Passport". A screen reader reads that label, so its user knows which item the button removes. The label can mix text and values, and it updates if the name changes.
 
-Removing a row removes the button that had focus, and keyboard focus would fall back to the page itself. `keepingFocus` wraps a change that can take the row off the list: it notes the row's neighbor first, and when the row is gone, moves focus to the next row's checkbox, the one before, or the new item field once the list is empty. It returns the handler, so `toggled` and `removed` are handlers made once per row. The checkbox goes through it too, for a reason the next step brings.
+When you remove a row, the button you pressed goes away with it. `keepingFocus` moves the keyboard focus somewhere useful instead:
+
+1. To the next row's checkbox.
+2. If there's no next row, to the row before.
+3. If the list is now empty, to the new item field.
+
+`keepingFocus` returns the event handler, so each row makes `toggled` and `removed` once. The checkbox uses it too, for a reason you'll see in the next step.
 
 ## The form
 
@@ -32,18 +38,24 @@ Create `src/components/add-item.ts`, with the form from the last step:
 
 ## The page, from its parts
 
-Now `src/components/packing.ts` puts the parts together:
+Now update `src/components/packing.ts` to put the parts together:
 
 @include packages/zerolith/test/fixtures/tutorial/components/src/components/packing.ts
 
-A component call goes straight into a slot: `${AddItem()}`. Call the function; passing `AddItem` without calling it is reported as `unrenderable_value`, since a function is not something a page can show.
+You use a component by calling it inside `${}`, like `${AddItem()}`. Don't forget the parentheses. `${AddItem}` without them shows an error in the browser, `unrenderable_value`, and `npx zerolith doctor` reports it before you run the page as `template_component_uncalled`.
 
 ## Why components run once
 
-Each of these functions runs one time, when its part of the page is created. `ItemRow` runs once per item, not once per change: checking an item updates the row's checkbox and nothing else. This is why it is safe to create signals and computed values at the top of a component, and why there are no rules about the order of hooks or dependency arrays to remember: there is nothing to re-run.
+Each of these functions runs one time, when its part of the page is first created. `ItemRow` runs once for each item, not every time something changes. Checking an item updates only that row's checkbox.
+
+That's why you can create signals and computed values at the top of a component. There are no rules about hook order or dependency arrays, because nothing runs again.
+
+## Try it
+
+The page looks the same as before, with a Remove button on each row. Remove an item with the keyboard: Tab to its Remove button and press Enter. Focus moves to the next item's checkbox.
 
 ## What you learned
 
-- Splitting a component is moving code into another function and calling it.
-- Props are an object; a row gets its item as a signal.
-- Components run once, and their bindings keep them current.
+- To split a component, move code into another function and call it.
+- Props are one object. A row gets its item as a signal.
+- Components run once. Their signals keep them up to date.

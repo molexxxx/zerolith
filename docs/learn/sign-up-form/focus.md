@@ -6,15 +6,19 @@ order: 6
 
 # Focus and messages
 
-Everything the page does so far can be seen. Someone who works from the keyboard or listens to a screen reader meets a gap. Press Create account and the button turns itself off, and a disabled button cannot hold focus, so the browser moves focus to the page itself. When the answer arrives nothing says so, and Tab starts again from the top of the page.
+So far, everything the page does is visual. Someone using only the keyboard, or listening with a screen reader, runs into a problem:
 
-Each outcome needs a place for focus to go and, where what changed is out of sight, words to read aloud:
+1. They press **Create account**, and the button turns itself off.
+2. A disabled button can't keep the focus, so the focus jumps to the page itself.
+3. When the answer arrives, nothing says so, and the next Tab starts again from the top of the page.
+
+Each outcome needs a place for the focus to go. When something changes out of sight, it also needs words for a screen reader to read:
 
 | Outcome | Focus goes to | A screen reader says |
 | --- | --- | --- |
-| Fields need a change | The first of them, in the form's order | That field with its message, then how many fields need a change |
-| The sign-up did not go through | The button | The button, then what happened |
-| The account exists | The welcome's heading | The heading |
+| Some fields need fixing | The first of them, in the form's order | That field and its message, then how many fields need fixing |
+| The sign-up didn't go through | The button | The button, then what happened |
+| The account was created | The welcome's heading | The heading |
 
 ## The welcome takes focus
 
@@ -22,7 +26,9 @@ Update `src/components/welcome.ts`:
 
 @include packages/zerolith/test/fixtures/sign-up-form/app/src/components/welcome.ts
 
-`tabindex="-1"` lets a script focus the heading while keeping it out of the Tab order. The form that held focus is gone by now, so the heading is where a reader continues from. A `ref` runs while the element is created, before its template is in the page, and an element out of the page cannot take focus, so `focusOnArrival` waits a microtask, as the [templates guide](../../guide/templates.md#bindings) describes. `focusOnArrival` uses nothing from the component, so it sits at the top of the module.
+`tabindex="-1"` lets a script focus the heading without adding it to the Tab order. The form that had the focus is gone by now, so the heading is where the reader continues from.
+
+A `ref` runs while the element is being created, before it's on the page, and an element that isn't on the page can't take focus. So `focusOnArrival` waits a moment, until the heading is on the page, as the [templates guide](../../guide/templates.md#bindings) describes. It doesn't use anything from the component, so it sits at the top of the file.
 
 ## The page reports each failure
 
@@ -30,23 +36,33 @@ Update `src/components/sign-up.ts`:
 
 @include packages/zerolith/test/fixtures/sign-up-form/app/src/components/sign-up.ts
 
-`report` receives the problem and the form. `form.elements` lists the form's controls in the order the form shows them, so the first one whose name the problem mentions is the first to fix, whatever order the problem listed them in. For the plan that is its first radio button, and the arrow keys take it from there. When the problem names nothing, as for a `502`, focus goes back to the button, which is on again by the time `onFailure` runs. `onError` calls `report` the same way when no answer came at all.
+`report` gets the problem and the form, and decides where the focus goes:
 
-`createAnnouncer` adds two live regions to the page, hidden from the eye, and `announce` writes a message into one of them for a screen reader to read. It is created at the top of the module, so the regions exist before the first message; a region that appears together with its text can go unread.
+- `form.elements` lists the form's fields in the order they appear on the page. The first one the problem mentions gets the focus, whatever order the server listed them in. For the plan, that's the first radio button, and the arrow keys move between the rest.
+- If the problem names no field, as with a `502`, the focus goes back to the button. The button is turned on again by the time `onFailure` runs.
 
-`announce` is polite by default, so it waits for the screen reader to finish the field that just took focus. The field's own message is read with the field through `aria-describedby`, so the announcement says only what is out of sight: how many fields there are to fix. The welcome needs no announcement, since moving focus to its heading already reads it.
+`onError` calls `report` the same way when no answer came back at all.
 
-The [accessibility guide](../../guide/accessibility.md#announcements-and-hidden-text) covers the announcer and the other primitives in `@zerolith/a11y`.
+`createAnnouncer` adds two hidden regions to the page that screen readers read aloud. `announce` puts a message in one of them. The announcer is created at the top of the file, so the regions are already on the page before the first message. A region that appears at the same moment as its text might not be read.
+
+`announce` waits politely for the screen reader to finish reading the field that just got the focus. That field's own message is already read with it, through `aria-describedby`. So the announcement only says what's out of sight: how many fields need fixing. The welcome doesn't need an announcement, because moving the focus to its heading already reads it.
+
+The [accessibility guide](../../guide/accessibility.md#announcements-and-hidden-text) covers the announcer and the rest of `@zerolith/a11y`.
 
 ## Try it
 
-Do this with the keyboard alone. Press Tab until Create account has focus, and press Enter with the form empty: focus jumps to Name, with its message under it. Fill in the fields, moving with Tab, pick a plan with the arrow keys, check the box with Space, and press Create account with `ada@example.com` as the address: focus lands on Email. Change the address and press Create account again, and focus lands on the welcome's heading.
+Use only the keyboard:
 
-With a screen reader running, such as Narrator on Windows or VoiceOver on a Mac, the same path reads each field with its message, then "Fix 1 field to create your account."
+1. Press Tab until **Create account** has the focus, and press Enter with the form empty. The focus jumps to Name, with its message under it.
+2. Fill in the fields, moving with Tab. Pick a plan with the arrow keys and check the box with Space.
+3. Use `ada@example.com` as the email and press **Create account**. The focus lands on Email.
+4. Change the email and press **Create account** again. The focus lands on the welcome's heading.
+
+If you have a screen reader, such as Narrator on Windows or VoiceOver on a Mac, try the same steps. It reads each field with its message, then "Fix 1 field to create your account."
 
 ## What you learned
 
-- A disabled button loses focus, so a form has to put focus somewhere after every outcome.
-- `form.elements` gives the controls in the form's order, for finding the first one to fix.
-- `tabindex="-1"` lets a heading take focus from a script, and a `ref` that moves focus waits a microtask.
-- `createAnnouncer` reads what changed out of sight, and what already has focus needs no announcement.
+- A disabled button loses the focus, so a form has to put the focus somewhere after every outcome.
+- `form.elements` lists the fields in the form's order, for finding the first one to fix.
+- `tabindex="-1"` lets a script focus a heading. A `ref` that moves the focus waits until the element is on the page.
+- `createAnnouncer` reads aloud what changed out of sight. What already has the focus is read without it.

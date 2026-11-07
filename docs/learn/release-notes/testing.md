@@ -6,21 +6,27 @@ order: 7
 
 # Testing
 
-The pages depend on a request, and a test should not depend on the network or on the file you keep editing. A test replaces `fetch` with a stand-in that answers what the test chooses: the releases it brings along, or a failure. The starter's `npm test` runs tests in a real browser with Vitest, as its `test/counter.browser.test.ts` shows.
+The pages load data with a request. A test shouldn't depend on the network, or on a file you keep editing. So each test swaps `fetch` for a **stand-in**: a small function that answers whatever the test chooses, such as two releases, or a failure.
+
+The starter's `npm test` runs tests in a real browser, as its `test/counter.browser.test.ts` shows.
 
 Create `test/releases.browser.test.ts`:
 
 @include packages/zerolith/test/fixtures/release-notes/app/test/releases.browser.test.ts test
 
-`vi.stubGlobal("fetch", ...)` replaces the browser's `fetch` for the test, and `vi.unstubAllGlobals()` puts it back afterward. The stand-in answers with `Response.json(sample)`, a real `Response`, so the loader reads it as it reads the server's. `sample` is two releases, small enough that each test can say exactly what the page should show.
+**`vi.stubGlobal("fetch", ...)`** puts the stand-in in place of `fetch` for a test. `vi.unstubAllGlobals()` puts the real one back afterward. The stand-in answers with `Response.json(sample)`, a real `Response`, so the loader reads it like any server's answer. `sample` holds just two releases, so each test can say exactly what the page should show.
 
-The store started loading when the test file imported it, before any stand-in existed, so `beforeEach` calls `releases.reload()`, which runs the loader again with the stand-in in place. A result from a request that a newer one replaced is dropped, so only the stand-in's answer reaches the page. The failure test does the same with a stand-in that answers 404, which the store does not retry, so the button shows at once.
+**`releases.reload()`** in `beforeEach` loads the data again. The store started loading as soon as the test file imported it, before any stand-in was in place, so this load uses the stand-in. The answer to the earlier request is thrown away, so only the stand-in's answer reaches the page. The failure test does the same with a stand-in that answers 404. The store doesn't retry a 404, so the button shows right away.
 
-The page creates effects and a debounced signal, which belong to the component's owner, so `mount` is passed a function: it runs the page inside the root it renders, and `cleanup` stops them with the page. `vi.waitFor` runs its check again until it passes, which covers the releases arriving from the stand-in and the pause the search waits for.
+**`mount(() => Releases())`** takes a function. The page makes effects and a debounced signal, which belong to the component. When `mount` runs the page itself, `cleanup` can stop them along with the page.
 
-The tests use the app's own router, the one the components import. `router.navigate` goes to an address in the page the tests run in, and `router.outlet()` is the page it shows, the same view the layout places. `afterEach` navigates back to the address the tests started from, so a search or a page one test opened does not reach the next.
+**`vi.waitFor`** checks again and again until its check passes. That covers the releases arriving from the stand-in, and the pause the search waits for.
 
-Vitest drives a real Chromium through Playwright. On a machine that has not run Playwright before, download the browser once:
+The tests use the app's own router, the one your components import. `router.navigate` goes to an address in the test page, and `router.outlet()` is the page it shows, the same one the layout shows. `afterEach` goes back to the address the tests started from, so a search or a page one test opened doesn't leak into the next.
+
+## Run the tests
+
+The tests run in Chromium. If you've never used Playwright on this computer, download the browser once:
 
 ```sh
 npx playwright install chromium
@@ -35,6 +41,6 @@ npm test
 ## What you learned
 
 - `vi.stubGlobal("fetch", ...)` lets a test choose what the server answers.
-- `reload()` runs a resource's loader again, once the stand-in is in place.
-- `mount(() => Page())` gives a page's effects an owner that `cleanup` disposes.
+- `reload()` loads a resource again, once the stand-in is in place.
+- `mount(() => Page())` lets `cleanup` stop a page's effects along with the page.
 - `vi.waitFor` waits for requests and pauses without a fixed delay.

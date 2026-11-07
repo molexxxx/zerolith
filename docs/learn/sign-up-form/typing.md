@@ -6,17 +6,23 @@ order: 3
 
 # Checking as you type
 
-Two things about the form are wrong so far. The password's rules are a surprise: you meet them only after you have picked a password. And a message stays after you fix its field, which reads as though the fix did not work.
+The form has two problems so far:
 
-Checking on every keystroke can be just as bad, with "Enter an email address" on screen while you are typing the first letter. So the page does two different things. The password's rules show from the start as a checklist, because they are guidance rather than a complaint. Messages wait for the first submission, and after it they follow your changes.
+- You only find out the password rules after you've picked a password.
+- A message stays after you fix its field, so it looks like your fix didn't work.
 
-The checklist needs text that only a screen reader gets, which comes from `@zerolith/a11y`. Install it:
+Checking on every key press isn't the answer either. Nobody wants "Enter an email address" while they're typing the first letter. So the page does two things:
+
+- **The password rules show from the start**, as a checklist. They're help, not a complaint.
+- **Messages wait for the first submit.** After that, they update as you type.
+
+The checklist needs text that only screen readers get. `@zerolith/a11y` has a helper for that. Install it:
 
 ```sh
 npm install @zerolith/a11y
 ```
 
-It depends on `zerolith` alone, and the focus step uses it again.
+You'll use it again in the focus step.
 
 ## The checklist
 
@@ -24,15 +30,20 @@ Create `src/components/password-rules.ts`:
 
 @include packages/zerolith/test/fixtures/sign-up-form/typing/src/components/password-rules.ts
 
-`values` is a signal holding everything the form holds right now, and each rule gets a `computed` over it, so a line updates when the password changes and also when the email address does. The rules are fixed, so a `map` renders them once.
+`values` is a signal with everything the form holds right now. Each rule is a `computed` value made from it, so a line updates when the password changes, and also when the email changes. The rules never change, so `map` shows them once.
 
-Each line says its state twice, and neither way relies on color. The mark is for the eye, hidden from screen readers with `aria-hidden`. The words "Met:" and "Not met:" are for screen readers, hidden from the eye with `visuallyHidden`, the clip pattern from `@zerolith/a11y`. `data-met` lets the `css` literal follow the state.
+Each line shows whether it's met in two ways, and neither one relies on color:
+
+- **A mark**, for people who can see it. `aria-hidden` hides it from screen readers.
+- **The words "Met:" or "Not met:"**, for screen readers. `visuallyHidden` from `@zerolith/a11y` hides them from the screen.
+
+`data-met` lets the `css` block style each state.
 
 A `TextField` takes the checklist as a hint. Update `src/components/text-field.ts`:
 
 @include packages/zerolith/test/fixtures/sign-up-form/typing/src/components/text-field.ts
 
-`aria-describedby` takes several ids, so a screen reader reads the message and then the hint with the field. The list is not a live region, for the same reason the message is not: it would talk over you with every letter.
+`aria-describedby` can list more than one id. A screen reader reads the message, then the hint, along with the field. The checklist isn't a live region, for the same reason the message isn't: a screen reader would talk over you with every letter.
 
 ## Following the form
 
@@ -40,28 +51,29 @@ Update `src/components/sign-up.ts`:
 
 @include packages/zerolith/test/fixtures/sign-up-form/typing/src/components/sign-up.ts
 
-`@input=${typed}` listens on the form itself, since an `input` event bubbles up from every field, the radio buttons and the checkbox included. `typed` reads the whole form with `formValues`, the same plain object the schema receives, into `values`.
+**`@input=${typed}`** listens on the whole form. An `input` event from any field reaches the form, including the radio buttons and the checkbox. `typed` reads the whole form with `formValues`, the same kind of object your rules get, and puts it in `values`.
 
-`sent` holds what the form held when the last submission failed. `onFailure` sets it, along with `values`, so the two agree at that moment. Its first argument, the problem, comes into use in the focus step.
+**`sent`** holds what the form held when the last submit failed. `onFailure` sets it and `values` together, so they match at that moment. Its first argument, the problem, is used in the focus step.
 
-`message` is where the two meet, and it returns a computed value that decides field by field:
+**`message`** decides what each field shows:
 
-- Nothing has failed yet, or the field still holds what was sent: the form's own message for that field, if it has one. Before the first failure, `signUp.field(name).error` is empty, so typing shows nothing.
-- The field has changed since: the form's message is about a value that is no longer there, so the field's rule judges the new value instead.
+- If nothing has failed yet, or the field still holds what was sent, it shows the form's own message for that field, if there is one. Before the first failed submit there's none, so typing shows nothing.
+- If the field has changed since, the old message was about a value that's gone. So the field's rule checks the new value instead.
 
-Keeping the first case for a field that still holds what was sent matters for messages only a server can give. It is why, in the next step, a message about a taken email address leaves when you change the address and comes back if you change it back.
+That first case matters for messages only a server can give. In the next step, a message about an email that's already taken goes away when you change the address. It comes back if you change it back.
 
-`aria-invalid` follows the same signal, because a `TextField` derives it from `message`.
+`aria-invalid` follows the same signal, because a `TextField` takes it from `message`.
 
 ## Try it
 
-Type a password and watch the checklist tick off "At least 15 characters". Type your email address into the password as well, with the same address under Email, and "Does not contain your email address" goes back to not met; change the address under Email and it is met again. No message appears while you do this.
-
-Now press Create account with the form empty, then fix the fields one at a time. Each message updates as you type, and goes as soon as its field passes. Clear a field you have changed and its message comes back.
+1. Type a password and watch "At least 15 characters" get its mark.
+2. Type your email address into the password, with the same address under Email. "Does not contain your email address" goes back to not met. Change the email and it's met again. No message appears while you do this.
+3. Press **Create account** with the form empty. Then fix the fields one at a time. Each message updates as you type and goes away as soon as its field is fine.
+4. Clear a field you fixed. Its message comes back.
 
 ## What you learned
 
-- `@input` on a form hears every field, and `formValues` reads them all into one plain object.
-- A checklist of rules is a `computed` per rule, shown in a mark and in hidden words rather than in color alone.
-- `visuallyHidden` keeps text for assistive technology off the screen.
-- A message is about one value: keep it while the field holds that value, and judge a new value with the field's rule.
+- `@input` on a form hears every field. `formValues` reads them all into one object.
+- A checklist is a `computed` value per rule, shown with a mark and with hidden words, not with color alone.
+- `visuallyHidden` keeps text for screen readers off the screen.
+- A message is about one value. Keep it while the field holds that value, and check a new value with the field's rule.

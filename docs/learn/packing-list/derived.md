@@ -6,7 +6,7 @@ order: 5
 
 # Derived state
 
-Two questions come up while packing: how much is left, and what exactly is left. Both answers are derived from the items, so they are computed values rather than more state to keep in sync.
+While you pack, you want to know two things: how many items are packed, and what's left. Both answers come from the items you already have. So instead of storing them, you'll compute them.
 
 ## Derived values
 
@@ -14,9 +14,18 @@ Update `src/store.ts`:
 
 @include packages/zerolith/test/fixtures/tutorial/derived/src/store.ts
 
-`filter` is new state: which items to show. Checking an item while Left to pack is selected takes its row off the list, as Remove does, which is why the row's checkbox already runs through `keepingFocus`. `add` sets the filter to All when Packed is selected, so a new item shows as soon as you add it. `packedCount` and `shown` are derived: they read `items` and `filter` and recompute when either changes. Nothing ever sets them directly, so they can never disagree with the items.
+- **`filter`** is new state. It says which items to show: all of them, the ones left to pack, or the packed ones.
+- **`packedCount`** counts the packed items.
+- **`shown`** is the list of items the filter lets through.
 
-A computed value is lazy and cached. It recomputes only when something it read has changed and something reads it again, so `shown` costs nothing while no page shows it.
+`packedCount` and `shown` are **derived**: they're computed from `items` and `filter`, and they update when either one changes. Nothing ever sets them directly, so they always match the items.
+
+A computed value only does work when someone reads it and something it uses has changed. If no page shows `shown`, it costs nothing.
+
+Two details in the store:
+
+- When **Left to pack** is selected, checking an item takes its row off the list. That's why the row's checkbox already uses `keepingFocus`.
+- `add` sets the filter to **All** when **Packed** is selected, so a new item shows as soon as you add it.
 
 ## The filter buttons
 
@@ -24,7 +33,9 @@ Create `src/components/filters.ts`:
 
 @include packages/zerolith/test/fixtures/tutorial/derived/src/components/filters.ts
 
-The three buttons come from an array with `map`, since the choices are fixed; `each` is for lists that change. `aria-pressed` tells assistive technology which button is on, and the computed value keeps it current: `true` and `false` become the attribute's text.
+The buttons come from a fixed array, so `map` makes them. Use `each` for lists that change, and `map` for lists that don't.
+
+`aria-pressed` tells screen readers which button is on. It's a computed value, so it switches between `true` and `false` as you click.
 
 ## Conditions
 
@@ -32,13 +43,19 @@ Update `src/components/packing.ts`:
 
 @include packages/zerolith/test/fixtures/tutorial/derived/src/components/packing.ts
 
-`each` now renders `shown` instead of `items`, so the rows follow the filter. `when` renders its view while the condition is true and removes it when the condition turns false; an optional third argument renders while it is false. Here it shows a note when the filter leaves no rows, such as choosing Left to pack once everything is packed.
+The rows now come from `shown` instead of `items`, so they follow the filter.
+
+`when` shows something only while a condition is true. Here it shows "Nothing to show here." when the filter leaves no rows, such as choosing **Left to pack** after everything is packed. You can pass a third argument to show something else while the condition is false.
 
 > [!NOTE]
-> `when` is zerolith's if and else, the place of a `? :` in React or `@if` and `@else` in Angular. Its condition is a signal, so `empty` is a computed value; a function there fails with `when_condition_function`, since it would always count as true.
+> `when` is zerolith's if and else, like `? :` in React or `@if` and `@else` in Angular. Its condition must be a signal, which is why `empty` is a computed value. If you pass a function by mistake, your editor marks it as an error.
+
+## Try it
+
+The page now shows how many items are packed, like "1 of 3 packed". Click **Left to pack**, then **Packed**, then **All**. The list changes each time. Pack everything, then click **Left to pack** to see the empty note.
 
 ## What you learned
 
-- Derived values are computed, never set, so they cannot drift from their sources.
-- Computed values are lazy and cached.
-- `when` shows a view while a condition holds; `each` is for lists that change, `map` for fixed ones.
+- Compute values from your state instead of storing them, so they can't get out of sync.
+- A computed value only does work when it's read and something it uses has changed.
+- `when` shows something while a condition is true. Use `each` for lists that change and `map` for fixed ones.

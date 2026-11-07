@@ -6,35 +6,50 @@ order: 3
 
 # The contract
 
-The widget will post to whatever address the host page gives it, and the server behind that address could be written in anything: Node, PHP, Go, C#, or a serverless function. The widget should not care which. What both sides need is a contract: the request the widget sends and every answer it can get back, errors included, written down so that anyone can implement it and check an implementation against it.
+The widget sends its answer to whatever address the site gives it. The server behind that address could be written in anything: Node, PHP, Go, C#, or a serverless function. The widget shouldn't care which.
+
+Both sides need to agree on a **contract**: the request the widget sends, and every answer it can get back, errors included. Written down, anyone can build a server that follows it, and check that a server does.
 
 ## The contract
 
-Create `openapi.json` at the root of the project:
+Create `openapi.json` in the project's root folder:
 
 @include packages/zerolith/test/fixtures/widget/app/openapi.json
 
-This is an [OpenAPI](https://spec.openapis.org/oas/v3.1.0) document, the JSON format most server frameworks and API tools read and write. It describes one operation, `sendFeedback`:
+This is an [OpenAPI](https://spec.openapis.org/oas/v3.1.0) document, a JSON format that most server frameworks and API tools can read and write. It describes one operation, `sendFeedback`:
 
 | Part | What the contract says |
 | --- | --- |
-| Request | `POST /feedback` under the address the page gives, with a JSON body: `helpful`, a boolean; `page`, the page the feedback is about, up to 2000 characters; and `comment`, optional, up to 1000 characters |
-| Success | `201` with a receipt, `{ "id": "..." }` |
-| Failure | `400` when the body is not valid feedback, `429` when one sender sends too much, and any other status for anything else, each with a problem details document |
+| Request | `POST /feedback` under the address the site gives, with a JSON body |
+| Success | `201`, with a receipt: `{ "id": "..." }` |
+| Failure | `400` when the body isn't valid feedback, `429` when one sender sends too much, or any other status for anything else |
 
-A problem details document, defined by [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html) and sent as `application/problem+json`, is the standard JSON shape for an HTTP error: `title` says what went wrong in a few words, `detail` explains this occurrence, `status` repeats the status code, and `fields`, an extension zerolith's packages read, lists messages for each member that was refused. The widget shows `detail`, or `title` when there is no detail, so a backend's own words reach the reader.
+The request body has three parts:
 
-A backend ignores members it does not know, so a later version of the widget can send more without breaking a backend written for this one.
+- `helpful`: `true` or `false`.
+- `page`: which page the feedback is about, up to 2000 characters.
+- `comment`: optional, up to 1000 characters.
+
+Every failure comes with a **problem details** document, a standard JSON format for errors from [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html):
+
+- `title` says what went wrong in a few words.
+- `detail` explains this case.
+- `status` repeats the status code.
+- `fields` lists messages for each part of the body that was refused. zerolith's packages read it.
+
+The widget shows `detail`, or `title` if there's no detail, so the server's own words reach the reader.
+
+A server ignores parts of the body it doesn't know. So a later version of the widget can send more without breaking a server built for this one.
 
 ## Types from the contract
 
-`@zerolith/client` turns the document into TypeScript. Install it:
+`@zerolith/client` turns the contract into TypeScript. Install it:
 
 ```sh
 npm install @zerolith/client
 ```
 
-and generate the module:
+Then generate the file:
 
 ```sh
 npx zerolith-client openapi.json --out src/api.ts
@@ -44,47 +59,64 @@ It writes `src/api.ts`:
 
 @include packages/zerolith/test/fixtures/widget/app/src/api.ts wide
 
-`Feedback`, `Problem`, and `Receipt` are the schemas as types, `Api` lists the operation with its method, path, body, and output, and `routes` is the part the client needs while the page runs. Do not edit the file: change `openapi.json` and run the command again, and any code that no longer matches the contract fails `npx tsc`.
+- `Feedback`, `Problem`, and `Receipt` are the contract's shapes as TypeScript types.
+- `Api` lists the operation with its method, path, body, and answer.
+- `routes` is what the client needs while the page runs.
 
-## An example handler
+Don't edit this file. Change `openapi.json` and run the command again. Any code that no longer matches the contract then fails the type check, `npx tsc`.
 
-The widget needs something to post to while you develop. Create `server/feedback.ts`:
+## An example server
+
+The widget needs something to send to while you develop. Create `server/feedback.ts`:
 
 @include packages/zerolith/test/fixtures/widget/app/server/feedback.ts
 
-The handler is a function from a `Request` to a `Response`, the Fetch API's own types, so it runs unchanged on Deno, Bun, a Cloudflare worker, or Node, and a test can call it directly. It checks each member against the contract and answers `400` with a message for each one that is wrong, or hands the feedback to `save`, keeping only the members the contract names, and answers `201` with a fresh id. Lengths are counted in characters, as JSON Schema counts them, so an emoji counts once.
+The handler is a function that takes a `Request` and returns a `Response`. Those are the browser's own types, so the same function runs on Deno, Bun, a Cloudflare worker, or Node, and a test can call it directly.
 
-Every answer carries `access-control-allow-origin: *`, and an `OPTIONS` request gets the three headers CORS asks for. A page on one origin, such as a blog on its own domain, can read an answer from another origin, such as your API's domain, only when the server allows it. Because the widget sends JSON, the browser first asks with that `OPTIONS` request, the preflight, and sends the post only when the answer allows it. `*` allows every page, which suits feedback, since the widget sends no cookies; a backend that takes feedback from its own sites alone names them instead.
+It checks each part of the body against the contract:
+
+- If anything is wrong, it answers `400` with a message for each problem.
+- Otherwise, it passes the feedback to `save`, keeping only the parts the contract names, and answers `201` with a new id.
+
+Lengths are counted in characters, the way JSON Schema counts them, so an emoji counts as one.
+
+Every answer includes `access-control-allow-origin: *`, and an `OPTIONS` request gets the three headers CORS asks for. **CORS** is the browser's rule about requests between sites: a page on one site, such as a blog, can only read an answer from another site, such as your API, if that server allows it. Because the widget sends JSON, the browser first asks permission with an `OPTIONS` request, and only sends the real request if the answer allows it. `*` allows every site, which is fine for feedback, since the widget sends no cookies. A server that only takes feedback from its own sites would name them instead.
 
 > [!NOTE]
-> The example keeps nothing; `save` decides where feedback goes. A backend in production also stores it, limits how much one sender can send, answering `429` as the contract says, and caps the size of the body it reads.
+> The example doesn't keep anything. `save` decides where feedback goes. A real server would also store it, limit how much one sender can send, answering `429` as the contract says, and cap the size of the body it reads.
 
-Node has no server that takes such a function as it is, so `server/main.ts` adapts Node's HTTP server to it. Create it:
+Node's own HTTP server doesn't take a function like this directly, so `server/main.ts` connects the two. Create it:
 
 @include packages/zerolith/test/fixtures/widget/app/server/main.ts
 
-It turns each request Node receives into a `Request`, hands it to the handler, writes the `Response` back, and prints each piece of feedback the handler saves. Node 24 runs a TypeScript file as it is, removing the types, so `node server/main.ts` starts it with nothing to compile.
+It turns each request Node receives into a `Request`, passes it to the handler, sends the `Response` back, and prints each piece of feedback it saves. Node 24 runs TypeScript files directly, so `node server/main.ts` starts it with no build step.
 
-`npx tsc` checks `src`, `test`, and the Vitest config. To check the server as well, install the types of Node's own modules:
+`npx tsc` checks `src`, `test`, and the Vitest config. To check the server too, install the types for Node's own modules:
 
 ```sh
 npm install --save-dev @types/node
 ```
 
-and add `"server"` to `include` in `tsconfig.json`, so it reads `["src", "test", "server", "vitest.config.ts"]`.
+Then add `"server"` to `include` in `tsconfig.json`:
+
+```json
+"include": ["src", "test", "server", "vitest.config.ts"]
+```
 
 ## Run it with the dev server
 
-`zerolith dev` can start the backend and forward requests to it, so the page calls it on its own origin while you develop. Replace `zerolith.json`:
+`npm run dev` can start the server and pass requests to it, so the page talks to it from its own address while you develop. Replace `zerolith.json`:
 
 @include packages/zerolith/test/fixtures/widget/app/zerolith.json
 
-A request whose path starts with `/api` goes to the handler on port 3000 with `/api` removed, so `/api/feedback` reaches it as `/feedback`. `run` is the command that starts the handler: `npm run dev` now runs it too, shows its output in the same terminal, and stops it when you stop the server. Stop the dev server with Ctrl+C and start it again, and its banner lists the proxy and the backend, with the handler's own line after it.
+A request whose path starts with `/api` goes to the server on port 3000, with `/api` taken off the front. So `/api/feedback` reaches it as `/feedback`. `run` is the command that starts the server: `npm run dev` now starts it too, shows its output in the same terminal, and stops it when you stop the dev server.
+
+Stop the dev server with Ctrl+C and start it again. Its startup message now lists the proxy and the server, followed by the server's own line.
 
 ## What you learned
 
-- The contract is the request and every answer, errors included, written as an OpenAPI document any backend can implement.
-- `zerolith-client` generates the types and the route table from it, so code that no longer matches the contract fails `tsc`.
-- A handler written as a function from `Request` to `Response` runs on any runtime and in a test.
-- A page on another origin needs CORS answers, including the preflight a JSON post sends first.
-- The `proxy` in `zerolith.json` forwards a path to a backend, and `run` starts that backend with `zerolith dev`.
+- The contract is the request and every answer, errors included, written as an OpenAPI document any server can follow.
+- `zerolith-client` makes TypeScript types from it, so code that no longer matches the contract fails the type check.
+- A handler written as a function from `Request` to `Response` runs anywhere, and in a test.
+- A page on another site needs CORS answers, including the `OPTIONS` request a JSON post sends first.
+- `proxy` in `zerolith.json` sends a path to a server, and `run` starts that server with the dev server.

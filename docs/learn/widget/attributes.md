@@ -6,9 +6,14 @@ order: 2
 
 # Attributes
 
-A page talks to an element the way it talks to an `<input>`: through attributes in its markup, such as `placeholder="Search"`, and through properties from script, such as `input.value = "Paris"`. Every prop listed in `define` is both, and both feed one signal that the view receives, so the view follows whichever the page uses, and keeps following it as it changes.
+A page talks to an element the same way it talks to an `<input>`, in two ways:
 
-The question is the first thing a host page will want to set: a guide asks whether it helped, release notes ask whether they were useful.
+- **Attributes** in its HTML, such as `placeholder="Search"`.
+- **Properties** from a script, such as `input.value = "Paris"`.
+
+Every prop you list in `define` works both ways. Both feed one signal that the view gets, so the view follows whichever one the page uses, and keeps following it as it changes.
+
+The question is the first thing a site will want to set. A guide asks whether it helped. Release notes ask whether they were useful.
 
 ## A question the page sets
 
@@ -20,19 +25,24 @@ Update `src/components/feedback.ts`:
 
 @include packages/zerolith/test/fixtures/widget/attributes/src/components/feedback.ts
 
-`props: ["question"]` makes `question` an attribute the element observes and a property it exposes, and the view receives a `question` signal holding whichever was set last. The component treats it like any other signal: `legend` is a computed value that reads it, so the legend's text changes whenever the question does, and nothing else in the form is touched.
+`props: ["question"]` makes `question` both an attribute and a property. The view gets a `question` signal that holds whichever one was set last. `legend` is a computed value that reads it, so the legend's text changes whenever the question does. Nothing else in the form changes.
 
-The signal's type is `unknown`, because the page decides what goes into it. An attribute is always a string, or `undefined` once it is removed, while a property holds whatever a script assigned, which could be a number or an object. `text` takes a string with something in it and nothing else, so an empty attribute, a removed one, or a property that is not a string all fall back to "Did this page help?". It sits outside the component because it uses nothing from it.
+The signal's type is `unknown`, because the page decides what goes in it:
 
-Now ask a question in `index.html`:
+- An attribute is always a string, or `undefined` once it's removed.
+- A property can be anything a script sets, such as a number or an object.
+
+`text` only accepts a string that isn't empty. For anything else, such as an empty attribute, a removed one, or a property that isn't a string, it uses "Did this page help?" instead. It sits outside the component because it doesn't use anything from inside it.
+
+Now set a question in `index.html`:
 
 ```html
 <feedback-widget question="Did this guide help?"></feedback-widget>
 ```
 
-## Both paths
+## Try it
 
-With the dev server running, open the browser's console on the page and change the question both ways:
+With the dev server running, open your browser's console on the page and change the question both ways, one line at a time:
 
 ```js
 const widget = document.querySelector("feedback-widget");
@@ -41,13 +51,13 @@ widget.question = "Did you find what you needed?";
 widget.removeAttribute("question");
 ```
 
-The legend follows each line: the attribute, then the property, then the default once the attribute is gone. Reading `widget.question` gives the current value whichever path set it, and `undefined` after the attribute is removed.
+The legend follows each line: first the attribute, then the property, then the default once the attribute is gone. `widget.question` always reads the current value, whichever way it was set, and `undefined` after the attribute is removed.
 
 > [!TIP]
-> Name props in lowercase. HTML lowercases attribute names, so a prop named `pageTitle` would be reachable as a property and never as an attribute.
+> Name props in lowercase. HTML turns attribute names into lowercase, so a prop named `pageTitle` would work as a property but never as an attribute.
 
 ## What you learned
 
-- Each prop in `define` is an attribute and a property, and both feed one signal.
-- An attribute arrives as a string or `undefined`, and a property as whatever was assigned, so the view checks what it gets.
-- A computed value over a prop signal keeps the view current as the page changes the prop.
+- Each prop in `define` is both an attribute and a property, and both feed one signal.
+- An attribute is a string or `undefined`, and a property is whatever was set, so the view checks what it gets.
+- A computed value made from a prop keeps the view up to date as the page changes the prop.

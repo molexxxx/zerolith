@@ -6,14 +6,18 @@ order: 2
 
 # Build a sign-up form
 
-You build the sign-up page of a small notes service: name, email, password, plan, and a terms checkbox. It checks what you type, sends the form without leaving the page, and shows the server's errors next to each field.
+You'll build the sign-up page for a small notes service. It has a name, an email address, a password, a plan, and a box to accept the terms. The page:
+
+- checks what you type and shows a message next to each field
+- sends the form without leaving the page
+- shows the server's errors next to the right field
 
 ## What you need
 
 - Node 24 or newer.
-- The ideas from the [packing list](../packing-list/index.md): signals, `computed`, `html` templates, events, and components.
+- The [packing list](../packing-list/index.md) tutorial, or the same ideas: signals, `computed`, `html` templates, events, and components.
 
-You do not need a backend. The tutorial gives you a small Node script and its contract, so a server in any language can replace it.
+You don't need a backend. The tutorial gives you a small Node server and a written description of what it accepts and answers, so you could swap in a server written in any language.
 
 ## Start a project
 
@@ -23,7 +27,7 @@ cd sign-up
 npm run dev
 ```
 
-Answer `y` if `npx` asks to download the command line, and leave the server running. The packing list describes [what the starter wrote](../packing-list/index.md#what-the-starter-wrote).
+If `npx` asks to download the command line, answer `y`. Leave the server running. The packing list explains [what the starter wrote](../packing-list/index.md#what-the-starter-wrote).
 
 ## The steps
 
@@ -37,4 +41,4 @@ Answer `y` if `npx` asks to download the command line, and leave the server runn
 8. [Build and ship](ship.md): the production build, and where the backend goes.
 
 > [!TIP]
-> Every error zerolith reports links to a page with the fix, and the [forms guide](../../guide/forms.md) covers `@zerolith/forms` in full.
+> Every zerolith error links to a page with the fix. The [forms guide](../../guide/forms.md) covers `@zerolith/forms` in full.

@@ -6,7 +6,15 @@ order: 7
 
 # Undo and offline
 
-The store saves the list with an effect you wrote yourself, and every application that keeps something between visits needs the same lines. A packing list needs two more things on a trip: a way to take back the item you removed by mistake, and a word when the connection drops, so you know the list still works. zerolith covers all three in two packages of its own, built on signals: `@zerolith/state` for signals with a memory, and `@zerolith/browser` for what the browser knows about the page.
+Most apps that save something need the code you just wrote. A packing list also needs two more things on a trip:
+
+- A way to undo, for when you remove the wrong item.
+- A note when you're offline, so you know the list still works.
+
+zerolith has two packages for all of this, both built on signals:
+
+- `@zerolith/state` for signals that save themselves, undo, and more.
+- `@zerolith/browser` for what the browser knows, such as whether you're online.
 
 Install both:
 
@@ -14,36 +22,55 @@ Install both:
 npm install @zerolith/state @zerolith/browser
 ```
 
-Each depends on `zerolith` alone.
-
 ## A stored signal
 
 Update `src/store.ts`:
 
 @include packages/zerolith/test/fixtures/tutorial/undo/src/store.ts
 
-`stored` from `@zerolith/state` does what your `stored()` function and the effect did together. It reads the key when the module loads, takes the starting items when nothing is saved there or what is saved does not parse, and writes the list back as JSON on every `set()`. `isItem` comes along from the last step: `validate` receives what parses, and anything that is not a list of items takes the starting items as well. The key and the JSON are the ones the last step wrote, so the list you saved there loads as it was.
+`stored` from `@zerolith/state` replaces your `stored()` function and the effect. It:
 
-It also does what the hand-written version did not. When the list changes in another tab, the browser tells this one with a `storage` event, and `stored` sets itself to match, so every open tab shows the same list. Nothing fails in silence either: a saved value that does not parse, or that `validate` refuses, is reported as `state_storage_unreadable`, and storage the browser refuses as `state_storage_unavailable`, while the list keeps working for the visit. While you develop, each report appears in the console; a production build keeps the console quiet and hands reports only to `onDiagnostic` listeners, as the [diagnostics guide](../../guide/diagnostics.md) shows.
+1. Reads the saved list when the app starts.
+2. Uses the starting items if nothing is saved, or if what's saved isn't valid.
+3. Saves the list as JSON every time it changes.
 
-`stored` takes no name, and needs none: after an edit, `zerolith dev` reloads the page and the list comes back from storage, as it does on any visit.
+It uses the same key and the same JSON as the last step, so the list you saved there loads as it was. `isItem` comes along from the last step as the `validate` option: anything that isn't a list of items is replaced by the starting items.
+
+`stored` also does two things your version didn't:
+
+- **It keeps tabs in sync.** Change the list in one tab, and every other open tab shows the same list.
+- **It tells you when something's wrong.** A saved value that isn't valid is reported as `state_storage_unreadable`. Storage that the browser refuses is reported as `state_storage_unavailable`. The list keeps working either way. While you develop, these reports show in the browser console. A production build keeps the console quiet, as the [diagnostics guide](../../guide/diagnostics.md) explains.
+
+`stored` doesn't need a name like `{ name: "items" }`. When you save a file, the page reloads and the list comes back from storage, as it does on any visit.
 
 > [!NOTE]
-> Create one stored signal for each key, at the top of a module as here, and import it wherever it is needed. Two stored signals for one key in the same tab do not hear each other, and the second is reported as `state_key_duplicate`.
+> Make one stored signal for each key, at the top of a file as here, and import it wherever you need it. Two stored signals for the same key in one tab don't see each other's changes, and the second one is reported as `state_key_duplicate`.
 
 ## Undo and redo
 
-`history(items)`, in the same file, keeps checkpoints of the list. `checkpoint()` saves the list as it is, so `toggle`, `add`, and `remove` each call it before they change anything. `undo()` sets the list back to the last checkpoint, and `redo()` brings back what `undo()` took away. A change after an undo starts a new branch, as in most editors, so what was undone is gone.
+`history(items)`, in the same file, keeps snapshots of the list, called checkpoints.
 
-Undo and redo set `items` as any change does, so the rows, the progress line, and the saved list all follow. The checkpoints live in memory, the last fifty of them: a reload starts with nothing to undo, while the list itself comes back from storage. Choosing a filter saves no checkpoint, since it changes what you see, not the list.
+- `checkpoint()` saves the list as it is now. `toggle`, `add`, and `remove` each call it before they change anything.
+- `undo()` puts the list back to the last checkpoint.
+- `redo()` brings back what `undo()` took away.
+
+If you make a new change after an undo, you can't redo anymore. Most editors work the same way.
+
+Undo and redo change `items` like any other change. So the rows, the "packed" count, and the saved list all update.
+
+The last fifty checkpoints are kept in memory. After a reload there's nothing to undo, but the list itself comes back from storage. Choosing a filter doesn't save a checkpoint, because it changes what you see, not the list.
 
 Create `src/components/undo-redo.ts`:
 
 @include packages/zerolith/test/fixtures/tutorial/undo/src/components/undo-redo.ts
 
-`canUndo` and `canRedo` are signals, true while there is somewhere to go, so the buttons follow them. `?disabled=${noUndo}` binds a boolean attribute, marked with `?` as an event is with `@` and a property with `.`: the attribute is there while the value is true and gone while it is false. A plain `disabled=${noUndo}` would not do, since `false` would become the attribute's text, and a button with a `disabled` attribute is disabled whatever the text says. Each click runs the history's own `undo` or `redo` through `pressing`. A disabled button cannot hold focus, so when Undo takes back the last change and turns itself off, `pressing` moves focus to Redo, which that undo has just turned on, and the other way around.
+`canUndo` and `canRedo` are signals. They're true when there's something to undo or redo, and the buttons follow them.
 
-The [state guide](../../guide/state.md) covers the rest of `@zerolith/state`: signals that wait for typing to stop or follow a scroll at a steady rate, and a selector that tells each of a thousand rows whether it is the selected one.
+`?disabled=${noUndo}` starts with `?`, which binds a true-or-false attribute. The button has the `disabled` attribute while the value is true, and loses it while it's false. You need the `?`. Without it, `false` would become the attribute's text, and a button with any `disabled` attribute is disabled.
+
+A disabled button can't keep the keyboard focus. When you undo the last change, the Undo button disables itself. `pressing` moves the focus to Redo, which that undo just turned on. It works the same way the other way around.
+
+The [state guide](../../guide/state.md) covers the rest of `@zerolith/state`, such as signals that wait for typing to stop.
 
 ## Offline
 
@@ -51,17 +78,19 @@ Update `src/components/packing.ts`:
 
 @include packages/zerolith/test/fixtures/tutorial/undo/src/components/packing.ts
 
-`online()` from `@zerolith/browser` returns a signal of whether the browser is online, following the browser's `online` and `offline` events. There is one for the page, started the first time anything asks for it, so any component can call it. The list lives on this device, so nothing stops working offline, and the note says so.
+`online()` from `@zerolith/browser` gives you a signal that's true while the browser is online. Any component can call it. The list is saved on this device, so nothing stops working offline, and the note says so.
 
-The status paragraph stays on the page, empty while the browser is online. Assistive technology reads a `status` region aloud when its text changes, and a region that appears together with its text can go unread, so the paragraph stays and only its text changes.
+The status line is always on the page. It's just empty while you're online. Screen readers read a `status` line aloud when its text changes. If the line appeared at the same moment as its text, a screen reader might not read it.
 
-The [browser guide](../../guide/browser.md) covers the rest of `@zerolith/browser`: whether the tab is visible, the window's size, and an element's size and whether it is in view.
+The [browser guide](../../guide/browser.md) covers the rest of `@zerolith/browser`, such as whether the tab is visible and the window's size.
 
-Remove an item and press Undo, and it is back. Then set the network to offline in the browser's developer tools, and the note appears.
+## Try it
+
+Remove an item, then press **Undo**. The item is back. Next, open your browser's developer tools and set the network to offline. The note "Offline: changes are saved on this device." appears.
 
 ## What you learned
 
-- `stored` keeps a signal in storage under a key: read when it is created, written on every set, and the same in every tab.
-- `history` gives a signal undo and redo from checkpoints, with `canUndo` and `canRedo` as signals.
-- `online()` gives the browser's connection as a signal, one for the page.
-- `?name=${flag}` binds a boolean attribute, there while the flag is true.
+- `stored` keeps a signal in storage. It loads when the app starts, saves on every change, and stays the same in every tab.
+- `history` adds undo and redo, with `canUndo` and `canRedo` as signals.
+- `online()` tells you whether the browser is online, as a signal.
+- `?name=${flag}` adds an attribute while the flag is true, and removes it while it's false.

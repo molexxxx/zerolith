@@ -6,7 +6,7 @@ order: 10
 
 # Build and ship
 
-The packing list is done. The last step turns the project into files a host can serve.
+The packing list is done. The last step turns your project into files you can put on a website.
 
 ## Build
 
@@ -14,7 +14,10 @@ The packing list is done. The last step turns the project into files a host can 
 npm run build
 ```
 
-`zerolith build` bundles the application with the packages it imports, minifies it, and writes everything to `dist/`, with every script and style sheet under `dist/assets/` named by a hash of its content, so a host can cache those files for good. The build also prepares the `html` templates ahead of time, so the template scanner is left out of the bundle and the page does less work when it loads.
+`zerolith build` packs your app and the packages it uses into a few small files in `dist/`.
+
+- Scripts and stylesheets go in `dist/assets/`. Each file's name includes a code made from its contents, so a host can cache them forever. When a file changes, its name changes too.
+- The `html` templates are prepared ahead of time, so the page does less work when it loads.
 
 ## Check it
 
@@ -22,19 +25,22 @@ npm run build
 npm run preview
 ```
 
-`zerolith preview` serves `dist/` the way a static host does, including the fallback that sends a deep link such as `/packing` to `index.html`, so the router can take it from there. Open the address it prints and click through the app once more.
+`zerolith preview` serves `dist/` the way a website host would. Open the address it prints and click through the app once more. Open `/packing` directly too. It works because the preview answers any address that isn't a file with `index.html`, and the router takes it from there.
 
 ## Ship it
 
-`dist/` is static files: an HTML page, scripts, a style sheet, and the files from `public/`. Any static host serves it, as does any web server or the static files of your own backend. The one thing every host needs is that fallback: an address that matches no file should answer with `index.html`.
+`dist/` holds plain files: an HTML page, scripts, a stylesheet, and the files from `public/`. Any static host can serve them, and so can any web server or your own backend.
 
-[Building and serving](../../guide/deploying.md) covers each kind of host, serving under a path such as `/app/`, caching, and running the dev server next to a backend that answers your API calls.
+There's one setting every host needs. An address that doesn't match a file should answer with `index.html`. Without it, a link straight to `/packing` shows a "not found" page.
+
+[Building and serving](../../guide/deploying.md) has the setup for each kind of host. It also covers serving the app under a path such as `/app/`, caching, and working with a backend.
 
 ## Where to go next
 
-You have used every part of a zerolith application: components, signals, lists, events, derived values, effects, styles, routes, and tests, along with `@zerolith/state` and `@zerolith/browser`. From here:
+You've used every part of a zerolith app: components, signals, lists, events, derived values, effects, styles, routes, and tests, plus `@zerolith/state` and `@zerolith/browser`. From here:
 
-- The [guide](../../guide/index.md) explains each idea in depth, one page per concept, starting from the [introduction](../../guide/index.md).
-- [Forms](../../guide/forms.md) turns the add form into a form that posts to a server, with pending state and field errors.
-- [Server rendering](../../guide/server-rendering.md) renders pages to HTML on a server and hydrates them in the browser.
-- The [reference](https://zerolith.dev/reference/zerolith/) lists every export with its documentation.
+- The next tutorial, [a sign-up form](../sign-up-form/index.md), checks input as you type and shows the server's errors next to each field.
+- The [guide](../../guide/index.md) explains each idea in depth, one page per idea.
+- [Forms](../../guide/forms.md) shows how to send a form to a server.
+- [Server rendering](../../guide/server-rendering.md) turns pages into HTML on a server.
+- The [reference](https://zerolith.dev/reference/zerolith/) lists everything zerolith exports.

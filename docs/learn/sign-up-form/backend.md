@@ -6,11 +6,13 @@ order: 4
 
 # A backend to send to
 
-The form needs a server to send to, and it does not care what that server is written in. It speaks plain HTTP, so all it needs is something that answers one request the way this page writes down. Start with that contract; then a small Node script follows it, so you can carry on. A server in any other language can replace the script later without a change to the page.
+The form needs a server to send to. It doesn't matter what language the server is written in. The page talks plain HTTP, so any server that answers one request the way this page describes will work.
+
+You'll write that description first. Then a small Node server follows it, so you can keep going. Later, a server in any other language can take its place without changing the page.
 
 ## The contract
 
-The form sends what the browser would send for a native form, with one header added to ask for JSON:
+A **contract** is a written description of a request and every answer it can get. The form sends what a browser sends for any HTML form, plus one header that asks for JSON back:
 
 ```http wide
 POST /api/sign-ups HTTP/1.1
@@ -22,15 +24,15 @@ name=Grace+Hopper&email=grace%40example.com&password=compilers-in-1952&plan=team
 
 | Field | Holds |
 | --- | --- |
-| `name` | Text that is not blank |
+| `name` | Text that isn't blank |
 | `email` | An address shaped like `name@example.com` |
-| `password` | At least 15 characters, not containing the email address |
+| `password` | At least 15 characters, without the email address in it |
 | `plan` | `free`, `plus`, or `team` |
-| `terms` | `accepted`, and missing when the box is not checked |
+| `terms` | `accepted`, or missing when the box isn't checked |
 
-There are three answers.
+There are three possible answers.
 
-**The account was created.** The status is `201 Created`, the media type `application/json`, and the body the new account, without the password:
+**The account was created.** The status is `201 Created`, and the body is the new account as JSON, without the password:
 
 ```json
 {
@@ -41,7 +43,7 @@ There are three answers.
 }
 ```
 
-**A field breaks a rule.** The status is `400 Bad Request`, the media type `application/problem+json`, and the body a problem details document, the format [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) defines. `fields` is the extension zerolith adds to it: a map from field name to that field's messages. The form shows each message next to the field it names:
+**A field breaks a rule.** The status is `400 Bad Request`. The body is a **problem details** document, a standard JSON format for errors from [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457). zerolith adds one thing to it, `fields`: each field's name with its messages. The form shows each message next to its field:
 
 ```json
 {
@@ -55,7 +57,7 @@ There are three answers.
 }
 ```
 
-**The email address has an account.** The status is `409 Conflict`, with the same media type and the same shape. This is the one rule the page cannot check for itself, and the page needs nothing more than this document to show it next to Email:
+**The email address already has an account.** The status is `409 Conflict`, in the same format. This is the one rule the page can't check by itself. The page doesn't need anything else to show the message next to Email:
 
 ```json
 {
@@ -66,56 +68,71 @@ There are three answers.
 }
 ```
 
-That is the whole contract. A server in another language reads a URL-encoded body, applies the same rules, and writes this JSON, with nothing from zerolith installed. The rules then exist twice, once for the page and once for the server, but the page shows whatever messages the server sends.
+That's the whole contract. A server in another language reads the form, checks the same rules, and writes this JSON. It doesn't need anything from zerolith. The rules would then be written twice, once for the page and once for the server, but the page always shows whatever messages the server sends.
 
 > [!NOTE]
-> A `409` tells anyone who tries an address that it has an account. A service that must not reveal that answers every sign-up the same way and sends an email to the address instead.
+> A `409` tells anyone who tries an address that it has an account. A service that must keep that private answers every sign-up the same way and sends an email to the address instead.
 
-## The script
+## The server
 
-Node 24 runs TypeScript files directly, with no build step. Install Node's types, so your editor and the type checker understand `node:http`:
+Node 24 can run TypeScript files directly, with no build step. Install Node's types, so your editor and the type checker know about `node:http`:
 
 ```sh
 npm install --save-dev @types/node
 ```
 
-Then add `server` to the `include` list in `tsconfig.json`, so `npm run typecheck` checks the backend too: `"include": ["src", "test", "server", "vitest.config.ts"]`.
+Then add `server` to the `include` list in `tsconfig.json`, so `npm run typecheck` checks the server too:
 
-The endpoint itself is a function from a `Request` to a `Response`, the shape Deno, Bun, and workers run directly. Create `server/sign-ups.ts`:
+```json
+"include": ["src", "test", "server", "vitest.config.ts"]
+```
+
+The sign-up endpoint is one function that takes a `Request` and returns a `Response`. Deno, Bun, and edge workers can run a function like that directly. Create `server/sign-ups.ts`:
 
 @include packages/zerolith/test/fixtures/sign-up-form/app/server/sign-ups.ts
 
-This backend is TypeScript too, so it imports the page's `src/schema.ts` and applies the very same rules. `validateForm` runs the schema on the form data and returns the value or a problem, and `problemResponse` writes a problem with the right status and media type.
+This server is TypeScript too, so it imports the page's `src/schema.ts` and checks the exact same rules.
 
-The accounts live in memory and disappear when the script restarts. It starts with one, for `ada@example.com`, so you can see the `409` without signing up twice, and it compares addresses in lowercase. It never keeps the password. A real backend keeps a slow hash of it, such as Argon2 or scrypt, and never the password itself.
+- `validateForm` checks the form data and returns either the clean values or a problem.
+- `problemResponse` turns a problem into a response with the right status.
 
-Node's own HTTP server has objects of its own rather than `Request` and `Response`, so a second file converts between them. Create `server/main.ts`:
+The accounts are kept in memory and disappear when the server restarts. It starts with one account, for `ada@example.com`, so you can see the `409` without signing up twice. It compares email addresses in lowercase, and it never keeps the password. A real server would store a slow hash of the password, made with Argon2 or scrypt, and never the password itself.
+
+Node's own HTTP server doesn't use `Request` and `Response`, so a second file converts between them. Create `server/main.ts`:
 
 @include packages/zerolith/test/fixtures/sign-up-form/app/server/main.ts
 
-It listens on port 3000 unless `PORT` says otherwise, on `127.0.0.1`, so only your own machine can reach it. A request the `Request` class cannot represent, such as one with the `TRACE` method, or an error the endpoint throws, is written to the terminal and answered with `500`, and the process keeps running.
+- It listens on port 3000, unless `PORT` says otherwise.
+- It listens on `127.0.0.1`, so only your own computer can reach it.
+- If something goes wrong, such as a request it can't read or an error in the endpoint, it prints the error, answers `500`, and keeps running.
 
 ## Run it with the dev server
 
-Add a script to `package.json`, next to the others: `"api": "node --watch server/main.ts",`. `--watch` restarts the backend whenever you save one of its files, and the dev server reloads the page, as it does for any file you save.
+Add a script to `package.json`, next to the others:
+
+```json
+"api": "node --watch server/main.ts",
+```
+
+`--watch` restarts the server whenever you save one of its files. The dev server reloads the page too, as it does for any file you save.
 
 Then replace `zerolith.json`:
 
 @include packages/zerolith/test/fixtures/sign-up-form/app/zerolith.json
 
-A request whose path starts with `/api` now goes to the backend, with its path and query, so the page calls its own origin and there is no cross-origin setup to do. `run` names the command that starts the backend: `zerolith dev` runs it, shows its output in the same terminal, and stops it when it stops itself.
+Now any request whose path starts with `/api` goes to your server. The page calls its own address, so there's no cross-site setup to do. `run` is the command that starts the server: `npm run dev` starts it for you, shows its output in the same terminal, and stops it when you stop the dev server.
 
-The dev server reads `zerolith.json` when it starts, so stop it with Ctrl+C and run `npm run dev` again. The terminal now shows the line `server/main.ts` prints. The [building and serving guide](../../guide/deploying.md#a-backend-next-to-the-dev-server) covers the rest of the proxy.
+The dev server reads `zerolith.json` when it starts. Stop it with Ctrl+C and run `npm run dev` again. The terminal now shows the line your server prints when it starts. The [building and serving guide](../../guide/deploying.md#a-backend-next-to-the-dev-server) covers more about the proxy.
 
 ## Try it
 
-Fill in the form with `ada@example.com` and press Create account. The server's message appears under Email, with no change to the page: `signUp.field("email")` follows the problem whichever side found it. Change one letter of the address and the message goes, because the server said nothing about the new address; change it back and the message returns.
-
-Sign up with any other address, and the Network panel shows a `201` with the new account as its body. The page does nothing with it yet, which is the next step.
+1. Fill in the form with `ada@example.com` and press **Create account**. The server's message appears under Email. You didn't change the page for this: `signUp.field("email")` shows a message whichever side found the problem.
+2. Change one letter of the email. The message goes away, because the server said nothing about the new address. Change it back, and the message returns.
+3. Sign up with any other address. The Network panel shows a `201` with the new account. The page doesn't do anything with it yet. That's the next step.
 
 ## What you learned
 
-- The contract is plain HTTP: a URL-encoded form in, and JSON or a problem details document out.
-- `fields` in a problem details document puts each message next to its field, whichever server sends it.
-- `validateForm` and `problemResponse` run the same schema on a server that can import it.
-- `proxy` forwards a path to a backend, and `run` starts that backend with the dev server.
+- The contract is plain HTTP: a form goes in, and JSON or a problem details document comes out.
+- `fields` in a problem details document puts each message next to its field, whatever language the server is written in.
+- `validateForm` and `problemResponse` check the same rules on a server that can import them.
+- `proxy` sends a path to a backend, and `run` starts that backend with the dev server.

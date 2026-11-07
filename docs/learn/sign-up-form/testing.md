@@ -6,38 +6,44 @@ order: 7
 
 # Testing
 
-A form has more ways to go wrong than most pages, and most of them only show when it talks to a server. A test can cover those paths without a network: mount the page in a real browser, fill it in, and answer its requests with the same function your backend runs.
+A form can go wrong in many ways, and most of them only show up when it talks to a server. A test can cover those without a network:
+
+1. Put the page in a real browser.
+2. Fill it in.
+3. Answer its requests with the same function your server runs.
 
 Create `test/sign-up.browser.test.ts`:
 
 @include packages/zerolith/test/fixtures/sign-up-form/app/test/sign-up.browser.test.ts
 
-`vi.stubGlobal` replaces `fetch` for each test with a function that hands the request to `answer` from `server/sign-ups.ts`. `answer` takes a `Request` and returns a `Response`, and neither needs Node, so it runs in the browser with the page. That one line tests the page and the backend together: a change to the contract on either side fails a test. `vi.unstubAllGlobals()` puts `fetch` back afterward.
+**`vi.stubGlobal`** replaces `fetch` for each test. The replacement hands each request to `answer` from `server/sign-ups.ts`. `answer` takes a `Request` and returns a `Response`, and neither needs Node, so it runs in the browser next to the page. That one line tests the page and the server together: if either side breaks the contract, a test fails. `vi.unstubAllGlobals()` puts the real `fetch` back afterward.
 
-Setting `value` from a script fires no event, so `type` sends the `input` event that typing would, which is what `typed` in the page listens for. `.click()` on a radio button or a checkbox fires its own.
+**`type`** fills in a field and sends an `input` event. Setting a field's `value` from a script doesn't send one, and the page's `typed` listens for it. Clicking a radio button or a checkbox with `.click()` sends its own event.
 
-A submission runs the schema and waits for `fetch`, so its result arrives a few promises later. `vi.waitFor` runs its check again until it passes or the time runs out, where a test without waiting, such as the packing list's, can check on the next line. Focus on the welcome's heading moves one microtask after the heading appears, so that check waits too.
+**`vi.waitFor`** waits for the answer. A submit checks the rules and waits for `fetch`, so its result arrives a moment later. `vi.waitFor` keeps checking until it passes or time runs out. The packing list's tests didn't need it, because nothing there waits. Moving the focus to the welcome's heading also takes a moment, so that check waits too.
 
-The accounts in `server/sign-ups.ts` last as long as the module does, which is the whole test file. The tests that sign up use `grace@example.com`, once, and `ada@example.com`, which is there from the start, so their order does not matter.
+The accounts in `server/sign-ups.ts` last for the whole test file. The tests that sign up use `grace@example.com` once and `ada@example.com`, which exists from the start, so the order of the tests doesn't matter.
 
-`accessibilityIssues` finds the defects a test can see without an accessibility tree, as in the packing list: delete the `<label>` from `TextField` and "names every control" fails. The [testing guide](../../guide/testing.md) covers the rest of `@zerolith/test`.
+**`accessibilityIssues`** finds missing labels and names, as in the packing list. Delete the `<label>` from `TextField` and "names every control" fails. The [testing guide](../../guide/testing.md) covers the rest of `@zerolith/test`.
 
-Vitest drives a real Chromium through Playwright. On a machine that has not run Playwright before, download the browser once:
+## Run the tests
+
+The tests run in Chromium. If you've never used Playwright on this computer, download the browser once:
 
 ```sh
 npx playwright install chromium
 ```
 
-Then run the tests, with the starter's counter test beside yours:
+Then run the tests. The starter's counter test runs too:
 
 ```sh
 npm test
 ```
 
-The whole gate, type check, lint, tests, and build, is `npm run check`.
+To run everything at once, the type check, the linter, the tests, and the build, use `npm run check`.
 
 ## What you learned
 
-- A backend written as a function from `Request` to `Response` can answer a page's requests inside a test.
-- `vi.stubGlobal` replaces `fetch` for a test, and `vi.waitFor` waits for a submission's result.
-- Setting a field's `value` from a script fires no event, so a test sends the `input` event itself.
+- A server written as a function from `Request` to `Response` can answer a page's requests inside a test.
+- `vi.stubGlobal` replaces `fetch` for a test, and `vi.waitFor` waits for an answer.
+- Setting a field's `value` from a script sends no event, so the test sends the `input` event itself.

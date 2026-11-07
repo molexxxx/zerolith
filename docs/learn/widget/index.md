@@ -6,12 +6,12 @@ order: 4
 
 # Build a widget for any backend
 
-You build a feedback widget: a `<feedback-widget>` element that asks whether a page helped and posts the answer to the backend the page names. Any site can add it with one script tag, whatever it is built with.
+You'll build a feedback widget: a `<feedback-widget>` tag that asks whether a page helped, and sends the answer to a server the page chooses. Any website can add it with one script tag, whatever the site is built with.
 
 ## What you need
 
 - Node 24 or newer.
-- The ideas from the [packing list](../packing-list/index.md): signals, `html` templates, `computed`, `when`, and events.
+- The [packing list](../packing-list/index.md) tutorial, or the same ideas: signals, `html` templates, `computed`, `when`, and events.
 
 ## Start a project
 
@@ -20,22 +20,31 @@ npx @zerolith/cli new feedback-widget --template ts --yes
 cd feedback-widget
 ```
 
-Answer `y` if `npx` asks to download the command line. The starter is a routed app, and a widget is one element, so delete the routed parts:
+If `npx` asks to download the command line, answer `y`.
+
+The starter is an app with several pages, but a widget is a single element. Delete the parts you won't need:
 
 | Delete | What it was |
 | --- | --- |
-| `src/routes.ts` and `src/router.ts` | The route table and the router |
-| Every file in `src/components/` | The layout and the starter's pages; the widget's component goes in the same folder |
-| `test/counter.browser.test.ts` | The counter's test; the widget gets a test of its own in the testing step |
-| `public/data/` | The data the starter's list page loaded |
+| `src/routes.ts` and `src/router.ts` | The list of pages and the router |
+| Every file in `src/components/` | The starter's layout and pages. Your widget's file goes in this folder |
+| `test/counter.browser.test.ts` | The counter's test. The widget gets its own in the testing step |
+| `public/data/` | The data the starter's pages loaded |
 
-Then remove the two packages only the routed application used, the router and the in-page inspector:
+Then remove the two packages only the app used, the router and the in-page inspector:
 
 ```sh
 npm uninstall @zerolith/router @zerolith/devtools
 ```
 
-What stays is what a widget needs: `zerolith`, the dev server and the build from `@zerolith/cli`, TypeScript, the linter, and Vitest with `@zerolith/test`. `src/main.ts` still imports what you removed until the first step replaces it, so start the dev server there, and `npm test` has nothing to run until the testing step. `README.md` and `AGENTS.md` still describe the routed starter; bring them up to date when you like.
+What's left is what a widget needs: `zerolith`, the dev server and the build from `@zerolith/cli`, TypeScript, the linter, and the test tools.
+
+Two things to know before you start:
+
+- `src/main.ts` still imports what you deleted, until the first step replaces it. Start the dev server in that step.
+- `npm test` has nothing to run until the testing step.
+
+`README.md` and `AGENTS.md` still describe the starter app. Update them whenever you like.
 
 ## The steps
 

@@ -6,7 +6,7 @@ order: 1
 
 # Add a page
 
-A zerolith page is a component, and a component is a plain function that returns a view. There is no class to extend and no special file type: a function, an `html` template, and an export.
+In zerolith, each page is a component. A component is a function that returns what to show. In this step you'll write one and give it its own address.
 
 ## The component
 
@@ -14,30 +14,43 @@ Create `src/components/packing.ts`:
 
 @include packages/zerolith/test/fixtures/tutorial/page/src/components/packing.ts
 
-`html` is a tagged template. It reads like a string of HTML, but nothing is parsed from strings at run time and nothing can inject markup into it: the browser parses the template once, and the values you put in `${}` slots are bound to exact places in it. The function returns a `View`, which is what `render`, the router, and other templates accept.
+`html` lets you write HTML inside your code. The parts inside `${}` are filled in from your code. Each value goes in its exact spot, so text that a user types always shows as text and never turns into HTML.
+
+The function returns a `View`, which is anything zerolith can put on the page.
 
 ## The route
 
-Pages appear through the route table in `src/routes.ts`. Import the component next to the other imports:
+A route connects an address, like `/packing`, to a page. Routes live in `src/routes.ts`. First, import your component next to the other imports at the top:
 
 @include packages/zerolith/test/fixtures/tutorial/page/src/routes.ts#import excerpt
 
-Then add an entry at the end of the table. The starter's last entry, `packages`, has no comma after it, so add one there first:
+Then add the route at the end of the list. The starter's last route, `packages`, has no comma after it, so add a comma there first. Then add this below it:
 
 @include packages/zerolith/test/fixtures/tutorial/page/src/routes.ts#route excerpt
 
-The key, `packing`, is the route's name. The path is matched against the URL, the view renders when it matches, and `head` sets the document title while the page is open.
+- `packing` is the route's name. You'll use it to make links.
+- `path` is the address that opens the page.
+- `view` is what the page shows.
+- `head` sets the title in the browser tab.
 
 ## The link
 
-Links are plain anchors. The router handles clicks on links to its own routes, so the page changes without a reload, and every other link works as a link always does. The starter's layout in `src/components/layout.ts` has one `Link` for each page in its `nav`, so add one more line there: `${Link({ href: router.href("packing"), label: "Packing", exact: false })}`.
+Open `src/components/layout.ts`. Its `nav` has one `Link` for each page. Add one for yours:
 
-`router.href("packing")` builds the URL from the route's name. Since the route table is typed, a misspelled name or a missing parameter is a type error in your editor rather than a broken link in production.
+```ts
+${Link({ href: router.href("packing"), label: "Packing", exact: false })}
+```
 
-Save, click Packing in the header, and the new page appears with its title in the browser tab.
+`router.href("packing")` builds the link's address from the route's name. If you misspell the name, your editor marks it as an error right away.
+
+Links are normal `<a>` tags. When you click a link to a page in your app, the router changes the page without reloading. Links to other sites work as usual.
+
+## Try it
+
+Save your files and click **Packing** in the header. Your page opens, and the browser tab shows its title.
 
 ## What you learned
 
-- A component is a function that returns a view, written with the `html` tag.
-- A page is a route: a path, a view, and its head.
-- Links are anchors, and `router.href` builds them from route names.
+- A component is a function that returns a view, written with `html`.
+- A route gives a page its address and its title.
+- Links are normal `<a>` tags, and `router.href` builds their addresses from route names.
