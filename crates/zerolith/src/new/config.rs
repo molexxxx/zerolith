@@ -96,7 +96,8 @@ export default defineConfig({
 
 pub(super) const VITE_CONFIG: &str = "import { defineConfig } from \"vite\";\nimport { zerolith } from \"@zerolith/vite\";\n\nexport default defineConfig({\n    plugins: [zerolith()]\n});\n";
 
-pub(super) const OXLINTRC: &str = "{\n    \"plugins\": [\"typescript\", \"unicorn\", \"import\"],\n    \"categories\": { \"correctness\": \"error\", \"suspicious\": \"error\" },\n    \"rules\": { \"eqeqeq\": \"error\", \"no-var\": \"error\", \"prefer-const\": \"error\" },\n    \"ignorePatterns\": [\"dist\", \"node_modules\"]\n}\n";
+/// The starter's lint settings. A module imported for its effects, a stylesheet as the styles guide imports one or a module that defines an element, is how ES modules do it, so `import/no-unassigned-import` is off.
+pub(super) const OXLINTRC: &str = "{\n    \"plugins\": [\"typescript\", \"unicorn\", \"import\"],\n    \"categories\": { \"correctness\": \"error\", \"suspicious\": \"error\" },\n    \"rules\": { \"eqeqeq\": \"error\", \"no-var\": \"error\", \"prefer-const\": \"error\", \"import/no-unassigned-import\": \"off\" },\n    \"ignorePatterns\": [\"dist\", \"node_modules\"]\n}\n";
 
 pub(super) fn tsconfig(choice: Choice) -> String {
     let files = match (choice.start, choice.tool) {

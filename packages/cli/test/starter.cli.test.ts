@@ -124,6 +124,22 @@ describe("the starter zerolith new writes", () =>
         }
     });
 
+    it("passes its own lint with a module imported for its effects, a stylesheet or another module", () =>
+    {
+        const file = join(root, "src", "effects.ts");
+        try
+        {
+            writeFileSync(file, "import \"./styles.css\";\nimport \"./router.ts\";\n\nexport const ready = true;\n");
+            const oxlint = join(repository, "node_modules", "oxlint", "bin", "oxlint");
+            const result = spawnSync(process.execPath, [oxlint, "-c", join(root, ".oxlintrc.json"), file], { encoding: "utf8" });
+            expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
+        }
+        finally
+        {
+            rmSync(file, { force: true });
+        }
+    });
+
     it("builds with zerolith build and runs from zerolith preview", { timeout: 60000 }, async () =>
     {
         const result = spawnSync(binary(), ["build", root], { encoding: "utf8" });
