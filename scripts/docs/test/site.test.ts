@@ -1252,7 +1252,9 @@ describe("documentation site", () =>
         expect(map.imports["@zerolith/router"]).toMatch(/^\/router\/index\.js\?v=[\w-]+$/);
         for (const path of ["/zerolith/index.js", "/zerolith/render.js", "/router/index.js", "/router/router.js", "/router/match.js", "/island.js", "/search.js", "/demo.js", "/playground.js", "/highlight.js", "/smooth.js"])
         {
-            expect(map.imports[path], path).toMatch(new RegExp(`^${path.replace(/\./g, "\\.")}\\?v=[\\w-]+$`));
+            const [address, version] = (map.imports[path] ?? "").split("?v=");
+            expect(address, path).toBe(path);
+            expect(version, path).toMatch(/^[\w-]+$/);
         }
         expect(map.integrity).toBeUndefined();
         expect(home).toMatch(/<script type="module" src="\/island\.js\?v=[\w-]+"><\/script>/);
