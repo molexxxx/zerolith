@@ -7,6 +7,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Added
 
+- `@zerolith/vite`, `@zerolith/cli`, and the `zerolith` crate: the template lint reports `template_component_uncalled` for a component bound as content without being called, as `${AddItem}`, which type-checks and fails only when the page renders.
 
 ### Fixed
 

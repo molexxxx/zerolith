@@ -71,6 +71,7 @@ export type DiagnosticCode =
     | "hydration_mismatch"
     | "jsx_not_lowered"
     | "template_frozen_read"
+    | "template_component_uncalled"
     | "image_without_alt"
     | "button_without_name"
     | "frame_without_title"

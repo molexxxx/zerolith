@@ -64,5 +64,23 @@
         "line": 35,
         "column": 43,
         "message": "<img> has no alt attribute; give it alternative text or alt=\"\" when it is decorative."
+    },
+    {
+        "code": "template_component_uncalled",
+        "line": 41,
+        "column": 55,
+        "message": "A component is bound as content without being called, which fails when the page renders; call it, as ${AddItem()}."
+    },
+    {
+        "code": "template_component_uncalled",
+        "line": 41,
+        "column": 66,
+        "message": "A component is bound as content without being called, which fails when the page renders; call it, as ${AddItem()}."
+    },
+    {
+        "code": "template_component_uncalled",
+        "line": 41,
+        "column": 74,
+        "message": "A component is bound as content without being called, which fails when the page renders; call it, as ${AddItem()}."
     }
 ]

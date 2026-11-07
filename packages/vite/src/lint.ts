@@ -8,7 +8,7 @@ import { type AstNode, walk } from "./ast.js";
 import type { ModuleParser } from "./transform.js";
 
 /** The checks `lintModule` runs. */
-export type LintCode = "template_frozen_read" | "image_without_alt" | "button_without_name" | "frame_without_title";
+export type LintCode = "template_frozen_read" | "template_component_uncalled" | "image_without_alt" | "button_without_name" | "frame_without_title";
 
 /** One finding. */
 export interface Finding
@@ -38,6 +38,42 @@ interface CallExpression extends AstNode
 const TAGS = new Set(["html", "__zl_html"]);
 const FUNCTIONS = new Set(["ArrowFunctionExpression", "FunctionExpression"]);
 const HOLE = "\u0000";
+
+/**
+ * The names a module binds to a function or imports, which, capitalized and
+ * bound as a template's content, are most likely a component passed instead of
+ * called. A parameter or a value such as `const Title = html`...`` is not among
+ * them, since either can hold a view.
+ */
+function callables(body: AstNode[]): Set<string>
+{
+    const names = new Set<string>();
+    walk(body, (node) =>
+    {
+        const named = node as AstNode & { id?: { name?: string } | null; init?: AstNode | null; local?: { name?: string } };
+        if (node.type === "FunctionDeclaration" && named.id?.name !== undefined)
+        {
+            names.add(named.id.name);
+        }
+        else if (node.type === "VariableDeclarator" && named.id?.name !== undefined && named.init !== null && named.init !== undefined && FUNCTIONS.has(named.init.type))
+        {
+            names.add(named.id.name);
+        }
+        else if (["ImportSpecifier", "ImportDefaultSpecifier", "ImportNamespaceSpecifier"].includes(node.type) && named.local?.name !== undefined)
+        {
+            names.add(named.local.name);
+        }
+        return true;
+    });
+    return names;
+}
+
+/** True when a template's text up to a binding leaves it outside any tag, in a child slot. */
+function inContent(before: string): boolean
+{
+    const open = before.lastIndexOf("<");
+    return open === -1 || before.slice(open).includes(">");
+}
 
 /** A `.get()` call with no arguments outside any function in the expression, which a template binds once and never again. */
 function frozenRead(expression: AstNode): AstNode | undefined
@@ -142,6 +178,7 @@ export function lintModule(code: string, id: string, parse: ModuleParser): Findi
         return [];
     }
     const findings: Finding[] = [];
+    const named = callables(program.body as AstNode[]);
     walk(program.body, (node) =>
     {
         if (node.type !== "TaggedTemplateExpression")
@@ -153,8 +190,15 @@ export function lintModule(code: string, id: string, parse: ModuleParser): Findi
         {
             return true;
         }
-        for (const expression of template.quasi.expressions)
+        let before = "";
+        for (const [index, expression] of template.quasi.expressions.entries())
         {
+            before += template.quasi.quasis[index]?.value.raw ?? "";
+            const name = (expression as AstNode & { name?: string }).name;
+            if (expression.type === "Identifier" && name !== undefined && /^\p{Lu}/u.test(name) && named.has(name) && inContent(before))
+            {
+                findings.push({ code: "template_component_uncalled", message: "A component is bound as content without being called, which fails when the page renders; call it, as ${AddItem()}.", offset: expression.start });
+            }
             const read = frozenRead(expression);
             if (read !== undefined)
             {

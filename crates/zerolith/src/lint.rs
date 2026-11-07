@@ -5,8 +5,11 @@
 //! fixture holds both implementations to the same findings.
 
 use oxc_allocator::Allocator;
+use std::collections::HashSet;
+
 use oxc_ast::ast::{
-    ArrowFunctionExpression, CallExpression, Expression, Function, TaggedTemplateExpression,
+    ArrowFunctionExpression, CallExpression, Expression, Function, ImportDeclarationSpecifier,
+    TaggedTemplateExpression, VariableDeclarator,
 };
 use oxc_ast_visit::{Visit, walk};
 use oxc_parser::Parser;
@@ -27,6 +30,7 @@ const IMAGE_WITHOUT_ALT: &str =
 const FRAME_WITHOUT_TITLE: &str = "<iframe> has no title attribute; name what it embeds.";
 const BUTTON_WITHOUT_NAME: &str =
     "<button> has no content and no aria-label; a button needs an accessible name.";
+const COMPONENT_UNCALLED: &str = "A component is bound as content without being called, which fails when the page renders; call it, as ${AddItem()}.";
 
 /// One finding: a stable code, the message the Vite plugin prints, and the byte offset in the module.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -209,9 +213,47 @@ fn markup(source: &str, template: &TaggedTemplateExpression<'_>, findings: &mut 
     }
 }
 
+/// The names a module binds to a function or imports, which, capitalized and bound as a template's content, are most likely a component passed instead of called. A parameter or a value such as `const Title = html`...`` is not among them, since either can hold a view.
+#[derive(Default)]
+struct Callables {
+    names: HashSet<String>,
+}
+
+impl<'a> Visit<'a> for Callables {
+    fn visit_function(&mut self, it: &Function<'a>, flags: ScopeFlags) {
+        if let Some(id) = &it.id {
+            self.names.insert(id.name.to_string());
+        }
+        walk::walk_function(self, it, flags);
+    }
+
+    fn visit_variable_declarator(&mut self, it: &VariableDeclarator<'a>) {
+        if matches!(
+            it.init,
+            Some(Expression::ArrowFunctionExpression(_) | Expression::FunctionExpression(_))
+        ) && let Some(id) = it.id.get_identifier_name()
+        {
+            self.names.insert(id.to_string());
+        }
+        walk::walk_variable_declarator(self, it);
+    }
+
+    fn visit_import_declaration_specifier(&mut self, it: &ImportDeclarationSpecifier<'a>) {
+        self.names.insert(it.name().to_string());
+    }
+}
+
+/// True when a template's text up to a binding leaves it outside any tag, in a child slot.
+fn in_content(before: &str) -> bool {
+    before
+        .rfind('<')
+        .is_none_or(|open| before[open..].contains('>'))
+}
+
 /// Collects the findings of every `html` template in a module.
 struct Templates<'s> {
     source: &'s str,
+    callables: HashSet<String>,
     findings: Vec<LintFinding>,
 }
 
@@ -220,7 +262,8 @@ impl<'a> Visit<'a> for Templates<'_> {
         if let Expression::Identifier(tag) = &it.tag
             && TAGS.contains(&tag.name.as_str())
         {
-            for expression in &it.quasi.expressions {
+            let mut before = String::new();
+            for (index, expression) in it.quasi.expressions.iter().enumerate() {
                 let mut read = FrozenRead { found: None };
                 read.visit_expression(expression);
                 if let Some(offset) = read.found {
@@ -228,6 +271,19 @@ impl<'a> Visit<'a> for Templates<'_> {
                         code: "template_frozen_read",
                         message: FROZEN_READ,
                         offset,
+                    });
+                }
+                let quasi = it.quasi.quasis[index].span;
+                before.push_str(&self.source[quasi.start as usize..quasi.end as usize]);
+                if let Expression::Identifier(name) = expression
+                    && name.name.chars().next().is_some_and(char::is_uppercase)
+                    && self.callables.contains(name.name.as_str())
+                    && in_content(&before)
+                {
+                    self.findings.push(LintFinding {
+                        code: "template_component_uncalled",
+                        message: COMPONENT_UNCALLED,
+                        offset: name.span.start,
                     });
                 }
             }
@@ -247,8 +303,11 @@ pub fn lint(source: &str, source_type: SourceType) -> Vec<LintFinding> {
     if parse_errors(parsed.diagnostics, source).is_some() {
         return Vec::new();
     }
+    let mut callables = Callables::default();
+    callables.visit_program(&parsed.program);
     let mut templates = Templates {
         source,
+        callables: callables.names,
         findings: Vec::new(),
     };
     templates.visit_program(&parsed.program);

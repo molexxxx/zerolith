@@ -34,3 +34,9 @@ export const buttons = html`
 export const frames = html`<iframe src="/x"></iframe><iframe title="Map" src="/y"></iframe>`;
 export const lowered = __zl_html`${label} <img src="/ü.png">`;
 export const unrelated = `<img src="/plain-string.png">`;
+import { Imported } from "./imported.js";
+function Declared() { return html`<p></p>`; }
+const Arrow = () => html`<p></p>`;
+const Title = html`<h1></h1>`;
+export const uncalled = html`<div class=${Declared}>${Declared}${Arrow}${Imported}${Title}${Declared()}</div>`;
+export const parameter = ({ Icon }) => html`${Icon}`;

@@ -100,7 +100,7 @@ interface ZerolithPluginOptions
     prepare?: boolean
 }
 
-type LintCode = "template_frozen_read" | "image_without_alt" | "button_without_name" | "frame_without_title"
+type LintCode = "template_frozen_read" | "template_component_uncalled" | "image_without_alt" | "button_without_name" | "frame_without_title"
 type ModuleParser = (filename: string, code: string) => ParsedModule
 type TemplateScanner = (strings: readonly string[]) => { markup: string; parts: readonly ScannedPart[] }
 

@@ -169,6 +169,11 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
         cause: "A JSX expression reached the runtime, which means the lowering in @zerolith/vite did not run for this file.",
         fix: "Add zerolith() to the Vite plugins and keep JSX in .jsx or .tsx files; without a build step write html templates instead."
     },
+    template_component_uncalled:
+    {
+        cause: "A function named like a component is bound as a template's content without being called, as ${AddItem}, which the renderer cannot display; `zerolith doctor` and the Vite plugin report it before the code runs, since the type checker cannot tell it from an event handler.",
+        fix: "Call it, as ${AddItem()}, or write <AddItem /> in JSX."
+    },
     template_frozen_read:
     {
         cause: "A .get() read is bound in a template, so the value was read once when the template was created and never updates; the Vite plugin reports it in development, since the runtime cannot tell a frozen read from a deliberate one.",

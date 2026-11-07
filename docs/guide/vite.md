@@ -123,5 +123,6 @@ The runtime cannot tell a frozen read from a deliberate one, and it does not rea
 | `image_without_alt` | An `<img>` in the template's static markup has no `alt` |
 | `button_without_name` | A `<button>` has no content and no `aria-label` |
 | `frame_without_title` | An `<iframe>` has no `title` |
+| `template_component_uncalled` | A component is bound as content without being called, as `${AddItem}`, which fails when the page renders |
 
 The accessibility codes are the same ones `@zerolith/test` reports at run time, and a project without Vite gets every one of these warnings from `zerolith doctor`, which runs the same checks over its sources. They are warnings, not errors, because a template may read a value once on purpose; `lint: false` turns them off.
