@@ -5,7 +5,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::css::{self};
+use crate::css;
 
 use super::Written;
 use super::plugin::{failure, normalized, path_of};
