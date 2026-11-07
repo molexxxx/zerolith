@@ -1,7 +1,7 @@
 <h1>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="brand/github/readme-header-dark.svg">
-  <img alt="zerolith: Full framework. Zero guesswork." src="brand/github/readme-header-light.svg">
+  <img alt="zerolith: a web framework built on signals" src="brand/github/readme-header-light.svg">
 </picture>
 </h1>
 

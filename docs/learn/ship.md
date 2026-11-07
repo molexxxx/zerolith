@@ -1,7 +1,7 @@
 ---
 title: Build and ship
 description: Build the packing list for production, check the build locally, and put it on a host.
-order: 9
+order: 10
 ---
 
 # Build and ship
@@ -32,7 +32,7 @@ npm run preview
 
 ## Where to go next
 
-You have used every part of a zerolith application: components, signals, lists, events, derived values, effects, styles, routes, and tests. From here:
+You have used every part of a zerolith application: components, signals, lists, events, derived values, effects, styles, routes, and tests, along with `@zerolith/state` and `@zerolith/browser`. From here:
 
 - The [guide](../guide/index.md) explains each idea in depth, one page per concept, starting from the [introduction](../guide/index.md).
 - [Forms](../guide/forms.md) turns the add form into a form that posts to a server, with pending state and field errors.

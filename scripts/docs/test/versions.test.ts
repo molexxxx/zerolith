@@ -53,6 +53,23 @@ describe("the versions the docs site shows", () =>
         expect(resolveShown(["crate@1.0.0"], [], "/")).toBeUndefined();
     });
 
+    it("builds the stable release from main while main carries its line, and from its line branch or tag otherwise", () =>
+    {
+        expect(resolveShown(["zerolith@1.1.0"], ["1.x"], "/", "1.1.0")).toEqual({
+            versions: { stable: { version: "1.1.0", base: "/" } },
+            stableRef: "origin/main"
+        });
+        expect(resolveShown(["zerolith@1.0.1"], ["1.x"], "/", "1.1.0")?.stableRef).toBe("origin/main");
+        expect(resolveShown(["zerolith@1.1.0"], ["1.x"], "/", "2.0.0-alpha.1")?.stableRef).toBe("origin/1.x");
+        expect(resolveShown(["zerolith@1.1.0"], [], "/", "2.0.0")?.stableRef).toBe("zerolith@1.1.0");
+        expect(resolveShown(["zerolith@1.1.0"], ["1.x"], "/", "1.0.0")?.stableRef).toBe("origin/1.x");
+        expect(resolveShown(["zerolith@1.1.0", "zerolith@2.0.0-alpha.1"], ["1.x"], "/", "1.1.0")).toEqual({
+            versions: { stable: { version: "1.1.0", base: "/" }, next: { version: "2.0.0-alpha.1", base: "/next/" } },
+            stableRef: "origin/main",
+            nextRef: "zerolith@2.0.0-alpha.1"
+        });
+    });
+
     it("labels a stable version by its major and minor and a pre-release by its major and channel", () =>
     {
         expect(labelOf("1.0.0")).toBe("1.0");

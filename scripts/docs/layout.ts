@@ -31,12 +31,6 @@ export function icon(name: string): string
     return brandFile(`icons/ui/${name}.svg`);
 }
 
-/** A package glyph from the brand set, inline like the interface icons. */
-export function glyph(name: string): string
-{
-    return brandFile(`icons/packages/${name}.svg`);
-}
-
 /** Replaces one fragment of a brand file, failing the build if the file no longer has it. */
 function replaceOnce(text: string, from: string, to: string): string
 {
@@ -134,6 +128,16 @@ function headings(content: string): Array<{ id: string; text: string }>
     }));
 }
 
+/** The link to the same page in the other release's docs, when the site shows two releases. */
+function VersionSwitch(page: PageData)
+{
+    return page.versionSwitch === undefined ? null : html`<a class="switch" href=${`${page.versionSwitch.base}${page.path.slice(1)}`} data-version-switch rel="external" title=${`The docs for ${page.versionSwitch.label}`}>${`${page.versionSwitch.label} docs`}</a>`;
+}
+
+/**
+ * The header, and the sheet the menu button opens at 960 px and narrower: the same
+ * sections as large rows, the current one on the chartreuse plane.
+ */
 function Header(page: PageData)
 {
     return html`
@@ -141,14 +145,54 @@ function Header(page: PageData)
         <header class="top">
             <a class="home" href="/" aria-label="zerolith home">${unsafeHtml(lockup)}</a>
             <span class="tag">${page.version}</span>
-            <nav class="sections" id="sections" aria-label="Sections">
+            <nav class="sections" aria-label="Sections">
                 ${sections.map((section) => html`<a href=${section.href} aria-current=${section.matches(page.path) ? "true" : null}>${section.title}</a>`)}
                 <a href=${repository}>GitHub</a>
-                ${page.versionSwitch === undefined ? null : html`<a class="switch" href=${`${page.versionSwitch.base}${page.path.slice(1)}`} data-version-switch title=${`The docs for ${page.versionSwitch.label}`}>${`${page.versionSwitch.label} docs`}</a>`}
+                ${VersionSwitch(page)}
             </nav>
-            <button class="icon menu-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls=${page.nav === undefined ? "sections" : "sections sidebar"}>${unsafeHtml(icon("menu"))}</button>
+            <button class="menu-toggle" type="button" aria-expanded="false" aria-controls=${page.nav === undefined ? "sheet" : "sheet sidebar"}><span class="menu-icon">${unsafeHtml(icon("menu"))}</span><span class="close-icon">${unsafeHtml(icon("close"))}</span>Menu</button>
             <button class="icon theme-toggle" type="button" aria-label="Switch between the light and dark themes"><span class="sun">${unsafeHtml(icon("sun"))}</span><span class="moon">${unsafeHtml(icon("moon"))}</span></button>
-        </header>`;
+        </header>
+        <nav class="sheet" id="sheet" aria-label="Sections">
+            <ul>
+                ${sections.map((section) => html`<li><a href=${section.href} aria-current=${section.matches(page.path) ? "true" : null}>${section.title}${unsafeHtml(icon("arrow-right"))}</a></li>`)}
+                <li><a href=${repository}>GitHub${unsafeHtml(icon("external"))}</a></li>
+            </ul>
+            ${VersionSwitch(page)}
+        </nav>`;
+}
+
+/** The footer's columns: the docs, the project, its community files, and the legal pages. */
+const footerColumns: Array<{ title: string; links: Array<{ text: string; href: string }> }> = [
+    { title: "Docs", links: [{ text: "Tutorial", href: "/learn/" }, { text: "Guide", href: "/guide/" }, { text: "Reference", href: "/reference/zerolith/" }, { text: "Diagnostics", href: "/e/" }, { text: "Playground", href: "/playground/" }, { text: "Benchmarks", href: "/benchmarks/" }] },
+    { title: "Project", links: [{ text: "GitHub", href: repository }, { text: "npm", href: "https://www.npmjs.com/package/zerolith" }, { text: "Releases", href: `${repository}/releases` }, { text: "Changelog", href: `${repository}/blob/main/CHANGELOG.md` }, { text: "Roadmap", href: `${repository}/blob/main/docs/ROADMAP.md` }] },
+    { title: "Community", links: [{ text: "Discussions", href: `${repository}/discussions` }, { text: "Contributing", href: `${repository}/blob/main/CONTRIBUTING.md` }, { text: "Code of conduct", href: `${repository}/blob/main/CODE_OF_CONDUCT.md` }, { text: "Support", href: `${repository}/blob/main/SUPPORT.md` }] },
+    { title: "Legal", links: [{ text: "License", href: `${repository}/blob/main/LICENSE` }, { text: "Security", href: `${repository}/security/policy` }, { text: "Privacy", href: "/legal/privacy/" }, { text: "Terms of use", href: "/legal/terms/" }, { text: "Contact", href: "/legal/contact/" }] }
+];
+
+/** The footer under every page: the name and its line, the link columns, and the license line, with the page's Markdown twin where the page has no footer of its own. */
+function SiteFooter(page: PageData, twin: boolean)
+{
+    return html`
+        <footer class="site-foot">
+            <div class="foot-top">
+                <div class="foot-brand">
+                    <a class="word" href="/">zerolith</a>
+                    <p>A web framework built on signals.</p>
+                </div>
+                <nav class="foot-links" aria-label="Footer">
+                    ${footerColumns.map((column) => html`
+                        <div>
+                            <h2>${column.title}</h2>
+                            <ul>${column.links.map((link) => html`<li><a href=${link.href}>${link.text}</a></li>`)}</ul>
+                        </div>`)}
+                </nav>
+            </div>
+            <div class="foot-base">
+                <p>${`zerolith ${page.version}. © 2026 molexxxx, released under the Apache License 2.0.`}</p>
+                ${twin ? html`<a href=${markdownTwin(page.path)}>This page as Markdown</a>` : null}
+            </div>
+        </footer>`;
 }
 
 function Pager({ previous, next }: { previous?: Link; next?: Link })
@@ -189,14 +233,16 @@ function Docs(page: PageData)
                     <h2>On this page</h2>
                     <ul>${contents.map((heading) => html`<li><a href=${`#${heading.id}`}>${heading.text}</a></li>`)}</ul>
                 </nav>`}
-        </div>`;
+        </div>
+        ${SiteFooter(page, false)}`;
 }
 
 function Wide(page: PageData)
 {
     return html`
         ${Header(page)}
-        <main id="content" class="wide">${page.view ?? null}</main>`;
+        <main id="content" class="wide">${page.view ?? null}</main>
+        ${SiteFooter(page, true)}`;
 }
 
 /** The `.md` path that mirrors a page path. */
@@ -227,7 +273,7 @@ function importMap(page: PageData): string
 export function renderPage(page: PageData): string
 {
     const body = renderToString(page.layout === "docs" ? Docs(page) : Wide(page));
-    const title = page.path === "/" ? "zerolith: Full framework. Zero guesswork." : `${page.title} | zerolith`;
+    const title = page.path === "/" ? "zerolith: a web framework built on signals" : `${page.title} | zerolith`;
     return `<!doctype html>
 <html lang="en">
 <head>
@@ -244,7 +290,7 @@ export function renderPage(page: PageData): string
 <meta property="og:image" content="${page.image}">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
-<meta property="og:image:alt" content="The zerolith stele and wordmark with the line Full framework. Zero guesswork.">
+<meta property="og:image:alt" content="The zerolith stele and wordmark with the line A web framework built on signals.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#0F1114" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#F5F6F8" media="(prefers-color-scheme: light)">

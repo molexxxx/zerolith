@@ -30,6 +30,7 @@ const root = document.documentElement;
 const prefersLight = matchMedia("(prefers-color-scheme: light)");
 const prefersStill = matchMedia("(prefers-reduced-motion: reduce)");
 const finePointer = matchMedia("(hover: hover) and (pointer: fine)");
+const narrow = matchMedia("(max-width: 960px)");
 const base = new URL(".", import.meta.url).pathname;
 
 /**
@@ -63,7 +64,8 @@ function remember(theme)
 
 /**
  * Copies the text a copy button names, or its code block's text, and shows
- * the check icon for a moment.
+ * the check icon for a moment. When the browser refuses the clipboard, it
+ * selects the text instead and names the keys that copy it.
  * @param {HTMLButtonElement} button
  * @returns {Promise<void>}
  */
@@ -78,6 +80,24 @@ async function copy(button)
     }
     catch
     {
+        const shown = button.closest(".command")?.querySelector("code") ?? button.closest(".line")?.querySelector(".typed") ?? source;
+        if (shown !== null && shown !== undefined)
+        {
+            getSelection()?.selectAllChildren(shown);
+        }
+        const keys = /Mac|iPhone|iPad/.test(navigator.userAgent) ? "Command+C" : "Ctrl+C";
+        const failed = button.querySelector(".failed");
+        if (failed !== null)
+        {
+            failed.textContent = `Press ${keys}`;
+        }
+        button.setAttribute("data-failed", "");
+        button.setAttribute("aria-label", `The browser blocked copying, so the text is selected; press ${keys}`);
+        setTimeout(() =>
+        {
+            button.removeAttribute("data-failed");
+            button.setAttribute("aria-label", label);
+        }, 4000);
         return;
     }
     button.setAttribute("data-copied", "");
@@ -89,33 +109,104 @@ async function copy(button)
     }, 1500);
 }
 
-/** Wires the controls of the page in the document: the theme toggle, the menu, the copy buttons, and the file tabs. */
+/** Where the reader had scrolled the page when the menu opened. */
+let beforeMenu = 0;
+
+/** The controls already wired, so a navigation that keeps the page's body does not wire them a second time. */
+const wired = new WeakSet();
+
+/**
+ * Opens or closes the menu and keeps its button in step. At 960 px and
+ * narrower the open menu stands in for the page, its sections over the
+ * sidebar from the top, and closing it brings the page back where the
+ * reader left it. It also closes before a link is followed or a step
+ * through history lands, and when the window widens past 960 px.
+ * @param {boolean} open
+ */
+function showMenu(open)
+{
+    document.querySelector(".menu-toggle")?.setAttribute("aria-expanded", String(open));
+    if (open === root.hasAttribute("data-menu-open"))
+    {
+        return;
+    }
+    if (open)
+    {
+        beforeMenu = scrollY;
+    }
+    root.toggleAttribute("data-menu-open", open);
+    scrollTo({ top: open ? 0 : beforeMenu, behavior: "instant" });
+    void smooth?.then((scroller) => scroller?.settle());
+}
+
+/**
+ * Closes the menu when a link is followed from it, before the router saves
+ * the position of the entry it leaves or the browser scrolls to a fragment,
+ * so both find the page in place. The history listener that does the same
+ * for back and forward is added before the router's own.
+ * @param {MouseEvent} event
+ */
+function followFromMenu(event)
+{
+    if (root.hasAttribute("data-menu-open") && event.target instanceof Element && event.target.closest("a[href]") !== null)
+    {
+        showMenu(false);
+    }
+}
+
+/**
+ * Whether a control still needs its listeners: true the first time it is
+ * seen, false for one a navigation to the page already shown left in place.
+ * @param {Element | null} control
+ * @returns {control is Element}
+ */
+function unwired(control)
+{
+    if (control === null || wired.has(control))
+    {
+        return false;
+    }
+    wired.add(control);
+    return true;
+}
+
+/** Wires the controls of the page in the document: the theme toggle, the menu, the copy buttons, the file tabs, and the home page's tour. */
 function wireControls()
 {
-    document.querySelector(".theme-toggle")?.addEventListener("click", () =>
+    const theme = document.querySelector(".theme-toggle");
+    if (unwired(theme))
     {
-        const current = root.getAttribute("data-theme") ?? (prefersLight.matches ? "light" : "dark");
-        const next = current === "light" ? "dark" : "light";
-        root.setAttribute("data-theme", next);
-        remember(next);
-    });
+        theme.addEventListener("click", () =>
+        {
+            const current = root.getAttribute("data-theme") ?? (prefersLight.matches ? "light" : "dark");
+            const next = current === "light" ? "dark" : "light";
+            root.setAttribute("data-theme", next);
+            remember(next);
+        });
+    }
 
     const menu = document.querySelector(".menu-toggle");
-    menu?.addEventListener("click", () =>
+    if (unwired(menu))
     {
-        const open = menu.getAttribute("aria-expanded") !== "true";
-        menu.setAttribute("aria-expanded", String(open));
-        root.toggleAttribute("data-menu-open", open);
-    });
+        menu.addEventListener("click", () => showMenu(!root.hasAttribute("data-menu-open")));
+    }
 
     for (const button of document.querySelectorAll(".copy"))
     {
+        if (!unwired(button))
+        {
+            continue;
+        }
         button.setAttribute("data-label", button.getAttribute("aria-label") ?? "Copy");
         button.addEventListener("click", () => copy(/** @type {HTMLButtonElement} */ (button)));
     }
 
-    for (const list of document.querySelectorAll(".file [role=\"tablist\"]"))
+    for (const list of document.querySelectorAll(".file [role=\"tablist\"], .tour [role=\"tablist\"]"))
     {
+        if (!unwired(list))
+        {
+            continue;
+        }
         const tabs = /** @type {HTMLElement[]} */ (Array.from(list.querySelectorAll("[role=\"tab\"]")));
         /** @param {Element} chosen */
         const choose = (chosen) =>
@@ -285,8 +376,9 @@ announcer.className = "visually-hidden";
 announcer.setAttribute("aria-live", "polite");
 
 /**
- * Starts the page that just committed: its controls, the search, and the
- * figure or the playground when the page has one, after stopping what the
+ * Starts the page that just committed: its controls, the search, the
+ * marker on its table of contents, and the figure or the playground when
+ * the page has one, after stopping what the
  * previous page started. The playground module's type is given by hand:
  * TypeScript resolves `./playground.js` to the server module beside it,
  * `playground.ts`, while the browser loads `playground.js`.
@@ -302,6 +394,7 @@ function arrive(mode, page)
     leaving = [];
     const visit = ++visits;
     void smooth?.then((scroller) => scroller?.settle());
+    document.querySelector(".menu-toggle")?.setAttribute("aria-expanded", "false");
     root.removeAttribute("data-menu-open");
     wireControls();
 
@@ -330,6 +423,7 @@ function arrive(mode, page)
             });
         });
     }
+    leaving.push(follow());
     const playground = document.querySelector("[data-playground]");
     if (playground instanceof HTMLElement)
     {
@@ -362,6 +456,91 @@ function arrive(mode, page)
         }
     }
 }
+
+/**
+ * Marks the section the reader is in on the page's table of contents: the
+ * last second-level heading whose top has passed a line a third of the way
+ * down the window, or the last one when the page is scrolled to its end. Returns what stops
+ * following the scroll.
+ * @returns {() => void}
+ */
+function follow()
+{
+    const toc = document.querySelector(".toc");
+    if (toc === null)
+    {
+        return () => undefined;
+    }
+    /** @type {Map<string, HTMLAnchorElement>} */
+    const links = new Map();
+    for (const link of toc.querySelectorAll("a[href^=\"#\"]"))
+    {
+        if (link instanceof HTMLAnchorElement)
+        {
+            links.set(decodeURIComponent(link.hash.slice(1)), link);
+        }
+    }
+    const headings = Array.from(document.querySelectorAll("article h2[id]")).filter((heading) => links.has(heading.id));
+    if (headings.length === 0)
+    {
+        return () => undefined;
+    }
+    let pending = false;
+    const mark = () =>
+    {
+        pending = false;
+        const line = Math.max((parseFloat(getComputedStyle(root).scrollPaddingTop) || 96) + 1, innerHeight * 0.3);
+        let current = headings[0]?.id;
+        for (const heading of headings)
+        {
+            if (heading.getBoundingClientRect().top <= line)
+            {
+                current = heading.id;
+            }
+        }
+        if (innerHeight + scrollY >= root.scrollHeight - 2)
+        {
+            current = headings.at(-1)?.id;
+        }
+        for (const [id, link] of links)
+        {
+            if (id === current)
+            {
+                link.setAttribute("aria-current", "location");
+            }
+            else
+            {
+                link.removeAttribute("aria-current");
+            }
+        }
+    };
+    const schedule = () =>
+    {
+        if (!pending)
+        {
+            pending = true;
+            requestAnimationFrame(mark);
+        }
+    };
+    mark();
+    addEventListener("scroll", schedule, { passive: true });
+    addEventListener("resize", schedule);
+    return () =>
+    {
+        removeEventListener("scroll", schedule);
+        removeEventListener("resize", schedule);
+    };
+}
+
+addEventListener("popstate", () => showMenu(false));
+document.addEventListener("click", followFromMenu, { capture: true });
+narrow.addEventListener("change", () =>
+{
+    if (!narrow.matches)
+    {
+        showMenu(false);
+    }
+});
 
 const router = createRouter(routes, {
     base,
@@ -402,6 +581,14 @@ prefersStill.addEventListener("change", smoothScroll);
 finePointer.addEventListener("change", smoothScroll);
 addEventListener("popstate", () => void smooth?.then((scroller) => scroller?.settle()));
 
+document.addEventListener("keydown", (event) =>
+{
+    if (event.key === "Escape" && root.hasAttribute("data-menu-open") && document.querySelector("dialog[open]") === null)
+    {
+        showMenu(false);
+        /** @type {HTMLElement | null} */ (document.querySelector(".menu-toggle"))?.focus({ preventScroll: true });
+    }
+});
 document.addEventListener("pointerover", prefetch);
 document.addEventListener("focusin", prefetch);
 document.addEventListener("keydown", (event) =>

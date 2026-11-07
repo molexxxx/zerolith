@@ -37,6 +37,10 @@ Create each key once, at module level or in the app's root, and share the signal
 
 `canUndo` and `canRedo` are signals, so a button follows them. Fifty checkpoints are kept, the oldest dropped when one more is saved; `{ limit }` sets the number. `dispose()` forgets them all and leaves the signal as it is.
 
+`history` takes any writable signal, a stored one included. An undo is a set like any other, so storage follows it, and a reload opens on the text the reader left; the checkpoints live in memory, so after a reload there is nothing to undo:
+
+@include packages/state/test/examples/state.example.browser.test.ts#draft
+
 ## After a quiet spell, or at most so often
 
 `debounced` gives a signal that follows its source once the source has been quiet for the given time, so a search runs for the text the reader stopped typing rather than for each keystroke. `throttled` gives one that follows at most once per window: the first change in a window shows at once and the last one in it shows when the window ends, so a scroll position drives work at a steady rate:

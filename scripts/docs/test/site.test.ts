@@ -43,10 +43,32 @@ function unmarked(html: string): string
     return html.replace(/<!--\/?zl:p-->/g, "");
 }
 
-/** A page that records console errors and failed loads, which every test expects to stay empty. */
-async function open(path: string): Promise<{ page: Page; errors: string[] }>
+/** Whether the playground's example list lies inside the page, which does not scroll sideways; it runs in the page. */
+function listInside(): boolean
 {
-    const page = await browser.newPage();
+    const view = document.documentElement.clientWidth;
+    const list = document.querySelector(".picker-list")?.getBoundingClientRect();
+    return list !== undefined && list.width > 0 && list.left >= 0 && list.right <= view && document.documentElement.scrollWidth <= view && scrollX === 0;
+}
+
+/** Whether every tab of the home page's tour shows whole inside the page, which does not scroll sideways, and inside its row, which does not scroll either; it runs in the page. */
+function tabsInside(): boolean
+{
+    const view = document.documentElement.clientWidth;
+    const list = document.querySelector(".tour [role=\"tablist\"]");
+    if (list === null)
+    {
+        return false;
+    }
+    const row = list.getBoundingClientRect();
+    const tabs = Array.from(list.querySelectorAll("[role=\"tab\"]"), (tab) => tab.getBoundingClientRect());
+    return tabs.length > 0 && tabs.every((box) => box.width > 0 && box.left >= Math.max(0, row.left) && box.right <= Math.min(view, row.right)) && list.scrollWidth <= list.clientWidth && document.documentElement.scrollWidth <= view && scrollX === 0;
+}
+
+/** A page that records console errors and failed loads, which every test expects to stay empty; `device` sets its viewport and input. */
+async function open(path: string, device?: Parameters<Browser["newPage"]>[0]): Promise<{ page: Page; errors: string[] }>
+{
+    const page = await browser.newPage(device);
     const errors: string[] = [];
     page.on("console", (message) =>
     {
@@ -161,21 +183,197 @@ describe("documentation site", () =>
         await page.close();
     });
 
-    it("runs the home page's figure and totals what the updates changed", { timeout: 60000 }, async () =>
+    it("runs launch control on the home page, totals what each change did to the DOM, and draws it only when the reader acts", { timeout: 60000 }, async () =>
     {
         const { page, errors } = await open("/");
         const readout = (): Promise<string[]> => page.$$eval(".readout dd", (values) => values.map((value) => value.textContent ?? ""));
-        await page.waitForFunction(() => document.querySelector(".run .output p")?.textContent === "Count: 1, doubled: 2");
-        expect(await readout()).toEqual(["0", "0", "1"]);
+        const drawing = (): Promise<number> => page.evaluate(() => document.querySelector(".flow .landscape")?.getAnimations({ subtree: true }).length ?? 0);
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
+        expect(await readout()).toEqual(["0", "0", "0", "1"]);
+        expect(await drawing()).toBe(0);
+        await page.locator(".run .output input[type=\"range\"]").fill("90");
+        await page.waitForFunction(() => document.querySelector(".run .output label:nth-of-type(3)")?.textContent?.includes("90%") === true);
+        expect(await drawing()).toBeGreaterThan(0);
+        expect(await page.evaluate(() => document.querySelector(".flow .portrait")?.getAnimations({ subtree: true }).length)).toBe(0);
         await page.click(".run .output button");
-        await page.waitForFunction(() => document.querySelector(".readout dd")?.textContent === "2");
-        expect(await page.textContent(".run .output p")).toBe("Count: 2, doubled: 4");
-        expect(await readout()).toEqual(["2", "0", "1"]);
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.startsWith("T-") === true);
+        expect(await page.textContent(".run .output button")).toBe("Abort");
         await page.click(".run .output button");
-        await page.waitForFunction(() => document.querySelector(".readout dd")?.textContent === "4");
-        expect(await page.textContent(".run .output p")).toBe("Count: 3, doubled: 6");
-        expect(await readout()).toEqual(["4", "0", "1"]);
-        expect(await page.locator(".figure code [data-signal]").count()).toBe(2);
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Aborted");
+        expect(await page.textContent(".run .output button")).toBe("Launch");
+        await page.click(".run .output button");
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.startsWith("T-") === true);
+        const [texts, , created, calls] = await readout();
+        expect(Number(texts)).toBeGreaterThan(3);
+        expect(created).toBe("0");
+        expect(calls).toBe("1");
+        expect(await page.textContent(".run .output button")).toBe("Abort");
+        expect(await page.locator(".figure code [data-signal]").count()).toBe(6);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("sends a square along each edge of launch control's flow only where its code ran", { timeout: 90000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.evaluate(() =>
+        {
+            const pulses: string[] = [];
+            Object.assign(window, { pulses });
+            const animate = Element.prototype.animate;
+            Element.prototype.animate = function lit(this: Element, ...args: Parameters<Element["animate"]>)
+            {
+                const edge = this.getAttribute("data-for");
+                if (edge !== null && this.closest(".landscape") !== null)
+                {
+                    pulses.push(edge);
+                }
+                return animate.apply(this, args);
+            };
+        });
+        const lit = () => page.evaluate(() => (window as unknown as { pulses: string[] }).pulses.splice(0));
+        await page.$eval(".run .output input[type=\"range\"]", (input) =>
+        {
+            (input as HTMLInputElement).value = "90";
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+        await expect.poll(lit).toEqual(["steer>throttle", "throttle>dom-throttle"]);
+
+        await page.click(".run .output button");
+        await page.waitForFunction(() => (window as unknown as { pulses: string[] }).pulses.includes("live>clock"));
+        const launched = await lit();
+        expect(launched).toEqual(expect.arrayContaining(["press>stage", "stage>live", "live>clock", "live>action", "action>dom-action", "stage>readout", "readout>dom-readout"]));
+        expect(launched).not.toContain("throttle>clock");
+        expect(await page.getAttribute(".flow .landscape [data-edge=\"throttle>clock\"]", "data-reading")).toBeNull();
+
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.endsWith("km") === true, null, { timeout: 15000 });
+        await page.waitForTimeout(400);
+        const flying = await lit();
+        expect(flying).toEqual(expect.arrayContaining(["clock>stage", "clock>countdown", "clock>altitude", "clock>fuel", "altitude>readout"]));
+        expect(flying).not.toContain("live>clock");
+        expect(flying).not.toContain("throttle>clock");
+        expect(await page.getAttribute(".flow .landscape [data-edge=\"throttle>clock\"]", "data-reading")).toBe("");
+
+        await page.waitForFunction(() => ["In orbit", "Out of fuel"].includes(document.querySelector(".run .output .display")?.textContent ?? ""), null, { timeout: 30000 });
+        await page.waitForTimeout(400);
+        expect(await lit()).toEqual(expect.arrayContaining(["clock>stage", "stage>live", "live>clock", "live>action"]));
+        expect(await page.textContent(".run .output button")).toBe("Launch");
+        expect(await page.getAttribute(".flow .landscape [data-edge=\"throttle>clock\"]", "data-reading")).toBeNull();
+
+        await page.click(".run .output button");
+        await expect.poll(lit).toEqual(expect.arrayContaining(["press>stage", "live>clock", "clock>countdown", "clock>altitude", "clock>fuel"]));
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("flies launch control to orbit at the default throttle", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
+        await page.click(".run .output button");
+        await page.waitForFunction(() => ["In orbit", "Out of fuel", "Aborted"].includes(document.querySelector(".run .output .display")?.textContent ?? ""), null, { timeout: 30000 });
+        expect(await page.textContent(".run .output .display")).toBe("In orbit");
+        expect(await page.$$eval(".run .output progress", (bars) => bars.map((bar) => (bar as HTMLProgressElement).value > 0))).toEqual([true, true]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("draws launch control's flow down a phone, inside its panel, every label inside its box, and runs each change along it", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        expect(await page.isVisible(".flow .landscape")).toBe(true);
+        expect(await page.isVisible(".flow .portrait")).toBe(false);
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
+        expect(await page.isVisible(".flow .landscape")).toBe(false);
+        expect(await page.isVisible(".flow .portrait")).toBe(true);
+        expect(await page.$eval(".flow", (flow) => flow.scrollWidth <= flow.clientWidth)).toBe(true);
+        expect(await page.$$eval(".flow .portrait .head", (heads) => heads.map((head) => head.textContent))).toEqual(["event", "signal", "computed", "effect", "signal", "computed", "DOM"]);
+        const layout = await page.$eval(".flow .portrait", (svg) =>
+        {
+            const view = (svg as SVGSVGElement).viewBox.baseVal;
+            const boxes = Array.from(svg.querySelectorAll(".node")).map((node) => ({ rect: (node.querySelector("rect") as SVGRectElement).getBBox(), text: (node.querySelector("text") as SVGTextElement).getComputedTextLength() }));
+            const inside = boxes.every(({ rect }) => rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= view.width && rect.y + rect.height <= view.height);
+            const fitted = boxes.every(({ rect, text }) => text <= rect.width - 8);
+            const apart = boxes.every(({ rect: a }, index) => boxes.slice(index + 1).every(({ rect: b }) => a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y));
+            return { nodes: boxes.length, edges: svg.querySelectorAll("[data-edge]").length, inside, fitted, apart };
+        });
+        expect(layout).toEqual({ nodes: 16, edges: 18, inside: true, fitted: true, apart: true });
+        const ids = await page.evaluate(() => [".flow .portrait", ".flow .landscape"].map((drawing) => Array.from(document.querySelectorAll(`${drawing} [data-node], ${drawing} [data-edge]`), (element) => element.getAttribute("data-node") ?? element.getAttribute("data-edge")).toSorted().join(" ")));
+        expect(ids[0]).toBe(ids[1]);
+        const crossed = await page.$$eval(".flow svg", (drawings) => drawings.flatMap((svg) =>
+        {
+            const boxes = Array.from(svg.querySelectorAll("[data-node]"), (node) => ({ id: node.getAttribute("data-node"), box: (node.querySelector("rect") as SVGRectElement).getBBox() }));
+            return Array.from(svg.querySelectorAll("[data-edge]") as NodeListOf<SVGPathElement>).flatMap((path) =>
+            {
+                const length = path.getTotalLength();
+                const points = Array.from({ length: Math.ceil(length / 2) + 1 }, (_, step) => path.getPointAtLength(Math.min(length, step * 2)));
+                return boxes.filter(({ box }) => points.some((point) => point.x > box.x + 1 && point.x < box.x + box.width - 1 && point.y > box.y + 1 && point.y < box.y + box.height - 1)).map(({ id }) => `${svg.getAttribute("class") ?? ""}: ${path.getAttribute("data-edge") ?? ""} runs through ${id ?? ""}`);
+            });
+        }));
+        expect(crossed).toEqual([]);
+        await page.click(".run .output button");
+        const drawn = await page.evaluate(() => document.querySelector(".flow .portrait")?.getAnimations({ subtree: true }).map((animation) =>
+        {
+            const target = (animation.effect as KeyframeEffect).target as Element;
+            return target.closest("[data-node]")?.getAttribute("data-node") ?? target.getAttribute("data-for");
+        }) ?? []);
+        expect(drawn).toEqual(expect.arrayContaining(["press", "stage", "live", "press>stage", "stage>live"]));
+        expect(await page.evaluate(() => document.querySelector(".flow .landscape")?.getAnimations({ subtree: true }).length)).toBe(0);
+        await page.setViewportSize({ width: 960, height: 844 });
+        expect(await page.isVisible(".flow .portrait")).toBe(true);
+        await page.setViewportSize({ width: 961, height: 844 });
+        expect(await page.isVisible(".flow .landscape")).toBe(true);
+        expect(await page.isVisible(".flow .portrait")).toBe(false);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("switches the home page's tour between its patterns by click and arrow key", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        const shown = (): Promise<string[]> => page.$$eval(".tour [role=\"tabpanel\"]", (panels) => (panels as HTMLElement[]).filter((panel) => !panel.hidden).map((panel) => panel.id));
+        expect(await shown()).toEqual(["tour-signals-panel"]);
+        await page.click("#tour-forms");
+        expect(await shown()).toEqual(["tour-forms-panel"]);
+        expect(await page.getAttribute("#tour-forms", "aria-selected")).toBe("true");
+        expect(await page.getAttribute("#tour-signals", "aria-selected")).toBe("false");
+        expect(await page.textContent("#tour-forms-panel code")).toContain("createForm");
+        await page.focus("#tour-forms");
+        await page.keyboard.press("ArrowRight");
+        expect(await shown()).toEqual(["tour-state-panel"]);
+        expect(await page.evaluate(() => document.activeElement?.id)).toBe("tour-state");
+        expect(await page.textContent("#tour-state-panel code")).toContain("history(draft)");
+        await page.click("#tour-server-rendering");
+        await page.keyboard.press("ArrowRight");
+        expect(await shown()).toEqual(["tour-signals-panel"]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("keeps every tab of the home page's tour inside the page at every width, and walks them all by arrow key", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        const ids = await page.$$eval(".tour [role=\"tab\"]", (tabs) => tabs.map((tab) => tab.id));
+        expect(ids).toEqual(["tour-signals", "tour-templates", "tour-routing", "tour-forms", "tour-state", "tour-browser", "tour-server-rendering"]);
+        const [first = "", ...others] = ids;
+        const focused = (): Promise<string | undefined> => page.evaluate(() => document.activeElement?.id);
+        for (const width of [320, 390, 768, 1024, 1440])
+        {
+            await page.setViewportSize({ width, height: 800 });
+            expect(await page.evaluate(tabsInside), `at ${width} px`).toBe(true);
+            await page.focus(`#${first}`);
+            for (const id of [...others, first])
+            {
+                await page.keyboard.press("ArrowRight");
+                expect(await focused(), `at ${width} px`).toBe(id);
+                expect(await page.getAttribute(`#${id}`, "aria-selected"), `at ${width} px`).toBe("true");
+                expect(await page.isVisible(`#${id}-panel`), `at ${width} px`).toBe(true);
+            }
+            await page.keyboard.press("ArrowLeft");
+            expect(await focused(), `at ${width} px`).toBe(others.at(-1));
+        }
         expect(errors).toEqual([]);
         await page.close();
     });
@@ -190,7 +388,8 @@ describe("documentation site", () =>
         const failures: string[] = [];
         for (const id of ids)
         {
-            await page.selectOption("select[name=\"example\"]", id);
+            await page.click(".picker-button");
+            await page.click(`.picker-list [role="option"][data-value="${id}"]`);
             await page.click("[data-action=\"run\"]");
             const frame = page.frameLocator(".preview iframe");
             await frame.locator("#app > *").first().waitFor({ timeout: 15000 });
@@ -201,6 +400,100 @@ describe("documentation site", () =>
         expect(failures).toEqual([]);
         expect(errors).toEqual([]);
         expect(await page.evaluate(() => history.length)).toBe(entries);
+        await page.close();
+    });
+
+    it("marks the section the reader is in on the table of contents as the page scrolls", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/guide/signals/");
+        const current = (): Promise<string[]> => page.$$eval(".toc a[aria-current]", (links) => links.map((link) => link.getAttribute("href") ?? ""));
+        expect(await current()).toEqual(["#reading-and-writing"]);
+        await page.evaluate(() => document.getElementById("effects")?.scrollIntoView());
+        await expect.poll(current).toEqual(["#effects"]);
+        await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+        const last = await page.$$eval(".toc a", (links) => links.at(-1)?.getAttribute("href") ?? "");
+        await expect.poll(current).toEqual([last]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("picks a playground example from its own listbox by pointer and by keyboard", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/");
+        const trigger = page.locator(".picker-button");
+        expect(await page.isVisible("select[name=\"example\"]")).toBe(false);
+        expect(await trigger.getAttribute("aria-expanded")).toBe("false");
+        await trigger.focus();
+        await page.keyboard.press("ArrowDown");
+        expect(await trigger.getAttribute("aria-expanded")).toBe("true");
+        expect(await page.evaluate(() => document.activeElement?.getAttribute("role"))).toBe("listbox");
+        await page.keyboard.press("ArrowDown");
+        const second = await page.$eval(".picker-list [role=\"option\"]:nth-child(2)", (option) => option.getAttribute("data-value"));
+        expect(await page.getAttribute(".picker-list", "aria-activedescendant")).toBe(`example-${second}`);
+        await page.keyboard.press("Enter");
+        expect(await page.inputValue("select[name=\"example\"]")).toBe(second);
+        expect(await trigger.getAttribute("aria-expanded")).toBe("false");
+        expect(await page.evaluate(() => document.activeElement?.classList.contains("picker-button"))).toBe(true);
+        expect(await page.getAttribute(`#example-${second}`, "aria-selected")).toBe("true");
+        expect(await page.textContent("#example-current")).toBe(await page.textContent(`#example-${second} .name`));
+        expect(page.url()).toContain(`#example=${second}`);
+        await trigger.click();
+        await page.keyboard.press("Escape");
+        expect(await trigger.getAttribute("aria-expanded")).toBe("false");
+        await trigger.click();
+        await page.mouse.click(5, 5);
+        expect(await trigger.getAttribute("aria-expanded")).toBe("false");
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("marks a playground example under the pointer without scrolling the list, and scrolls only the list for the keyboard", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/");
+        await page.setViewportSize({ width: 1280, height: 520 });
+        await page.click(".picker-button");
+        const list = page.locator(".picker-list");
+        const edge = await list.evaluate((element) =>
+        {
+            const box = element.getBoundingClientRect();
+            const option = [...element.querySelectorAll("[role=\"option\"]")].find((item) => item.getBoundingClientRect().bottom > box.bottom);
+            return option === undefined ? null : { id: option.id, x: box.left + 40, y: box.bottom - 8 };
+        });
+        expect(edge).not.toBeNull();
+        await page.mouse.move(edge?.x ?? 0, (edge?.y ?? 0) - 24);
+        await page.mouse.move(edge?.x ?? 0, edge?.y ?? 0, { steps: 4 });
+        expect(await list.getAttribute("aria-activedescendant")).toBe(edge?.id);
+        expect(await list.evaluate((element) => element.scrollTop)).toBe(0);
+
+        const before = await page.evaluate(() => scrollY);
+        await page.keyboard.press("End");
+        expect(await list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+        expect(await list.evaluate((element) => (element.querySelector("[role=\"option\"]:last-child")?.getBoundingClientRect().bottom ?? Infinity) <= element.getBoundingClientRect().bottom + 1)).toBe(true);
+        expect(await page.evaluate(() => scrollY)).toBe(before);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("keeps the playground's example list inside the page at every width, as wide as its header row allows", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/");
+        for (const width of [320, 390, 700, 961, 1280])
+        {
+            await page.setViewportSize({ width, height: 800 });
+            await page.click(".picker-button");
+            expect(await page.evaluate(listInside), `at ${width} px`).toBe(true);
+            expect(await page.$eval(".picker-list", (list) =>
+            {
+                const row = list.closest(".head-row")?.getBoundingClientRect();
+                const box = list.getBoundingClientRect();
+                return row !== undefined && Math.abs(box.width - Math.min(640, Math.floor(row.width))) <= 1 && box.left >= row.left - 1 && box.right <= row.right + 1;
+            }), `width at ${width} px`).toBe(true);
+            await page.keyboard.press("Escape");
+        }
+        await page.click(".picker-button");
+        await page.setViewportSize({ width: 390, height: 800 });
+        await page.waitForFunction(listInside);
+        expect(errors).toEqual([]);
         await page.close();
     });
 
@@ -215,6 +508,169 @@ describe("documentation site", () =>
         await frame.locator("button[type=\"submit\"], form button").first().click();
         await frame.locator("li", { hasText: "Sunscreen" }).waitFor({ timeout: 5000 });
         expect(await frame.locator("li").count()).toBe(before + 1);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("keeps what the preview stores for the tab through a run and a reload, refuses a write past its quota and storage it did not send, and clears it on Reset", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/");
+        const count = [
+            "const runs = Number(localStorage.getItem(\"runs\") ?? 0) + 1;",
+            "const tab = sessionStorage.getItem(\"tab\");",
+            "localStorage.setItem(\"runs\", String(runs));",
+            "sessionStorage.setItem(\"tab\", \"kept\");",
+            "let refused = \"none\";",
+            "try",
+            "{",
+            "    localStorage.setItem(\"large\", \"x\".repeat(300000));",
+            "}",
+            "catch (error)",
+            "{",
+            "    refused = error.name;",
+            "}",
+            "console.log([runs, String(tab), refused, localStorage.length].join(\" \"));"
+        ].join("\n");
+        const forged = [
+            "parent.postMessage({ playgroundStorage: { local: [[\"runs\", \"100\"]], session: [[\"tab\", 7]] } }, \"*\");",
+            "parent.postMessage({ playgroundStorage: { local: [[\"runs\", \"100\"], [\"large\", \"x\".repeat(300000)]], session: [] } }, \"*\");",
+            "parent.postMessage({ playgroundStorage: { local: [[\"runs\", 100]], session: [] } }, \"*\");",
+            "parent.postMessage({ playgroundStorage: \"runs=100\" }, \"*\");",
+            "console.log(\"sent\");"
+        ].join("\n");
+        const lines = (): Promise<string[]> => page.$$eval(".console p", (items) => items.map((item) => item.textContent ?? ""));
+        const runProgram = async (program: string): Promise<void> =>
+        {
+            await page.fill("textarea[name=\"code\"]", program);
+            await page.click("[data-action=\"run\"]");
+        };
+        await runProgram(count);
+        await expect.poll(lines).toEqual(["1 null QuotaExceededError 1"]);
+        await page.click("[data-action=\"run\"]");
+        await expect.poll(lines).toEqual(["2 kept QuotaExceededError 1"]);
+        await page.reload();
+        await runProgram(count);
+        await expect.poll(lines).toEqual(["3 kept QuotaExceededError 1"]);
+        await runProgram(forged);
+        await expect.poll(lines).toEqual(["sent"]);
+        await page.evaluate(() => new Promise<void>((resolve) =>
+        {
+            addEventListener("message", () => resolve(), { once: true });
+            postMessage({ playgroundStorage: { local: [["runs", "100"]], session: [] } }, "*");
+        }));
+        await runProgram(count);
+        await expect.poll(lines).toEqual(["4 kept QuotaExceededError 1"]);
+        await page.click("[data-action=\"reset\"]");
+        await runProgram(count);
+        await expect.poll(lines).toEqual(["1 null QuotaExceededError 1"]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("keeps the saved state example's notes through a run and a reload, with undo, a search that waits for a pause, and Reset to start over", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/#example=saved");
+        const frame = page.frameLocator(".preview iframe");
+        const titles = async (): Promise<string[]> => (await frame.locator("li button").allTextContents()).map((title) => title.trim());
+        const undo = frame.locator("button", { hasText: "Undo" });
+        await expect.poll(titles).toEqual(["Passport", "Camping", "Porto"]);
+        await frame.locator("button", { hasText: "New" }).click();
+        await frame.locator("textarea").fill("Sunscreen\nThe tall bottle.");
+        await expect.poll(titles).toEqual(["Sunscreen", "Passport", "Camping", "Porto"]);
+        expect(await undo.isDisabled()).toBe(false);
+        await page.click("[data-action=\"run\"]");
+        await expect.poll(() => undo.isDisabled()).toBe(true);
+        expect(await titles()).toEqual(["Sunscreen", "Passport", "Camping", "Porto"]);
+        await page.reload();
+        await expect.poll(titles).toEqual(["Sunscreen", "Passport", "Camping", "Porto"]);
+        await frame.locator("li button", { hasText: "Camping" }).click();
+        expect(await frame.locator("li button[aria-current=\"true\"]").textContent()).toContain("Camping");
+        await frame.locator("button", { hasText: "Delete" }).click();
+        await expect.poll(titles).toEqual(["Sunscreen", "Passport", "Porto"]);
+        await undo.click();
+        await expect.poll(titles).toEqual(["Sunscreen", "Passport", "Camping", "Porto"]);
+        await frame.locator("input[type=\"search\"]").pressSequentially("port");
+        await expect.poll(titles).toEqual(["Passport", "Porto"]);
+        await expect.poll(() => page.$$eval(".console p", (items) => items.map((item) => item.textContent))).toEqual(["Searching for \"port\""]);
+        await page.click("[data-action=\"reset\"]");
+        await expect.poll(titles).toEqual(["Passport", "Camping", "Porto"]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("tries the retry example's flaky service three times on each request, one started midway through another included, shows the timeout on each try when one retry is all it has, and gives up at once on a 404", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/#example=retry");
+        const frame = page.frameLocator(".preview iframe");
+        const status = (): Promise<string | null> => frame.locator(".status").textContent();
+        const runs = (): Promise<string | null> => frame.locator(".runs").textContent();
+        const calls = (): Promise<string[]> => page.$$eval(".console p", (items) => items.map((item) => (item.textContent ?? "").replace(/^[\d.]+ s: /, "")));
+        const failing = ["call 1 gets a 503", "call 2 gets no answer"];
+        const request = [...failing, "call 3 goes through"];
+        await expect.poll(status, { timeout: 10000 }).toBe("status: resolved");
+        expect(await runs()).toBe("3 of 3");
+        expect(await frame.locator(".place").textContent()).toBe("Lisbon, Portugal");
+        expect(await calls()).toEqual(request);
+        await frame.locator("button", { hasText: "Reload" }).click();
+        await expect.poll(calls, { timeout: 5000 }).toEqual([...request, ...failing]);
+        await frame.locator("button", { hasText: "Reload" }).click();
+        await expect.poll(status, { timeout: 10000 }).toBe("status: resolved");
+        expect(await runs()).toBe("3 of 3");
+        expect(await calls()).toEqual([...request, ...failing, ...request]);
+        const code = await page.inputValue("textarea[name=\"code\"]");
+        expect(code).toContain("const RETRIES = 2;");
+        expect(code).toContain("const STATUS = 503;");
+        await page.fill("textarea[name=\"code\"]", code.replace("const RETRIES = 2;", "const RETRIES = 1;"));
+        await page.click("[data-action=\"run\"]");
+        await expect.poll(status, { timeout: 10000 }).toBe("status: error");
+        expect(await runs()).toBe("2 of 2");
+        expect(await frame.locator("[role=\"alert\"]").textContent()).toContain("The service did not answer within a second.");
+        expect(await calls()).toEqual(failing);
+        await frame.locator("button", { hasText: "Try again" }).click();
+        await expect.poll(calls, { timeout: 5000 }).toEqual([...failing, ...failing]);
+        await expect.poll(status, { timeout: 5000 }).toBe("status: error");
+        expect(await runs()).toBe("2 of 2");
+        await page.fill("textarea[name=\"code\"]", code.replace("const STATUS = 503;", "const STATUS = 404;"));
+        await page.click("[data-action=\"run\"]");
+        await expect.poll(status, { timeout: 10000 }).toBe("status: error");
+        expect(await runs()).toBe("1 of 3");
+        expect(await frame.locator("[role=\"alert\"]").textContent()).toContain("The service answered 404.");
+        expect(await calls()).toEqual(["call 1 gets a 404"]);
+        await frame.locator("button", { hasText: "Try again" }).click();
+        await expect.poll(calls, { timeout: 5000 }).toEqual(["call 1 gets a 404", "call 1 gets a 404"]);
+        await expect.poll(status, { timeout: 5000 }).toBe("status: error");
+        expect(await runs()).toBe("1 of 3");
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("shows the browser example's window and box sizes, the badge in view once all of it shows in its box and out of view with half of it hidden, and the network going offline", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/#example=browser");
+        const frame = page.frameLocator(".preview iframe");
+        const reading = (label: string): Promise<string | null> => frame.locator("dl > div").filter({ has: frame.locator("dt", { hasText: label }) }).locator("dd").textContent();
+        await expect.poll(() => reading("Badge")).toBe("Out of view");
+        const size = await frame.locator("body").evaluate(() => `${innerWidth} × ${innerHeight} px`);
+        expect(await reading("Window")).toBe(size);
+        expect(await reading("Box")).toMatch(/^[1-9]\d* × [1-9]\d* px$/);
+        expect(await reading("Network")).toBe("Online");
+        expect(await reading("Page")).toMatch(/^Shown for \d+ s$/);
+        await frame.locator(".box").evaluate((box) => box.scrollTo(0, box.scrollHeight));
+        await expect.poll(() => reading("Badge")).toBe("In view");
+        await frame.locator(".badge").evaluate((badge) =>
+        {
+            const box = badge.parentElement as HTMLElement;
+            const shown = badge.getBoundingClientRect();
+            const edge = box.getBoundingClientRect().top + box.clientTop + box.clientHeight;
+            box.scrollBy(0, shown.top + shown.height / 2 - edge);
+        });
+        await expect.poll(() => reading("Badge")).toBe("Out of view");
+        await page.setViewportSize({ width: 1000, height: 700 });
+        await expect.poll(() => reading("Window")).not.toBe(size);
+        await page.context().setOffline(true);
+        await expect.poll(() => reading("Network")).toBe("Offline");
+        await page.context().setOffline(false);
+        await expect.poll(() => reading("Network")).toBe("Online");
         expect(errors).toEqual([]);
         await page.close();
     });
@@ -364,11 +820,194 @@ describe("documentation site", () =>
         await expect.poll(() => page.frameLocator(".preview iframe").locator("#app p").first().textContent()).toBe("edited");
 
         await page.click("header a.home");
-        await page.waitForFunction(() => document.querySelector(".run .output p")?.textContent === "Count: 1, doubled: 2");
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
         await page.click(".run .output button");
-        await page.waitForFunction(() => document.querySelector(".readout dd")?.textContent === "2");
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.startsWith("T-") === true);
+        await page.waitForFunction(() => Number(document.querySelector(".readout dd")?.textContent) > 0);
+        await page.click(".run .output button");
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Aborted");
         expect(await kept()).toBe(true);
         expect(loads).toEqual([]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("opens the menu on a phone as a sheet in place of the page, marks the current section, and closes it where the reader was", { timeout: 60000 }, async () =>
+    {
+        const { page: wide } = await open("/guide/signals/");
+        expect(await wide.isVisible(".sheet")).toBe(false);
+        expect(await wide.isVisible(".menu-toggle")).toBe(false);
+        await wide.close();
+        const { page, errors } = await open("/guide/signals/", { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+        const menu = page.locator(".menu-toggle");
+        const scrolled = (): Promise<number> => page.evaluate(() => Math.round(scrollY));
+        const opened = (): Promise<boolean> => page.evaluate(() => document.documentElement.hasAttribute("data-menu-open"));
+        expect(await menu.isVisible()).toBe(true);
+        expect(await menu.textContent()).toBe("Menu");
+        await page.evaluate(() => scrollTo(0, 600));
+        await menu.dispatchEvent("click");
+        expect(await menu.getAttribute("aria-expanded")).toBe("true");
+        expect(await page.isVisible(".menu-toggle .close-icon")).toBe(true);
+        expect(await page.isVisible("main")).toBe(false);
+        expect(await page.isVisible("#sidebar")).toBe(true);
+        expect(await page.textContent(".sheet a[aria-current=\"true\"]")).toBe("Guide");
+        expect(await page.evaluate(() => scrollY === 0 && document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+        await page.keyboard.press("Escape");
+        expect(await menu.getAttribute("aria-expanded")).toBe("false");
+        expect(await page.evaluate(() => document.activeElement?.classList.contains("menu-toggle"))).toBe(true);
+        expect(await page.isVisible(".sheet")).toBe(false);
+        expect(await page.isVisible("main")).toBe(true);
+        expect(await scrolled()).toBe(600);
+
+        await menu.dispatchEvent("click");
+        await menu.dispatchEvent("click");
+        expect(await opened()).toBe(false);
+        expect(await scrolled()).toBe(600);
+
+        await menu.dispatchEvent("click");
+        await page.focus(".skip");
+        await page.keyboard.press("Enter");
+        expect(await opened()).toBe(false);
+        expect(await page.evaluate(() => location.hash)).toBe("#content");
+
+        await menu.dispatchEvent("click");
+        await page.click("#sidebar a[aria-current=\"page\"]");
+        expect(await opened()).toBe(false);
+        expect(await menu.getAttribute("aria-expanded")).toBe("false");
+        await menu.dispatchEvent("click");
+        expect(await opened()).toBe(true);
+        await menu.dispatchEvent("click");
+        const theme = (): Promise<string> => page.evaluate(() => document.documentElement.getAttribute("data-theme") ?? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"));
+        const before = await theme();
+        await page.locator(".theme-toggle").dispatchEvent("click");
+        expect(await theme()).not.toBe(before);
+
+        await page.evaluate(() => scrollTo(0, 600));
+        await menu.dispatchEvent("click");
+        await page.click(".sheet a[href=\"/learn/\"]");
+        await page.waitForFunction(() => document.querySelector(".sheet a[aria-current]")?.textContent === "Learn");
+        expect(await opened()).toBe(false);
+        expect(await page.isVisible("main")).toBe(true);
+        await page.goBack();
+        await page.waitForFunction(() => document.querySelector("h1")?.textContent === "Signals");
+        await page.waitForFunction(() => Math.round(scrollY) === 600);
+
+        await page.locator(".pager .next").dispatchEvent("click");
+        await page.waitForFunction(() => document.querySelector("h1")?.textContent !== "Signals");
+        await menu.dispatchEvent("click");
+        await page.goBack();
+        await page.waitForFunction(() => document.querySelector("h1")?.textContent === "Signals");
+        await page.waitForFunction(() => Math.round(scrollY) === 600);
+        expect(await opened()).toBe(false);
+
+        await menu.dispatchEvent("click");
+        await page.setViewportSize({ width: 1280, height: 844 });
+        await page.waitForFunction(() => !document.documentElement.hasAttribute("data-menu-open"));
+        expect(await scrolled()).toBe(600);
+
+        await page.setViewportSize({ width: 320, height: 640 });
+        expect(await page.evaluate(() =>
+        {
+            const [logo, button, toggle] = [".home svg", ".menu-toggle", ".theme-toggle"].map((selector) => document.querySelector(selector)?.getBoundingClientRect());
+            return logo !== undefined && button !== undefined && toggle !== undefined && logo.right + 8 <= button.left && button.right + 8 <= toggle.left && toggle.right <= document.documentElement.clientWidth - 16;
+        })).toBe(true);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("ends every page with the site footer and its legal links, and serves the legal pages behind them", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        for (const path of ["/", "/guide/signals/", "/playground/"])
+        {
+            await page.goto(`${origin}${path}`);
+            const links = await page.$$eval(".site-foot nav a", (anchors) => anchors.map((anchor) => anchor.textContent));
+            expect(links, path).toEqual(expect.arrayContaining(["Privacy", "Terms of use", "Contact", "License", "Security", "Code of conduct"]));
+        }
+        for (const [path, title] of [["/legal/privacy/", "Privacy"], ["/legal/terms/", "Terms of use"], ["/legal/contact/", "Contact"]])
+        {
+            await page.goto(`${origin}${path}`);
+            expect(await page.textContent("h1")).toBe(title);
+            expect(await page.textContent("#sidebar")).toContain("Terms of use");
+        }
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("loads nothing from another origin and sets no cookie, as the privacy page says", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        const foreign: string[] = [];
+        page.on("request", (request) =>
+        {
+            const url = new URL(request.url());
+            if (/^https?:$/.test(url.protocol) && url.origin !== origin)
+            {
+                foreign.push(request.url());
+            }
+        });
+        for (const path of ["/", "/learn/", "/guide/signals/", "/reference/zerolith/", "/playground/", "/benchmarks/", "/legal/privacy/"])
+        {
+            await page.goto(`${origin}${path}`, { waitUntil: "networkidle" });
+        }
+        expect(foreign).toEqual([]);
+        expect(await page.context().cookies()).toEqual([]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("follows the code that runs in the home figure's code pane, and leaves the pane alone while the reader is in it", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        await page.setViewportSize({ width: 1440, height: 900 });
+        const pane = page.locator(".figure .code pre");
+        const shown = (block: string) => pane.evaluate((element, name) =>
+        {
+            const box = element.getBoundingClientRect();
+            const lines = Array.from(element.querySelectorAll(`[data-run~="${name}"]`), (line) => line.getBoundingClientRect());
+            const top = lines[0]?.top ?? -Infinity;
+            const bottom = lines.at(-1)?.bottom ?? Infinity;
+            return top >= box.top - 1 && (bottom <= box.bottom + 1 || bottom - top > element.clientHeight);
+        }, block);
+        expect(await shown("clock")).toBe(false);
+        await page.click(".run .output button");
+        await expect.poll(() => shown("clock")).toBe(true);
+        await expect.poll(async () => (await shown("readout-countdown")) && (await shown("tick-countdown")), { timeout: 5000 }).toBe(true);
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.endsWith("km") === true, null, { timeout: 10000 });
+        await expect.poll(() => shown("tick-flight"), { timeout: 5000 }).toBe(true);
+        await page.click(".run .output button");
+        await expect.poll(() => shown("press")).toBe(true);
+
+        await pane.focus();
+        await pane.evaluate((element) =>
+        {
+            element.scrollTop = 0;
+        });
+        await page.$eval(".run .output button", (button) => (button as HTMLButtonElement).click());
+        await page.waitForTimeout(1500);
+        expect(await pane.evaluate((element) => element.scrollTop)).toBe(0);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("scrolls the page past the home figure's code until the reader clicks into the code", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        await page.setViewportSize({ width: 1600, height: 900 });
+        await page.waitForFunction(() => document.documentElement.classList.contains("lenis"));
+        const pane = page.locator(".figure .code pre");
+        await pane.hover();
+        await page.mouse.wheel(0, 300);
+        await expect.poll(() => page.evaluate(() => Math.round(scrollY))).toBe(300);
+        expect(await pane.evaluate((element) => element.scrollTop)).toBe(0);
+
+        const box = await pane.boundingBox();
+        expect(box).not.toBeNull();
+        await page.mouse.click((box?.x ?? 0) + 40, (box?.y ?? 0) + 40);
+        expect(await pane.evaluate((element) => element === document.activeElement)).toBe(true);
+        await page.mouse.wheel(0, 200);
+        await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+        expect(await page.evaluate(() => Math.round(scrollY))).toBe(300);
         expect(errors).toEqual([]);
         await page.close();
     });
@@ -484,6 +1123,7 @@ describe("documentation site", () =>
             await run(process.execPath, ["--conditions=development", "scripts/docs/build.ts"], { cwd: repositoryRoot, env: { ...process.env, ZEROLITH_DOCS_OUT: join(scratch, "next"), ZEROLITH_DOCS_BASE: "/next/", ZEROLITH_DOCS_URL: "https://zerolith.dev/next/", ZEROLITH_DOCS_VERSIONS: shown } });
             const guide = unmarked(await readFile(join(scratch, "next", "guide", "index.html"), "utf8"));
             expect(guide).toContain("href=\"/guide/\" data-version-switch");
+            expect(guide.match(/data-version-switch rel="external"/g)).toHaveLength(2);
             expect(guide).toContain("0.0 docs</a>");
             expect(guide).toContain("href=\"/next/styles.css\"");
             expect(guide).not.toContain("href=\"/styles.css\"");
@@ -491,6 +1131,7 @@ describe("documentation site", () =>
             await run(process.execPath, ["--conditions=development", "scripts/docs/build.ts"], { cwd: repositoryRoot, env: { ...process.env, ZEROLITH_DOCS_OUT: join(scratch, "stable"), ZEROLITH_DOCS_VERSIONS: stableShown } });
             const stable = unmarked(await readFile(join(scratch, "stable", "guide", "index.html"), "utf8"));
             expect(stable).toContain("href=\"/next/guide/\" data-version-switch");
+            expect(stable.match(/data-version-switch rel="external"/g)).toHaveLength(2);
             expect(stable).toContain("9.0 alpha docs</a>");
             expect(await readFile(join(site, "guide", "index.html"), "utf8")).not.toContain("data-version-switch");
         }

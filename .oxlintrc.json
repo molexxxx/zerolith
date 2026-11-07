@@ -33,7 +33,7 @@
             }
         },
         {
-            "files": ["**/test/fixtures/tutorial/**", "**/test/examples/**", "scripts/docs/playground/**"],
+            "files": ["**/test/fixtures/tutorial/**", "**/test/examples/**", "scripts/docs/playground/**", "scripts/docs/demo.js"],
             "rules": {
                 "unicorn/consistent-function-scoping": "off",
                 "oxc/no-map-spread": "off"

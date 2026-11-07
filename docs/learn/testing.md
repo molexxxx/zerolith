@@ -1,7 +1,7 @@
 ---
 title: Testing
 description: Write a browser test that mounts the page, clicks through it, and checks it for accessibility defects.
-order: 8
+order: 9
 ---
 
 # Testing

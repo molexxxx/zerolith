@@ -1,7 +1,7 @@
 ---
 title: Styles
 description: Give a component its own styles with the css tag, scoped so they never leak into the rest of the page.
-order: 7
+order: 8
 ---
 
 # Styles
@@ -30,7 +30,7 @@ Then import it in `src/components/packing.ts`:
 
 `?scoped` on the import turns the file into the same scoped style sheet a `css` literal makes, and `class=${page}` applies it the same way: `:scope` is the `section`, and the rules stop at the rows, which have styles of their own. A literal suits a few rules beside the markup, as in the row; a file suits a longer stylesheet, which your editor checks and completes as CSS. `zerolith dev` applies an edit to the file in place, without reloading the page.
 
-The page is now a `section` with its own scoped styles, and the list is the finished one. `src/components/add-item.ts` and `src/components/filters.ts` stay as they were.
+The page is now a `section` with its own scoped styles, and the list is the finished one. `src/components/add-item.ts`, `src/components/filters.ts`, and `src/components/undo-redo.ts` stay as they were.
 
 ## What you learned
 

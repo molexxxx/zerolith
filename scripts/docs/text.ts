@@ -37,3 +37,24 @@ export function headingText(markup: string): string
 {
     return stripTags(markup).replace(/&(amp|lt|gt|quot|#39);/g, (_match, name: string) => ENTITIES[name] ?? "");
 }
+
+/** Names as a sentence lists them: "A", "A and B", or "A, B, and C". */
+export function listed(names: readonly string[]): string
+{
+    return names.length < 3 ? names.join(" and ") : `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;
+}
+
+const counts = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+const places = ["", "", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth"];
+
+/** A count as running text writes it: a word up to twelve, digits past it. */
+export function countWord(count: number): string
+{
+    return counts[count] ?? String(count);
+}
+
+/** A place in a ranking from the top, as a ranking sentence words it: "fastest", "second-fastest", and on. */
+export function fastestWord(place: number): string
+{
+    return place === 1 ? "fastest" : `${places[place] ?? `number ${place}`}-fastest`;
+}
