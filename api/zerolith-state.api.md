@@ -29,5 +29,6 @@ interface StoredOptions<T>
 {
     storage?: "local" | "session"
     equals?: (previous: T, next: T) => boolean
+    validate?: (value: unknown) => boolean
 }
 ```
