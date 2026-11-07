@@ -184,7 +184,7 @@ function SiteFooter(page: PageData, twin: boolean)
             <div class="foot-top">
                 <div class="foot-brand">
                     <a class="word" href="/">zerolith</a>
-                    <p>Full framework. Zero guesswork.</p>
+                    <p>A web framework built on signals.</p>
                 </div>
                 <nav class="foot-links" aria-label="Footer">
                     ${footerColumns.map((column) => html`
@@ -279,7 +279,7 @@ function importMap(page: PageData): string
 export function renderPage(page: PageData): string
 {
     const body = renderToString(page.layout === "docs" ? Docs(page) : Wide(page));
-    const title = page.path === "/" ? "zerolith: Full framework. Zero guesswork." : `${page.title} | zerolith`;
+    const title = page.path === "/" ? "zerolith: a web framework built on signals" : `${page.title} | zerolith`;
     return `<!doctype html>
 <html lang="en">
 <head>
@@ -296,7 +296,7 @@ export function renderPage(page: PageData): string
 <meta property="og:image" content="${page.image}">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
-<meta property="og:image:alt" content="The zerolith stele and wordmark with the line Full framework. Zero guesswork.">
+<meta property="og:image:alt" content="The zerolith stele and wordmark with the line A web framework built on signals.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#0F1114" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#F5F6F8" media="(prefers-color-scheme: light)">

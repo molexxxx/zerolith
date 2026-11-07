@@ -129,6 +129,7 @@ export function Figure()
 {
     return html`
         <div class="output">${counted()}</div>
+        <p class="cue">Press Launch: the text nodes change, and LaunchControl() still runs only once.</p>
         <dl class="readout">
             <div><dt>Text nodes changed</dt><dd>${textNodes}</dd></div>
             <div><dt>Attributes changed</dt><dd>${attributes}</dd></div>
@@ -239,6 +240,8 @@ export function watch(host)
         });
     });
     const tickLines = figure?.querySelectorAll("[data-run=\"tick\"]") ?? [];
+    const pane = figure?.querySelector(".code pre");
+    let ran = false;
     stops.push(effect(() =>
     {
         const running = live.get();
@@ -246,6 +249,13 @@ export function watch(host)
         {
             line.toggleAttribute("data-running", running);
         }
+        const [first] = tickLines;
+        if (running && !ran && pane instanceof HTMLElement && first !== undefined)
+        {
+            const top = first.getBoundingClientRect().top - pane.getBoundingClientRect().top + pane.scrollTop - pane.clientHeight / 3;
+            pane.scrollTo({ top: Math.max(0, top), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+        }
+        ran = running;
     }));
     /** @param {Event} event */
     const pressed = (event) =>

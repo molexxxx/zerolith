@@ -10,6 +10,7 @@
 import { type View, html, unsafeHtml } from "zerolith";
 import { Figure } from "./demo.js";
 import { diagnosticIcon, glyph, icon } from "./layout.ts";
+import { listed } from "./text.ts";
 
 export interface Characteristic
 {
@@ -496,7 +497,7 @@ function Command()
     return html`
         <div class="command">
             <code>${createCommand.split(" ").map((word, index) => html`${index === 0 ? "" : " "}<span>${word}</span>`)}</code>
-            <button class="copy button primary" type="button" data-copy=${createCommand} aria-label="Copy the command"><span class="idle">${unsafeHtml(icon("copy"))}Copy</span><span class="done">${unsafeHtml(icon("check"))}Copied</span></button>
+            <button class="copy button primary" type="button" data-copy=${createCommand} aria-label="Copy the command"><span class="idle">${unsafeHtml(icon("copy"))}Copy</span><span class="done">${unsafeHtml(icon("check"))}Copied</span><span class="failed">Press Ctrl+C</span></button>
         </div>`;
 }
 
@@ -504,9 +505,9 @@ function Command()
 function Tour(steps: TourStep[])
 {
     return html`
-        <section class="band tour alt roomy">
-            <h2>Clear patterns for every part of an app</h2>
-            <p>Each example comes from a guide and runs as a test in CI, so the code here is code that works.</p>
+        <section class="band tour">
+            <h2>Every example here runs as a test</h2>
+            <p>Each one comes from its guide, and CI runs it on every change, so the code you see is code that works.</p>
             <div class="tabs" role="tablist" aria-label="Patterns">
                 ${steps.map((step, index) => html`<button type="button" role="tab" id=${`tour-${step.id}`} aria-controls=${`tour-${step.id}-panel`} aria-selected=${String(index === 0)} tabindex=${index === 0 ? "0" : "-1"}>${step.title}</button>`)}
             </div>
@@ -535,21 +536,36 @@ function printed(score: number): number
 export function speedLine(scores: HomeData["scores"]): string
 {
     const ours = scores.rows.find((row) => row.name === "zerolith");
-    const others = scores.rows.filter((row) => row.name !== "vanilla" && row.name !== "zerolith").length;
-    return `${ours === undefined ? "zerolith" : `zerolith ${ours.version}`} on js-framework-benchmark next to hand-written JavaScript and ${others} frameworks, measured on ${scores.date}. Lower is faster. These are this project's runs, not the official results.`;
+    const others = scores.rows.filter((row) => row.name !== "vanilla" && row.name !== "zerolith");
+    const tied = ours === undefined ? [] : others.filter((row) => printed(row.score) === printed(ours.score)).map((row) => row.name);
+    const tie = ours === undefined || tied.length === 0 ? "" : ` zerolith ties with ${listed(tied)} at ${printed(ours.score).toFixed(2)}.`;
+    return `${ours === undefined ? "zerolith" : `zerolith ${ours.version}`} on js-framework-benchmark next to hand-written JavaScript and ${others.length} frameworks, measured on ${scores.date}. Lower is faster.${tie} These are this project's runs, not the official results.`;
+}
+
+/**
+ * The speed heading, from zerolith's score as the bars print it, so the
+ * two never disagree; "about" carries the rounding.
+ */
+export function speedHeading(scores: HomeData["scores"]): string
+{
+    const ours = scores.rows.find((row) => row.name === "zerolith");
+    if (ours === undefined)
+    {
+        return "Benchmark scores";
+    }
+    const extra = Math.round((printed(ours.score) - 1) * 100);
+    return extra <= 0 ? "As fast as hand-written JavaScript" : `About ${extra} percent slower than hand-written JavaScript`;
 }
 
 /** The benchmark scores as ranked bars, each the extra time over hand-written JavaScript. */
 function Speed(scores: HomeData["scores"])
 {
     const slowest = Math.max(...scores.rows.map((row) => printed(row.score)));
-    const ours = scores.rows.find((row) => row.name === "zerolith");
-    const extra = ours === undefined ? undefined : Math.round((printed(ours.score) - 1) * 100);
     return html`
         <section class="band speed">
             <div class="split">
                 <div class="copy-column">
-                    <h2>${extra === undefined ? "Benchmark scores" : `Within ${extra} percent of hand-written JavaScript`}</h2>
+                    <h2>${speedHeading(scores)}</h2>
                     <p>${speedLine(scores)}</p>
                     <a class="more" href="/benchmarks/">See every operation and the method${unsafeHtml(icon("arrow-right"))}</a>
                 </div>
@@ -570,7 +586,7 @@ function Diagnostics(doctor: DoctorSample, count: number)
 {
     const page = `/e/${doctor.code}/`;
     return html`
-        <section class="band errors alt">
+        <section class="band errors">
             <h2>Errors that name the fix</h2>
             <p>Every warning and error carries a code, its cause, and the fix, and every code has a page. Here <code>zerolith doctor</code> catches a read that would never update.</p>
             <div class="pair">
@@ -598,7 +614,7 @@ function Diagnostics(doctor: DoctorSample, count: number)
 function Numbers(measures: Measure[], facts: string[])
 {
     return html`
-        <section class="band numbers inverse">
+        <section class="band numbers">
             <h2>${`${["No", "One", "Two", "Three", "Four", "Five", "Six"][measures.length] ?? measures.length} numbers, checked on every build`}</h2>
             <table class="datasheet">
                 <thead>
@@ -616,20 +632,20 @@ function Numbers(measures: Measure[], facts: string[])
         </section>`;
 }
 
-/** The closing band: the create command and the two that follow it, as a terminal shows them, beside the ways in. */
+/** The closing band: the ways to learn zerolith beside a terminal with the create command and the two after it, each with its own copy button. */
 function Start()
 {
     return html`
-        <section class="band start">
+        <section class="band start stage">
             <div class="start-copy">
                 <h2>Start a zerolith project</h2>
-                <p>Node 24 or newer is required. The command writes a starter that asks for the language, the build tool, and the inspector; <code>--yes</code> takes every default.</p>
-                <p class="ways-in"><a href="/learn/">Start the tutorial</a><a href="/guide/command-line/#importmap">Serve with no build step</a><a href="/playground/">Open the playground</a></p>
+                <p>Node 24 or newer is required. The create command writes a starter that asks for the language, the build tool, and the inspector; <code>--yes</code> takes every default. To skip the build step, <a href="/guide/command-line/#importmap">serve it with an import map</a>.</p>
             </div>
             <div class="shell">
-                <div class="bar"><span>Terminal</span><button class="copy button primary" type="button" data-copy=${createCommand} aria-label="Copy the command"><span class="idle">${unsafeHtml(icon("copy"))}Copy</span><span class="done">${unsafeHtml(icon("check"))}Copied</span></button></div>
-                <samp class="screen">${startCode.split("\n").map((line) => html`<span class="line"><span class="prompt">$</span> ${line}</span>`)}</samp>
+                <div class="bar">Terminal</div>
+                <samp class="screen">${startCode.split("\n").map((line) => html`<span class="line"><span class="text"><span class="prompt">$ </span><span class="typed">${line.split(" ").map((word, index) => html`${index === 0 ? "" : " "}<span>${word}</span>`)}</span></span><button class="copy" type="button" data-copy=${line} aria-label=${`Copy ${line}`}><span class="idle">${unsafeHtml(icon("copy"))}</span><span class="done">${unsafeHtml(icon("check"))}</span></button></span>`)}</samp>
             </div>
+            <ul class="index">${ways.map((way) => html`<li><a href=${way.href}><span class="name">${way.name}</span><span class="text">${way.text}</span>${unsafeHtml(icon("arrow-right"))}</a></li>`)}</ul>
         </section>`;
 }
 
@@ -637,17 +653,17 @@ function Start()
 export function Home(data: HomeData): View
 {
     return html`
-        <section class="hero roomy plane">
+        <section class="hero stage">
             <div class="title">
-                <h1><span>Full framework.</span> <span>Zero guesswork.</span></h1>
-                <div class="intro">
-                    <p class="lead">Routing, forms, rendering, and i18n, with clear patterns for you and your agent.</p>
+                <h1>A web framework <span>built on signals</span></h1>
+                <p class="lead">Routing, forms, rendering, and i18n, with clear patterns for you and your agent.</p>
+                <div class="get">
                     ${Command()}
                     <p class="ways-in"><a href="/learn/">Start the tutorial</a><a href="/playground/">Open the playground</a></p>
                 </div>
             </div>
             <figure class="figure" aria-label="Launch control running on this page: its code, the rocket, the signal graph each change runs along, and what each change did to the DOM">
-                <div class="code" data-language="js"><pre><code>${unsafeHtml(data.figureCode)}</code></pre></div>
+                <div class="code" data-language="js"><pre tabindex="0" role="region" aria-label="Launch control's code" data-scroll-on-focus><code>${unsafeHtml(data.figureCode)}</code></pre></div>
                 <div class="run" data-island="figure">${Figure()}</div>
                 <div class="flow">${unsafeHtml(flowSvg())}${unsafeHtml(flowSvgTall())}</div>
             </figure>
@@ -660,17 +676,15 @@ export function Home(data: HomeData): View
             <p>Each package is optional, has its own guide, and shares the core's signals, so nothing needs an adapter.</p>
             <div class="diagram">
                 <div class="cells">
+                    <span class="row-label">Libraries</span>
                     ${libraries.map((part) => PartCell(part, "library"))}
                     ${PartCell(core, "core")}
+                    <span class="row-label">Tools</span>
                     ${tools.map((part) => PartCell(part, "tool"))}
                 </div>
             </div>
         </section>
         ${Numbers(data.measures, data.facts)}
-        <section class="band narrow">
-            <h2>Learn zerolith</h2>
-            <ul class="index">${ways.map((way) => html`<li><a href=${way.href}><span class="name">${way.name}</span><span class="text">${way.text}</span>${unsafeHtml(icon("arrow-right"))}</a></li>`)}</ul>
-        </section>
         ${Start()}`;
 }
 
@@ -678,7 +692,7 @@ export function Home(data: HomeData): View
 export function NotFound(): View
 {
     return html`
-        <section class="masthead missing page-head">
+        <section class="hero page-head missing">
             <div class="title">
                 <h1>Page not found</h1>
                 <p class="lead">Nothing lives at this address. One of these will get you back on track.</p>
@@ -694,7 +708,7 @@ export function homeMarkdown(data: HomeData): string
     return [
         "# zerolith",
         "",
-        "Full framework. Zero guesswork. Routing, forms, rendering, and i18n, with clear patterns for you and your agent.",
+        "A web framework built on signals. Routing, forms, rendering, and i18n, with clear patterns for you and your agent.",
         "",
         "## Start",
         "",

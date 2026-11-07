@@ -37,3 +37,9 @@ export function headingText(markup: string): string
 {
     return stripTags(markup).replace(/&(amp|lt|gt|quot|#39);/g, (_match, name: string) => ENTITIES[name] ?? "");
 }
+
+/** Names as a sentence lists them: "A", "A and B", or "A, B, and C". */
+export function listed(names: readonly string[]): string
+{
+    return names.length < 3 ? names.join(" and ") : `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;
+}

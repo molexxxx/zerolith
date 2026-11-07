@@ -24,13 +24,20 @@ function onWheel(event: WheelEvent): void
 /**
  * Whether an element under the wheel keeps native scrolling: a dialog, a
  * pane that overflows vertically, such as the sidebar, and for a sideways
- * gesture, a pane that overflows horizontally, such as a long code line.
+ * gesture, a pane that overflows horizontally, such as a long code line. A
+ * pane marked `data-scroll-on-focus`, the home figure's code, keeps a
+ * vertical gesture only once the reader has clicked or tabbed into it, so a
+ * wheel passing over it scrolls the page instead of stopping in the pane.
  */
 function keepsNativeScroll(node: HTMLElement): boolean
 {
     if (node instanceof HTMLDialogElement)
     {
         return true;
+    }
+    if (!sideways && node.hasAttribute("data-scroll-on-focus") && !node.matches(":focus-within"))
+    {
+        return false;
     }
     const tall = node.scrollHeight > node.clientHeight + 1;
     const wide = sideways && node.scrollWidth > node.clientWidth + 1;

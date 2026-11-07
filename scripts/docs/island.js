@@ -64,7 +64,8 @@ function remember(theme)
 
 /**
  * Copies the text a copy button names, or its code block's text, and shows
- * the check icon for a moment.
+ * the check icon for a moment. When the browser refuses the clipboard, it
+ * selects the text instead and names the keys that copy it.
  * @param {HTMLButtonElement} button
  * @returns {Promise<void>}
  */
@@ -79,6 +80,24 @@ async function copy(button)
     }
     catch
     {
+        const shown = button.closest(".command")?.querySelector("code") ?? button.closest(".line")?.querySelector(".typed") ?? source;
+        if (shown !== null && shown !== undefined)
+        {
+            getSelection()?.selectAllChildren(shown);
+        }
+        const keys = /Mac|iPhone|iPad/.test(navigator.userAgent) ? "Command+C" : "Ctrl+C";
+        const failed = button.querySelector(".failed");
+        if (failed !== null)
+        {
+            failed.textContent = `Press ${keys}`;
+        }
+        button.setAttribute("data-failed", "");
+        button.setAttribute("aria-label", `The browser blocked copying, so the text is selected; press ${keys}`);
+        setTimeout(() =>
+        {
+            button.removeAttribute("data-failed");
+            button.setAttribute("aria-label", label);
+        }, 4000);
         return;
     }
     button.setAttribute("data-copied", "");

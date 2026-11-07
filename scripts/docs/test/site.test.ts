@@ -878,6 +878,28 @@ describe("documentation site", () =>
         await page.close();
     });
 
+    it("scrolls the page past the home figure's code until the reader clicks into the code", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        await page.setViewportSize({ width: 1600, height: 900 });
+        await page.waitForFunction(() => document.documentElement.classList.contains("lenis"));
+        const pane = page.locator(".figure .code pre");
+        await pane.hover();
+        await page.mouse.wheel(0, 300);
+        await expect.poll(() => page.evaluate(() => Math.round(scrollY))).toBe(300);
+        expect(await pane.evaluate((element) => element.scrollTop)).toBe(0);
+
+        const box = await pane.boundingBox();
+        expect(box).not.toBeNull();
+        await page.mouse.click((box?.x ?? 0) + 40, (box?.y ?? 0) + 40);
+        expect(await pane.evaluate((element) => element === document.activeElement)).toBe(true);
+        await page.mouse.wheel(0, 200);
+        await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+        expect(await page.evaluate(() => Math.round(scrollY))).toBe(300);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
     it("eases wheel scrolling on a fine pointer, lands each navigation where the router puts it, and takes heading links through history", { timeout: 60000 }, async () =>
     {
         const { page, errors } = await open("/guide/routing/");

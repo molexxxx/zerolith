@@ -10,6 +10,7 @@
 import { type View, html } from "zerolith";
 import { MEASURES, OPERATIONS, type FrameworkResult, type Ranked, type Run, SECTION_END, SECTION_START, label, measuresNote, ranked, referenceTimes, renderResults, rivals, scores } from "../../benchmarks/results.ts";
 import { repository } from "./layout.ts";
+import { listed } from "./text.ts";
 
 /** What the page renders: the newest release's newest run first, as `readRuns` orders them. */
 export interface BenchmarksData
@@ -95,7 +96,7 @@ function Scores(run: Run)
     const rows = ranked(run).filter((row) => !row.before);
     const slowest = Math.max(...rows.map(printed));
     return html`
-        <figure class="scores" id="scores">
+        <figure class="scores">
             ${Summary(run)}
             <p class="key">Lower is faster. Hand-written JavaScript is 1.00, and each bar is the extra time a framework takes over it across the nine operations.</p>
             <div class="table">
@@ -129,26 +130,26 @@ const counts = ["no", "one", "two", "three", "four", "five", "six", "seven", "ei
 const places = ["", "", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth"];
 
 /**
- * The run in one sentence over its figure: zerolith's score set large and
- * its place among the frameworks other than hand-written JavaScript.
+ * The run in one sentence over its figure: zerolith's score and its place
+ * among the frameworks other than hand-written JavaScript. The place counts
+ * the scores as printed, so a framework that prints the same score is named
+ * as a tie rather than ranked behind on digits the page does not show.
  */
 function Summary(run: Run)
 {
-    const rows = ranked(run);
-    const field = rows.filter((row) => !row.before && row.name !== "vanilla");
+    const field = ranked(run).filter((row) => !row.before && row.name !== "vanilla");
     const ours = field.find((row) => row.name === "zerolith");
     if (ours === undefined)
     {
         return null;
     }
-    const place = field.indexOf(ours) + 1;
-    const rank = place === 1 ? "the fastest" : `the ${places[place] ?? `number ${place}`}-fastest`;
-    const among = counts[field.length] ?? String(field.length);
-    return html`
-        <div class="summary">
-            <span class="score">${printed(ours).toFixed(2)}</span>
-            <p>${`zerolith ${ours.version} scores ${printed(ours).toFixed(2)}, ${rank} of ${among} frameworks.`}</p>
-        </div>`;
+    const score = printed(ours);
+    const place = field.filter((row) => printed(row) < score).length + 1;
+    const tied = field.filter((row) => row !== ours && printed(row) === score).map((row) => row.name);
+    const fastest = place === 1 ? "fastest" : `${places[place] ?? `number ${place}`}-fastest`;
+    const among = `${counts[field.length] ?? String(field.length)} frameworks`;
+    const standing = tied.length === 0 ? `the ${fastest} of ${among}` : `tied with ${listed(tied)} for ${fastest} of ${among}`;
+    return html`<p class="summary">zerolith ${ours.version} scores <strong>${score.toFixed(2)}</strong>, ${`${standing}.`}</p>`;
 }
 
 /** A table of the frameworks in score order, zerolith's column on the surface plane, with one row per item. */
@@ -185,15 +186,18 @@ export function Benchmarks(data: BenchmarksData): View
     const history = data.runs.map((run) => ({ run, scores: scores(run) }));
     const notes = data.runs.filter((run) => run.note !== undefined);
     return html`
-        <section class="hero roomy page-head">
+        <section class="hero page-head stage">
             <div class="title">
                 <h1>Benchmarks</h1>
                 <p class="lead">zerolith ${current.zerolith} next to hand-written JavaScript and ${rivals(current)} on js-framework-benchmark, measured again with every release.</p>
                 <nav class="contents" aria-label="On this page">${contents.map((entry) => html`<a href=${`#${entry.id}`}>${entry.title}</a>`)}</nav>
             </div>
+        </section>
+        <section class="band" id="scores">
+            <h2>Scores</h2>
             ${Scores(current)}
         </section>
-        <section class="band alt roomy" id="every-operation">
+        <section class="band" id="every-operation">
             <h2>Every operation</h2>
             <p>Each cell is the median time in milliseconds, over its factor against hand-written JavaScript at that operation; below 1.00 is faster than it. The operations marked with a slowdown run with Chrome slowing the CPU by that factor.</p>
             ${FrameworkTable(order, "Operation", OPERATIONS, (operation) => operation.label, (operation, framework) =>
@@ -203,21 +207,20 @@ export function Benchmarks(data: BenchmarksData): View
                 return time === undefined ? "-" : html`<span class="time">${time.toFixed(1)}</span><span class="factor">${(time / against).toFixed(2)}</span>`;
             })}
         </section>
-        <section class="band roomy" id="memory-size-and-first-paint">
+        <section class="band" id="memory-size-and-first-paint">
             <h2>Memory, size, and first paint</h2>
-            <p>${measuresNote(current)}</p>
+            <p>${measuresNote(current)} The size rows measure each benchmark app's bundle, the framework code it uses and its own, not a framework's whole package.</p>
             ${FrameworkTable(order, "Measure", MEASURES, (measure) => measure.label, (measure, framework) => framework.measures?.[measure.id]?.toFixed(measure.digits) ?? "-")}
         </section>
-        <section class="band alt" id="every-run">
+        <section class="band" id="every-run">
             <h2>Every run</h2>
             <p>Each run's scores, the newest release first, with how the run was taken; lower is faster. A score compares frameworks within its own run, so a change in how runs are taken moves every framework's score with it.</p>
             ${FrameworkTable(order, "Run", history, (entry) => html`<span class="main">${entry.run.zerolith}</span><span class="sub">${entry.run.date}</span><span class="how">${entry.run.method}</span>`, (entry, framework) => entry.scores.get(framework.name)?.toFixed(2) ?? "-")}
             ${notes.length === 0 ? null : html`<p class="notes">${notes.map((run) => `${label(run)}: ${run.note}`).join(" ")}</p>`}
         </section>
-        <section class="band inverse narrow method" id="how-the-runs-are-measured">
+        <section class="band method" id="how-the-runs-are-measured">
             <h2>How the runs are measured</h2>
             ${method.map((parts) => Paragraph(parts))}
-            <p class="twin"><a href="/benchmarks.md">This page as Markdown</a></p>
         </section>`;
 }
 
