@@ -1,10 +1,10 @@
 ---
-title: Sending and the welcome
+title: Send the form
 description: Disable the button while the request runs, replace the form with a welcome built from the server's answer, and say so when a sign-up does not go through.
 order: 5
 ---
 
-# Sending and the welcome
+# Send the form
 
 A request takes time, and it can end in more ways than one. While it runs, the page should say so and should not send it again. When it succeeds, the form has done its job and should give way to something else. And when it fails without naming a field, as when the backend is down, there is no field to show the message next to, but the page still has to say something.
 

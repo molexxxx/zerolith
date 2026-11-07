@@ -1,10 +1,10 @@
 ---
-title: Derived state and conditions
+title: Derived state
 description: Count what is packed, filter the rows, and show a note when the filter leaves nothing.
 order: 5
 ---
 
-# Derived state and conditions
+# Derived state
 
 Two questions come up while packing: how much is left, and what exactly is left. Both answers are derived from the items, so they are computed values rather than more state to keep in sync.
 

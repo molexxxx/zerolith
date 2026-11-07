@@ -1,10 +1,10 @@
 ---
-title: The search in the address
+title: Search in the URL
 description: Keep the search in the URL, so it survives a reload, comes back with the back button, and can be shared as a link.
 order: 6
 ---
 
-# The search in the address
+# Search in the URL
 
 Reload the page and the search is gone, since it lives only in the page. A search worth keeping belongs where the browser keeps the rest of the page's place: in the address. `/releases#q=photo` opens the list already searched for `photo`, after a reload, from a bookmark, from a link someone sent you, and when the back button returns from a release.
 

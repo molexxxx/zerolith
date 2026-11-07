@@ -106,7 +106,7 @@ describe("sign-up form tutorial, run by Node", () =>
         const json = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
         expect(json.status).toBe(415);
         expect(await statusOf("TRACE", port)).toBe(500);
-        expect(errors).toContain("TRACE");
+        await expect.poll(() => errors).toContain("TRACE");
         expect((await fetch(url)).status).toBe(404);
     });
 

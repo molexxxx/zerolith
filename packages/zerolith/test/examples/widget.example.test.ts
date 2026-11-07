@@ -99,7 +99,7 @@ describe("widget tutorial on Node", () =>
         expect(created.status).toBe(201);
         expect(created.headers.get("access-control-allow-origin")).toBe("*");
         expect(await created.json()).toEqual({ id: expect.any(String) });
-        expect(output()).toContain("feedback {\"helpful\":true,\"page\":\"/install\",\"comment\":\"Clear\"}\n");
+        await expect.poll(output).toContain("feedback {\"helpful\":true,\"page\":\"/install\",\"comment\":\"Clear\"}\n");
         const preflight = await fetch(`${origin}/feedback`, { method: "OPTIONS", headers: { origin: "http://127.0.0.1:8000", "access-control-request-method": "POST", "access-control-request-headers": "content-type" } });
         expect(preflight.status).toBe(204);
         expect(preflight.headers.get("access-control-allow-headers")).toBe("content-type");

@@ -1,10 +1,10 @@
 ---
-title: Attributes and properties
+title: Attributes
 description: Let the host page set the question through an attribute or a property, both of which reach the view as one signal.
 order: 2
 ---
 
-# Attributes and properties
+# Attributes
 
 A page talks to an element the way it talks to an `<input>`: through attributes in its markup, such as `placeholder="Search"`, and through properties from script, such as `input.value = "Paris"`. Every prop listed in `define` is both, and both feed one signal that the view receives, so the view follows whichever the page uses, and keeps following it as it changes.
 

@@ -1,10 +1,10 @@
 ---
-title: Focus and announcements
+title: Focus and messages
 description: Move focus to the first field to fix or to the welcome's heading, and announce what changed out of sight with @zerolith/a11y.
 order: 6
 ---
 
-# Focus and announcements
+# Focus and messages
 
 Everything the page does so far can be seen. Someone who works from the keyboard or listens to a screen reader meets a gap. Press Create account and the button turns itself off, and a disabled button cannot hold focus, so the browser moves focus to the page itself. When the answer arrives nothing says so, and Tab starts again from the top of the page.
 

@@ -1,10 +1,10 @@
 ---
-title: A contract for any backend
+title: The contract
 description: "Write down the request the widget sends and every answer it can get, errors included, as an OpenAPI document, generate types from it, and run an example handler while you develop."
 order: 3
 ---
 
-# A contract for any backend
+# The contract
 
 The widget will post to whatever address the host page gives it, and the server behind that address could be written in anything: Node, PHP, Go, C#, or a serverless function. The widget should not care which. What both sides need is a contract: the request the widget sends and every answer it can get back, errors included, written down so that anyone can implement it and check an implementation against it.
 

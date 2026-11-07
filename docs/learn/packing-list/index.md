@@ -1,24 +1,21 @@
 ---
-title: Build a packing list
+title: Packing list
 description: "The zerolith tutorial: start a project, then build a packing list page one idea at a time, from signals and lists to storage and undo, styles, tests, and a deployed build."
 order: 0
 ---
 
 # Build a packing list
 
-In this tutorial you build a packing list: a page where you add the things to take on a trip, check them off as they go in the bag, filter what is left, take back a mistake, and find the list still there the next time you open the page. It is small enough to finish in an afternoon and touches every idea a zerolith application is made of.
-
-Each step adds one idea and explains why it works the way it does before showing the code. Every file a step shows is run by zerolith's own test suite, so what you type is what was tested.
+You build a packing list: add things to take on a trip, check them off, filter what is left, undo a mistake, and find the list still there next time. It touches every idea a zerolith app is made of.
 
 ## What you need
 
-- Node 24 or newer. Check with `node --version`.
-- A terminal and an editor. Any editor works; one that understands TypeScript helps.
-- No knowledge of zerolith or of signals. If you have used React, Vue, Svelte, or Solid, some ideas will look familiar, and the differences are pointed out as they come up.
+- Node 24 or newer.
+- No knowledge of zerolith or signals. If you know React, Vue, Svelte, or Solid, the differences are pointed out as they come up.
 
 ## Start a project
 
-`zerolith new` writes a starter application. This tutorial uses TypeScript with `html` templates, which run in the browser without a compiler:
+The tutorial uses TypeScript with `html` templates, which need no compiler:
 
 ```sh
 npx @zerolith/cli new packing-list --template ts --yes
@@ -26,7 +23,7 @@ cd packing-list
 npm run dev
 ```
 
-The first time, `npx` asks before it downloads the command line; answer `y`. `--template ts` picks the language and `--yes` takes the default for every other question: the zerolith command line as the dev server and build, one bundle for production, the in-page inspector, and the dependencies installed. Open the address `npm run dev` prints, http://127.0.0.1:8080/ unless that port is taken, and you see the starter's home page. Leave the server running; it reloads the page every time you save a file.
+Answer `y` if `npx` asks to download the command line. `--yes` takes the default for every other question. Open the address `npm run dev` prints and leave the server running; it reloads the page on every save.
 
 ## What the starter wrote
 
@@ -53,7 +50,7 @@ Open `src/components/counter.ts`. It is the whole idea of zerolith in one short 
 2. [State and lists](state.md): the items in a signal, one row per item.
 3. [Events and updates](events.md): check items off and add new ones.
 4. [Components](components.md): split the page into parts that each run once.
-5. [Derived state and conditions](derived.md): progress, filters, and an empty state.
+5. [Derived state](derived.md): progress, filters, and an empty state.
 6. [Saving with effects](effects.md): keep the list between visits.
 7. [Undo and offline](undo.md): a stored signal, undo and redo, and a note while offline.
 8. [Styles](styles.md): styles that belong to one component.
