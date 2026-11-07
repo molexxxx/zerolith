@@ -147,14 +147,14 @@ export function Settings(): View
 
 ## The layout
 
-`src/router.ts` creates the router over the route table, and its fallback renders when no route matches:
+`src/router.ts` creates the router over the route table, and its fallback renders when no route matches. It takes the table as a function because the table imports the page components, and a component that builds links imports this module back; a function works whichever of them loads first, such as `routes.ts` in a test. A table given as it is suits a router no component imports, as on a server:
 
 ```ts
 import { createRouter } from "@zerolith/router";
 import { NotFound } from "./components/not-found.tsx";
 import { routes } from "./routes.ts";
 
-export const router = createRouter(routes, {
+export const router = createRouter(() => routes, {
     fallback: (url) => NotFound({ path: url.pathname })
 });
 ```
@@ -238,7 +238,7 @@ A link to a hash on the page shown is left to the browser, and back and forward 
 
 A URL whose query differs is another page, and `navigate(url, { reload: true })` loads and renders the page shown again on purpose, as after a form's redirect back to it.
 
-A page that keeps its own state in the query, such as a search the reader types, writes it with `navigate(url, { replace: true, shallow: true })`. A shallow navigation to the page's own path keeps the page, so the field keeps its focus and its text: only the URL and `router.url` change, and the page reads the query from `router.url`. Back and forward between entries a shallow navigation added keep the page too. `router.current` stays the match the page was built from, and a link or a navigation without `shallow` still loads the page again. Pass `scroll: false` to keep control of scrolling.
+A page that keeps its own state in the query, such as a search the reader types, writes it with `navigate(url, { replace: true, shallow: true })`. A shallow navigation to the page's own path keeps the page, so the field keeps its focus and its text: only the URL and `router.url` change, and the page stays where it is scrolled, unless the URL names a hash. The page reads the query from `router.url`. Back and forward between entries a shallow navigation added keep the page too. `router.current` stays the match the page was built from, and a link or a navigation without `shallow` still loads the page again. Pass `scroll: false` to keep control of scrolling.
 
 A navigation whose loader fails calls `onError` with the error and the URL; without `onError`, `navigate` rejects, and a navigation a link or the history started rejects unobserved, which the browser reports as an unhandled rejection. A back or forward that fails moves the history back to the entry of the page still shown, so the address bar and the page agree.
 
@@ -249,7 +249,7 @@ A page that throws as it renders fails the navigation after the URL changed: the
 An application served under a path, such as `/app/`, passes it as `base`; `import.meta.env.BASE_URL` carries the base `zerolith dev`, `zerolith build`, and Vite were given, so one line follows all of them:
 
 ```ts
-const router = createRouter(routes, { base: import.meta.env.BASE_URL });
+const router = createRouter(() => routes, { base: import.meta.env.BASE_URL });
 ```
 
 Route paths stay relative to the base: `"/notes/:id"` matches `/app/notes/7`, and `href("note", { id: "7" })` returns `/app/notes/7`. `navigate` and `matches` take a path with the base or without it, so `navigate("/notes/8")` and `navigate("/app/notes/8")` go to the same place. A URL outside the base renders the fallback, and a link outside it is left to the browser, so the rest of the site keeps working around the application. [Building and serving](deploying.md) covers setting the base for the build and the server.
@@ -261,7 +261,7 @@ Route paths stay relative to the base: `"/notes/:id"` matches `/app/notes/7`, an
 The router's own `head` option gives the fields every page starts from, so a site's name and description are written once:
 
 ```ts
-const router = createRouter(routes, {
+const router = createRouter(() => routes, {
     head: ({ name }) => ({
         title: name === undefined ? "Not found | Notes" : "Notes",
         description: "A notebook that runs on zerolith."

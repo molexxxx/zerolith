@@ -29,6 +29,8 @@ Every file under `assets/` has a content hash in its name, so a changed file get
 | `assets/<name>-<hash>.<ext>` | Images, fonts, and other files the code or the stylesheets reference |
 | Everything from `public/` | Copied as it is, at the same paths |
 
+A widget for other sites' pages is one script with a name that stays the same, which [`zerolith build --entry`](command-line.md#one-script) writes instead of all of this.
+
 The [command line guide](command-line.md) describes the build's options; `zerolith preview` serves `dist/` as a host would, which is the quickest check before deploying.
 
 ## A path under the domain
@@ -44,7 +46,9 @@ An application served under a path, such as `https://example.com/app/`, names th
 `zerolith build` then writes every URL under `/app/`, such as `/app/assets/index-<hash>.js`, and `zerolith dev` and `zerolith preview` serve the application there too, redirecting the site root to it. The router follows the same base when it is given `import.meta.env.BASE_URL`, as every starter does, so its links and its matching agree with the build:
 
 ```ts
-export const router = createRouter(routes, { base: import.meta.env.BASE_URL });
+export const router = createRouter(() => routes, {
+    base: import.meta.env.BASE_URL
+});
 ```
 
 `--base /app/` sets the base for one command instead. `--base ./` makes the build's URLs relative to the page, for a page opened from disk or embedded at a path that is not known in advance. The router cannot know that path, so such a page should not rely on client-side routes.
@@ -277,16 +281,15 @@ zerolith needs neither `unsafe-eval` nor inline scripts, so a strict policy such
 
 ## Unbundled output
 
-`zerolith build --unbundled` writes the modules as they are, with the zerolith packages in `vendor/` behind an import map with integrity hashes. The packages' production modules are minified one at a time, and each that the build's template pass leaves as published keeps its source map; the application's own modules are served as written. A third-party package needs an entry in the page's own import map, which the build keeps; it warns of a bare import no entry covers. The same routing rule applies, but no file has a content hash in its name, so every file should be served with `no-cache`, and the integrity hashes catch a stale file that slips through.
+`zerolith build --unbundled` writes the modules as they are, with the zerolith packages in `vendor/` behind an import map with integrity hashes. The packages' production modules are minified one at a time, and each that the build's template pass leaves as published keeps its source map; the application's own modules are served as written. A third-party package needs an entry in the page's own import map, which the build keeps; it warns of a bare import no entry covers. The same routing rule applies.
+
+Each package's folder names its version, as `vendor/zerolith@1.3.0/`, and a version's files never change, so `vendor/` can be cached for good: a new zerolith version has new addresses, and a browser's old copy never meets a new integrity hash. The application's own modules have no hash in their names, so serve those with `no-cache`.
 
 > [!IMPORTANT]
 > The import map is an inline script, so the policy `default-src 'self'` blocks it and the page loads no module. Allow it in `script-src` by the hash of its text, `'sha256-...'`, or by a nonce the server adds to the script element.
 
 > [!NOTE]
 > The unbundled output is served from the root; an application under a path needs the bundled build.
-
-> [!WARNING]
-> Serve `vendor/` with `Cache-Control: no-cache`. A vendored file keeps its address from one zerolith version to the next, and the import map pins it with an integrity hash, so a browser that kept the older copy refuses it and a page rendered by those modules stays blank until the copy expires, through a reload as well. On a host that sets its own cache time, such as GitHub Pages at ten minutes, returning visitors can see that blank page after a zerolith upgrade. Use the bundled build there: its file names change with their content, so a new build never meets an old copy.
 
 A page that renders its application in the browser paints its static shell first, then the application replaces it, which moves the layout, and a page that does this on every load scores a layout shift every time. `blocking="render"` on the entry module script, which must be in the document's head to block anything, holds the first paint until the module ran, so the page paints once, with the application in it:
 
