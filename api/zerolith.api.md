@@ -22,7 +22,7 @@ function scope<T>(fn: () => T): Scope<T>
 function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T>
 function unsafeHtml(markup: string): View
 function untracked<T>(fn: () => T): T
-function when(condition: unknown, then: () => Renderable, otherwise?: () => Renderable): View
+function when<C>(condition: C extends (...args: never[]) => unknown ? "a signal or a value, not a function: pass the computed value" : C, then: () => Renderable, otherwise?: () => Renderable): View
 
 class ZerolithError extends Error
 {

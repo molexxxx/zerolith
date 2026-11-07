@@ -102,11 +102,11 @@ class Conditional extends Directive
 /**
  * Renders `then()` while the condition is truthy and `otherwise()` while
  * it is not. The condition is a signal, such as a computed value, or a
- * plain value; a function fails with `when_condition_function`, since it
- * would always count as true. Branches are created lazily and disposed
- * when hidden.
+ * plain value; a function fails to compile, and fails at run time with
+ * `when_condition_function`, since it would always count as true. Branches
+ * are created lazily and disposed when hidden.
  */
-export function when(condition: unknown, then: () => Renderable, otherwise?: () => Renderable): View
+export function when<C>(condition: C extends (...args: never[]) => unknown ? "a signal or a value, not a function: pass the computed value" : C, then: () => Renderable, otherwise?: () => Renderable): View
 {
     if (typeof condition === "function")
     {

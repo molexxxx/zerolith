@@ -804,8 +804,9 @@ describe("each", () =>
 
 describe("when", () =>
 {
-    it("refuses a function as its condition with a coded error", () =>
+    it("refuses a function as its condition with a coded error, for code the types do not check", () =>
     {
+        // @ts-expect-error a function is not a condition
         expect(() => when(() => true, () => html`<p>x</p>`)).toThrow(/when_condition_function/);
     });
 

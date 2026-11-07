@@ -100,7 +100,7 @@ A branch is built only when it first shows, and taken down when it hides, which 
 `when` reads its condition when it is a signal and takes any other value as it is.
 
 > [!WARNING]
-> A function is not a condition. `when(() => count.get() > 0, ...)` fails with `when_condition_function`, since a function would always count as true. Derive the condition as a signal instead: `when(computed(() => count.get() > 0), ...)`.
+> A function is not a condition. `when(() => count.get() > 0, ...)` fails to compile in TypeScript and fails at run time with `when_condition_function`, since a function would always count as true. Derive the condition as a signal instead: `when(computed(() => count.get() > 0), ...)`.
 
 ## Coming from React or Angular
 
