@@ -8,15 +8,15 @@
 import { type Renderable, type Root, hasServerMarkup, hydrate, render } from "./render.js";
 import { type ReadableSignal, type Signal, signal } from "./signals.js";
 
-/** The signals an element's view receives, one per declared prop. */
-export type ElementProps<Props extends readonly string[]> = { readonly [K in Props[number]]: ReadableSignal<unknown> };
+/** The signals an element's view receives: one per declared prop, and `children`, what the tag held, unless a prop takes that name. */
+export type ElementProps<Props extends readonly string[]> = { readonly [K in Props[number]]: ReadableSignal<unknown> } & { readonly children: ReadableSignal<readonly Node[]> };
 
 /** Options for `define`. */
 export interface ElementOptions<Props extends readonly string[]>
 {
     /** The attribute and property names the element exposes. An attribute arrives as a string or undefined; a property keeps its value. */
     props: Props;
-    /** Renders the element's content from the prop signals; `host` is the element, for events and measurements. */
+    /** Renders the element's content from the prop signals, and from `children`, what the tag held, which it binds where it belongs; `host` is the element, for events and measurements. */
     view: (props: ElementProps<Props>, host: HTMLElement) => Renderable;
 }
 
@@ -27,7 +27,7 @@ function store(host: HTMLElement, props: readonly string[]): Record<string, Sign
     let signals = stores.get(host);
     if (signals === undefined)
     {
-        signals = {};
+        signals = { children: signal<unknown>([]) };
         for (const name of props)
         {
             signals[name] = signal<unknown>(undefined);
@@ -41,12 +41,14 @@ function store(host: HTMLElement, props: readonly string[]): Record<string, Sign
  * Registers a custom element for the view. Declared props are observed as
  * attributes and exposed as properties, both feeding the same signals, and
  * values assigned before the element was upgraded are kept. The content is
- * rendered when the element connects, in place of whatever the element
- * held, such as fallback text for a page whose script has not loaded yet;
- * the view can still read that from the host as it runs, and a view that
- * throws leaves it in place. It is hydrated instead when the element holds
- * server-rendered markup, and disposed when the element disconnects. A view
- * inside another component's shadow root gets the scoped styles there too.
+ * rendered when the element connects, and hydrated instead when the element
+ * holds server-rendered markup, and disposed when the element disconnects.
+ * What the tag holds is not shown on its own: it arrives as `children`, a
+ * signal the view binds where it belongs, as a slot does, and it stays
+ * through a move. A view that does not bind it shows none of it, so text in
+ * the tag serves as a fallback until the script loads, and a view that throws
+ * leaves it in place. A view inside another component's shadow root gets the
+ * scoped styles there too.
  * The view runs inside the root's owner, so the effects and `onDispose`
  * cleanups it registers end when the element disconnects. Without a
  * `customElements` registry, as on the server, nothing is registered.
@@ -91,13 +93,19 @@ export function define<const Props extends readonly string[]>(name: string, opti
             {
                 return;
             }
-            const view = (): Renderable => options.view(store(this, props) as unknown as ElementProps<Props>, this);
+            const signals = store(this, props);
+            const view = (): Renderable => options.view(signals as unknown as ElementProps<Props>, this);
             if (hasServerMarkup(this))
             {
                 roots.set(this, hydrate(view, this));
                 return;
             }
+            const children = props.includes("children") ? undefined : signals["children"];
             const held = [...this.childNodes];
+            if (held.length > 0)
+            {
+                children?.set(held);
+            }
             roots.set(this, render(() =>
             {
                 const content = view();
@@ -115,11 +123,17 @@ export function define<const Props extends readonly string[]>(name: string, opti
                 const end = this.lastChild as ChildNode;
                 document.addEventListener("DOMContentLoaded", () =>
                 {
-                    let added = end.nextSibling;
-                    while (added !== null)
+                    const added: Node[] = [];
+                    let next = end.nextSibling;
+                    while (next !== null)
                     {
-                        added.remove();
-                        added = end.nextSibling;
+                        added.push(next);
+                        next.remove();
+                        next = end.nextSibling;
+                    }
+                    if (added.length > 0)
+                    {
+                        children?.set([...children.get() as Node[], ...added]);
                     }
                 }, { once: true });
             }

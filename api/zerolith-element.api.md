@@ -11,5 +11,5 @@ interface ElementOptions<Props extends readonly string[]>
     view: (props: ElementProps<Props>, host: HTMLElement) => Renderable
 }
 
-type ElementProps<Props extends readonly string[]> = { readonly [K in Props[number]]: ReadableSignal<unknown> }
+type ElementProps<Props extends readonly string[]> = { readonly [K in Props[number]]: ReadableSignal<unknown> } & { readonly children: ReadableSignal<readonly Node[]> }
 ```

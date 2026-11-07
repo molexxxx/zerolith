@@ -2,6 +2,16 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
+## Unreleased
+
+
+### Added
+
+- `zerolith/element`: a view receives what the tag held as `children`, a signal beside its props, and binds it where it belongs, as a slot does. It holds the same nodes through a move, and takes in what the parser adds to the tag after a script that ran early. `<note-card heading="Drafts">Two notes</note-card>` now needs only `${children}` in the view. It replaces reading the content from the host, which lost it when the element moved and could move the view's own anchor with it.
+
+### Fixed
+
+
 ## 1.3.0 (2026-11-07)
 
 A minor release from `main`: `zerolith build --entry` writes a module as one script with a name that stays the same, `createRouter` takes its table as a function and a `failed` view, `navigate` takes `shallow`, and the fixes the three new tutorials turned up, so those tutorials use plain code where they worked around a limit. `zerolith importmap` now names each vendored folder for its version, so an existing page needs one more run of it to move.

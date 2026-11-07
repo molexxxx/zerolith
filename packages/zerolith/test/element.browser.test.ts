@@ -100,6 +100,78 @@ describe("define", () =>
         expect(element.textContent).toBe("ready");
     });
 
+    it("gives the view what the tag held as children, beside its props, to bind where it belongs", () =>
+    {
+        define("zl-card", {
+            props: ["heading"],
+            view: ({ heading, children }) => html`<h2>${heading}</h2><div>${children}</div>`
+        });
+        host = document.createElement("div");
+        host.innerHTML = "<zl-card heading=\"Drafts\">Two <b>notes</b></zl-card>";
+        document.body.append(host);
+        const element = host.firstElementChild as HTMLElement;
+        const bold = element.querySelector("b");
+        const body = (): HTMLElement => element.querySelector("div") as HTMLElement;
+        expect(element.querySelector("h2")?.textContent).toBe("Drafts");
+        expect(body().textContent).toBe("Two notes");
+        expect(body().querySelector("b")).toBe(bold);
+        expect([...element.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE)).toEqual([]);
+
+        const moved = document.createElement("section");
+        host.append(moved);
+        moved.append(element);
+        expect(element.querySelectorAll("div")).toHaveLength(1);
+        expect(body().textContent).toBe("Two notes");
+        expect(body().querySelector("b")).toBe(bold);
+
+        element.remove();
+        element.append("Replaced");
+        moved.append(element);
+        expect(body().textContent).toBe("Replaced");
+    });
+
+    it("types children as nodes, and lets a prop take the name", () =>
+    {
+        let held: readonly Node[] = [];
+        define("zl-typed", {
+            props: [],
+            view: ({ children }) =>
+            {
+                held = children.get();
+                return html`<p>typed</p>`;
+            }
+        });
+        define("zl-named", { props: ["children"], view: ({ children }) => html`<p>${children}</p>` });
+        host = document.createElement("div");
+        host.innerHTML = "<zl-typed>Held</zl-typed><zl-named children=\"From the attribute\">From the tag</zl-named>";
+        document.body.append(host);
+        expect(held.map((node) => node.textContent)).toEqual(["Held"]);
+        expect(host.querySelector("zl-typed")?.textContent).toBe("typed");
+        expect(host.querySelector("zl-named")?.textContent).toBe("From the attribute");
+    });
+
+    it("hydrates server markup with no children, and no second copy of it", () =>
+    {
+        let count = -1;
+        define("zl-hydrated-children", {
+            props: [],
+            view: ({ children }) =>
+            {
+                count = children.get().length;
+                return html`<b>${"served"}</b>`;
+            }
+        });
+        const template = document.createElement("template");
+        template.innerHTML = "<zl-hydrated-children></zl-hydrated-children>";
+        const element = template.content.firstElementChild as HTMLElement;
+        element.innerHTML = renderToString(html`<b>${"served"}</b>`);
+        host = document.createElement("div");
+        host.append(element);
+        document.body.append(host);
+        expect(count).toBe(0);
+        expect(element.querySelectorAll("b")).toHaveLength(1);
+    });
+
     it("keeps a node the view moved into its own content, and what it held when the view throws", () =>
     {
         define("zl-framed", {
@@ -175,6 +247,33 @@ describe("define", () =>
         element.append("Added by the page after it loaded");
         document.dispatchEvent(new Event("DOMContentLoaded"));
         expect(element.textContent).toContain("Added by the page after it loaded");
+    });
+
+    it("gives the view what the parser adds to the tag after a script ran before the page finished parsing", () =>
+    {
+        define("zl-parsed-card", { props: [], view: ({ children }) => html`<div>${children}</div>` });
+        host = document.createElement("div");
+        document.body.append(host);
+        const element = document.createElement("zl-parsed-card");
+        element.append("First ");
+        Object.defineProperty(document, "readyState", { configurable: true, get: () => "loading" });
+        try
+        {
+            host.append(element);
+        }
+        finally
+        {
+            delete (document as unknown as { readyState?: string }).readyState;
+        }
+        const body = element.querySelector("div") as HTMLElement;
+        expect(body.textContent).toBe("First ");
+        const strong = document.createElement("strong");
+        strong.textContent = "second";
+        element.append(strong, " third");
+        document.dispatchEvent(new Event("DOMContentLoaded"));
+        expect(body.textContent).toBe("First second third");
+        expect(body.querySelector("strong")).toBe(strong);
+        expect(element.childElementCount).toBe(1);
     });
 
     it("ends the effects and cleanups its view registers when it disconnects", () =>

@@ -45,4 +45,25 @@ describe("custom elements guide", () =>
         counter.querySelector("button")?.click();
         expect(counter.querySelector("span")?.textContent).toBe("Drafts: 0");
     });
+
+    it("children", () =>
+    {
+        // #region children
+        define("note-card", {
+            props: ["heading"],
+            view: ({ heading, children }) => html`
+                <article>
+                    <h2>${heading}</h2>
+                    <div class="body">${children}</div>
+                </article>`
+        });
+        // #endregion children
+        const host = document.createElement("main");
+        host.id = "app";
+        host.innerHTML = "<note-card heading=\"Drafts\">Two notes <b>waiting</b></note-card>";
+        document.body.append(host);
+        expect(host.querySelector("h2")?.textContent).toBe("Drafts");
+        expect(host.querySelector(".body")?.textContent).toBe("Two notes waiting");
+        expect(host.querySelector(".body b")?.textContent).toBe("waiting");
+    });
 });

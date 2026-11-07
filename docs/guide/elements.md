@@ -32,7 +32,7 @@ A prop named like a property every element has, such as `title`, `hidden`, or `i
 
 | When | What happens |
 | --- | --- |
-| The element connects | The view renders into it in place of whatever it held, or hydrates the markup it already holds from the server |
+| The element connects | The view renders into it, or hydrates the markup it already holds from the server; what the tag held goes to `children` |
 | An attribute or a property changes | Its signal updates, and only the bindings that read it change |
 | The element disconnects | The view is disposed with the effects and `onDispose` cleanups it registered |
 | It connects again, as when it moves | The view renders again, with the props it had |
@@ -41,13 +41,30 @@ A prop named like a property every element has, such as `title`, `hidden`, or `i
 
 The content lives in light DOM, as every zerolith view does, so scoped styles, design tokens, and global stylesheets apply unchanged, and there is no shadow root to pierce.
 
-Text inside the tag is what a visitor sees until the script loads, as a fallback, and the view replaces it. The view can read it from the host as it runs, for a label the page chose, and a view that throws leaves it in place:
+An element inside another component's shadow root still gets its scoped styles, because the shadow root adopts them when the view renders there, including stylesheets created later. Global stylesheets stop at that shadow root, as they do for any element.
+
+## What the tag holds
+
+What the tag holds is not shown on its own. It arrives as `children`, a signal beside the props, and the view binds it where it belongs, as a slot does in other frameworks:
+
+@include packages/zerolith/test/examples/element.example.browser.test.ts#children
 
 ```html
-<note-count label="Drafts" count="2">Loading the count</note-count>
+<note-card heading="Drafts">Two notes <b>waiting</b></note-card>
 ```
 
-An element inside another component's shadow root still gets its scoped styles, because the shadow root adopts them when the view renders there, including stylesheets created later. Global stylesheets stop at that shadow root, as they do for any element.
+A view that does not bind `children` shows none of it, so text in the tag also serves as a fallback: a visitor sees it until the script loads, and a view that throws leaves it in place. The nodes stay the same ones through a move, so listeners on them keep working.
+
+| Case | What `children` holds |
+| --- | --- |
+| The element connects | What the tag holds, and what the parser adds after, when the script ran before the page finished parsing |
+| It moves, holding nothing new | The same nodes |
+| It connects holding something new | The new nodes, in place of the old |
+| It hydrates server markup | Nothing, since the markup is the view's own |
+| A script appends to the element later | No change: pass later content as a prop, whose signal follows it |
+| A declared prop is named `children` | The prop takes the name, and the tag's content is not delivered |
+
+In markup another framework owns, such as a React component's, pass content as a prop too, since that framework expects the children it rendered to stay where it put them.
 
 ## Use it anywhere
 
