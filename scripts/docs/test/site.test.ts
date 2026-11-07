@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { type Server } from "node:http";
@@ -80,6 +81,12 @@ async function open(path: string, device?: Parameters<Browser["newPage"]>[0]): P
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(`${origin}${path}`);
     return { page, errors };
+}
+
+/** The short form of a file's hash that the site puts in the address of a file it versions. */
+function addressVersion(content: Buffer): string
+{
+    return createHash("sha384").update(content).digest("base64").slice(0, 12).replace(/[+/=]/g, "");
 }
 
 /** The page's scroll position on each of the next `count` frames. */
@@ -1097,8 +1104,8 @@ describe("documentation site", () =>
 
     it("paints in the brand's fonts from the first frame, with no font to fetch and no reflow when one lands", { timeout: 60000 }, async () =>
     {
-        const styles = await readFile(join(site, "styles.css"), "utf8");
-        expect(styles.match(/font-display: block;\s+src: url\("data:font\/woff2;base64,/g)).toHaveLength(3);
+        const fonts = await readFile(join(site, "fonts.css"), "utf8");
+        expect(fonts.match(/font-display: block;\s+src: url\("data:font\/woff2;base64,/g)).toHaveLength(3);
         const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
         const fetched: string[] = [];
         page.on("request", (request) =>
@@ -1149,6 +1156,16 @@ describe("documentation site", () =>
         await page.close();
     });
 
+    it("keeps the fonts in a stylesheet of their own, whose address follows the fonts alone, so a change to the site's styles leaves them cached", async () =>
+    {
+        const head = await readFile(join(site, "guide", "index.html"), "utf8");
+        const fonts = await readFile(join(site, "fonts.css"));
+        const styles = await readFile(join(site, "styles.css"));
+        expect(head).toContain(`<link rel="stylesheet" href="/fonts.css?v=${addressVersion(fonts)}">\n<link rel="stylesheet" href="/styles.css?v=${addressVersion(styles)}">`);
+        expect(styles.toString("utf8")).not.toContain("@font-face");
+        expect(fonts.toString("utf8").replace(/url\("data:[^"]+"\)/g, "")).not.toMatch(/[{;]\s*(?!font-|src:)[a-z-]+:/);
+    });
+
     it("keeps a page styled when a browser holds a copy of the stylesheet or the theme script from another deploy", { timeout: 60000 }, async () =>
     {
         const head = await readFile(join(site, "guide", "index.html"), "utf8");
@@ -1166,7 +1183,7 @@ describe("documentation site", () =>
             }
         });
         await page.addInitScript(() => localStorage.setItem("zerolith-docs-theme", "dark"));
-        for (const pattern of ["**/styles.css*", "**/theme.js*"])
+        for (const pattern of ["**/fonts.css*", "**/styles.css*", "**/theme.js*"])
         {
             await page.route(pattern, async (route) =>
             {

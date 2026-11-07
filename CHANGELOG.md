@@ -16,7 +16,7 @@ Every package in this repository is released together and carries the same versi
 
 - Docs: the deploying guide warns that an unbundled app upgraded to a new zerolith version can show a blank page to returning visitors on a host that lets browsers keep files, and says how to avoid it.
 - Docs site: a page no longer loses its styles when a browser holds a copy of the stylesheet from another deploy. The stylesheet carried an integrity hash on an address that stayed the same between deploys, and GitHub Pages lets a browser keep a file for ten minutes, so a browser could refuse it and show the page with no styles at all. The stylesheet and the theme script now have an address with a short form of their hash and no integrity hash.
-- Docs site: a page paints in the brand's fonts from its first frame, where it painted in a system font and reflowed when each font arrived, on any visit whose fonts had to come over the network or be checked again. The fonts are held in the stylesheet, which a browser waits for before it paints.
+- Docs site: a page paints in the brand's fonts from its first frame, where it painted in a system font and reflowed when each font arrived, on any visit whose fonts had to come over the network or be checked again. The fonts are held in a stylesheet of their own, which a browser waits for before it paints, and whose address changes only with the fonts, so a deploy that changes only the site's styles leaves a returning reader's copy of the fonts in place.
 
 ## 1.2.0 (2026-11-07)
 

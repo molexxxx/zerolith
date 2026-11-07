@@ -67,14 +67,15 @@ export function fontFaces(folder: string): string
 }
 
 /**
- * The brand's three faces with each font held in the stylesheet itself. A
- * browser holds a page's first paint for its stylesheet, so a page never
- * paints in a fallback face and reflows when a font lands, as it did on any
- * visit whose fonts had to come over the network or be checked again.
- * Compression undoes base64's overhead, so a first visit downloads about what
- * the separate files took.
+ * The brand's three faces with each font held in the stylesheet itself, the
+ * site's fonts stylesheet. A browser holds a page's first paint for its
+ * stylesheets, so a page never paints in a fallback face and reflows when a
+ * font lands, as it did on any visit whose fonts had to come over the network
+ * or be checked again. The fonts stay apart from the site's own rules, so a
+ * deploy that changes only those leaves the fonts' address, and a returning
+ * reader's copy, as they were.
  */
-function embeddedFontFaces(): string
+export function siteFonts(): string
 {
     return faces.map(([family, weight, file]) =>
     {
@@ -83,11 +84,11 @@ function embeddedFontFaces(): string
     }).join("\n");
 }
 
-/** The brand's tokens, the font faces, and the site's own rules, as the site's one stylesheet. */
+/** The brand's tokens and the site's own rules, as the site's stylesheet; the fonts have one of their own. */
 export function siteStyles(): string
 {
     const own = readFileSync(new URL("site.css", import.meta.url), "utf8");
-    return `${embeddedFontFaces()}\n${brandFile("tokens.css")}\n\n${own}`;
+    return `${brandFile("tokens.css")}\n\n${own}`;
 }
 
 /** A link in the sidebar or the pager. */
@@ -338,6 +339,7 @@ export function renderPage(page: PageData): string
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="${versioned(page, "/fonts.css")}">
 <link rel="stylesheet" href="${versioned(page, "/styles.css")}">
 <link rel="alternate" type="text/markdown" href="${markdownTwin(page.path)}">
 <script src="${versioned(page, "/theme.js")}"></script>

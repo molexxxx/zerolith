@@ -25,7 +25,7 @@ import { brokenLinks, mapLinks, sitePath } from "./links.ts";
 import { exampleCode, includeExamples } from "./examples.ts";
 import { type Role, type Roles, escapeHtml, highlight, rolesOf } from "./highlight.ts";
 import { type Characteristic, type DoctorSample, type HomeData, type Measure, type TourStep, Home, NotFound, homeMarkdown, resultChecks } from "./home.ts";
-import { type Link, type NavGroup, type PageData, diagnosticIcon, fontFaces, icon, markdownTwin, renderPage, siteStyles } from "./layout.ts";
+import { type Link, type NavGroup, type PageData, diagnosticIcon, fontFaces, icon, markdownTwin, renderPage, siteFonts, siteStyles } from "./layout.ts";
 import { Playground, examples as playgroundExamples, playgroundMarkdown, playgroundModules } from "./playground.ts";
 import { type Entry, type ManifestSymbol, apiReport, elementsAsCode, extract, referencePage, symbolsOf } from "./reference.ts";
 import { stripTags } from "./text.ts";
@@ -902,7 +902,8 @@ const lenis = dirname(dirname(fileURLToPath(import.meta.resolve("lenis/dist/leni
 const styles = `${siteStyles()}\n${await readFile(join(lenis, "dist", "lenis.css"), "utf8")}`;
 const highlighter = await browserModule("scripts/docs/highlight.ts");
 const scroller = `/*!\n${await readFile(join(lenis, "LICENSE"), "utf8")}*/\n${await browserModule("scripts/docs/smooth.ts", true)}`;
-const integrity: Record<string, string> = { "/styles.css": sri(styles), "/highlight.js": sri(highlighter), "/smooth.js": sri(scroller) };
+const fonts = siteFonts();
+const integrity: Record<string, string> = { "/fonts.css": sri(fonts), "/styles.css": sri(styles), "/highlight.js": sri(highlighter), "/smooth.js": sri(scroller) };
 for (const name of siteScripts)
 {
     integrity[`/${name}`] = sri(await readFile(join(root, "scripts", "docs", name)));
@@ -1018,7 +1019,7 @@ const playgroundDescription = "Edit a zerolith app in the browser, run it with C
 await publish({ ...shared, title: "Playground", description: playgroundDescription, path: "/playground/", url: absolute("/playground/"), layout: "wide", view: Playground() }, await playgroundMarkdown(root));
 await publish({ ...shared, title: "Benchmarks", description: benchmarksDescription(benchmarksData), path: "/benchmarks/", url: absolute("/benchmarks/"), layout: "wide", view: Benchmarks(benchmarksData) }, benchmarksMarkdown(benchmarksData));
 
-const known = new Set<string>(["/styles.css", "/highlight.js", "/smooth.js", "/llms.txt", "/llms-full.txt", "/api.json", "/search.json", "/sitemap.xml", "/zerolith/index.js"]);
+const known = new Set<string>(["/fonts.css", "/styles.css", "/highlight.js", "/smooth.js", "/llms.txt", "/llms-full.txt", "/api.json", "/search.json", "/sitemap.xml", "/zerolith/index.js"]);
 for (const path of rendered.keys())
 {
     known.add(path);
@@ -1045,6 +1046,7 @@ const missing = renderPage({
 });
 await write("404.html", rebaseHtml(missing, base));
 
+await write("fonts.css", fonts);
 await write("styles.css", styles);
 await write("highlight.js", highlighter);
 await write("smooth.js", scroller);
