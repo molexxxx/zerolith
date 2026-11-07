@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Release notes</title>
+    <script type="module" src="feedback-widget.js"></script>
+    <style>
+        body
+        {
+            max-width: 40rem;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            font-family: system-ui, sans-serif;
+        }
+
+        feedback-widget
+        {
+            --feedback-accent: #0f766e;
+        }
+    </style>
+</head>
+<body>
+    <h1>Release notes</h1>
+    <p>A plain HTML page on another site, with the widget embedded.</p>
+    <feedback-widget api="http://127.0.0.1:3000"
+        question="Were these notes useful?"></feedback-widget>
+    <script>
+        document.addEventListener("feedback-sent", (event) =>
+        {
+            console.log("feedback-sent", event.detail);
+        });
+    </script>
+</body>
+</html>
