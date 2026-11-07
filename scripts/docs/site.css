@@ -12,7 +12,8 @@
     --docs-header: 72px;
     --docs-stage: var(--zl-basalt-900);
     --docs-stage-line: var(--zl-basalt-800);
-    --docs-stage-panel: var(--zl-basalt-950);
+    --docs-stage-panel: #1D2127;
+    --docs-lift: 0 2px 4px rgb(0 0 0 / 0.35), 0 40px 80px -28px rgb(0 0 0 / 0.75);
 }
 
 @media (prefers-color-scheme: light)
@@ -23,6 +24,7 @@
         --docs-stage: var(--zl-basalt-200);
         --docs-stage-line: var(--zl-basalt-300);
         --docs-stage-panel: var(--zl-basalt-50);
+        --docs-lift: 0 1px 3px rgb(15 17 20 / 0.08), 0 36px 72px -28px rgb(15 17 20 / 0.28);
     }
 }
 
@@ -32,6 +34,7 @@
     --docs-stage: var(--zl-basalt-200);
     --docs-stage-line: var(--zl-basalt-300);
     --docs-stage-panel: var(--zl-basalt-50);
+    --docs-lift: 0 1px 3px rgb(15 17 20 / 0.08), 0 36px 72px -28px rgb(15 17 20 / 0.28);
 }
 
 *,
@@ -1658,6 +1661,21 @@ main[tabindex="-1"]:focus
     --zl-surface: var(--docs-stage-panel);
     --zl-code-bg: var(--docs-stage-panel);
     background: var(--docs-stage);
+}
+
+.hero.stage:has(> .figure)
+{
+    background: linear-gradient(var(--docs-stage) 0 46%, var(--zl-bg) 100%);
+}
+
+.hero.stage > .figure
+{
+    box-shadow: var(--docs-lift);
+}
+
+.hero.stage:has(> .figure) + .band
+{
+    border-top-color: transparent;
 }
 
 .hero .title
