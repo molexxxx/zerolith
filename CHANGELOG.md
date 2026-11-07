@@ -7,6 +7,7 @@ Every package in this repository is released together and carries the same versi
 ### Fixed
 
 - Docs: in the packing list, an item added while Packed is selected switches the filter back to All, where it was added out of sight, and the release notes reader's search step uses the `/releases/:version` route the other steps use.
+- `@zerolith/router`, `@zerolith/cli`, and `@zerolith/vite`: the READMEs name `focus`, `shallow`, `failed`, and a table given as a function; `zerolith build --entry`; and the lint for a component bound without being called.
 
 ## 1.5.0 (2026-11-07)
 
