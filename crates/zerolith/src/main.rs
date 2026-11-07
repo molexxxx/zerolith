@@ -368,9 +368,13 @@ mod tests {
         let mut files = vec![
             root.join("README.md"),
             root.join("crates/zerolith/README.md"),
-            root.join("crates/zerolith/src/new.rs"),
             root.join("skills/zerolith/SKILL.md"),
         ];
+        for entry in std::fs::read_dir(root.join("crates/zerolith/src/new"))
+            .expect("the new command's folder")
+        {
+            files.push(entry.expect("a folder entry").path());
+        }
         for folder in ["docs/guide", "docs/learn", "packages", "examples"] {
             for entry in std::fs::read_dir(root.join(folder)).expect("a docs folder") {
                 let path = entry.expect("a folder entry").path();
