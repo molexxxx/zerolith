@@ -191,8 +191,8 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
     },
     state_storage_unreadable:
     {
-        cause: "The value kept in storage under the key does not parse as JSON, so the stored signal starts from its initial value.",
-        fix: "Clear the key, or write it as JSON; a value written by other code under the same key is read as this signal's."
+        cause: "The value kept in storage under the key does not parse as JSON, or the stored signal's validate option refuses it, so the signal takes its initial value.",
+        fix: "Clear the key, or write it as JSON that validate accepts; a value written by other code under the same key is read as this signal's."
     },
     state_storage_unavailable:
     {

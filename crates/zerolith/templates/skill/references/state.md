@@ -30,7 +30,7 @@ render(html`
     <p>The theme is ${theme}, in every tab, after every reload.</p>`, "#app");
 ```
 
-A missing value takes the initial one quietly. A value that does not parse takes the initial one and reports `state_storage_unreadable`, since someone else wrote the key. Setting `undefined` removes the key, so it reads back as the initial value, and a value JSON cannot hold, such as a BigInt, stays in memory and reports `state_value_not_json`. Where the page has no storage, on the server or in a browser that refuses it, the signal is a plain one and `state_storage_unavailable` is reported once, as it is for each write the storage refuses. `{ storage: "session" }` keeps the value in `sessionStorage` instead, this tab's alone, and `{ equals }` is the signal's own equality.
+A missing value takes the initial one quietly. A value that does not parse takes the initial one and reports `state_storage_unreadable`, since someone else wrote the key. `{ validate }` checks the shape as well: it receives each parsed value, on creation and from other tabs, and a value it refuses, or throws on, takes the initial one and reports the same code, so a value of another shape, such as another app's under the same key, never reaches the page. Setting `undefined` removes the key, so it reads back as the initial value, and a value JSON cannot hold, such as a BigInt, stays in memory and reports `state_value_not_json`. Where the page has no storage, on the server or in a browser that refuses it, the signal is a plain one and `state_storage_unavailable` is reported once, as it is for each write the storage refuses. `{ storage: "session" }` keeps the value in `sessionStorage` instead, this tab's alone, and `{ equals }` is the signal's own equality.
 
 Create each key once, at module level or in the app's root, and share the signal: two stored signals for one key in the same tab do not hear each other, since the storage event tells other tabs alone, and the second reports `state_key_duplicate`. The write and the listener for other tabs are disposed with the enclosing owner, as a component's effects are, after which the signal keeps its value in memory alone; created outside any owner, they live for the page.
 
@@ -81,6 +81,8 @@ render(html`
     <textarea .value=${draft} @input=${type}></textarea>
     <button ?disabled=${noUndo} @click=${edits.undo}>Undo</button>`, "#app");
 ```
+
+When another tab writes a stored signal's key, the history over it forgets every checkpoint. Each one holds a value from before that tab's change, so an undo to it would take the change back, in every tab. A history created inside a component stops listening for those writes when the component goes.
 
 ## After a quiet spell, or at most so often
 

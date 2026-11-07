@@ -4,6 +4,10 @@ Every package in this repository is released together and carries the same versi
 
 ## Unreleased
 
+### Added
+
+- `@zerolith/state`: `stored` takes a `validate` option, which receives each parsed value, on creation and from other tabs; a value it refuses, or throws on, takes the initial value and reports `state_storage_unreadable`, so a value of another shape, such as another app's under the same key, no longer breaks the page.
+
 ### Changed
 
 - Docs site: a push to `main` deploys the site, and while `main` carries the stable line its stable docs are built from `main` itself, so a change to the site goes live with its push; a line branch such as `1.x`, or the release's tag, stands in otherwise.
@@ -20,6 +24,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Fixed
 
+- `@zerolith/state`: a `history` over a `stored` signal forgets its checkpoints when another tab writes the key, where an undo went back to a value from before that tab's change and took the change back in every tab without a word.
 - `zerolith`: a keyed list checks every key of an update before it changes a row, so an update with a repeated or missing key fails with `each_key_duplicate` or `each_key_undefined` and leaves the list as it was, where the rows before the bad key had already changed: some updated, some added, and the ones it would remove still there.
 - `@zerolith/router`: a page whose view throws during a navigation leaves the outlet empty at the new URL, under the new page's head, and the navigation fails with the view's error as before, where the page before stayed on screen under a URL it did not match. A view that throws while no navigation runs, as when the outlet is first mounted, still throws from the mount.
 - Docs site: the playground's example list no longer scrolls when the pointer rests on an option at its edge, which moved the next option under the pointer and scrolled again; the pointer only marks an option, and the keyboard and opening the list scroll the list alone, never the page.

@@ -11,6 +11,14 @@ export interface StoredOptions<T>
     storage?: "local" | "session";
     /** When two values count as the same, so a set of an equal value changes nothing; the signal's own option. */
     equals?: (previous: T, next: T) => boolean;
+    /**
+     * Whether a kept value, once parsed, is one the signal can hold. A value
+     * it refuses, or throws on, is read as `initial` and reported as
+     * `state_storage_unreadable`, on creation and when another tab writes the
+     * key, so data of another shape, such as another app's under the same
+     * key, never reaches the page.
+     */
+    validate?: (value: unknown) => boolean;
 }
 
 /** The storage kinds reported unavailable on this page, each once. */
@@ -18,6 +26,29 @@ const unavailable = new Set<string>();
 
 /** How many stored signals are live for each key of each storage, so a second one for a key is reported. */
 const live = new Map<string, number>();
+
+/** What runs after a stored signal takes a value another tab wrote, keyed by the signal. */
+const outside = new WeakMap<Signal<unknown>, Set<() => void>>();
+
+/**
+ * Runs `listener` each time `source` takes a value another tab wrote, which
+ * only a stored signal does, and returns the function that stops it. The
+ * history uses it; the package does not export it.
+ */
+export function onOutsideWrite(source: Signal<unknown>, listener: () => void): () => void
+{
+    let listeners = outside.get(source);
+    if (listeners === undefined)
+    {
+        listeners = new Set();
+        outside.set(source, listeners);
+    }
+    listeners.add(listener);
+    return () =>
+    {
+        listeners.delete(listener);
+    };
+}
 
 /** The storage of a kind, or undefined where the page has none or refuses it, which is reported once per kind with the first key asked for. */
 function storageOf(kind: "local" | "session", key: string): Storage | undefined
@@ -39,22 +70,30 @@ function storageOf(kind: "local" | "session", key: string): Storage | undefined
     }
 }
 
-/** The value kept as `raw` under `key`, or `initial` where nothing is kept or what is kept does not parse, which is reported. */
-function parse<T>(raw: string | null, key: string, initial: T): T
+/** The value kept as `raw` under `key`, or `initial` where nothing is kept, or where what is kept does not parse or `validate` refuses it, which is reported. */
+function parse<T>(raw: string | null, key: string, initial: T, validate: ((value: unknown) => boolean) | undefined): T
 {
     if (raw === null)
     {
         return initial;
     }
+    let value: unknown;
+    let accepted: boolean;
     try
     {
-        return JSON.parse(raw) as T;
+        value = JSON.parse(raw);
+        accepted = validate === undefined || validate(value);
     }
     catch
+    {
+        accepted = false;
+    }
+    if (!accepted)
     {
         report(diagnostic("state_storage_unreadable", "warning", { key }));
         return initial;
     }
+    return value as T;
 }
 
 /** The JSON for `next`, or undefined for a value JSON cannot hold: a BigInt or a cycle, which throws, and a function or a symbol, which it leaves out. */
@@ -74,8 +113,8 @@ function toJson(next: unknown): string | undefined
  * A writable signal kept in storage under `key` as JSON: read back on
  * creation, written on every set, and set again when another tab writes
  * the key, so every tab shows the same value. A missing value takes
- * `initial` quietly; one that does not parse takes `initial` and reports
- * `state_storage_unreadable`. Setting `undefined` removes the key, so it
+ * `initial` quietly; one that does not parse, or that the `validate`
+ * option refuses, takes `initial` and reports `state_storage_unreadable`. Setting `undefined` removes the key, so it
  * reads back as `initial`; a value JSON cannot hold, such as a BigInt,
  * stays in memory and reports `state_value_not_json`. Where the page has
  * no storage, as on the server, the signal is a plain one and
@@ -92,7 +131,7 @@ export function stored<T>(key: string, initial: T, options: StoredOptions<T> = {
 {
     const kind = options.storage ?? "local";
     const store = storageOf(kind, key);
-    const value = signal<T>(store === undefined ? initial : parse(store.getItem(key), key, initial), options.equals === undefined ? undefined : { equals: options.equals });
+    const value = signal<T>(store === undefined ? initial : parse(store.getItem(key), key, initial, options.validate), options.equals === undefined ? undefined : { equals: options.equals });
     if (store === undefined)
     {
         return value;
@@ -145,11 +184,15 @@ export function stored<T>(key: string, initial: T, options: StoredOptions<T> = {
         echo = true;
         try
         {
-            value.set(parse(event.newValue, key, initial));
+            value.set(parse(event.newValue, key, initial, options.validate));
         }
         finally
         {
             echo = false;
+        }
+        for (const listener of outside.get(value as Signal<unknown>) ?? [])
+        {
+            listener();
         }
     };
     addEventListener("storage", onStorage);

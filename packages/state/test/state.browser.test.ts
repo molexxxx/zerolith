@@ -37,6 +37,12 @@ function otherTabWrote(store: Storage, key: string | null, newValue: string | nu
     dispatchEvent(new StorageEvent("storage", { key, newValue, storageArea: store }));
 }
 
+/** Whether a value is a list of strings, as a stored signal's validate checks. */
+function isNames(value: unknown): boolean
+{
+    return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
 describe("stored", () =>
 {
     it("reads the kept value, writes every set as JSON, and takes the initial value where nothing is kept", () =>
@@ -95,6 +101,28 @@ describe("stored", () =>
         expect(value.get()).toBe(1);
         expect(heard.map((record) => `${record.code} ${record.severity} ${record.args?.["key"]}`)).toEqual(["state_storage_unreadable warning broken"]);
         expect(heard[0]?.url).toBe("https://zerolith.dev/e/state_storage_unreadable/?key=broken");
+    });
+
+    it("takes the initial value and reports a kept value its validate refuses or throws on, on creation and from another tab", () =>
+    {
+        localStorage.setItem("names", JSON.stringify({ not: "a list" }));
+        const kept = stored<string[]>("names", ["x"], { validate: isNames });
+        expect(kept.get()).toEqual(["x"]);
+        otherTabWrote(localStorage, "names", JSON.stringify(["y"]));
+        expect(kept.get()).toEqual(["y"]);
+        otherTabWrote(localStorage, "names", JSON.stringify([1]));
+        expect(kept.get()).toEqual(["x"]);
+        localStorage.setItem("checked", "7");
+        const checked = stored("checked", 0, {
+            validate: (): boolean =>
+            {
+                throw new Error("no");
+            }
+        });
+        expect(checked.get()).toBe(0);
+        localStorage.setItem("accepted", "[\"z\"]");
+        expect(stored<string[]>("accepted", [], { validate: isNames }).get()).toEqual(["z"]);
+        expect(heard.map((record) => `${record.code} ${record.args?.["key"]}`)).toEqual(["state_storage_unreadable names", "state_storage_unreadable names", "state_storage_unreadable checked"]);
     });
 
     it("stops writing and following other tabs when the enclosing owner is disposed", () =>
@@ -248,6 +276,39 @@ describe("history", () =>
         expect(edits.undo()).toBe(false);
         expect(edits.redo()).toBe(false);
         expect(count.get()).toBe(9);
+    });
+
+    it("forgets its checkpoints when another tab writes the stored signal it follows, so an undo never takes that change back", () =>
+    {
+        const list = stored("list", ["a"]);
+        const changes = history(list);
+        changes.checkpoint();
+        list.set(["a", "b"]);
+        changes.checkpoint();
+        list.set(["a", "b", "c"]);
+        changes.undo();
+        expect([changes.canUndo.get(), changes.canRedo.get()]).toEqual([true, true]);
+        otherTabWrote(localStorage, "list", JSON.stringify(["d"]));
+        expect(list.get()).toEqual(["d"]);
+        expect([changes.canUndo.get(), changes.canRedo.get()]).toEqual([false, false]);
+        expect(changes.undo()).toBe(false);
+        expect(changes.redo()).toBe(false);
+        expect(list.get()).toEqual(["d"]);
+        changes.checkpoint();
+        list.set(["e"]);
+        expect(changes.undo()).toBe(true);
+        expect(list.get()).toEqual(["d"]);
+    });
+
+    it("stops listening for other tabs' writes when the owner it was created in is disposed", () =>
+    {
+        const draft = stored("draft", "");
+        const handle = scope(() => history(draft));
+        handle.value.checkpoint();
+        draft.set("hello");
+        handle.dispose();
+        otherTabWrote(localStorage, "draft", JSON.stringify("from another tab"));
+        expect(handle.value.canUndo.get()).toBe(true);
     });
 
     it("keeps the default limit for one that is not a finite number", () =>

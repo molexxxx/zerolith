@@ -2,7 +2,8 @@
  * Undo and redo for a signal, from explicit checkpoints, as an editor
  * keeps them.
  */
-import { type ReadableSignal, type Signal, batch, signal, untracked } from "zerolith";
+import { type ReadableSignal, type Signal, batch, hasOwner, onDispose, signal, untracked } from "zerolith";
+import { onOutsideWrite } from "./stored.ts";
 
 /** Options for `history`. */
 export interface HistoryOptions
@@ -37,7 +38,11 @@ export interface History<T>
  * the undone value back. A new checkpoint after an undo starts a new
  * branch, as in most editors, so what was undone is gone. `limit`
  * checkpoints are kept, 50 by default. Each move writes the signal and
- * both flags in one batch, so an effect over them runs once.
+ * both flags in one batch, so an effect over them runs once. Over a
+ * `stored` signal, a write from another tab makes the history forget its
+ * checkpoints, since going back to one would take that change back too;
+ * created inside an owner, the history stops listening for those writes
+ * when the owner is disposed.
  */
 export function history<T>(source: Signal<T>, options: HistoryOptions = {}): History<T>
 {
@@ -51,6 +56,17 @@ export function history<T>(source: Signal<T>, options: HistoryOptions = {}): His
         canUndo.set(past.length > 0);
         canRedo.set(future.length > 0);
     };
+    const forget = (): void =>
+    {
+        past.length = 0;
+        future.length = 0;
+        batch(update);
+    };
+    const stop = onOutsideWrite(source as Signal<unknown>, forget);
+    if (hasOwner())
+    {
+        onDispose(stop);
+    }
     return {
         source,
         canUndo,
@@ -95,11 +111,6 @@ export function history<T>(source: Signal<T>, options: HistoryOptions = {}): His
             });
             return true;
         },
-        dispose(): void
-        {
-            past.length = 0;
-            future.length = 0;
-            batch(update);
-        }
+        dispose: forget
     };
 }
