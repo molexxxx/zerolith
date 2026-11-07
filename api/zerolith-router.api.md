@@ -89,6 +89,7 @@ interface Router<T extends RouteTable>
 interface RouterOptions
 {
     fallback?: (url: URL) => Renderable
+    focus?: string
     failed?: (error: unknown, url: URL) => Renderable
     head?: Head | ((context: HeadContext) => Head)
     onError?: (error: unknown, url: URL) => void

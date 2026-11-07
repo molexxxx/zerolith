@@ -87,8 +87,8 @@ it("offers to try again when the releases do not load", async () =>
 
 it("shows a release's notes at its address, with its title", async () =>
 {
-    await router.navigate("/releases/1.1.0");
     const { container } = mount(router.outlet());
+    await router.navigate("/releases/1.1.0");
     const note = (): string | null | undefined =>
         container.querySelector("li")?.textContent;
     await vi.waitFor(() => expect(note()).toBe("Tag an entry with any word."));

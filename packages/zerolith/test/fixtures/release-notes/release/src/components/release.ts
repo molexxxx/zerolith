@@ -3,7 +3,6 @@ import { type View, computed, each, html, when } from "zerolith";
 import { router } from "../router.ts";
 import { releases } from "../store.ts";
 import { LoadStatus } from "./load-status.ts";
-import { PageHeading } from "./page-heading.ts";
 
 export function ReleasePage({ version }: { version: string }): View
 {
@@ -15,7 +14,7 @@ export function ReleasePage({ version }: { version: string }): View
     const notes = computed(() => release.get()?.notes ?? []);
     return html`
         <section>
-            ${PageHeading({ text: `Version ${version}` })}
+            <h1 tabindex="-1">Version ${version}</h1>
             ${LoadStatus()}
             ${when(release, () => html`
                 <p>${summary}</p>

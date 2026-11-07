@@ -615,54 +615,13 @@ describe("release notes tutorial", () =>
         expect(router.matches(router.href("releases"), { exact: false }).get()).toBe(true);
     });
 
-    it("leaves the scroll position to the router when a page's heading takes focus", async () =>
-    {
-        const { router } = await finished();
-        await router.navigate("/releases/2.3.0");
-        document.body.style.minHeight = "5000px";
-        try
-        {
-            scrollTo(0, 1000);
-            const { container } = mount(router.outlet());
-            await settle();
-            expect(document.activeElement).toBe(container.querySelector("h1"));
-            expect(window.scrollY).toBeGreaterThan(900);
-        }
-        finally
-        {
-            document.body.style.minHeight = "";
-            scrollTo(0, 0);
-        }
-    });
-
-    it("draws no focus ring around a page's heading, whatever the page's styles give focused elements", async () =>
-    {
-        const { router } = await finished();
-        await router.navigate("/releases/2.3.0");
-        const rule = document.createElement("style");
-        rule.textContent = "h1:focus { outline: 2px solid red; }";
-        document.head.append(rule);
-        try
-        {
-            const { container } = mount(router.outlet());
-            await settle();
-            const title = container.querySelector("h1");
-            expect(document.activeElement).toBe(title);
-            expect(getComputedStyle(title as Element).outlineStyle).toBe("none");
-            expect(title?.tabIndex).toBe(-1);
-        }
-        finally
-        {
-            rule.remove();
-        }
-    });
-
     it("opens a release from its own address, with its title and its date", async () =>
     {
         const { router } = await finished();
         await router.navigate("/releases/2.3.0");
         const { container } = mount(router.outlet());
         expect(heading(container)).toBe("Version 2.3.0");
+        expect(container.querySelector("h1")?.getAttribute("tabindex")).toBe("-1");
         expect(document.title).toBe("2.3.0 release notes");
         expect(container.querySelector("time")?.textContent).toBe("October 20, 2026");
         expect(rows(container)).toEqual(file[0]?.notes);

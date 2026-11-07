@@ -7,12 +7,14 @@ Every package in this repository is released together and carries the same versi
 
 ### Added
 
+- `@zerolith/router`: `createRouter` takes a `focus` option, a selector for the element that takes keyboard focus after each navigation to another page, so keyboard and screen reader users stay with the page when the link they pressed goes away. The starter sets it to `"h1"`, and its stylesheet keeps a ring off an element with `tabindex="-1"`.
 - `@zerolith/vite`, `@zerolith/cli`, and the `zerolith` crate: the template lint reports `template_component_uncalled` for a component bound as content without being called, as `${AddItem}`, which type-checks and fails only when the page renders.
 
 ### Fixed
 
 - `@zerolith/cli` and the `zerolith` crate: `zerolith dev`, `serve`, and `preview` leave a backend whose address already answers as it is, and say so, where a second copy failed on the taken port, so `npm run preview` works beside `npm run dev`.
 - `@zerolith/cli` and the `zerolith` crate: the starter's stylesheet keeps a radio button or a checkbox on one line with its label on a narrow screen, where the text dropped underneath.
+- Docs: the release notes reader drops its `PageHeading` component for the router's `focus` option, the sign-up form drops its rule for labels and the step that stopped the dev server first, and the widget's embed step no longer stops it.
 
 ## 1.4.0 (2026-11-07)
 

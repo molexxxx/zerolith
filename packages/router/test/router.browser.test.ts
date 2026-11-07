@@ -248,6 +248,67 @@ describe("router", () =>
         expect(document.querySelector("meta[name=\"description\"]")).toBeNull();
     });
 
+    it("moves focus to the page after a navigation when asked, and only then", async () =>
+    {
+        history.replaceState(null, "", "/");
+        const pages = defineRoutes({
+            home: route({ path: "/", view: () => html`<h1>Home</h1><a id="to" href="/other">Other</a>` }),
+            other: route({ path: "/other", view: () => html`<h1>Other</h1><h2 id="part" tabindex="0">Part</h2>` }),
+            linkless: route({ path: "/linkless", view: () => html`<p>No heading</p>` })
+        });
+        const asked = createRouter(pages, { window, focus: "h1" });
+        router = asked;
+        const el = mount(html`<main>${asked.outlet()}</main>`);
+        await settled(asked);
+        expect(document.activeElement, "the first page of a load leaves focus alone").toBe(document.body);
+
+        const moved = vi.spyOn(HTMLElement.prototype, "focus");
+        await asked.navigate("/other");
+        const heading = el.querySelector("h1") as HTMLElement;
+        expect(document.activeElement).toBe(heading);
+        expect(heading.getAttribute("tabindex")).toBe("-1");
+        expect(moved).toHaveBeenLastCalledWith({ preventScroll: true });
+        moved.mockRestore();
+
+        (document.activeElement as HTMLElement).blur();
+        await asked.navigate("/other?q=draft", { shallow: true });
+        expect(document.activeElement, "a shallow navigation keeps the page and focus").toBe(document.body);
+        await asked.navigate("/#part");
+        expect(document.activeElement, "a hash decides where the reader goes").toBe(document.body);
+        await asked.navigate("/linkless");
+        expect(document.activeElement, "no element matches").toBe(document.body);
+        await asked.navigate("/other");
+        history.back();
+        await until(() => el.querySelector("p") !== null);
+        await asked.navigate("/");
+        expect(document.activeElement).toBe(el.querySelector("h1"));
+    });
+
+    it("leaves focus alone without the option, and leaves an element that takes focus as it is", async () =>
+    {
+        history.replaceState(null, "", "/");
+        const pages = defineRoutes({
+            home: route({ path: "/", view: () => html`<h1>Home</h1>` }),
+            other: route({ path: "/other", view: () => html`<h1>Other</h1><a id="first" href="/">Home</a>` })
+        });
+        router = createRouter(pages, { window });
+        const el = mount(html`<main>${router.outlet()}</main>`);
+        await settled(router);
+        await router.navigate("/other");
+        expect(document.activeElement).toBe(document.body);
+        expect(el.querySelector("h1")?.hasAttribute("tabindex")).toBe(false);
+        router.dispose();
+
+        history.replaceState(null, "", "/");
+        const toLink = createRouter(pages, { window, focus: "#first" });
+        router = toLink;
+        await settled(toLink);
+        await toLink.navigate("/other");
+        const link = el.querySelector("#first") as HTMLElement;
+        expect(document.activeElement).toBe(link);
+        expect(link.hasAttribute("tabindex")).toBe(false);
+    });
+
     it("stays where the page is scrolled through a shallow navigation, unless its URL names a hash", async () =>
     {
         history.replaceState(null, "", "/");

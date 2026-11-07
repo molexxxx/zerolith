@@ -57,6 +57,7 @@ import { routes } from "./routes.__EXT__";
 
 export const router = createRouter(() => routes, {
     base: import.meta.env.BASE_URL,
+    focus: "h1",
     fallback: (url) => NotFound({ path: url.pathname })
 });
 "#;
@@ -74,6 +75,7 @@ import { routes } from "./routes.__EXT__";
 /** @type {import("@zerolith/router").Router<typeof routes>} */
 export const router = createRouter(() => routes, {
     base: import.meta.env.BASE_URL,
+    focus: "h1",
     fallback: (url) => NotFound({ path: url.pathname })
 });
 "#;

@@ -6,7 +6,6 @@ import { debounced } from "@zerolith/state";
 import { router } from "../router.ts";
 import { type Release, releases } from "../store.ts";
 import { LoadStatus } from "./load-status.ts";
-import { PageHeading } from "./page-heading.ts";
 import { ReleaseRow } from "./release-row.ts";
 
 const page = css`
@@ -79,7 +78,7 @@ export function Releases(): View
     }
     return html`
         <section class=${page}>
-            ${PageHeading({ text: "Release notes" })}
+            <h1 tabindex="-1">Release notes</h1>
             <search>
                 <label>Search the notes
                     <input type="search" .value=${query} @input=${typed}>

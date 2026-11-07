@@ -134,6 +134,15 @@ export interface RouterOptions
     /** Renders when no route matches. */
     fallback?: (url: URL) => Renderable;
     /**
+     * A selector for the element that takes keyboard focus after each
+     * navigation to another page, such as `"h1"`, so keyboard and screen
+     * reader users stay with the page when the link they pressed goes away.
+     * The scroll position does not move, and an element that cannot take focus
+     * gets `tabindex="-1"`. The first page of a load, a shallow navigation, and
+     * a URL with a hash leave focus where it is.
+     */
+    focus?: string;
+    /**
      * Renders in the outlet, given the error and the URL, in place of a page whose view throws as a navigation shows it.
      * The navigation still fails with the error, through `onError` or `navigate()`. Without it the outlet is empty.
      */

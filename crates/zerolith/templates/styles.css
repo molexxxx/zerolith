@@ -370,6 +370,11 @@ legend
     text-transform: uppercase;
 }
 
+[tabindex="-1"]:focus
+{
+    outline: none;
+}
+
 :focus-visible
 {
     outline: 2px solid var(--focus);

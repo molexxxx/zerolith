@@ -78,6 +78,7 @@ Every page renders inside an owner of its own, so its signals, effects, and `onD
 | `base` | `"/"` | The path the application is served under; see [Under a base path](#under-a-base-path) |
 | `onError` | `navigate` rejects | Receives the error and the URL when a loader, a lazy import, or a route's `head` throws, which leaves the page as it was, or when the new page throws as it renders, after the URL changed, which leaves the outlet empty or shows `failed` |
 | `scroll` | `true` | `false` leaves scrolling to the application |
+| `focus` | None | A selector for the element that takes keyboard focus after each navigation to another page, such as `"h1"`, as the starter sets it, so keyboard and screen reader users stay with the page when the link they pressed goes away. The scroll position does not move, and an element that cannot take focus gets `tabindex="-1"`. The first page of a load, a shallow navigation, and a URL with a hash leave focus where it is |
 | `observe` | None | Receives each navigation's start, commit, error, and cancel; see [Observability](observability.md) |
 | `window` | The global window | `null` attaches to none, as on the server |
 

@@ -43,8 +43,14 @@ async function visit(origin: string): Promise<Record<string, unknown>>
     await page.goto(`${origin}/`);
     await page.waitForSelector("main h1");
     const heading = await page.textContent("main h1");
+    const startFocus = await page.evaluate(() => document.activeElement?.tagName);
     await page.click("text=Try the counter");
     await page.waitForSelector("output");
+    const movedFocus = await page.evaluate(() =>
+    {
+        const element = document.activeElement as HTMLElement;
+        return [element.tagName, element.textContent, getComputedStyle(element).outlineStyle];
+    });
     await page.click("button.primary");
     await page.click("button.primary");
     const count = await page.textContent("output");
@@ -59,10 +65,10 @@ async function visit(origin: string): Promise<Record<string, unknown>>
     const missing = await page.textContent("main h1");
     const footer = await page.textContent("footer");
     await page.close();
-    return { heading, count, current, listed, found, missing, footer, problems };
+    return { heading, startFocus, movedFocus, count, current, listed, found, missing, footer, problems };
 }
 
-const expected = { heading: `starter-${process.pid}`, count: "2", current: "/counter", listed: 13, found: 1, missing: "Not found", footer: "Built with zerolith. Press Alt+Shift+Z for the inspector.", problems: [] };
+const expected = { heading: `starter-${process.pid}`, startFocus: "BODY", movedFocus: ["H1", "Counter", "none"], count: "2", current: "/counter", listed: 13, found: 1, missing: "Not found", footer: "Built with zerolith. Press Alt+Shift+Z for the inspector.", problems: [] };
 
 beforeAll(async () =>
 {

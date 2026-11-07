@@ -317,6 +317,18 @@ export function createRouter<const T extends RouteTable>(routes: T | (() => T), 
         }
         applyHead(value);
         scrollTo(target, restored, !first);
+        if (!first && options.focus !== undefined && target.hash === "")
+        {
+            const element = win?.document.querySelector<HTMLElement>(options.focus);
+            if (element !== null && element !== undefined)
+            {
+                if (element.tabIndex < 0)
+                {
+                    element.setAttribute("tabindex", "-1");
+                }
+                element.focus({ preventScroll: true });
+            }
+        }
         if (attempt.failed)
         {
             throw attempt.error;
