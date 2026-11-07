@@ -6,6 +6,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Added
 
+- `@zerolith/router`: `navigate` takes a `shallow` option, which keeps the page shown when the URL's path is the page's own, whatever its query, so a page can write a search to the query string as the reader types without losing the field's focus. Back and forward between such entries keep the page too. A navigation that changed only the query rebuilt the page.
 - Docs: three more tutorials, each a small app built step by step from a fresh project and walked end to end on the published 1.2.0, with every file a step shows run by the test suite. Build a sign-up form uses `@zerolith/forms` and `@zerolith/a11y` against a small backend the reader runs; Build a release notes reader uses route parameters, `resource`, `@zerolith/i18n`, and `debounced`; and Build a widget for any backend makes a custom element posting through `@zerolith/client` to an OpenAPI contract, built into one script any page loads.
 - `@zerolith/router`: `createRouter` takes a `failed` option, a view the outlet shows in place of a page whose view throws as a navigation shows it, given the error and the URL, where the outlet could only stay empty. The navigation still fails with the error.
 

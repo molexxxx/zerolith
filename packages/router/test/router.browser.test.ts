@@ -158,6 +158,70 @@ describe("router", () =>
         expect(document.querySelector("meta[name=\"description\"]")).toBeNull();
     });
 
+    it("keeps the page and its focused field through a shallow navigation that changes the query, and through back and forward between such entries", async () =>
+    {
+        history.replaceState(null, "", "/");
+        let loads = 0;
+        let builds = 0;
+        const pages = defineRoutes({
+            home: route({ path: "/", view: () => html`<h1>Home</h1>` }),
+            releases: route({
+                path: "/releases",
+                load: () => Promise.resolve(++loads),
+                view: (): View =>
+                {
+                    builds++;
+                    return html`<label>Search <input id="search"></label>`;
+                }
+            })
+        });
+        router = createRouter(pages, { window });
+        await settled(router);
+        const el = mount(html`<main>${router.outlet()}</main>`);
+        await router.navigate("/releases");
+        const field = el.querySelector<HTMLInputElement>("#search");
+        field?.focus();
+        await router.navigate("/releases?q=draft", { shallow: true });
+        history.back();
+        await until(() => router?.url.get().search === "");
+        expect(el.querySelector("#search")).toBe(field);
+        const entries = history.length;
+
+        await router.navigate("/releases?q=photo", { replace: true, shallow: true });
+        expect(el.querySelector("#search")).toBe(field);
+        expect(document.activeElement).toBe(field);
+        expect(router.url.get().search).toBe("?q=photo");
+        expect(location.search).toBe("?q=photo");
+        expect(history.length).toBe(entries);
+        expect([loads, builds]).toEqual([1, 1]);
+
+        await router.navigate("/releases?q=photos", { shallow: true });
+        expect(el.querySelector("#search")).toBe(field);
+        history.back();
+        await until(() => router?.url.get().search === "?q=photo");
+        expect(el.querySelector("#search")).toBe(field);
+        history.forward();
+        await until(() => router?.url.get().search === "?q=photos");
+        expect(el.querySelector("#search")).toBe(field);
+        expect(document.activeElement).toBe(field);
+        expect([loads, builds]).toEqual([1, 1]);
+
+        await router.navigate("/releases?q=maps");
+        expect([loads, builds]).toEqual([2, 2]);
+        expect(el.querySelector("#search")).not.toBe(field);
+        history.back();
+        await until(() => router?.url.get().search === "?q=photos");
+        expect([loads, builds]).toEqual([3, 3]);
+        const loaded = el.querySelector("#search");
+        history.back();
+        await until(() => router?.url.get().search === "?q=photo");
+        expect(el.querySelector("#search")).toBe(loaded);
+        expect([loads, builds]).toEqual([3, 3]);
+
+        await router.navigate("/", { shallow: true });
+        expect(el.textContent).toBe("Home");
+    });
+
     it("keeps the page shown when a link or navigate() names its URL, following the link in the history and the scroll", async () =>
     {
         history.replaceState(null, "", "/");

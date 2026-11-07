@@ -177,10 +177,12 @@ export interface Router<T extends RouteTable>
     href<N extends keyof T & string>(name: N, ...args: HrefArgs<T[N]["path"]>): string;
     /**
      * Navigates to a path or URL, running the route's loader first. The URL of the page shown keeps the page, unless `reload` asks for the
-     * loader to run and the page to render again, as after a form's redirect back to the page. A URL on another origin is left to the
+     * loader to run and the page to render again, as after a form's redirect back to the page. With `shallow`, a URL whose path is the
+     * page's own keeps the page whatever its query: only the URL and `router.url` change, and back and forward between such entries keep
+     * the page too, so a page can write its search to the query string as the reader types. A URL on another origin is left to the
      * browser, through `location.assign`, or `location.replace` with `replace`.
      */
-    navigate(to: string, options?: { replace?: boolean; reload?: boolean }): Promise<void>;
+    navigate(to: string, options?: { replace?: boolean; reload?: boolean; shallow?: boolean }): Promise<void>;
     /** A signal that is true while the URL is at `path` or below it; `exact` requires equality. */
     matches(path: string, options?: { exact?: boolean }): ReadableSignal<boolean>;
     /** Renders the current route, used as `${router.outlet()}`. */

@@ -259,6 +259,15 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
     let matchedView: RouteView<unknown, unknown> | undefined;
     /** True once a navigation has committed, so a page is shown that a navigation to its own URL keeps. */
     let committed = false;
+    /**
+     * The key of the page shown, written into every history entry it owns:
+     * the one its navigation wrote, and those a navigation that keeps it
+     * adds. Back and forward to an entry with this key keep the page. The
+     * document's time origin keeps keys from before a reload apart.
+     */
+    let pageKey: string | undefined;
+    let pageCount = 0;
+    const nextPageKey = (): string => `${performance.timeOrigin}:${++pageCount}`;
     /** The commit under way, which records a page view that throws so the commit reports it after the outlet has let go of the page before. */
     let committing: { failed: boolean; error: unknown } | undefined;
 
@@ -269,10 +278,11 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
      * not match, and the commit then throws its error, so the navigation
      * ends in an `error` event.
      */
-    const commit = (target: URL, resolved: Resolved, value: Head, restored: number | undefined, first: boolean): void =>
+    const commit = (target: URL, resolved: Resolved, value: Head, restored: number | undefined, first: boolean, key: string): void =>
     {
         matchedView = resolved.view;
         committed = true;
+        pageKey = key;
         const attempt = { failed: false, error: undefined as unknown };
         committing = attempt;
         try
@@ -302,15 +312,18 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
     /**
      * Runs one navigation: aborts the loader of the one before it, resolves
      * the route and its head before the URL changes, then commits. A failure
-     * at any step clears `pending` and ends in an `error` event.
+     * at any step clears `pending` and ends in an `error` event. A navigation
+     * to the path and query shown keeps the page, and so does a `shallow` one
+     * to the path shown; the entry either adds carries the page's key, so
+     * back and forward to it keep the page too.
      */
-    const go = async (target: URL, mode: "push" | "replace" | "pop", restored?: number, first = false, reload = false, moved = 0): Promise<void> =>
+    const go = async (target: URL, mode: "push" | "replace" | "pop", restored?: number, first = false, reload = false, moved = 0, shallow = false): Promise<void> =>
     {
         const run = ++generation;
         controller?.abort();
         controller = undefined;
         const shown = url.get();
-        if (committed && !reload && target.pathname === shown.pathname && target.search === shown.search)
+        if (committed && !reload && target.pathname === shown.pathname && (shallow || target.search === shown.search))
         {
             pending.set(false);
             options.observe?.({ type: "start", id: run, url: target, mode });
@@ -319,11 +332,11 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
                 clearTimeout(scrollPause);
                 saveScroll();
                 position++;
-                win.history.pushState({ position }, "", target.href);
+                win.history.pushState({ position, page: pageKey }, "", target.href);
             }
             else if (win !== undefined && mode === "replace")
             {
-                win.history.replaceState({ ...entryState(), position }, "", target.href);
+                win.history.replaceState({ ...entryState(), position, page: pageKey }, "", target.href);
             }
             url.set(target);
             scrollTo(target, mode === "pop" && target.hash === "" ? restored : undefined);
@@ -371,6 +384,8 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
             options.observe?.({ type: "cancel", id: run, url: target, mode });
             return;
         }
+        const landed: unknown = mode === "pop" ? win?.history.state?.page : undefined;
+        const key = typeof landed === "string" ? landed : nextPageKey();
         try
         {
             if (win !== undefined && mode !== "pop")
@@ -380,14 +395,14 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
                     clearTimeout(scrollPause);
                     saveScroll();
                     position++;
-                    win.history.pushState({ position }, "", target.href);
+                    win.history.pushState({ position, page: key }, "", target.href);
                 }
                 else
                 {
-                    win.history.replaceState({ ...entryState(), position }, "", target.href);
+                    win.history.replaceState({ ...entryState(), position, page: key }, "", target.href);
                 }
             }
-            commit(target, resolved, value, restored, first);
+            commit(target, resolved, value, restored, first, key);
         }
         catch (error)
         {
@@ -433,7 +448,8 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
      * Between two entries of the page already shown, which a same-page hash
      * link adds, only the hash changed: the router follows the URL and moves
      * to the hash, or to the entry's position, without loading or rendering
-     * the page again.
+     * the page again. The same holds for an entry of the page shown, by its
+     * key, whose query a shallow navigation may have changed.
      */
     const onPopState = (): void =>
     {
@@ -448,7 +464,8 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         const moved = typeof landed === "number" ? landed - position : 0;
         position += moved;
         const shown = url.get();
-        if (!pending.get() && target.pathname === shown.pathname && target.search === shown.search)
+        const ownEntry = pageKey !== undefined && win.history.state?.page === pageKey;
+        if (!pending.get() && target.pathname === shown.pathname && (target.search === shown.search || ownEntry))
         {
             url.set(target);
             scrollTo(target, target.hash === "" ? restored : undefined);
@@ -547,7 +564,7 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
                 }
                 return Promise.resolve();
             }
-            return go(target, navigation.replace === true ? "replace" : "push", undefined, false, navigation.reload === true);
+            return go(target, navigation.replace === true ? "replace" : "push", undefined, false, navigation.reload === true, 0, navigation.shallow === true);
         },
         matches(path, matching = {})
         {

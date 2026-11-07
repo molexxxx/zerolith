@@ -80,7 +80,7 @@ interface Router<T extends RouteTable>
     readonly head: ReadableSignal<Head>
     readonly ready: Promise<void>
     href<N extends keyof T & string>(name: N, ...args: HrefArgs<T[N]["path"]>): string
-    navigate(to: string, options?: { replace?: boolean; reload?: boolean }): Promise<void>
+    navigate(to: string, options?: { replace?: boolean; reload?: boolean; shallow?: boolean }): Promise<void>
     matches(path: string, options?: { exact?: boolean }): ReadableSignal<boolean>
     outlet(): View
     dispose(): void

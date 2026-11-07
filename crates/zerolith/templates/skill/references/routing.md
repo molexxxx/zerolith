@@ -219,7 +219,7 @@ render(() => <Layout content={router.outlet()} />, "#app");
 | --- | --- |
 | `outlet()` | The current page as a view, for the layout to place |
 | `href(name, params)` | The path of a named route, with the base and the parameters encoded; a misspelled name or a missing parameter fails to type-check, and a name the table does not hold throws `route_name_unknown`, so a JavaScript project cannot ship a link to the home page in its place |
-| `navigate(to, { replace, reload })` | Goes to a path or URL after the route's loader, and resolves once the page has changed; `replace` replaces the history entry instead of adding one, and `reload` runs the loader and renders the page again even for the URL shown, as after a form's redirect back to the page. A URL on another origin is left to the browser, through `location.assign`, or `location.replace` with `replace` |
+| `navigate(to, { replace, reload, shallow })` | Goes to a path or URL after the route's loader, and resolves once the page has changed; `replace` replaces the history entry instead of adding one, `reload` runs the loader and renders the page again even for the URL shown, as after a form's redirect back to the page, and `shallow` keeps the page shown when the path is its own, whatever the query. A URL on another origin is left to the browser, through `location.assign`, or `location.replace` with `replace` |
 | `matches(path, { exact })` | A signal, true while the URL is at `path` or below it, segment by segment, so `/notes` covers `/notes/7` and not `/notesy`; `exact` requires the path itself |
 | `current` | A signal of the current match, with its `name`, `params`, `url`, and `data`, or `undefined` while the fallback shows |
 | `url` | A signal of the current URL |
@@ -236,7 +236,9 @@ Back and forward restore the scroll position, and so does a reload, since the ro
 
 A link to a hash on the page shown is left to the browser, and back and forward between the entries it adds move to the hash without loading the page again. A link, or a `navigate()`, to the URL of the page shown keeps the page as it is, an open `<details>` and the focus included: no loader runs and no view renders, the history entry follows the link, and the page moves to the hash or the top.
 
-A URL whose query differs is another page, and `navigate(url, { reload: true })` loads and renders the page shown again on purpose, as after a form's redirect back to it. Pass `scroll: false` to keep control of scrolling.
+A URL whose query differs is another page, and `navigate(url, { reload: true })` loads and renders the page shown again on purpose, as after a form's redirect back to it.
+
+A page that keeps its own state in the query, such as a search the reader types, writes it with `navigate(url, { replace: true, shallow: true })`. A shallow navigation to the page's own path keeps the page, so the field keeps its focus and its text: only the URL and `router.url` change, and the page reads the query from `router.url`. Back and forward between entries a shallow navigation added keep the page too. `router.current` stays the match the page was built from, and a link or a navigation without `shallow` still loads the page again. Pass `scroll: false` to keep control of scrolling.
 
 A navigation whose loader fails calls `onError` with the error and the URL; without `onError`, `navigate` rejects, and a navigation a link or the history started rejects unobserved, which the browser reports as an unhandled rejection. A back or forward that fails moves the history back to the entry of the page still shown, so the address bar and the page agree.
 
