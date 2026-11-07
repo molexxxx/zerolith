@@ -4,6 +4,7 @@
 // browser. The finished app's own test file runs here too; its hooks answer
 // every request with the server's answer function, in place of the network,
 // unless a check replaces fetch itself.
+import starterStyles from "../../../../crates/zerolith/templates/styles.css?raw";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 import { problemResponse, validateForm } from "@zerolith/forms";
@@ -468,10 +469,11 @@ describe("sign-up form tutorial", () =>
             expect(container.scrollWidth).toBeLessThanOrEqual(container.clientWidth);
         });
 
-        it("keeps a long plan or terms label beside its control on a narrow screen, against the starter's rule for labels", () =>
+        it("keeps a long plan or terms label beside its control on a narrow screen, under the starter's stylesheet", () =>
         {
             const starter = document.createElement("style");
-            starter.textContent = "label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }";
+            starter.textContent = starterStyles.match(/^label[^{]*\{[^}]*\}/gmu)?.join("\n") ?? "";
+            expect(starter.textContent).toContain("flex-wrap: wrap");
             document.head.append(starter);
             onTestFinished(() => starter.remove());
             const { container } = mount(SendingPage());

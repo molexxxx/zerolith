@@ -52,7 +52,7 @@ Create `src/components/checkbox.ts`:
 
 @include packages/zerolith/test/fixtures/sign-up-form/rules/src/components/checkbox.ts
 
-In both, `flex-wrap: nowrap` keeps a long label beside its control on a phone, where the starter's page-wide rule for labels would drop the text underneath. A checkbox takes `aria-invalid` as a text field does. A `fieldset` and a radio button do not, as [ARIA 1.2](https://www.w3.org/TR/wai-aria-1.2/#aria-invalid) defines it, so the group carries its message through `aria-describedby` alone.
+A checkbox takes `aria-invalid` as a text field does. A `fieldset` and a radio button do not, as [ARIA 1.2](https://www.w3.org/TR/wai-aria-1.2/#aria-invalid) defines it, so the group carries its message through `aria-describedby` alone.
 
 ## The form
 

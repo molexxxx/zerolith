@@ -11,6 +11,7 @@ Every package in this repository is released together and carries the same versi
 ### Fixed
 
 - `@zerolith/cli` and the `zerolith` crate: `zerolith dev`, `serve`, and `preview` leave a backend whose address already answers as it is, and say so, where a second copy failed on the taken port, so `npm run preview` works beside `npm run dev`.
+- `@zerolith/cli` and the `zerolith` crate: the starter's stylesheet keeps a radio button or a checkbox on one line with its label on a narrow screen, where the text dropped underneath.
 
 ## 1.4.0 (2026-11-07)
 

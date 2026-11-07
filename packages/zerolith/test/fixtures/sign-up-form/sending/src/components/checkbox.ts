@@ -4,7 +4,6 @@ import { Message, type MessageText } from "./message.ts";
 
 const field = css`
     :scope { display: grid; gap: 0.375rem; }
-    label { flex-wrap: nowrap; }
 `;
 
 export interface CheckboxProps

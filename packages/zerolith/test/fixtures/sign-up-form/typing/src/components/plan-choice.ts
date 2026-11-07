@@ -5,7 +5,6 @@ import { Message, type MessageText } from "./message.ts";
 
 const group = css`
     :scope { display: grid; gap: 0.75rem; }
-    label { flex-wrap: nowrap; }
 `;
 
 export function PlanChoice({ message }: { message: MessageText }): View

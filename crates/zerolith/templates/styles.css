@@ -151,6 +151,11 @@ label
     gap: 0.5rem;
 }
 
+label:has(input[type="checkbox"], input[type="radio"])
+{
+    flex-wrap: nowrap;
+}
+
 input,
 select,
 textarea
