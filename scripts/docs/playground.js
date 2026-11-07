@@ -559,16 +559,36 @@ function picker(host, select)
             }
         }
     };
-    /** @param {number} index */
-    const point = (index) =>
+    /**
+     * Marks an option active. A keyboard move or opening the list also
+     * scrolls the list, and only the list, to show it; the pointer only
+     * marks, so an option at the list's edge never scrolls away under it.
+     * @param {number} index
+     * @param {boolean} reveal
+     */
+    const point = (index, reveal) =>
     {
         active = (index + options.length) % options.length;
         options.forEach((option, at) => option.toggleAttribute("data-active", at === active));
         const option = options[active];
-        if (option !== undefined)
+        if (option === undefined)
         {
-            list.setAttribute("aria-activedescendant", option.id);
-            option.scrollIntoView({ block: "nearest" });
+            return;
+        }
+        list.setAttribute("aria-activedescendant", option.id);
+        if (!reveal)
+        {
+            return;
+        }
+        const top = option.offsetTop;
+        const bottom = top + option.offsetHeight;
+        if (top < list.scrollTop)
+        {
+            list.scrollTop = top;
+        }
+        else if (bottom > list.scrollTop + list.clientHeight)
+        {
+            list.scrollTop = bottom - list.clientHeight;
         }
     };
     const fit = () =>
@@ -592,7 +612,7 @@ function picker(host, select)
         list.hidden = false;
         fit();
         trigger.setAttribute("aria-expanded", "true");
-        point(Math.max(0, options.findIndex((option) => option.getAttribute("data-value") === select.value)));
+        point(Math.max(0, options.findIndex((option) => option.getAttribute("data-value") === select.value)), true);
         list.focus();
     };
     /** @param {boolean} refocus */
@@ -632,7 +652,7 @@ function picker(host, select)
         if (event.key in moves)
         {
             event.preventDefault();
-            point(moves[/** @type {keyof typeof moves} */ (event.key)]);
+            point(moves[/** @type {keyof typeof moves} */ (event.key)], true);
         }
         else if (event.key === "Enter" || event.key === " ")
         {
@@ -652,7 +672,13 @@ function picker(host, select)
     options.forEach((option, index) =>
     {
         option.addEventListener("click", () => choose(index));
-        option.addEventListener("pointermove", () => point(index));
+        option.addEventListener("pointermove", () =>
+        {
+            if (index !== active)
+            {
+                point(index, false);
+            }
+        });
     });
     /** @param {PointerEvent} event */
     const outside = (event) =>

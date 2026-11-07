@@ -396,6 +396,33 @@ describe("documentation site", () =>
         await page.close();
     });
 
+    it("marks a playground example under the pointer without scrolling the list, and scrolls only the list for the keyboard", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/");
+        await page.setViewportSize({ width: 1280, height: 520 });
+        await page.click(".picker-button");
+        const list = page.locator(".picker-list");
+        const edge = await list.evaluate((element) =>
+        {
+            const box = element.getBoundingClientRect();
+            const option = [...element.querySelectorAll("[role=\"option\"]")].find((item) => item.getBoundingClientRect().bottom > box.bottom);
+            return option === undefined ? null : { id: option.id, x: box.left + 40, y: box.bottom - 8 };
+        });
+        expect(edge).not.toBeNull();
+        await page.mouse.move(edge?.x ?? 0, (edge?.y ?? 0) - 24);
+        await page.mouse.move(edge?.x ?? 0, edge?.y ?? 0, { steps: 4 });
+        expect(await list.getAttribute("aria-activedescendant")).toBe(edge?.id);
+        expect(await list.evaluate((element) => element.scrollTop)).toBe(0);
+
+        const before = await page.evaluate(() => scrollY);
+        await page.keyboard.press("End");
+        expect(await list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+        expect(await list.evaluate((element) => (element.querySelector("[role=\"option\"]:last-child")?.getBoundingClientRect().bottom ?? Infinity) <= element.getBoundingClientRect().bottom + 1)).toBe(true);
+        expect(await page.evaluate(() => scrollY)).toBe(before);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
     it("keeps the playground's example list inside the page at every width, as wide as its header row allows", { timeout: 60000 }, async () =>
     {
         const { page, errors } = await open("/playground/");

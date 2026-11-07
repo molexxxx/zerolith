@@ -18,6 +18,8 @@ Every package in this repository is released together and carries the same versi
 
 ### Fixed
 
+- Docs site: the playground's example list no longer scrolls when the pointer rests on an option at its edge, which moved the next option under the pointer and scrolled again; the pointer only marks an option, and the keyboard and opening the list scroll the list alone, never the page.
+
 - Docs site: every tab of the home page's tour stays in sight on a narrow screen: the tab row wraps onto more lines, where it scrolled sideways inside itself with no scroll bar and hid Server rendering on a phone.
 
 ## 1.1.0 (2026-11-06)
