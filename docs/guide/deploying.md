@@ -221,9 +221,6 @@ Each package's folder names its version, as `vendor/zerolith@1.3.0/`, and a vers
 > [!NOTE]
 > The unbundled output is served from the root; an application under a path needs the bundled build.
 
-> [!WARNING]
-> Serve `vendor/` with `Cache-Control: no-cache`. A vendored file keeps its address from one zerolith version to the next, and the import map pins it with an integrity hash, so a browser that kept the older copy refuses it and a page rendered by those modules stays blank until the copy expires, through a reload as well. On a host that sets its own cache time, such as GitHub Pages at ten minutes, returning visitors can see that blank page after a zerolith upgrade. Use the bundled build there: its file names change with their content, so a new build never meets an old copy.
-
 A page that renders its application in the browser paints its static shell first, then the application replaces it, which moves the layout, and a page that does this on every load scores a layout shift every time. `blocking="render"` on the entry module script, which must be in the document's head to block anything, holds the first paint until the module ran, so the page paints once, with the application in it:
 
 ```html

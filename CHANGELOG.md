@@ -2,8 +2,9 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
-## Unreleased
+## 1.3.0 (2026-11-07)
 
+A minor release from `main`: `zerolith build --entry` writes a module as one script with a name that stays the same, `createRouter` takes its table as a function and a `failed` view, `navigate` takes `shallow`, and the fixes the three new tutorials turned up, so those tutorials use plain code where they worked around a limit. `zerolith importmap` now names each vendored folder for its version, so an existing page needs one more run of it to move.
 
 ### Added
 
