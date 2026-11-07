@@ -20,6 +20,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Fixed
 
+- Docs: the tutorial works as written from a fresh starter. Step 1 says to add the comma the starter's last route lacks, where pasting the route blanked the page. The submit handler sits outside its component, so the starter's own `npm run lint` passes on every step. A row that leaves the list, and an Undo or Redo button that turns itself off, hand keyboard focus on rather than dropping it. The saved list is checked to be a list of items before it loads, a long name wraps inside its row on a phone, the tests reset the filter and the undo history as well as the list, the testing step installs Playwright's Chromium, and the counts read "Items: 1" rather than "1 items".
 - Docs site: the playground's example list no longer scrolls when the pointer rests on an option at its edge, which moved the next option under the pointer and scrolled again; the pointer only marks an option, and the keyboard and opening the list scroll the list alone, never the page.
 
 - Docs site: every tab of the home page's tour stays in sight on a narrow screen: the tab row wraps onto more lines, where it scrolled sideways inside itself with no scroll bar and hid Server rendering on a phone.

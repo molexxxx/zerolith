@@ -22,6 +22,7 @@ import { Packing as DerivedPage } from "../fixtures/tutorial/derived/src/compone
 import { filter as derivedFilter, items as derivedItems } from "../fixtures/tutorial/derived/src/store.ts";
 import { Packing as AppPage } from "../fixtures/tutorial/app/src/components/packing.ts";
 import { changes as appChanges, items as appItems } from "../fixtures/tutorial/app/src/store.ts";
+import type * as EffectsStore from "../fixtures/tutorial/effects/src/store.ts";
 
 afterEach(() =>
 {
@@ -129,7 +130,7 @@ describe("tutorial", () =>
         stateItems.set([...stateItems.get(), { id: 4, name: "Sunscreen", packed: false }]);
         expect(rows(container)).toHaveLength(4);
         expect(container.querySelector("li")).toBe(first);
-        expect(container.querySelector("p")?.textContent).toBe("4 items");
+        expect(container.querySelector("p")?.textContent).toBe("Items: 4");
     });
 
     it("checks items off and adds new ones", () =>
@@ -145,9 +146,15 @@ describe("tutorial", () =>
     it("splits the page into components that each run once", () =>
     {
         const { container } = mount(ComponentsPage());
-        const remove = container.querySelector<HTMLButtonElement>("button[aria-label=\"Remove Passport\"]");
-        remove?.click();
-        expect(rows(container)).toEqual(["Phone charger Remove", "Rain jacket Remove"]);
+        const remove = (name: string): void => container.querySelector<HTMLButtonElement>(`button[aria-label="Remove ${name}"]`)?.click();
+        const focused = (): string => (document.activeElement?.closest("li") ?? document.activeElement)?.textContent?.replace(/\s+/g, " ").trim() ?? "";
+        remove("Phone charger");
+        expect(rows(container)).toEqual(["Passport Remove", "Rain jacket Remove"]);
+        expect(focused()).toBe("Rain jacket Remove");
+        remove("Rain jacket");
+        expect(focused()).toBe("Passport Remove");
+        remove("Passport");
+        expect(document.activeElement).toBe(container.querySelector("input[name=name]"));
     });
 
     it("derives the progress and the filtered rows", () =>
@@ -158,6 +165,9 @@ describe("tutorial", () =>
         choose("Packed");
         expect(rows(container)).toEqual(["Passport Remove"]);
         choose("Left to pack");
+        container.querySelector<HTMLInputElement>("li input")?.click();
+        expect(rows(container)).toEqual(["Rain jacket Remove"]);
+        expect(document.activeElement).toBe(container.querySelector("li input"));
         derivedItems.set(derivedItems.get().map((item) => ({ ...item, packed: true })));
         expect(rows(container)).toEqual([]);
         expect(container.textContent).toContain("Nothing to show here.");
@@ -171,6 +181,13 @@ describe("tutorial", () =>
         expect(items.get()).toEqual([{ id: 7, name: "Map", packed: false }]);
         toggle(7);
         expect(JSON.parse(localStorage.getItem("packing-list") ?? "[]")).toEqual([{ id: 7, name: "Map", packed: true }]);
+        for (const [index, saved] of ["{not json", "null", "{}", "42", "[1,2,3]", "[{\"id\":1,\"packed\":false}]", "[{\"id\":1,\"name\":\"Map\"}]", "[{\"id\":\"1\",\"name\":\"Map\",\"packed\":false}]"].entries())
+        {
+            localStorage.setItem("packing-list", saved);
+            const fresh = `../fixtures/tutorial/effects/src/store.ts?saved=${index}`;
+            const store = await import(/* @vite-ignore */ fresh) as typeof EffectsStore;
+            expect(store.items.get().map((item) => item.name)).toEqual(["Passport", "Phone charger", "Rain jacket"]);
+        }
     });
 
     it("keeps the list in storage, undoes and redoes its changes, and notes when it is offline", async () =>
@@ -189,5 +206,27 @@ describe("tutorial", () =>
         appItems.set([{ id: 7, name: "Map", packed: false }]);
         appChanges.dispose();
         undoesAndNotesOffline(mount(AppPage()).container);
+    });
+
+    it("hands focus to the other button when undo or redo turns its own button off", () =>
+    {
+        appItems.set([{ id: 7, name: "Map", packed: false }]);
+        appChanges.dispose();
+        const { container } = mount(AppPage());
+        const button = (label: string): HTMLButtonElement | undefined => [...container.querySelectorAll("button")].find((candidate) => candidate.textContent === label);
+        container.querySelector<HTMLInputElement>("li input")?.click();
+        button("Undo")?.focus();
+        button("Undo")?.click();
+        expect(document.activeElement).toBe(button("Redo"));
+        button("Redo")?.click();
+        expect(document.activeElement).toBe(button("Undo"));
+    });
+
+    it("wraps a long name inside its row on a narrow screen", () =>
+    {
+        appItems.set([{ id: 7, name: "x".repeat(120), packed: false }]);
+        const { container } = mount(AppPage());
+        container.style.width = "20rem";
+        expect(container.scrollWidth).toBeLessThanOrEqual(container.clientWidth);
     });
 });

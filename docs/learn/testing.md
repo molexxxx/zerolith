@@ -12,13 +12,19 @@ Create `test/packing.browser.test.ts`:
 
 @include packages/zerolith/test/fixtures/tutorial/app/test/packing.browser.test.ts test
 
-`mount` from `@zerolith/test` renders a view into a container attached to the document and returns it; `cleanup`, registered after each test, removes every mounted view. Since a click updates the page at once, the test checks the result on the next line, with no waiting.
+`mount` from `@zerolith/test` renders a view into a container attached to the document and returns it; `cleanup`, registered after each test, removes every mounted view. Bindings and effects run as soon as a signal changes, so a click updates the page at once and the test checks the result on the next line. The starter's counter test awaits `settle()` after each click, which waits for promises and timers to run; this page has none, so it needs no waiting.
 
-`beforeEach` resets the items, because the list is module state shared by every test in the file and kept in storage between runs. Setting it explicitly at the start of each test makes the tests independent of each other and of what you clicked in the browser.
+`beforeEach` puts back the list, the filter, and the undo history, because all three are module state that every test in the file shares, and the list is kept in storage between runs. `changes.dispose()` forgets every checkpoint and leaves the list as it is. Resetting all three at the start of each test makes the tests independent of each other and of what you clicked in the browser.
 
 `accessibilityIssues` finds the defects a test can see without an accessibility tree: images without alternative text, form controls without a label, and buttons or links without a name. The remove buttons pass because they have text; their `aria-label` goes further and says which item each one removes, which no test can judge. Delete the `<label>` around a checkbox and the third test fails, naming the control. The [testing guide](../guide/testing.md) covers the rest of `@zerolith/test`.
 
-Run the tests:
+Vitest drives a real Chromium through Playwright. On a machine that has not run Playwright before, download the browser once:
+
+```sh
+npx playwright install chromium
+```
+
+Then run the tests:
 
 ```sh
 npm test

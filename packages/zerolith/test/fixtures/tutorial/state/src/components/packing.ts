@@ -7,7 +7,7 @@ export function Packing(): View
     const count = computed(() => items.get().length);
     return html`
         <h1>Packing list</h1>
-        <p>${count} items</p>
+        <p>Items: ${count}</p>
         <ul>
             ${each(items, (item) => item.id, (item) => html`
                 <li>${computed(() => item.get().name)}</li>`)}

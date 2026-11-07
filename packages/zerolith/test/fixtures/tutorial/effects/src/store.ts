@@ -17,12 +17,20 @@ const firstItems: Item[] = [
     { id: 3, name: "Rain jacket", packed: false }
 ];
 
+function isItem(value: unknown): value is Item
+{
+    const item = value as Partial<Item> | null;
+    return typeof item?.id === "number" && typeof item.name === "string"
+        && typeof item.packed === "boolean";
+}
+
 function stored(): Item[]
 {
     try
     {
-        const text = localStorage.getItem(storageKey);
-        return text === null ? firstItems : (JSON.parse(text) as Item[]);
+        const text = localStorage.getItem(storageKey) ?? "null";
+        const saved: unknown = JSON.parse(text);
+        return Array.isArray(saved) && saved.every(isItem) ? saved : firstItems;
     }
     catch
     {
