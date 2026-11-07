@@ -75,6 +75,10 @@ export function add(name: string): void
 {
     const id = Math.max(0, ...items.get().map((item) => item.id)) + 1;
     items.set([...items.get(), { id, name, packed: false }]);
+    if (filter.get() === "packed")
+    {
+        filter.set("all");
+    }
 }
 
 export function remove(id: number): void

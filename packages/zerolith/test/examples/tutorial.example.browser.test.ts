@@ -21,7 +21,7 @@ import { Packing as ComponentsPage } from "../fixtures/tutorial/components/src/c
 import { Packing as DerivedPage } from "../fixtures/tutorial/derived/src/components/packing.ts";
 import { filter as derivedFilter, items as derivedItems } from "../fixtures/tutorial/derived/src/store.ts";
 import { Packing as AppPage } from "../fixtures/tutorial/app/src/components/packing.ts";
-import { changes as appChanges, items as appItems } from "../fixtures/tutorial/app/src/store.ts";
+import { changes as appChanges, filter as appFilter, items as appItems } from "../fixtures/tutorial/app/src/store.ts";
 import type * as EffectsStore from "../fixtures/tutorial/effects/src/store.ts";
 import type * as UndoStore from "../fixtures/tutorial/undo/src/store.ts";
 
@@ -240,5 +240,35 @@ describe("tutorial", () =>
         const { container } = mount(AppPage());
         container.style.width = "20rem";
         expect(container.scrollWidth).toBeLessThanOrEqual(container.clientWidth);
+    });
+
+    it("shows an item added while Packed is selected, on the page and in every step's store from the filter on", async () =>
+    {
+        const { container } = mount(AppPage());
+        appFilter.set("packed");
+        submit(container, "Tent");
+        expect(appFilter.get()).toBe("all");
+        expect(rows(container)).toContain("Tent Remove");
+        const stores = [
+            await import("../fixtures/tutorial/derived/src/store.ts"),
+            await import("../fixtures/tutorial/effects/src/store.ts"),
+            await import("../fixtures/tutorial/undo/src/store.ts"),
+            await import("../fixtures/tutorial/app/src/store.ts")
+        ];
+        for (const [index, store] of stores.entries())
+        {
+            const before = store.items.get();
+            store.filter.set("packed");
+            store.add("Sunscreen");
+            expect(store.filter.get(), String(index)).toBe("all");
+            expect(store.shown.get().some((item) => item.name === "Sunscreen"), String(index)).toBe(true);
+            store.filter.set("left");
+            store.add("Map");
+            expect(store.filter.get(), String(index)).toBe("left");
+            store.items.set(before);
+            store.filter.set("all");
+        }
+        appChanges.dispose();
+        localStorage.removeItem("packing-list");
     });
 });

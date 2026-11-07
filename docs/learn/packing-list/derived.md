@@ -14,7 +14,7 @@ Update `src/store.ts`:
 
 @include packages/zerolith/test/fixtures/tutorial/derived/src/store.ts
 
-`filter` is new state: which items to show. Checking an item while Left to pack is selected takes its row off the list, as Remove does, which is why the row's checkbox already runs through `keepingFocus`. `packedCount` and `shown` are derived: they read `items` and `filter` and recompute when either changes. Nothing ever sets them directly, so they can never disagree with the items.
+`filter` is new state: which items to show. Checking an item while Left to pack is selected takes its row off the list, as Remove does, which is why the row's checkbox already runs through `keepingFocus`. `add` sets the filter to All when Packed is selected, so a new item shows as soon as you add it. `packedCount` and `shown` are derived: they read `items` and `filter` and recompute when either changes. Nothing ever sets them directly, so they can never disagree with the items.
 
 A computed value is lazy and cached. It recomputes only when something it read has changed and something reads it again, so `shown` costs nothing while no page shows it.
 
