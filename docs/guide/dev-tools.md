@@ -19,7 +19,7 @@ import { mountDevtools } from "@zerolith/devtools";
 mountDevtools();
 ```
 
-Press `Alt+Shift+Z` or the launcher button to open the dock. It has three tabs:
+Press `Alt+Shift+Z` or the launcher, the tab at the right edge of the window, to open the dock. The tab shows a sliver until the pointer or the keyboard reaches it, so it does not cover the page. It has three tabs:
 
 | Tab | Shows |
 | --- | --- |

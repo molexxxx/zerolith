@@ -69,6 +69,20 @@ describe("inspector", () =>
         expect(document.querySelector("[data-zerolith-devtools] button")).not.toBeNull();
     });
 
+    it("docks its launcher to the edge, so it covers a sliver of the page until focus reaches it", async () =>
+    {
+        handle = mountDevtools();
+        await frame();
+        const button = document.querySelector("[data-zerolith-devtools] button") as HTMLButtonElement;
+        const covered = (): number => innerWidth - button.getBoundingClientRect().left;
+        expect(covered()).toBeLessThanOrEqual(8);
+        expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(innerWidth);
+        button.focus();
+        expect(covered()).toBeGreaterThan(40);
+        button.blur();
+        expect(covered()).toBeLessThanOrEqual(8);
+    });
+
     it("opens from the launcher and the shortcut, lists signals created later, and settles", async () =>
     {
         host = document.createElement("main");

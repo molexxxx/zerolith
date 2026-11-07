@@ -30,7 +30,8 @@ const dock = css`
 `;
 
 const launcher = css`
-    :scope { position: fixed; right: 12px; bottom: 12px; z-index: 2147483000; background: #14171a; color: #7cc4ff; border: 1px solid #2a2f36; border-radius: 999px; padding: 6px 12px; font: 12px/1 ui-monospace, monospace; cursor: pointer; }
+    :scope { position: fixed; right: 0; bottom: 12px; z-index: 2147483000; background: #14171a; color: #7cc4ff; border: 1px solid #2a2f36; border-right: 0; border-radius: 6px 0 0 6px; padding: 6px 12px; font: 12px/1 ui-monospace, monospace; cursor: pointer; transform: translateX(calc(100% - 8px)); }
+    :scope:hover, :scope:focus { transform: none; }
 `;
 
 function hook(): DevtoolsHook | undefined
