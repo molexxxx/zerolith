@@ -23,6 +23,7 @@ import { filter as derivedFilter, items as derivedItems } from "../fixtures/tuto
 import { Packing as AppPage } from "../fixtures/tutorial/app/src/components/packing.ts";
 import { changes as appChanges, items as appItems } from "../fixtures/tutorial/app/src/store.ts";
 import type * as EffectsStore from "../fixtures/tutorial/effects/src/store.ts";
+import type * as UndoStore from "../fixtures/tutorial/undo/src/store.ts";
 
 afterEach(() =>
 {
@@ -199,6 +200,17 @@ describe("tutorial", () =>
         stop();
         expect(reported).toEqual(["state_key_duplicate packing-list"]);
         undoesAndNotesOffline(mount(Packing()).container);
+        for (const [index, saved] of ["{}", "[1,2,3]", "[{\"id\":1,\"name\":\"Map\"}]"].entries())
+        {
+            localStorage.setItem("packing-list", saved);
+            const heard: string[] = [];
+            const quiet = onDiagnostic((record) => heard.push(record.code));
+            const fresh = `../fixtures/tutorial/undo/src/store.ts?saved=${index}`;
+            const store = await import(/* @vite-ignore */ fresh) as typeof UndoStore;
+            quiet();
+            expect(store.items.get().map((item) => item.name)).toEqual(["Passport", "Phone charger", "Rain jacket"]);
+            expect(heard).toContain("state_storage_unreadable");
+        }
     });
 
     it("keeps undo, redo, and the offline note on the finished page", () =>

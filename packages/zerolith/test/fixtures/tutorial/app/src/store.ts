@@ -11,11 +11,18 @@ export interface Item
 
 export type Filter = "all" | "left" | "packed";
 
+function isItem(value: unknown): value is Item
+{
+    const item = value as Partial<Item> | null;
+    return typeof item?.id === "number" && typeof item.name === "string"
+        && typeof item.packed === "boolean";
+}
+
 export const items = stored<Item[]>("packing-list", [
     { id: 1, name: "Passport", packed: true },
     { id: 2, name: "Phone charger", packed: false },
     { id: 3, name: "Rain jacket", packed: false }
-]);
+], { validate: (saved) => Array.isArray(saved) && saved.every(isItem) });
 export const changes = history(items);
 export const filter = signal<Filter>("all", { name: "filter" });
 

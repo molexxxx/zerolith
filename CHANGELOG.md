@@ -2,6 +2,12 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
+## Unreleased
+
+### Changed
+
+- Docs: the tutorial's undo step passes `validate` to `stored` with the `isItem` check from the step before, so a saved value that is not a list of items takes the starting items there too.
+
 ## 1.2.0 (2026-11-07)
 
 A minor release from `main`: `stored` takes a `validate` option, and the fixes the packing-list tutorial turned up when it was built step by step from a fresh starter. A keyed list no longer half-applies an update with a bad key, a page whose view throws no longer stays behind a new URL, an undo no longer takes back another tab's change, and `zerolith dev` shows compile errors and skipped CSS in the browser's console.
