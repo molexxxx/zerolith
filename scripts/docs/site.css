@@ -2626,7 +2626,7 @@ main[tabindex="-1"]:focus
 {
     margin: 0;
     font-family: var(--zl-font-display);
-    font-size: clamp(1.75rem, 3.2vw, var(--zl-text-2xl));
+    font-size: clamp(1.5rem, 2.4vw, 2rem);
     font-weight: var(--zl-weight-display);
     letter-spacing: var(--zl-tracking-display);
     line-height: var(--zl-leading-display);
@@ -2659,103 +2659,6 @@ main[tabindex="-1"]:focus
     letter-spacing: normal;
     text-transform: none;
     white-space: normal;
-}
-
-.diagram
-{
-    margin: var(--zl-space-8) 0 0;
-}
-
-.cells
-{
-    display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: var(--zl-rule);
-    border: var(--zl-rule) solid var(--zl-line);
-    background: var(--zl-line);
-}
-
-.part
-{
-    display: grid;
-    grid-column: span 3;
-    align-content: start;
-    gap: var(--zl-space-2);
-    padding: var(--zl-space-4);
-    background: var(--zl-bg);
-    color: var(--zl-text);
-    text-decoration: none;
-}
-
-.part:hover
-{
-    position: relative;
-    z-index: 1;
-    outline: var(--zl-rule) solid var(--zl-text);
-    outline-offset: calc(-1 * var(--zl-rule));
-    background: var(--zl-surface);
-}
-
-.cells .row-label
-{
-    grid-column: 1 / -1;
-    padding: var(--zl-space-2) var(--zl-space-4);
-    background: var(--zl-bg);
-    color: var(--zl-text-muted);
-    font-family: var(--zl-font-mono);
-    font-size: var(--zl-text-xs);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-
-.part .mark svg
-{
-    width: 24px;
-    height: 24px;
-}
-
-.part .name
-{
-    font-family: var(--zl-font-mono);
-    font-size: 0.8125rem;
-}
-
-.part .text
-{
-    color: var(--zl-text-muted);
-    font-size: var(--zl-text-sm);
-}
-
-.part.core
-{
-    grid-column: 1 / -1;
-    padding: var(--zl-space-6);
-    background: var(--zl-surface);
-}
-
-.part.core:hover
-{
-    background: var(--zl-bg);
-}
-
-.part:focus-visible
-{
-    position: relative;
-    z-index: 2;
-    outline-offset: calc(-1 * var(--zl-rule));
-}
-
-.part.core .name
-{
-    font-family: var(--zl-font-display);
-    font-size: var(--zl-text-lg);
-    font-weight: var(--zl-weight-display);
-    letter-spacing: var(--zl-tracking-display);
-}
-
-.part.core .text
-{
-    font-size: var(--zl-text-md);
 }
 
 .index
@@ -3502,11 +3405,6 @@ main[tabindex="-1"]:focus
         margin-inline: auto;
     }
 
-    .cells
-    {
-        grid-template-columns: repeat(6, minmax(0, 1fr));
-    }
-
     .playground
     {
         height: auto;
@@ -3619,27 +3517,6 @@ main[tabindex="-1"]:focus
     .band
     {
         padding: var(--zl-space-12) 0;
-    }
-
-    .cells
-    {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .part
-    {
-        grid-column: span 1;
-    }
-
-    .part.tool
-    {
-        grid-column: span 2;
-    }
-
-    .part .name
-    {
-        font-size: var(--zl-text-xs);
-        white-space: nowrap;
     }
 
     .readout div
@@ -3995,6 +3872,58 @@ article p
     color: var(--zl-text-muted);
 }
 
+.sizes td.value
+{
+    font-size: var(--zl-text-md);
+    letter-spacing: 0;
+}
+
+.sizes tbody th
+{
+    font-family: var(--zl-font-mono);
+    font-size: var(--zl-text-sm);
+    font-weight: 400;
+}
+
+.sizes tbody th a
+{
+    color: var(--zl-text);
+}
+
+.sizes .core th
+{
+    font-family: var(--zl-font-display);
+    font-size: var(--zl-text-lg);
+    font-weight: var(--zl-weight-display);
+    letter-spacing: var(--zl-tracking-display);
+}
+
+.sizes .group th
+{
+    padding-top: var(--zl-space-6);
+    color: var(--zl-text-muted);
+    font-family: var(--zl-font-mono);
+    font-size: var(--zl-text-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sizes .value
+{
+    color: var(--zl-text-muted);
+}
+
+.sizes td.value:has(.unit)
+{
+    color: var(--zl-text);
+}
+
+.sizes td.value:not(:has(.unit))
+{
+    font-family: var(--zl-font-body);
+    font-size: var(--zl-text-sm);
+}
+
 .facts
 {
     display: flex;
@@ -4320,6 +4249,23 @@ article p
     {
         grid-column: 1 / -1;
         margin-top: var(--zl-space-2);
+    }
+
+    .sizes td.value
+    {
+        grid-row: 1;
+        grid-column: 2;
+        font-size: var(--zl-text-md);
+    }
+
+    .sizes td.value:not(:has(.unit))
+    {
+        font-size: var(--zl-text-sm);
+    }
+
+    .sizes .group th
+    {
+        grid-column: 1 / -1;
     }
 
     .start .screen

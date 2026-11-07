@@ -10,7 +10,7 @@
 import { type View, html } from "zerolith";
 import { MEASURES, OPERATIONS, type FrameworkResult, type Ranked, type Run, SECTION_END, SECTION_START, label, measuresNote, ranked, referenceTimes, renderResults, rivals, scores } from "../../benchmarks/results.ts";
 import { repository } from "./layout.ts";
-import { listed } from "./text.ts";
+import { countWord, fastestWord, listed } from "./text.ts";
 
 /** What the page renders: the newest release's newest run first, as `readRuns` orders them. */
 export interface BenchmarksData
@@ -126,9 +126,6 @@ function Scores(run: Run)
         </figure>`;
 }
 
-const counts = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
-const places = ["", "", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth"];
-
 /**
  * The run in one sentence over its figure: zerolith's score and its place
  * among the frameworks other than hand-written JavaScript. The place counts
@@ -146,8 +143,8 @@ function Summary(run: Run)
     const score = printed(ours);
     const place = field.filter((row) => printed(row) < score).length + 1;
     const tied = field.filter((row) => row !== ours && printed(row) === score).map((row) => row.name);
-    const fastest = place === 1 ? "fastest" : `${places[place] ?? `number ${place}`}-fastest`;
-    const among = `${counts[field.length] ?? String(field.length)} frameworks`;
+    const fastest = fastestWord(place);
+    const among = `${countWord(field.length)} frameworks`;
     const standing = tied.length === 0 ? `the ${fastest} of ${among}` : `tied with ${listed(tied)} for ${fastest} of ${among}`;
     return html`<p class="summary">zerolith ${ours.version} scores <strong>${score.toFixed(2)}</strong>, ${`${standing}.`}</p>`;
 }

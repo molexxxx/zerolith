@@ -780,10 +780,21 @@ function bytes(count: number): string
 /** The facts the home page lists under its measures, each a characteristic with no number to set large. */
 const homeFacts = ["Optional build step: an import map, or `zerolith build`", "`script-src 'self'` with Trusted Types", "Node 24 or newer for the tools", "Apache-2.0"];
 
-/** The home page's characteristics, each computed from the build or named for the check that holds it, and the measured ones it sets large. */
-async function characteristics(manifest: ManifestSymbol[]): Promise<{ rows: Characteristic[]; measures: Measure[] }>
+/** Whether an import is the core or another zerolith package, which a package's own size leaves out. */
+function sharedPackage(id: string): boolean
+{
+    return id === "zerolith" || id.startsWith("zerolith/") || id.startsWith("@zerolith/");
+}
+
+/** The home page's characteristics, each computed from the build or named for the check that holds it, the measured ones it sets large, and each library's own production size. */
+async function characteristics(manifest: ManifestSymbol[]): Promise<{ rows: Characteristic[]; measures: Measure[]; sizes: Record<string, number> }>
 {
     const core = await measure(join(root, "packages", "zerolith", "dist", "production", "index.js"));
+    const sizes: Record<string, number> = {};
+    for (const name of ["router", "forms", "client", "i18n", "a11y", "state", "browser", "otel"])
+    {
+        sizes[name] = (await measure(join(root, "packages", name, "dist", "production", "index.js"), sharedPackage)).gzip;
+    }
     let dependencies = 0;
     for (const name of runtimePackages)
     {
@@ -792,7 +803,7 @@ async function characteristics(manifest: ManifestSymbol[]): Promise<{ rows: Char
     }
     const codes = Object.keys(diagnosticCatalog).length;
     const measures: Measure[] = [
-        { name: "Core, gzip", value: (core.gzip / 1000).toFixed(1), unit: "kB", check: `${bytes(core.gzip)} against a budget of ${bytes(CORE_BUDGET_GZIP_BYTES)}; \`npm run size\` fails over it` },
+        { name: "Core, gzip", value: (core.gzip / 1000).toFixed(1), unit: "kB", check: `${bytes(core.gzip)}, under its budget of ${bytes(CORE_BUDGET_GZIP_BYTES)}, which \`npm run size\` enforces` },
         { name: "Runtime dependencies", value: String(dependencies), unit: "", check: `Counted from the manifests of the ${runtimePackages.length} runtime packages` },
         { name: "Documented exports", value: String(manifest.length), unit: "", check: `Across ${entries.length} modules; the docs build fails on one without a doc comment` },
         { name: "Diagnostic codes", value: String(codes), unit: "", check: "Each with a page, generated from the runtime's catalog" }
@@ -807,7 +818,7 @@ async function characteristics(manifest: ManifestSymbol[]): Promise<{ rows: Char
         { name: "Node", value: "24 or newer, for the command line and the build tools", check: "`engines` in every package" },
         { name: "License", value: "Apache-2.0", check: "Every package and the crate" }
     ];
-    return { rows, measures };
+    return { rows, measures, sizes };
 }
 
 /** Copies the site's scripts, the production build the islands hydrate from, each module written as it was read and pinned with its source map beside it, the playground's modules, and the brand assets into the site. */
@@ -994,6 +1005,7 @@ const homeData: HomeData = {
     figureCode: await figureCode(),
     characteristics: homeCharacteristics.rows,
     measures: homeCharacteristics.measures,
+    sizes: homeCharacteristics.sizes,
     facts: homeFacts,
     tour: await tour(guidePages),
     scores: { date: newestRun.date, rows: ranked(newestRun).filter((row) => !row.before).map(({ name, entry, version: release, score }) => ({ name, entry, version: release, score })) },

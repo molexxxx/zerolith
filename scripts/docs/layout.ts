@@ -31,12 +31,6 @@ export function icon(name: string): string
     return brandFile(`icons/ui/${name}.svg`);
 }
 
-/** A package glyph from the brand set, inline like the interface icons. */
-export function glyph(name: string): string
-{
-    return brandFile(`icons/packages/${name}.svg`);
-}
-
 /** Replaces one fragment of a brand file, failing the build if the file no longer has it. */
 function replaceOnce(text: string, from: string, to: string): string
 {

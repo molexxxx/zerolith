@@ -9,8 +9,8 @@
  */
 import { type View, html, unsafeHtml } from "zerolith";
 import { Figure } from "./demo.js";
-import { diagnosticIcon, glyph, icon } from "./layout.ts";
-import { listed } from "./text.ts";
+import { diagnosticIcon, icon } from "./layout.ts";
+import { countWord, fastestWord, listed } from "./text.ts";
 
 export interface Characteristic
 {
@@ -68,6 +68,8 @@ export interface HomeData
     figureCode: string;
     characteristics: Characteristic[];
     measures: Measure[];
+    /** Each runtime package's own code, minified and gzipped, in bytes, keyed by its folder under packages/. */
+    sizes: Record<string, number>;
     facts: string[];
     tour: TourStep[];
     scores: { date: string; rows: Score[] };
@@ -95,32 +97,33 @@ const features = [
     { href: "/guide/agents/", name: "Ready for coding agents", text: "every new project holds an AGENTS.md and the zerolith skill." }
 ];
 
+/** A package as the home page lists it: where it runs in place of a size, for a tool that never reaches a page. */
 interface Part
 {
     name: string;
     href: string;
-    mark: string;
     text: string;
+    runs?: string;
 }
 
 const libraries: Part[] = [
-    { name: "@zerolith/router", href: "/guide/routing/", mark: glyph("router"), text: "Route table, loaders, head tags" },
-    { name: "@zerolith/forms", href: "/guide/forms/", mark: glyph("forms"), text: "Fetch, pending state, field errors" },
-    { name: "@zerolith/client", href: "/guide/client/", mark: glyph("client"), text: "Typed calls from OpenAPI" },
-    { name: "@zerolith/i18n", href: "/guide/i18n/", mark: glyph("i18n"), text: "Locales and compiled messages" },
-    { name: "@zerolith/a11y", href: "/guide/accessibility/", mark: glyph("a11y"), text: "Focus, announcer, preferences" },
-    { name: "@zerolith/state", href: "/guide/state/", mark: glyph("state"), text: "Storage, undo, debounce, selection" },
-    { name: "@zerolith/browser", href: "/guide/browser/", mark: glyph("browser"), text: "Online, visible, sizes, in view" },
-    { name: "@zerolith/otel", href: "/guide/observability/", mark: glyph("otel"), text: "Spans for navigation and requests" }
+    { name: "@zerolith/router", href: "/guide/routing/", text: "Route table, loaders, head tags" },
+    { name: "@zerolith/forms", href: "/guide/forms/", text: "Fetch, pending state, field errors" },
+    { name: "@zerolith/client", href: "/guide/client/", text: "Typed calls from OpenAPI" },
+    { name: "@zerolith/i18n", href: "/guide/i18n/", text: "Locales and compiled messages" },
+    { name: "@zerolith/a11y", href: "/guide/accessibility/", text: "Focus, announcer, preferences" },
+    { name: "@zerolith/state", href: "/guide/state/", text: "Storage, undo, debounce, selection" },
+    { name: "@zerolith/browser", href: "/guide/browser/", text: "Online, visible, sizes, in view" },
+    { name: "@zerolith/otel", href: "/guide/observability/", text: "Spans for navigation and requests" }
 ];
 
-const core: Part = { name: "zerolith", href: "/guide/", mark: "", text: "Signals, html and css templates, rendering, hydration, server rendering, custom elements, and coded diagnostics" };
+const core: Part = { name: "zerolith", href: "/guide/", text: "Signals, html and css templates, rendering, hydration, server rendering, custom elements, and coded diagnostics" };
 
 const tools: Part[] = [
-    { name: "@zerolith/cli", href: "/guide/command-line/", mark: icon("terminal"), text: "new, dev, build, preview, doctor, skill" },
-    { name: "@zerolith/vite", href: "/guide/vite/", mark: glyph("vite"), text: "The build passes and hot replacement" },
-    { name: "@zerolith/test", href: "/guide/testing/", mark: glyph("test"), text: "Mount, settle, hydration checks" },
-    { name: "@zerolith/devtools", href: "/guide/dev-tools/", mark: glyph("devtools"), text: "Inspector and Performance tracks" }
+    { name: "@zerolith/cli", href: "/guide/command-line/", text: "new, dev, build, preview, doctor, skill", runs: "Native binary" },
+    { name: "@zerolith/vite", href: "/guide/vite/", text: "The build passes and hot replacement", runs: "Build only" },
+    { name: "@zerolith/test", href: "/guide/testing/", text: "Mount, settle, hydration checks", runs: "Tests only" },
+    { name: "@zerolith/devtools", href: "/guide/dev-tools/", text: "Inspector and Performance tracks", runs: "Development only" }
 ];
 
 const ways = [
@@ -252,17 +255,6 @@ const results: Record<TourStep["id"], { label: string; checks: string[]; view: (
 export function resultChecks(id: TourStep["id"]): readonly string[]
 {
     return results[id].checks;
-}
-
-/** One cell of the block diagram; the core's cell carries no glyph, since the header already shows the mark. */
-function PartCell(part: Part, kind: "library" | "core" | "tool")
-{
-    return html`
-        <a class=${kind === "library" ? "part" : `part ${kind}`} href=${part.href}>
-            ${part.mark === "" ? null : html`<span class="mark">${unsafeHtml(part.mark)}</span>`}
-            <span class="name">${part.name}</span>
-            <span class="text">${part.text}</span>
-        </a>`;
 }
 
 /** One node of the launch figure's flow diagram: its id in demo.js, its label, its kind, and its column and row in the wide drawing. */
@@ -551,14 +543,23 @@ export function speedLine(scores: HomeData["scores"]): string
 {
     const ours = scores.rows.find((row) => row.name === "zerolith");
     const others = scores.rows.filter((row) => row.name !== "vanilla" && row.name !== "zerolith");
-    const tied = ours === undefined ? [] : others.filter((row) => printed(row.score) === printed(ours.score)).map((row) => row.name);
-    const tie = ours === undefined || tied.length === 0 ? "" : ` zerolith ties with ${listed(tied)} at ${printed(ours.score).toFixed(2)}.`;
-    return `${ours === undefined ? "zerolith" : `zerolith ${ours.version}`} on js-framework-benchmark next to hand-written JavaScript and ${others.length} frameworks, measured on ${scores.date}. Lower is faster.${tie} These are this project's runs, not the official results.`;
+    const close = " Lower is faster. These are this project's runs, not the official results.";
+    if (ours === undefined)
+    {
+        return `zerolith on js-framework-benchmark, next to hand-written JavaScript and ${countWord(others.length)} other frameworks, measured on ${scores.date}.${close}`;
+    }
+    const score = printed(ours.score);
+    const extra = Math.round((score - 1) * 100);
+    const pace = extra <= 0 ? "it keeps pace with hand-written code" : `it takes about ${extra} percent longer`;
+    const tied = others.filter((row) => printed(row.score) === score).map((row) => row.name);
+    const tie = tied.length === 0 ? "" : ` and ties with ${listed(tied)}`;
+    return `zerolith ${ours.version} scores ${score.toFixed(2)} on js-framework-benchmark, where hand-written JavaScript scores 1.00, so ${pace}. It ran next to ${countWord(others.length)} other frameworks on ${scores.date}${tie}.${close}`;
 }
 
 /**
- * The speed heading, from zerolith's score as the bars print it, so the
- * two never disagree; "about" carries the rounding.
+ * The speed heading: zerolith's place among the frameworks other than
+ * hand-written JavaScript, counted by the scores as the bars print them, so
+ * a framework that prints the same score is a tie.
  */
 export function speedHeading(scores: HomeData["scores"]): string
 {
@@ -567,8 +568,12 @@ export function speedHeading(scores: HomeData["scores"]): string
     {
         return "Benchmark scores";
     }
-    const extra = Math.round((printed(ours.score) - 1) * 100);
-    return extra <= 0 ? "As fast as hand-written JavaScript" : `About ${extra} percent slower than hand-written JavaScript`;
+    const field = scores.rows.filter((row) => row.name !== "vanilla");
+    const score = printed(ours.score);
+    const place = field.filter((row) => printed(row.score) < score).length + 1;
+    const tied = field.some((row) => row !== ours && printed(row.score) === score);
+    const standing = `${fastestWord(place)} of ${countWord(field.length)} frameworks`;
+    return tied ? `Tied for ${standing}` : `The ${standing}`;
 }
 
 /** The benchmark scores as ranked bars, each the extra time over hand-written JavaScript. */
@@ -624,25 +629,61 @@ function Diagnostics(doctor: DoctorSample, count: number)
         </section>`;
 }
 
-/** The numbers the build measures as a ruled datasheet, with the check behind each, and the facts that hold beside them. */
-function Numbers(measures: Measure[], facts: string[])
+/** A size in kilobytes as the package list sets it, the unit smaller. */
+function kilobytes(bytes: number)
 {
+    return html`${(bytes / 1000).toFixed(1)}<span class="unit">kB</span>`;
+}
+
+/** One package in the list: its name and guide, what it gives, and its gzipped size, or where it runs for a tool. */
+function PackageRow(part: Part, sizes: Record<string, number>)
+{
+    const size = sizes[part.name.replace("@zerolith/", "")];
+    if (size === undefined && part.runs === undefined)
+    {
+        throw new Error(`The home page lists ${part.name} with neither a measured size nor where it runs`);
+    }
     return html`
-        <section class="band numbers">
-            <h2>${`${["No", "One", "Two", "Three", "Four", "Five", "Six"][measures.length] ?? measures.length} numbers, checked on every build`}</h2>
-            <table class="datasheet">
+        <tr>
+            <th scope="row"><a href=${part.href}>${part.name}</a></th>
+            <td class="check">${part.text}</td>
+            <td class="value">${size === undefined ? part.runs : kilobytes(size)}</td>
+        </tr>`;
+}
+
+/**
+ * The core and every package as a ruled list, each with what it gives and
+ * what it adds to a page, gzipped and measured on every build, then the
+ * counts and facts the build holds.
+ */
+function Packages(measures: Measure[], facts: string[], sizes: Record<string, number>)
+{
+    const [size, ...counts] = measures;
+    return html`
+        <section class="band packages">
+            <h2>${`One core and ${libraries.length + tools.length} packages`}</h2>
+            <p>Each package is optional, has its own guide, and shares the core's signals, so nothing needs an adapter. Sizes are each package's own code, minified and gzipped on every build${size === undefined ? "." : html`: the core is ${inline(size.check)}.`}</p>
+            <table class="datasheet sizes">
                 <thead>
-                    <tr><th scope="col">Measure</th><th scope="col" class="value">Value</th><th scope="col">How the build checks it</th></tr>
+                    <tr><th scope="col">Package</th><th scope="col">What it gives you</th><th scope="col" class="value">Gzip</th></tr>
                 </thead>
-                <tbody>${measures.map((measure) => html`
+                <tbody class="core">
                     <tr>
-                        <th scope="row">${measure.name}</th>
-                        <td class="value">${measure.value}${measure.unit === "" ? null : html`<span class="unit">${measure.unit}</span>`}</td>
-                        <td class="check">${inline(measure.check)}</td>
-                    </tr>`)}
+                        <th scope="row"><a href=${core.href}>${core.name}</a></th>
+                        <td class="check">${core.text}</td>
+                        <td class="value">${size === undefined ? null : html`${size.value}<span class="unit">${size.unit}</span>`}</td>
+                    </tr>
+                </tbody>
+                <tbody>
+                    <tr class="group"><th scope="colgroup" colspan="3">Libraries</th></tr>
+                    ${libraries.map((part) => PackageRow(part, sizes))}
+                </tbody>
+                <tbody>
+                    <tr class="group"><th scope="colgroup" colspan="3">Tools</th></tr>
+                    ${tools.map((part) => PackageRow(part, sizes))}
                 </tbody>
             </table>
-            <ul class="facts">${facts.map((fact) => html`<li>${inline(fact)}</li>`)}</ul>
+            <ul class="facts">${[...counts.map((count) => `${count.value} ${count.name.toLowerCase()}`), ...facts].map((fact) => html`<li>${inline(fact)}</li>`)}</ul>
         </section>`;
 }
 
@@ -685,20 +726,7 @@ export function Home(data: HomeData): View
         ${Tour(data.tour)}
         ${Speed(data.scores)}
         ${Diagnostics(data.doctor, data.diagnosticCount)}
-        <section class="band roomy">
-            <h2>${`One core and ${libraries.length + tools.length} packages`}</h2>
-            <p>Each package is optional, has its own guide, and shares the core's signals, so nothing needs an adapter.</p>
-            <div class="diagram">
-                <div class="cells">
-                    <span class="row-label">Libraries</span>
-                    ${libraries.map((part) => PartCell(part, "library"))}
-                    ${PartCell(core, "core")}
-                    <span class="row-label">Tools</span>
-                    ${tools.map((part) => PartCell(part, "tool"))}
-                </div>
-            </div>
-        </section>
-        ${Numbers(data.measures, data.facts)}
+        ${Packages(data.measures, data.facts, data.sizes)}
         ${Start()}`;
 }
 

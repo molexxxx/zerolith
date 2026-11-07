@@ -33,10 +33,10 @@ export function compressed(code: string | Buffer): Measurement
     };
 }
 
-/** Bundles and minifies `entry` and returns the size of the entry chunk, raw and compressed. */
-export async function measure(entry: string): Promise<Measurement>
+/** Bundles and minifies `entry` and returns the size of the entry chunk, raw and compressed, leaving out the modules `external` names. */
+export async function measure(entry: string, external?: (id: string) => boolean): Promise<Measurement>
 {
-    const bundle = await rolldown({ input: entry });
+    const bundle = await rolldown(external === undefined ? { input: entry } : { input: entry, external });
     const { output } = await bundle.generate({ format: "esm", minify: true });
     await bundle.close();
     let code = "";
