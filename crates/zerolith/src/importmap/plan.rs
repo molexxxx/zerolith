@@ -238,6 +238,8 @@ pub(super) const GIT_IGNORE: &str = "# Written by zerolith importmap. The vendor
 /// What a run writes for one package: its files by their path in the package folder, and its version; `empty` once the pages' graph reaches none of its modules, so the folder is left as it is, neither written nor removed, for a page the run was not given.
 pub(super) struct PackagePlan {
     pub(super) package: &'static str,
+    /// The package's folder under the output, named for its version, as `zerolith@1.3.0`, so each version has addresses of its own.
+    pub(super) folder: String,
     pub(super) version: String,
     pub(super) writes: BTreeMap<String, Vec<u8>>,
     pub(super) empty: bool,
@@ -313,7 +315,8 @@ pub(super) fn plan(
         }
         let manifest: Manifest =
             serde_json::from_str(&fs::read_to_string(&manifest_path)?).map_err(io::Error::other)?;
-        let existing = destination.join(package);
+        let folder_name = format!("{package}@{}", manifest.version);
+        let existing = destination.join(&folder_name);
         if existing.exists() && !existing.join("VERSION").is_file() {
             return Err(io::Error::new(
                 io::ErrorKind::AlreadyExists,
@@ -326,7 +329,7 @@ pub(super) fn plan(
         vendored
             .versions
             .insert(package.to_string(), manifest.version.clone());
-        let prefix = format!("{base}/{package}");
+        let prefix = format!("{base}/{folder_name}");
         let mut entries = Vec::new();
         for (subpath, entry) in &manifest.exports {
             if subpath == "./package.json" {
@@ -374,6 +377,7 @@ pub(super) fn plan(
         }
         planned.packages.push(PackagePlan {
             package,
+            folder: folder_name,
             version: manifest.version,
             writes,
             empty: false,
@@ -412,6 +416,36 @@ pub(super) fn remove_entry(path: &Path) -> io::Result<()> {
         }
     }
     fs::remove_file(path)
+}
+
+/// Lists for removal what an earlier run wrote for this package at another version, or in a folder that named no version: every file, in `stale`, and every folder, each after its parent, in `folders`. A folder without a `VERSION` file is not one this command wrote, and stays.
+pub(super) fn older_versions(
+    destination: &Path,
+    plan: &PackagePlan,
+    stale: &mut Vec<PathBuf>,
+    folders: &mut Vec<PathBuf>,
+) -> io::Result<()> {
+    let (parent, name) = plan.package.rsplit_once('/').map_or_else(
+        || (destination.to_path_buf(), plan.package),
+        |(scope, name)| (destination.join(scope), name),
+    );
+    let current = plan.folder.rsplit('/').next().unwrap_or(&plan.folder);
+    for entry in fs::read_dir(&parent)? {
+        let entry = entry?;
+        let found = entry.file_name().to_string_lossy().into_owned();
+        let same_package = found == name
+            || found
+                .strip_prefix(name)
+                .is_some_and(|rest| rest.starts_with('@'));
+        if !same_package || found == current || !entry.path().join("VERSION").is_file() {
+            continue;
+        }
+        let (files, inner) = files_and_folders(&entry.path())?;
+        stale.extend(files.iter().map(|file| entry.path().join(file)));
+        folders.push(entry.path());
+        folders.extend(inner);
+    }
+    Ok(())
 }
 
 /// Writes a package's `VERSION` and then its planned files into its folder in place, so a write that fails partway leaves a folder a later run takes for its own, and lists in `stale` the files an earlier run left there that the entries no longer load, and in `folders` every folder of the package, for `Vendored::prune` to remove once the pages that named the files are rewritten. Only a folder that holds nothing but what this command writes reaches here, since planning refuses one without a `VERSION` file.

@@ -322,7 +322,7 @@ Vendors the zerolith packages a page imports and writes the import map that load
 
 ### What importmap writes
 
-- The modules the page imports from the installed `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, `@zerolith/a11y`, `@zerolith/state`, `@zerolith/browser`, `@zerolith/i18n`, and `@zerolith/devtools`, copied into `vendor/`, each package with its `LICENSE` and a `VERSION` file.
+- The modules the page imports from the installed `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, `@zerolith/a11y`, `@zerolith/state`, `@zerolith/browser`, `@zerolith/i18n`, and `@zerolith/devtools`, copied into `vendor/`, each package in a folder named for its version, as `vendor/zerolith@1.3.0/`, with its `LICENSE` and a `VERSION` file. A new version gets new addresses, so a browser's old copy never meets a new integrity hash, and the folders of other versions are removed once the pages name the new one.
 - `vendor/importmap.json`.
 - The import map and `modulepreload` links in the page, replaced or inserted before its first module script, keeping the page's own entries for the specifiers it does not vendor and the page's line endings.
 - A `.gitattributes` in the folder that turns line ending conversion off, since a converted module fails its integrity hash, and a `.gitignore` that keeps the packages' `dist/` folders in commits whatever the project's own rules say, so `vendor/` can be committed as it is.

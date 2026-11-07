@@ -18,6 +18,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Fixed
 
+- `@zerolith/cli` and the `zerolith` crate: `zerolith importmap` and `zerolith build --unbundled` put each package in a folder named for its version, as `vendor/zerolith@1.3.0/`, so a page upgraded to a new zerolith version no longer goes blank for a returning visitor whose browser kept the old files, which it refused against the new integrity hashes, through a reload as well, until the copies expired. Run `zerolith importmap --html` once to move an existing page; the old folders are removed.
 - `@zerolith/cli` and the `zerolith` crate: the starter passes its route table to `createRouter` as a function, so a test or a module that imports `src/routes.ts` first loads, where it failed with `Cannot access 'routes' before initialization`.
 - `zerolith/element`: an element replaces whatever it held when it connects, such as fallback text in the tag, where the view rendered beside it. The view can read it from the host as it runs, a view that throws leaves it in place, and an element that upgraded while the page was still parsing drops what the parser adds to it after that, instead of showing fallback or server markup under the view.
 - `zerolith`: a view rendered inside a shadow root gets the scoped stylesheets, the ones the document has and the ones created later, where a shadow tree saw none of them, so an element placed in another component's shadow root lost its styles.

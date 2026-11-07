@@ -138,7 +138,9 @@ fn copy_vendored(
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().into_owned();
         if name.starts_with('.')
-            || (own && ["importmap.json", "zerolith", "@zerolith"].contains(&name.as_str()))
+            || (own
+                && (["importmap.json", "zerolith", "@zerolith"].contains(&name.as_str())
+                    || name.starts_with("zerolith@")))
         {
             continue;
         }

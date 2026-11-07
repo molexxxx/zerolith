@@ -21,7 +21,8 @@ use html::html_tags;
 pub use html::{covers, import_map_of, page_map, page_tags, update_html};
 pub use plan::integrity;
 use plan::{
-    GIT_ATTRIBUTES, GIT_IGNORE, LICENSE_FILES, plan, reached_by, remove_entry, write_package,
+    GIT_ATTRIBUTES, GIT_IGNORE, LICENSE_FILES, older_versions, plan, reached_by, remove_entry,
+    write_package,
 };
 
 /// The packages the import map vendors and the doctor checks, in dependency order: every zerolith package a page loads that depends on nothing outside zerolith. `@zerolith/otel` is left out, since it needs `@opentelemetry/api`.
@@ -55,7 +56,7 @@ pub struct Vendored {
     pub modules: Vec<String>,
     /// Package name to version, for `doctor`.
     pub versions: BTreeMap<String, String>,
-    /// The URL of each package folder this run wrote, or left alone as unreached, ending in `/`, whose entries in a page's map it alone decides.
+    /// The URL prefix of each package this run wrote, or left alone as unreached, at any version, whose entries in a page's map it alone decides: `/vendor/zerolith@`, and `/vendor/zerolith/` for a folder from before folders named a version.
     pub folders: Vec<String>,
     /// The URLs each vendored module imports statically, relative imports resolved and bare ones through the map.
     pub statics: BTreeMap<String, Vec<String>>,
@@ -178,7 +179,7 @@ pub fn vendor_from(
         vendored.map.imports.retain(|_, url| reached.contains(url));
         planned.files.retain(|url, _| reached.contains(url));
         for package in &mut planned.packages {
-            let prefix = format!("{base}/{}", package.package);
+            let prefix = format!("{base}/{}", package.folder);
             let kept: BTreeSet<String> = package
                 .writes
                 .keys()
@@ -220,7 +221,12 @@ pub fn vendor_from(
     vendored.folders = planned
         .packages
         .iter()
-        .map(|package| format!("{base}/{}/", package.package))
+        .flat_map(|package| {
+            [
+                format!("{base}/{}@", package.package),
+                format!("{base}/{}/", package.package),
+            ]
+        })
         .collect();
     vendored.versions.retain(|name, _| {
         planned
@@ -233,7 +239,13 @@ pub fn vendor_from(
             continue;
         }
         write_package(
-            &destination.join(package.package),
+            &destination.join(&package.folder),
+            package,
+            &mut vendored.stale,
+            &mut vendored.written_folders,
+        )?;
+        older_versions(
+            &destination,
             package,
             &mut vendored.stale,
             &mut vendored.written_folders,

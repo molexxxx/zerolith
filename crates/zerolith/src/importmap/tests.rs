@@ -144,23 +144,26 @@ fn vendors_installed_packages_and_updates_html() {
     )
     .unwrap();
     fs::write(root.join("index.html"), "<html><head><script type=\"importmap\">{}</script>\n<link rel=\"modulepreload\" href=\"/old.js\" data-zerolith-preload>\n</head><body></body></html>").unwrap();
-    fs::create_dir_all(root.join("vendor/zerolith")).unwrap();
-    fs::write(root.join("vendor/zerolith/VERSION"), "0.0.0\n").unwrap();
+    fs::create_dir_all(root.join("vendor/zerolith@0.0.0")).unwrap();
+    fs::write(root.join("vendor/zerolith@0.0.0/VERSION"), "0.0.0\n").unwrap();
     fs::write(
-        root.join("vendor/zerolith/stale.js"),
+        root.join("vendor/zerolith@0.0.0/stale.js"),
         "left by an earlier run",
     )
     .unwrap();
 
     let vendored = vendor(&root, std::path::Path::new("vendor"), false, None).unwrap();
     assert_eq!(
-        fs::read_to_string(root.join("vendor/zerolith/LICENSE")).unwrap(),
+        fs::read_to_string(root.join("vendor/zerolith@0.0.0/LICENSE")).unwrap(),
         "Apache License\n"
     );
-    assert!(root.join("vendor/zerolith/stale.js").is_file());
-    assert_eq!(vendored.stale, vec![root.join("vendor/zerolith/stale.js")]);
+    assert!(root.join("vendor/zerolith@0.0.0/stale.js").is_file());
+    assert_eq!(
+        vendored.stale,
+        vec![root.join("vendor/zerolith@0.0.0/stale.js")]
+    );
     vendored.prune().unwrap();
-    assert!(!root.join("vendor/zerolith/stale.js").exists());
+    assert!(!root.join("vendor/zerolith@0.0.0/stale.js").exists());
     assert!(
         fs::read_to_string(root.join("vendor/.gitattributes"))
             .unwrap()
@@ -173,30 +176,30 @@ fn vendors_installed_packages_and_updates_html() {
     );
     assert_eq!(
         vendored.map.imports.get("zerolith"),
-        Some(&"/vendor/zerolith/dist/production/index.js".to_string())
+        Some(&"/vendor/zerolith@0.0.0/dist/production/index.js".to_string())
     );
     assert!(
-        root.join("vendor/zerolith/dist/production/index.js")
+        root.join("vendor/zerolith@0.0.0/dist/production/index.js")
             .is_file()
     );
     assert_eq!(
         vendored.modules,
         vec![
-            "/vendor/zerolith/dist/production/index.js",
-            "/vendor/zerolith/dist/production/inner.js"
+            "/vendor/zerolith@0.0.0/dist/production/index.js",
+            "/vendor/zerolith@0.0.0/dist/production/inner.js"
         ]
     );
     assert!(
         vendored
             .map
             .integrity
-            .contains_key("/vendor/zerolith/dist/production/inner.js")
+            .contains_key("/vendor/zerolith@0.0.0/dist/production/inner.js")
     );
     assert!(
         !vendored
             .map
             .integrity
-            .contains_key("/vendor/zerolith/dist/index.js")
+            .contains_key("/vendor/zerolith@0.0.0/dist/index.js")
     );
     assert_eq!(
         vendored.versions.get("zerolith"),
@@ -208,11 +211,11 @@ fn vendors_installed_packages_and_updates_html() {
         &fs::read_to_string(root.join("index.html")).unwrap(),
         &html_tags(&vendored),
     );
-    assert!(updated.contains("\"zerolith\":\"/vendor/zerolith/dist/production/index.js\""));
+    assert!(updated.contains("\"zerolith\":\"/vendor/zerolith@0.0.0/dist/production/index.js\""));
     assert!(!updated.contains("/old.js"));
     assert_eq!(updated.matches("<script type=\"importmap\">").count(), 1);
-    let hash = &vendored.map.integrity["/vendor/zerolith/dist/production/index.js"];
-    assert!(updated.contains(&format!("<link rel=\"modulepreload\" href=\"/vendor/zerolith/dist/production/index.js\" integrity=\"{hash}\" data-zerolith-preload>")));
+    let hash = &vendored.map.integrity["/vendor/zerolith@0.0.0/dist/production/index.js"];
+    assert!(updated.contains(&format!("<link rel=\"modulepreload\" href=\"/vendor/zerolith@0.0.0/dist/production/index.js\" integrity=\"{hash}\" data-zerolith-preload>")));
     assert_eq!(
         updated.matches("rel=\"modulepreload\"").count(),
         updated.matches(" integrity=\"sha256-").count()
@@ -254,9 +257,9 @@ fn vendors_installed_packages_and_updates_html() {
     assert_eq!(
         replaced,
         format!(
-            "<html>\n<head>\n    <meta charset=\"utf-8\">\n    <script type=\"importmap\">{}</script>\n    <link rel=\"modulepreload\" href=\"/vendor/zerolith/dist/production/index.js\" integrity=\"{hash}\" data-zerolith-preload>\n    <link rel=\"modulepreload\" href=\"/vendor/zerolith/dist/production/inner.js\" integrity=\"{}\" data-zerolith-preload>\n</head>\n</html>\n",
+            "<html>\n<head>\n    <meta charset=\"utf-8\">\n    <script type=\"importmap\">{}</script>\n    <link rel=\"modulepreload\" href=\"/vendor/zerolith@0.0.0/dist/production/index.js\" integrity=\"{hash}\" data-zerolith-preload>\n    <link rel=\"modulepreload\" href=\"/vendor/zerolith@0.0.0/dist/production/inner.js\" integrity=\"{}\" data-zerolith-preload>\n</head>\n</html>\n",
             serde_json::to_string(&vendored.map).unwrap(),
-            vendored.map.integrity["/vendor/zerolith/dist/production/inner.js"]
+            vendored.map.integrity["/vendor/zerolith@0.0.0/dist/production/inner.js"]
         )
     );
     let indented = update_html(
@@ -264,7 +267,7 @@ fn vendors_installed_packages_and_updates_html() {
         &html_tags(&vendored),
     );
     assert!(
-        indented.contains("</script>\n    <link rel=\"modulepreload\" href=\"/vendor/zerolith/dist/production/index.js\"")
+        indented.contains("</script>\n    <link rel=\"modulepreload\" href=\"/vendor/zerolith@0.0.0/dist/production/index.js\"")
             && indented.contains("data-zerolith-preload>\n    <script type=\"module\" src=\"/app.js\">"),
         "{indented}"
     );
@@ -330,13 +333,13 @@ fn vendors_what_the_entries_load_with_the_source_maps_that_still_fit_and_embed_t
     fs::write(production.join("notes.txt"), "not a module").unwrap();
 
     let vendored = vendor(&root, std::path::Path::new("vendor"), false, None).unwrap();
-    let copied = root.join("vendor/zerolith/dist");
+    let copied = root.join("vendor/zerolith@0.0.0/dist");
     assert_eq!(
         vendored.modules,
         vec![
-            "/vendor/zerolith/dist/production/index.js",
-            "/vendor/zerolith/dist/production/plain.js",
-            "/vendor/zerolith/dist/production/view.js"
+            "/vendor/zerolith@0.0.0/dist/production/index.js",
+            "/vendor/zerolith@0.0.0/dist/production/plain.js",
+            "/vendor/zerolith@0.0.0/dist/production/view.js"
         ]
     );
     assert_eq!(
@@ -371,7 +374,7 @@ fn vendors_what_the_entries_load_with_the_source_maps_that_still_fit_and_embed_t
     }
 
     vendor(&root, std::path::Path::new("readable"), true, None).unwrap();
-    let readable = root.join("readable/zerolith/dist");
+    let readable = root.join("readable/zerolith@0.0.0/dist");
     assert_eq!(
         fs::read_to_string(readable.join("index.js")).unwrap(),
         "export const dev = 1;\n"
@@ -389,7 +392,7 @@ fn vendors_what_the_entries_load_with_the_source_maps_that_still_fit_and_embed_t
         None,
     )
     .unwrap();
-    let prepared = built.join("vendor/zerolith/dist/production");
+    let prepared = built.join("vendor/zerolith@0.0.0/dist/production");
     assert_eq!(
         fs::read_to_string(prepared.join("index.js.map")).unwrap(),
         embedded("index.js")
@@ -433,7 +436,7 @@ fn refuses_a_vendored_module_that_does_not_parse() {
     assert!(
         error
             .to_string()
-            .starts_with("/vendor/zerolith/dist/index.js does not parse: "),
+            .starts_with("/vendor/zerolith@0.0.0/dist/index.js does not parse: "),
         "{error}"
     );
     let _ = fs::remove_dir_all(&root);
@@ -460,17 +463,17 @@ fn replaces_what_an_earlier_run_wrote_keeps_inline_maps_and_follows_the_named_ma
     fs::write(core.join("dist/production/index.js.map"), named).unwrap();
     let inline = "export const inline=1;\n//# sourceMappingURL=data:application/json;base64,e30=\n";
     fs::write(core.join("dist/production/inline.js"), inline).unwrap();
-    let user = root.join("other/zerolith");
+    let user = root.join("other/zerolith@0.0.0");
     fs::create_dir_all(&user).unwrap();
     fs::write(user.join("notes.txt"), "the user's own").unwrap();
 
     vendor(&root, std::path::Path::new("vendor"), true, None).unwrap();
-    assert!(root.join("vendor/zerolith/dist/index.js").is_file());
+    assert!(root.join("vendor/zerolith@0.0.0/dist/index.js").is_file());
     vendor(&root, std::path::Path::new("vendor"), false, None)
         .unwrap()
         .prune()
         .unwrap();
-    let copied = root.join("vendor/zerolith/dist");
+    let copied = root.join("vendor/zerolith@0.0.0/dist");
     assert!(!copied.join("index.js").exists());
     assert_eq!(
         fs::read_to_string(copied.join("production/index.named.map")).unwrap(),
@@ -520,15 +523,18 @@ fn keeps_the_vendored_files_when_a_run_fails_and_loads_lazy_modules_without_prel
     .unwrap();
     fs::write(core.join("dist/lazy.js"), "export const lazy=1;\n").unwrap();
     let vendored = vendor(&root, std::path::Path::new("vendor"), false, None).unwrap();
-    assert_eq!(vendored.modules, vec!["/vendor/zerolith/dist/index.js"]);
+    assert_eq!(
+        vendored.modules,
+        vec!["/vendor/zerolith@0.0.0/dist/index.js"]
+    );
     assert_eq!(
         vendored.map.integrity.keys().cloned().collect::<Vec<_>>(),
         vec![
-            "/vendor/zerolith/dist/index.js",
-            "/vendor/zerolith/dist/lazy.js"
+            "/vendor/zerolith@0.0.0/dist/index.js",
+            "/vendor/zerolith@0.0.0/dist/lazy.js"
         ]
     );
-    let lazy = root.join("vendor/zerolith/dist/lazy.js");
+    let lazy = root.join("vendor/zerolith@0.0.0/dist/lazy.js");
     assert!(lazy.is_file());
 
     fs::write(
@@ -544,7 +550,7 @@ fn keeps_the_vendored_files_when_a_run_fails_and_loads_lazy_modules_without_prel
     );
     assert!(lazy.is_file());
     assert_eq!(
-        fs::read_to_string(root.join("vendor/zerolith/dist/index.js")).unwrap(),
+        fs::read_to_string(root.join("vendor/zerolith@0.0.0/dist/index.js")).unwrap(),
         "export const later=()=>import(`./lazy.js`);\n"
     );
     let mut names: Vec<String> = fs::read_dir(root.join("vendor"))
@@ -554,7 +560,12 @@ fn keeps_the_vendored_files_when_a_run_fails_and_loads_lazy_modules_without_prel
     names.sort();
     assert_eq!(
         names,
-        vec![".gitattributes", ".gitignore", "importmap.json", "zerolith"]
+        vec![
+            ".gitattributes",
+            ".gitignore",
+            "importmap.json",
+            "zerolith@0.0.0"
+        ]
     );
     let _ = fs::remove_dir_all(&root);
 }
@@ -581,18 +592,21 @@ fn copies_other_files_as_they_are_and_skips_an_optional_lazy_module() {
     fs::write(core.join("dist/data.json"), "{\"a\":1}").unwrap();
     let vendored = vendor(&root, std::path::Path::new("vendor"), false, None).unwrap();
     assert_eq!(
-        fs::read_to_string(root.join("vendor/zerolith/dist/data.json")).unwrap(),
+        fs::read_to_string(root.join("vendor/zerolith@0.0.0/dist/data.json")).unwrap(),
         "{\"a\":1}"
     );
     assert_eq!(
         vendored.map.integrity.keys().cloned().collect::<Vec<_>>(),
         vec![
-            "/vendor/zerolith/dist/data.json",
-            "/vendor/zerolith/dist/index.js"
+            "/vendor/zerolith@0.0.0/dist/data.json",
+            "/vendor/zerolith@0.0.0/dist/index.js"
         ]
     );
-    assert_eq!(vendored.modules, vec!["/vendor/zerolith/dist/index.js"]);
-    assert!(!root.join("vendor/zerolith/dist/optional.js").exists());
+    assert_eq!(
+        vendored.modules,
+        vec!["/vendor/zerolith@0.0.0/dist/index.js"]
+    );
+    assert!(!root.join("vendor/zerolith@0.0.0/dist/optional.js").exists());
     let _ = fs::remove_dir_all(&root);
 }
 
@@ -651,32 +665,40 @@ fn removes_only_what_an_earlier_run_left_in_its_own_folders() {
     fs::write(core.join("dist/index.js"), "export const v=1;\n").unwrap();
     let vendor_folder = root.join("vendor");
     vendor(&root, std::path::Path::new("vendor"), false, None).unwrap();
-    fs::create_dir_all(vendor_folder.join("zerolith/dist/old")).unwrap();
-    fs::write(vendor_folder.join("zerolith/dist/old/gone.js"), "stale").unwrap();
-    fs::write(vendor_folder.join("zerolith/dist/gone.d.ts"), "stale").unwrap();
+    fs::create_dir_all(vendor_folder.join("zerolith@0.0.0/dist/old")).unwrap();
+    fs::write(
+        vendor_folder.join("zerolith@0.0.0/dist/old/gone.js"),
+        "stale",
+    )
+    .unwrap();
+    fs::write(vendor_folder.join("zerolith@0.0.0/dist/gone.d.ts"), "stale").unwrap();
     fs::create_dir_all(vendor_folder.join("lenis")).unwrap();
     fs::write(vendor_folder.join("lenis/lenis.mjs"), "the site's own").unwrap();
     fs::write(core.join("dist/index.js"), "export const v=2;\n").unwrap();
     #[cfg(windows)]
     let linked = std::os::windows::fs::symlink_dir(
         vendor_folder.join("lenis"),
-        vendor_folder.join("zerolith/dist/link"),
+        vendor_folder.join("zerolith@0.0.0/dist/link"),
     )
     .is_ok();
     #[cfg(not(windows))]
     let linked = std::os::unix::fs::symlink(
         vendor_folder.join("lenis"),
-        vendor_folder.join("zerolith/dist/link"),
+        vendor_folder.join("zerolith@0.0.0/dist/link"),
     )
     .is_ok();
     let vendored = vendor(&root, std::path::Path::new("vendor"), false, None).unwrap();
-    assert!(vendor_folder.join("zerolith/dist/old/gone.js").is_file());
+    assert!(
+        vendor_folder
+            .join("zerolith@0.0.0/dist/old/gone.js")
+            .is_file()
+    );
     let mut expected = vec![
-        vendor_folder.join("zerolith/dist/gone.d.ts"),
-        vendor_folder.join("zerolith/dist/old/gone.js"),
+        vendor_folder.join("zerolith@0.0.0/dist/gone.d.ts"),
+        vendor_folder.join("zerolith@0.0.0/dist/old/gone.js"),
     ];
     if linked {
-        expected.push(vendor_folder.join("zerolith/dist/link"));
+        expected.push(vendor_folder.join("zerolith@0.0.0/dist/link"));
     }
     expected.sort();
     let mut stale = vendored.stale.clone();
@@ -684,18 +706,18 @@ fn removes_only_what_an_earlier_run_left_in_its_own_folders() {
     assert_eq!(stale, expected);
     vendored.prune().unwrap();
     assert_eq!(
-        fs::read_to_string(vendor_folder.join("zerolith/dist/index.js")).unwrap(),
+        fs::read_to_string(vendor_folder.join("zerolith@0.0.0/dist/index.js")).unwrap(),
         "export const v=2;\n"
     );
-    assert!(!vendor_folder.join("zerolith/dist/old").exists());
-    assert!(!vendor_folder.join("zerolith/dist/link").exists());
-    assert!(!vendor_folder.join("zerolith/dist/gone.d.ts").exists());
+    assert!(!vendor_folder.join("zerolith@0.0.0/dist/old").exists());
+    assert!(!vendor_folder.join("zerolith@0.0.0/dist/link").exists());
+    assert!(!vendor_folder.join("zerolith@0.0.0/dist/gone.d.ts").exists());
     assert_eq!(
         fs::read_to_string(vendor_folder.join("lenis/lenis.mjs")).unwrap(),
         "the site's own"
     );
     assert_eq!(
-        fs::read_to_string(vendor_folder.join("zerolith/VERSION")).unwrap(),
+        fs::read_to_string(vendor_folder.join("zerolith@0.0.0/VERSION")).unwrap(),
         "0.0.0\n"
     );
     let _ = fs::remove_dir_all(&root);
@@ -733,7 +755,7 @@ fn writes_nothing_when_any_package_fails_its_checks() {
     vendor(&root, std::path::Path::new("vendor"), false, None)
         .expect_err("a router module that does not parse");
     assert_eq!(
-        fs::read_to_string(vendor_folder.join("zerolith/dist/index.js")).unwrap(),
+        fs::read_to_string(vendor_folder.join("zerolith@0.0.0/dist/index.js")).unwrap(),
         "export const v=1;\n"
     );
     assert_eq!(
@@ -909,16 +931,16 @@ fn keeps_an_earlier_runs_files_until_pruned_and_refuses_an_entry_outside_the_pac
     .unwrap();
     vendor(&root, std::path::Path::new("vendor"), true, None).unwrap();
     vendor(&root, std::path::Path::new("vendor"), false, None).unwrap();
-    assert!(root.join("vendor/zerolith/dist/index.js").is_file());
+    assert!(root.join("vendor/zerolith@0.0.0/dist/index.js").is_file());
     assert!(
-        root.join("vendor/zerolith/dist/production/index.js")
+        root.join("vendor/zerolith@0.0.0/dist/production/index.js")
             .is_file()
     );
     vendor(&root, std::path::Path::new("vendor"), false, None)
         .unwrap()
         .prune()
         .unwrap();
-    assert!(!root.join("vendor/zerolith/dist/index.js").exists());
+    assert!(!root.join("vendor/zerolith@0.0.0/dist/index.js").exists());
 
     fs::write(core.join("package.json"), r#"{"name":"zerolith","version":"0.0.0","exports":{".":"./dist/production/index.js","./outside":"./../../outside.js"}}"#).unwrap();
     fs::write(root.join("node_modules/outside.js"), "export const o=1;\n").unwrap();
@@ -976,9 +998,9 @@ fn refuses_an_entry_the_package_does_not_hold() {
     let error = vendor(&root, std::path::Path::new("vendor"), false, None)
         .expect_err("an entry the package does not hold");
     assert!(
-        error
-            .to_string()
-            .starts_with("/vendor/@zerolith/router/dist/production/index.js is missing from "),
+        error.to_string().starts_with(
+            "/vendor/@zerolith/router@0.0.0/dist/production/index.js is missing from "
+        ),
         "{error}"
     );
     let _ = fs::remove_dir_all(&root);
@@ -990,10 +1012,10 @@ fn keeps_the_page_entries_the_vendored_map_does_not_replace() {
     vendored
         .map
         .imports
-        .insert("zerolith".into(), "/vendor/zerolith/index.js".into());
+        .insert("zerolith".into(), "/vendor/zerolith@0.0.0/index.js".into());
     let page = "<head><script type=\"importmap\">{\"imports\":{\"zerolith\":\"/old.js\",\"lit\":\"https://cdn.example/lit.js\"},\"scopes\":{\"/legacy/\":{\"lit\":\"/legacy/lit.js\"}}}</script></head>";
     let updated = update_html(page, &page_tags(&vendored, "/index.html", page, None));
-    assert!(updated.contains("\"zerolith\":\"/vendor/zerolith/index.js\""));
+    assert!(updated.contains("\"zerolith\":\"/vendor/zerolith@0.0.0/index.js\""));
     assert!(updated.contains("\"lit\":\"https://cdn.example/lit.js\""));
     assert!(updated.contains("\"scopes\":{\"/legacy/\":{\"lit\":\"/legacy/lit.js\"}}"));
     assert!(!updated.contains("/old.js"));
@@ -1002,26 +1024,26 @@ fn keeps_the_page_entries_the_vendored_map_does_not_replace() {
         html_tags(&vendored)
     );
 
-    vendored.folders = vec!["/vendor/zerolith/".into()];
-    vendored
-        .map
-        .integrity
-        .insert("/vendor/zerolith/index.js".into(), "sha256-kept".into());
-    let earlier = "<head><script type=\"importmap\">{\"imports\":{\"zerolith/internal\":\"/vendor/zerolith/dist/internal.js\",\"#core\":\"/vendor/zerolith/index.js\",\"core/\":\"/vendor/zerolith/\",\"lit\":\"/lib/lit.js\"},\"integrity\":{\"/vendor/zerolith/dist/index.js\":\"sha256-old\",\"/lib/lit.js\":\"sha384-lit\"}}</script></head>";
+    vendored.folders = vec!["/vendor/zerolith@0.0.0/".into()];
+    vendored.map.integrity.insert(
+        "/vendor/zerolith@0.0.0/index.js".into(),
+        "sha256-kept".into(),
+    );
+    let earlier = "<head><script type=\"importmap\">{\"imports\":{\"zerolith/internal\":\"/vendor/zerolith@0.0.0/dist/internal.js\",\"#core\":\"/vendor/zerolith@0.0.0/index.js\",\"core/\":\"/vendor/zerolith@0.0.0/\",\"lit\":\"/lib/lit.js\"},\"integrity\":{\"/vendor/zerolith@0.0.0/dist/index.js\":\"sha256-old\",\"/lib/lit.js\":\"sha384-lit\"}}</script></head>";
     let refreshed = update_html(earlier, &page_tags(&vendored, "/index.html", earlier, None));
-    assert!(!refreshed.contains("/vendor/zerolith/dist/"));
-    assert!(refreshed.contains("\"#core\":\"/vendor/zerolith/index.js\""));
-    assert!(refreshed.contains("\"core/\":\"/vendor/zerolith/\""));
+    assert!(!refreshed.contains("/vendor/zerolith@0.0.0/dist/"));
+    assert!(refreshed.contains("\"#core\":\"/vendor/zerolith@0.0.0/index.js\""));
+    assert!(refreshed.contains("\"core/\":\"/vendor/zerolith@0.0.0/\""));
     assert!(refreshed.contains("\"lit\":\"/lib/lit.js\""));
     assert!(refreshed.contains("\"/lib/lit.js\":\"sha384-lit\""));
 
-    let scoped = "<head><script type=\"importmap\">{\"imports\":{},\"scopes\":{\"/app/\":{\"zerolith/x\":\"/vendor/zerolith/dist/x.js\"},\"/legacy/\":{\"lit\":\"/legacy/lit.js\",\"zerolith\":\"/vendor/zerolith/dist/old.js\"}}}</script></head>";
+    let scoped = "<head><script type=\"importmap\">{\"imports\":{},\"scopes\":{\"/app/\":{\"zerolith/x\":\"/vendor/zerolith@0.0.0/dist/x.js\"},\"/legacy/\":{\"lit\":\"/legacy/lit.js\",\"zerolith\":\"/vendor/zerolith@0.0.0/dist/old.js\"}}}</script></head>";
     let cleaned = update_html(scoped, &page_tags(&vendored, "/index.html", scoped, None));
-    assert!(!cleaned.contains("/vendor/zerolith/dist/"));
+    assert!(!cleaned.contains("/vendor/zerolith@0.0.0/dist/"));
     assert!(!cleaned.contains("\"/app/\""));
     assert!(cleaned.contains("\"scopes\":{\"/legacy/\":{\"lit\":\"/legacy/lit.js\"}}"));
 
-    let relative = "<head><script type=\"importmap\">{\"imports\":{\"zerolith/old\":\"../vendor/zerolith/dist/old.js\",\"zerolith/kept\":\"../vendor/zerolith/index.js\",\"core/\":\"../vendor/zerolith/dist/\",\"odd\":\"../vendor/zerolith/dist/a:b.js\",\"lit\":\"lit.js\",\"cdn\":\"https://cdn.example/lit.js\"},\"integrity\":{\"../vendor/zerolith/dist/old.js\":\"sha256-old\",\"../vendor/zerolith/index.js\":\"sha256-stale\",\"lit.js\":\"sha384-lit\"}}</script></head>";
+    let relative = "<head><script type=\"importmap\">{\"imports\":{\"zerolith/old\":\"../vendor/zerolith@0.0.0/dist/old.js\",\"zerolith/kept\":\"../vendor/zerolith@0.0.0/index.js\",\"core/\":\"../vendor/zerolith@0.0.0/dist/\",\"odd\":\"../vendor/zerolith@0.0.0/dist/a:b.js\",\"lit\":\"lit.js\",\"cdn\":\"https://cdn.example/lit.js\"},\"integrity\":{\"../vendor/zerolith@0.0.0/dist/old.js\":\"sha256-old\",\"../vendor/zerolith@0.0.0/index.js\":\"sha256-stale\",\"lit.js\":\"sha384-lit\"}}</script></head>";
     let resolved = update_html(
         relative,
         &page_tags(&vendored, "/app/index.html", relative, None),
@@ -1031,7 +1053,7 @@ fn keeps_the_page_entries_the_vendored_map_does_not_replace() {
     assert!(!resolved.contains("a:b.js"), "{resolved}");
     assert!(!resolved.contains("sha256-stale"), "{resolved}");
     assert!(
-        resolved.contains("\"zerolith/kept\":\"../vendor/zerolith/index.js\""),
+        resolved.contains("\"zerolith/kept\":\"../vendor/zerolith@0.0.0/index.js\""),
         "{resolved}"
     );
     assert!(resolved.contains("\"lit\":\"lit.js\""), "{resolved}");
@@ -1040,7 +1062,7 @@ fn keeps_the_page_entries_the_vendored_map_does_not_replace() {
         "{resolved}"
     );
     assert!(
-        resolved.contains("\"integrity\":{\"/vendor/zerolith/index.js\":\"sha256-kept\",\"lit.js\":\"sha384-lit\"}"),
+        resolved.contains("\"integrity\":{\"/vendor/zerolith@0.0.0/index.js\":\"sha256-kept\",\"lit.js\":\"sha384-lit\"}"),
         "{resolved}"
     );
 }
@@ -1060,12 +1082,12 @@ fn prunes_only_after_the_pages_are_written() {
     )
     .unwrap();
     fs::write(core.join("dist/index.js"), "export const v=1;\n").unwrap();
-    fs::create_dir_all(root.join("vendor/zerolith/dist")).unwrap();
-    fs::write(root.join("vendor/zerolith/VERSION"), "0.0.0\n").unwrap();
-    let stale = root.join("vendor/zerolith/dist/gone.js");
+    fs::create_dir_all(root.join("vendor/zerolith@0.0.0/dist")).unwrap();
+    fs::write(root.join("vendor/zerolith@0.0.0/VERSION"), "0.0.0\n").unwrap();
+    let stale = root.join("vendor/zerolith@0.0.0/dist/gone.js");
     fs::write(&stale, "export const gone=1;\n").unwrap();
     let page = root.join("index.html");
-    fs::write(&page, "<html><head><script type=\"importmap\">{\"imports\":{\"zerolith/gone\":\"/vendor/zerolith/dist/gone.js\"}}</script></head><body><script type=\"module\">import \"zerolith\";</script></body></html>").unwrap();
+    fs::write(&page, "<html><head><script type=\"importmap\">{\"imports\":{\"zerolith/gone\":\"/vendor/zerolith@0.0.0/dist/gone.js\"}}</script></head><body><script type=\"module\">import \"zerolith\";</script></body></html>").unwrap();
     let mut readonly = fs::metadata(&page).unwrap().permissions();
     readonly.set_readonly(true);
     fs::set_permissions(&page, readonly).unwrap();
@@ -1105,11 +1127,11 @@ fn rewrites_a_map_with_other_attributes_and_keeps_them() {
     vendored
         .map
         .imports
-        .insert("zerolith".into(), "/vendor/zerolith/index.js".into());
+        .insert("zerolith".into(), "/vendor/zerolith@0.0.0/index.js".into());
     let page = "<head>\n<!-- <script type=\"importmap\">{\"imports\":{}}</script> -->\n<script type=\"importmap\" nonce=\"n0\">{\"imports\":{\"lit\":\"/lit.js\"}}</script>\n<script type=\"importmap\">{}</script>\n</head>";
     let updated = update_html(page, &page_tags(&vendored, "/index.html", page, None));
     assert!(
-        updated.contains("<script type=\"importmap\" nonce=\"n0\">{\"imports\":{\"lit\":\"/lit.js\",\"zerolith\":\"/vendor/zerolith/index.js\"}}</script>"),
+        updated.contains("<script type=\"importmap\" nonce=\"n0\">{\"imports\":{\"lit\":\"/lit.js\",\"zerolith\":\"/vendor/zerolith@0.0.0/index.js\"}}</script>"),
         "{updated}"
     );
     assert!(
@@ -1239,11 +1261,11 @@ fn walks_a_pages_modules_and_vendors_what_they_reach() {
     assert_eq!(
         vendored.map.integrity.keys().collect::<Vec<_>>(),
         [
-            "/vendor/@zerolith/a11y/dist/index.js",
-            "/vendor/@zerolith/forms/dist/index.js",
-            "/vendor/@zerolith/router/dist/index.js",
-            "/vendor/zerolith/dist/index.js",
-            "/vendor/zerolith/dist/scan.js"
+            "/vendor/@zerolith/a11y@0.0.0/dist/index.js",
+            "/vendor/@zerolith/forms@0.0.0/dist/index.js",
+            "/vendor/@zerolith/router@0.0.0/dist/index.js",
+            "/vendor/zerolith@0.0.0/dist/index.js",
+            "/vendor/zerolith@0.0.0/dist/scan.js"
         ]
     );
     for absent in [
@@ -1256,9 +1278,9 @@ fn walks_a_pages_modules_and_vendors_what_they_reach() {
             "{absent} was vendored"
         );
     }
-    assert!(root.join("vendor/@zerolith/forms/LICENSE").is_file());
+    assert!(root.join("vendor/@zerolith/forms@0.0.0/LICENSE").is_file());
     assert!(
-        root.join("vendor/@zerolith/router/dist/index.js.map")
+        root.join("vendor/@zerolith/router@0.0.0/dist/index.js.map")
             .is_file()
     );
     assert_eq!(
@@ -1267,9 +1289,9 @@ fn walks_a_pages_modules_and_vendors_what_they_reach() {
             "/src/app.js",
             "/src/views/view.js",
             "/src/lazy.js",
-            "/vendor/@zerolith/router/dist/index.js",
-            "/vendor/zerolith/dist/index.js",
-            "/vendor/zerolith/dist/scan.js"
+            "/vendor/@zerolith/router@0.0.0/dist/index.js",
+            "/vendor/zerolith@0.0.0/dist/index.js",
+            "/vendor/zerolith@0.0.0/dist/scan.js"
         ]
     );
     let updated = update_html(
@@ -1282,17 +1304,17 @@ fn walks_a_pages_modules_and_vendors_what_they_reach() {
     );
     assert!(!updated.contains("href=\"/src/main.js\""), "{updated}");
     assert!(
-        !updated.contains("href=\"/vendor/@zerolith/forms/"),
+        !updated.contains("href=\"/vendor/@zerolith/forms@0.0.0/"),
         "{updated}"
     );
-    let hash = &vendored.map.integrity["/vendor/@zerolith/router/dist/index.js"];
+    let hash = &vendored.map.integrity["/vendor/@zerolith/router@0.0.0/dist/index.js"];
     assert!(
-        updated.contains(&format!("<link rel=\"modulepreload\" href=\"/vendor/@zerolith/router/dist/index.js\" integrity=\"{hash}\" data-zerolith-preload>")),
+        updated.contains(&format!("<link rel=\"modulepreload\" href=\"/vendor/@zerolith/router@0.0.0/dist/index.js\" integrity=\"{hash}\" data-zerolith-preload>")),
         "{updated}"
     );
     assert!(
         updated.contains(
-            "<link rel=\"modulepreload\" href=\"/vendor/zerolith/dist/scan.js\" integrity="
+            "<link rel=\"modulepreload\" href=\"/vendor/zerolith@0.0.0/dist/scan.js\" integrity="
         ),
         "{updated}"
     );
@@ -1326,17 +1348,23 @@ fn walks_a_pages_modules_and_vendors_what_they_reach() {
         ["zerolith"]
     );
     assert_eq!(vendored.versions.keys().collect::<Vec<_>>(), ["zerolith"]);
-    assert!(root.join("vendor/@zerolith/router/dist/index.js").is_file());
-    assert!(root.join("vendor/@zerolith/forms/dist/index.js").is_file());
-    assert!(root.join("vendor/zerolith/dist/index.js").is_file());
+    assert!(
+        root.join("vendor/@zerolith/router@0.0.0/dist/index.js")
+            .is_file()
+    );
+    assert!(
+        root.join("vendor/@zerolith/forms@0.0.0/dist/index.js")
+            .is_file()
+    );
+    assert!(root.join("vendor/zerolith@0.0.0/dist/index.js").is_file());
     assert_eq!(
         vendored.preloads(&narrowed),
         vec![
-            "/vendor/zerolith/dist/index.js",
-            "/vendor/zerolith/dist/scan.js"
+            "/vendor/zerolith@0.0.0/dist/index.js",
+            "/vendor/zerolith@0.0.0/dist/scan.js"
         ]
     );
-    let stale = "<head><script type=\"importmap\">{\"imports\":{\"@zerolith/router\":\"/vendor/@zerolith/router/dist/index.js\",\"lit\":\"/lib/lit.js\"}}</script></head>";
+    let stale = "<head><script type=\"importmap\">{\"imports\":{\"@zerolith/router\":\"/vendor/@zerolith/router@0.0.0/dist/index.js\",\"lit\":\"/lib/lit.js\"}}</script></head>";
     let cleaned = update_html(
         stale,
         &page_tags(&vendored, "/index.html", stale, Some(&narrowed)),
@@ -1349,7 +1377,7 @@ fn walks_a_pages_modules_and_vendors_what_they_reach() {
     let vendored = vendor(&root, std::path::Path::new("vendor"), false, Some(&nothing)).unwrap();
     assert_eq!(vendored.map.imports.len(), 7);
     assert!(
-        root.join("vendor/@zerolith/router/dist/server.js")
+        root.join("vendor/@zerolith/router@0.0.0/dist/server.js")
             .is_file()
     );
     assert!(vendored.preloads(&nothing).is_empty());
@@ -1378,8 +1406,8 @@ fn walks_a_pages_modules_and_vendors_what_they_reach() {
     assert_eq!(
         vendored.preloads(&computed),
         vec![
-            "/vendor/zerolith/dist/index.js",
-            "/vendor/zerolith/dist/scan.js"
+            "/vendor/zerolith@0.0.0/dist/index.js",
+            "/vendor/zerolith@0.0.0/dist/scan.js"
         ]
     );
     let _ = fs::remove_dir_all(&root);
@@ -1449,26 +1477,26 @@ fn writes_every_page_given_from_one_vendoring() {
     let about = fs::read_to_string(root.join("about/index.html")).unwrap();
     for page in [&home, &about] {
         assert!(
-            page.contains("\"@zerolith/router\":\"/vendor/@zerolith/router/dist/index.js\"")
-                && page.contains("\"zerolith\":\"/vendor/zerolith/dist/index.js\"")
+            page.contains("\"@zerolith/router\":\"/vendor/@zerolith/router@0.0.0/dist/index.js\"")
+                && page.contains("\"zerolith\":\"/vendor/zerolith@0.0.0/dist/index.js\"")
                 && !page.contains("zerolith/ssr"),
             "{page}"
         );
     }
     assert!(
-        home.contains("href=\"/vendor/zerolith/dist/index.js\"")
-            && !home.contains("href=\"/vendor/@zerolith/router/")
+        home.contains("href=\"/vendor/zerolith@0.0.0/dist/index.js\"")
+            && !home.contains("href=\"/vendor/@zerolith/router@0.0.0/")
             && !home.contains("href=\"/src/"),
         "{home}"
     );
     assert!(
         about.contains("href=\"/src/shared.js\" data-zerolith-preload>")
-            && about.contains("href=\"/vendor/@zerolith/router/dist/index.js\"")
-            && about.contains("href=\"/vendor/zerolith/dist/index.js\"")
+            && about.contains("href=\"/vendor/@zerolith/router@0.0.0/dist/index.js\"")
+            && about.contains("href=\"/vendor/zerolith@0.0.0/dist/index.js\"")
             && !about.contains("href=\"/src/about.js\""),
         "{about}"
     );
-    assert!(!root.join("vendor/zerolith/dist/ssr.js").exists());
+    assert!(!root.join("vendor/zerolith@0.0.0/dist/ssr.js").exists());
     let _ = fs::remove_dir_all(&root);
 }
 
@@ -1481,4 +1509,139 @@ fn covers_named_and_prefixed_specifiers() {
     assert!(covers(&map, "lodash/get.js"));
     assert!(!covers(&map, "lit/decorators.js"));
     assert!(!covers(&map, "lodash"));
+}
+
+#[test]
+fn moves_a_package_to_a_folder_of_its_new_version() {
+    let root = std::env::temp_dir().join(format!(
+        "zerolith-importmap-versions-test-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&root);
+    let install = |package: &str, version: &str, code: &str| {
+        let folder = root.join("node_modules").join(package);
+        fs::create_dir_all(folder.join("dist")).unwrap();
+        fs::write(
+            folder.join("package.json"),
+            format!(r#"{{"name":"{package}","version":"{version}","exports":{{".":"./dist/index.js"}}}}"#),
+        )
+        .unwrap();
+        fs::write(folder.join("dist/index.js"), code).unwrap();
+    };
+    install("zerolith", "1.0.0", "export const v=1;\n");
+    install("@zerolith/router", "1.0.0", "export const r=1;\n");
+    let out = std::path::Path::new("vendor");
+    let first = vendor(&root, out, false, None).unwrap();
+    let vendor_folder = root.join("vendor");
+    assert_eq!(
+        first.map.imports["zerolith"],
+        "/vendor/zerolith@1.0.0/dist/index.js"
+    );
+    assert_eq!(
+        first.map.imports["@zerolith/router"],
+        "/vendor/@zerolith/router@1.0.0/dist/index.js"
+    );
+    assert!(vendor_folder.join("zerolith@1.0.0/VERSION").is_file());
+    assert!(
+        vendor_folder
+            .join("@zerolith/router@1.0.0/dist/index.js")
+            .is_file()
+    );
+    assert!(first.stale.is_empty(), "{:?}", first.stale);
+
+    for (path, text) in [
+        ("zerolith/VERSION", "0.9.0\n"),
+        (
+            "zerolith/dist/old.js",
+            "the layout before folders named a version",
+        ),
+        ("@zerolith/router/VERSION", "0.9.0\n"),
+        (
+            "@zerolith/router/dist/old.js",
+            "the layout before folders named a version",
+        ),
+        ("zerolith-extra@1.0.0/VERSION", "1.0.0\n"),
+        ("zerolith-extra@1.0.0/x.js", "another package's"),
+        (
+            "zerolith@9.0.0/x.js",
+            "no VERSION file, so no earlier run wrote it",
+        ),
+        ("lenis/lenis.js", "the site's own"),
+    ] {
+        let file = vendor_folder.join(path);
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(file, text).unwrap();
+    }
+    install("zerolith", "1.1.0", "export const v=2;\n");
+    install("@zerolith/router", "1.1.0", "export const r=2;\n");
+    let second = vendor(&root, out, false, None).unwrap();
+    assert_eq!(
+        second.map.imports["zerolith"],
+        "/vendor/zerolith@1.1.0/dist/index.js"
+    );
+    assert_eq!(
+        second.map.imports["@zerolith/router"],
+        "/vendor/@zerolith/router@1.1.0/dist/index.js"
+    );
+    assert!(
+        second
+            .map
+            .integrity
+            .keys()
+            .all(|url| url.contains("@1.1.0/")),
+        "{:?}",
+        second.map.integrity
+    );
+    assert_eq!(
+        fs::read_to_string(vendor_folder.join("zerolith@1.1.0/dist/index.js")).unwrap(),
+        "export const v=2;\n"
+    );
+    assert_eq!(
+        fs::read_to_string(vendor_folder.join("zerolith@1.0.0/dist/index.js")).unwrap(),
+        "export const v=1;\n",
+        "a page the run has not rewritten yet still finds its files"
+    );
+
+    let page = r#"<html><head><script type="importmap">{"imports":{"zerolith":"/vendor/zerolith@1.0.0/dist/index.js","zerolith/ssr":"/vendor/zerolith/dist/ssr.js","@zerolith/router/server":"/vendor/@zerolith/router@1.0.0/dist/server.js","lenis":"/vendor/lenis/lenis.js","extra":"/vendor/zerolith-extra@1.0.0/x.js"},"integrity":{"/vendor/zerolith@1.0.0/dist/index.js":"sha256-old","/vendor/lenis/lenis.js":"sha256-lenis"}}</script></head></html>"#;
+    let tags = page_tags(&second, "/index.html", page, None);
+    assert!(
+        !tags.contains("@1.0.0/dist") && !tags.contains("/vendor/zerolith/dist"),
+        "{tags}"
+    );
+    assert!(!tags.contains("sha256-old"), "{tags}");
+    assert!(
+        tags.contains(r#""lenis":"/vendor/lenis/lenis.js""#) && tags.contains("sha256-lenis"),
+        "{tags}"
+    );
+    assert!(
+        tags.contains(r#""extra":"/vendor/zerolith-extra@1.0.0/x.js""#),
+        "{tags}"
+    );
+    assert!(
+        tags.contains(r#""zerolith":"/vendor/zerolith@1.1.0/dist/index.js""#),
+        "{tags}"
+    );
+
+    second.prune().unwrap();
+    for gone in [
+        "zerolith@1.0.0",
+        "@zerolith/router@1.0.0",
+        "zerolith",
+        "@zerolith/router",
+    ] {
+        assert!(!vendor_folder.join(gone).exists(), "{gone} stayed");
+    }
+    for kept in [
+        "zerolith@1.1.0/VERSION",
+        "zerolith@1.1.0/dist/index.js",
+        "@zerolith/router@1.1.0/dist/index.js",
+        "zerolith-extra@1.0.0/x.js",
+        "zerolith@9.0.0/x.js",
+        "lenis/lenis.js",
+    ] {
+        assert!(vendor_folder.join(kept).is_file(), "{kept} was removed");
+    }
+    let third = vendor(&root, out, false, None).unwrap();
+    assert!(third.stale.is_empty(), "{:?}", third.stale);
+    let _ = fs::remove_dir_all(&root);
 }

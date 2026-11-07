@@ -81,7 +81,12 @@ fn transforms_renames_rewrites_and_copies() {
             .contains("html(__zl_t0, n)")
     );
     assert_eq!(
-        fs::read_to_string(out.join("vendor/zerolith/dist/scan.js")).unwrap(),
+        fs::read_to_string(out.join(concat!(
+            "vendor/zerolith@",
+            env!("CARGO_PKG_VERSION"),
+            "/dist/scan.js"
+        )))
+        .unwrap(),
         "export const stub = 1;"
     );
     assert!(
@@ -99,7 +104,11 @@ fn transforms_renames_rewrites_and_copies() {
     assert!(
         fs::read_to_string(out.join("index.html"))
             .unwrap()
-            .contains("\"zerolith\":\"/vendor/zerolith/dist/index.js\"")
+            .contains(concat!(
+                "\"zerolith\":\"/vendor/zerolith@",
+                env!("CARGO_PKG_VERSION"),
+                "/dist/index.js\""
+            ))
     );
     assert!(!out.join("node_modules").exists());
     assert!(!out.join("src/main.ts").exists());
@@ -147,7 +156,12 @@ fn transforms_renames_rewrites_and_copies() {
             .contains("html`<p>${n}</p>`")
     );
     assert_eq!(
-        fs::read_to_string(plain.join("vendor/zerolith/dist/scan.js")).unwrap(),
+        fs::read_to_string(plain.join(concat!(
+            "vendor/zerolith@",
+            env!("CARGO_PKG_VERSION"),
+            "/dist/scan.js"
+        )))
+        .unwrap(),
         "export const scanner = 1;"
     );
     let _ = fs::remove_dir_all(&root);
@@ -193,7 +207,7 @@ fn maps_every_page_and_refuses_what_the_output_cannot_serve() {
     for page in ["index.html", "about/index.html"] {
         let written = fs::read_to_string(out.join(page)).unwrap();
         assert!(
-            written.contains("\"zerolith\":\"/vendor/zerolith/dist/index.js\""),
+            written.contains("\"zerolith\":\"/vendor/zerolith@0.0.0/dist/index.js\""),
             "{page}: {written}"
         );
     }
@@ -262,11 +276,14 @@ fn copies_the_projects_vendored_folders_as_they_are_and_writes_the_packages_anew
         ("vendor/lenis/lenis.js", lenis),
         ("vendor/lenis/lenis.css", ".lenis { height: auto; }\n"),
         ("vendor/lenis/package.json", "{\"name\":\"lenis\"}"),
-        ("vendor/zerolith/VERSION", "0.0.0\n"),
-        ("vendor/zerolith/dist/stale.js", "export const stale = 1;"),
-        ("vendor/@zerolith/router/VERSION", "0.0.0\n"),
+        ("vendor/zerolith@0.0.0/VERSION", "0.0.0\n"),
         (
-            "vendor/@zerolith/router/dist/old.js",
+            "vendor/zerolith@0.0.0/dist/stale.js",
+            "export const stale = 1;",
+        ),
+        ("vendor/@zerolith/router@0.0.0/VERSION", "0.0.0\n"),
+        (
+            "vendor/@zerolith/router@0.0.0/dist/old.js",
             "export const old = 1;",
         ),
         ("lib/importmap.json", "{\"imports\":{\"x\":\"/lib/x.js\"}}"),
@@ -289,17 +306,17 @@ fn copies_the_projects_vendored_folders_as_they_are_and_writes_the_packages_anew
     assert!(out.join("lib/importmap.json").is_file());
     assert!(out.join("lib/zerolith/kept.js").is_file());
     for absent in [
-        "vendor/zerolith/dist/stale.js",
-        "vendor/@zerolith/router/dist/old.js",
+        "vendor/zerolith@0.0.0/dist/stale.js",
+        "vendor/@zerolith/router@0.0.0/dist/old.js",
         "vendor/@zerolith",
     ] {
         assert!(!out.join(absent).exists(), "{absent} was copied");
     }
-    assert!(out.join("vendor/zerolith/dist/index.js").is_file());
+    assert!(out.join("vendor/zerolith@0.0.0/dist/index.js").is_file());
     assert!(
         fs::read_to_string(out.join("vendor/importmap.json"))
             .unwrap()
-            .contains("\"zerolith\": \"/vendor/zerolith/dist/index.js\"")
+            .contains("\"zerolith\": \"/vendor/zerolith@0.0.0/dist/index.js\"")
     );
     assert!(
         fs::read_to_string(out.join("vendor/.gitattributes"))
@@ -358,20 +375,20 @@ fn preloads_each_pages_own_modules_and_vendors_what_the_pages_reach() {
     .unwrap();
     let (out, _, warnings) = build(&root, Path::new("dist"), false, false).unwrap();
     assert!(warnings.is_empty(), "{warnings:?}");
-    assert!(!out.join("vendor/zerolith/dist/ssr.js").exists());
+    assert!(!out.join("vendor/zerolith@0.0.0/dist/ssr.js").exists());
     let home = fs::read_to_string(out.join("index.html")).unwrap();
     assert!(
         home.contains("<link rel=\"modulepreload\" href=\"/src/app.js\" data-zerolith-preload>"),
         "{home}"
     );
     assert!(
-        home.contains("<link rel=\"modulepreload\" href=\"/vendor/zerolith/dist/index.js\" integrity=\"sha256-"),
+        home.contains("<link rel=\"modulepreload\" href=\"/vendor/zerolith@0.0.0/dist/index.js\" integrity=\"sha256-"),
         "{home}"
     );
     assert!(!home.contains("href=\"/src/main.js\""), "{home}");
     let about = fs::read_to_string(out.join("about/index.html")).unwrap();
     assert!(
-        about.contains("\"zerolith\":\"/vendor/zerolith/dist/index.js\""),
+        about.contains("\"zerolith\":\"/vendor/zerolith@0.0.0/dist/index.js\""),
         "{about}"
     );
     assert!(!about.contains("modulepreload"), "{about}");
@@ -379,10 +396,10 @@ fn preloads_each_pages_own_modules_and_vendors_what_the_pages_reach() {
 
     fs::write(root.join("src/main.ts"), "export const main = 1;\n").unwrap();
     let (out, _, _) = build(&root, Path::new("dist"), false, false).unwrap();
-    assert!(out.join("vendor/zerolith/dist/ssr.js").is_file());
+    assert!(out.join("vendor/zerolith@0.0.0/dist/ssr.js").is_file());
     let home = fs::read_to_string(out.join("index.html")).unwrap();
     assert!(
-        home.contains("\"zerolith/ssr\":\"/vendor/zerolith/dist/ssr.js\""),
+        home.contains("\"zerolith/ssr\":\"/vendor/zerolith@0.0.0/dist/ssr.js\""),
         "{home}"
     );
     assert!(!home.contains("modulepreload"), "{home}");
@@ -439,7 +456,7 @@ fn warns_of_a_bare_import_no_import_map_covers_and_keeps_the_page_entries() {
         "{page}"
     );
     assert!(
-        page.contains("\"zerolith\":\"/vendor/zerolith/dist/index.js\""),
+        page.contains("\"zerolith\":\"/vendor/zerolith@0.0.0/dist/index.js\""),
         "{page}"
     );
     let _ = fs::remove_dir_all(&root);
