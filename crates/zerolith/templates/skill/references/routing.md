@@ -164,7 +164,7 @@ export const router = createRouter(routes, {
 | `fallback` | Nothing renders | Renders when no route matches, given the URL |
 | `head` | None | The title and description every page starts from, as an object or a function of the URL and the matched route's name; see [Head metadata](#head-metadata) |
 | `base` | `"/"` | The path the application is served under; see [Under a base path](#under-a-base-path) |
-| `onError` | `navigate` rejects | Receives the error and the URL when a loader, a lazy import, or a route's `head` throws, which leaves the page as it was, or when the new page throws as it renders, after the URL changed |
+| `onError` | `navigate` rejects | Receives the error and the URL when a loader, a lazy import, or a route's `head` throws, which leaves the page as it was, or when the new page throws as it renders, after the URL changed, which leaves the outlet empty |
 | `scroll` | `true` | `false` leaves scrolling to the application |
 | `observe` | None | Receives each navigation's start, commit, error, and cancel; see [Observability](observability.md) |
 | `window` | The global window | `null` attaches to none, as on the server |
@@ -239,7 +239,7 @@ A URL whose query differs is another page, and `navigate(url, { reload: true })`
 
 A navigation whose loader fails calls `onError` with the error and the URL; without `onError`, `navigate` rejects, and a navigation a link or the history started rejects unobserved, which the browser reports as an unhandled rejection. A back or forward that fails moves the history back to the entry of the page still shown, so the address bar and the page agree.
 
-A page that throws as it renders fails the navigation after the URL changed; on the server a view renders inside `renderToString`, outside any navigation, so a throw there reaches its caller. The route's `head` runs before the URL changes, so one that throws fails the navigation the same way and leaves the page as it was. A navigation that a newer one replaces before it commits is canceled rather than failed: its loader's `abort` signal fires as the newer one starts, wherever it goes, and `onError` is not called for it.
+A page that throws as it renders fails the navigation after the URL changed: the outlet shows nothing at the new URL, under the new page's head, rather than keeping the page before under a URL it does not match. On the server a view renders inside `renderToString`, outside any navigation, so a throw there reaches its caller. The route's `head` runs before the URL changes, so one that throws fails the navigation the same way and leaves the page as it was. A navigation that a newer one replaces before it commits is canceled rather than failed: its loader's `abort` signal fires as the newer one starts, wherever it goes, and `onError` is not called for it.
 
 ## Under a base path
 

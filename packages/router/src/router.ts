@@ -259,20 +259,41 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
     let matchedView: RouteView<unknown, unknown> | undefined;
     /** True once a navigation has committed, so a page is shown that a navigation to its own URL keeps. */
     let committed = false;
+    /** The commit under way, which records a page view that throws so the commit reports it after the outlet has let go of the page before. */
+    let committing: { failed: boolean; error: unknown } | undefined;
 
+    /**
+     * Shows the resolved page at `target`. A page view that throws leaves
+     * the outlet empty at the new URL, under the new head, rather than
+     * keeping the page before under a URL it does not match, and the commit
+     * then throws its error, so the navigation ends in an `error` event.
+     */
     const commit = (target: URL, resolved: Resolved, value: Head, restored: number | undefined, first: boolean): void =>
     {
         matchedView = resolved.view;
         committed = true;
-        batch(() =>
+        const attempt = { failed: false, error: undefined as unknown };
+        committing = attempt;
+        try
         {
-            url.set(target);
-            current.set(resolved.match);
-            head.set(value);
-            pending.set(false);
-        });
+            batch(() =>
+            {
+                url.set(target);
+                current.set(resolved.match);
+                head.set(value);
+                pending.set(false);
+            });
+        }
+        finally
+        {
+            committing = undefined;
+        }
         applyHead(value);
         scrollTo(target, restored, !first);
+        if (attempt.failed)
+        {
+            throw attempt.error;
+        }
         settleReady?.resolve();
         settleReady = undefined;
     };
@@ -479,7 +500,20 @@ export function createRouter<const T extends RouteTable>(routes: T, options: Rou
         {
             return options.fallback?.(url.get());
         }
-        return view({ params: matched.params, data: matched.data, url: matched.url });
+        try
+        {
+            return view({ params: matched.params, data: matched.data, url: matched.url });
+        }
+        catch (error)
+        {
+            if (committing === undefined)
+            {
+                throw error;
+            }
+            committing.failed = true;
+            committing.error = error;
+            return undefined;
+        }
     }));
 
     return {

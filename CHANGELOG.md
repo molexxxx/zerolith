@@ -20,6 +20,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Fixed
 
+- `@zerolith/router`: a page whose view throws during a navigation leaves the outlet empty at the new URL, under the new page's head, and the navigation fails with the view's error as before, where the page before stayed on screen under a URL it did not match. A view that throws while no navigation runs, as when the outlet is first mounted, still throws from the mount.
 - Docs site: the playground's example list no longer scrolls when the pointer rests on an option at its edge, which moved the next option under the pointer and scrolled again; the pointer only marks an option, and the keyboard and opening the list scroll the list alone, never the page.
 
 - Docs site: every tab of the home page's tour stays in sight on a narrow screen: the tab row wraps onto more lines, where it scrolled sideways inside itself with no scroll bar and hid Server rendering on a phone.

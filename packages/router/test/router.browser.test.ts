@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Renderable, type Root, ZerolithError, effect, html, onDispose, render, signal } from "zerolith";
+import { type Renderable, type Root, type View, ZerolithError, effect, html, onDispose, render, signal } from "zerolith";
 import { type RouteTable, type Router, createRouter, defineRoutes, lazy, route } from "@zerolith/router";
 
 let root: Root | undefined;
@@ -503,6 +503,63 @@ describe("router", () =>
         await slowNavigation;
         expect(location.pathname).toBe("/");
         expect(el.textContent).toBe("home");
+    });
+
+    it("shows no page at the new URL and reports the error when the view navigated to throws", async () =>
+    {
+        history.replaceState(null, "", "/");
+        const onError = vi.fn();
+        const events: string[] = [];
+        const pages = defineRoutes({
+            home: route({ path: "/", view: () => html`<p>home</p>` }),
+            broken: route({
+                path: "/broken",
+                head: { title: "Broken" },
+                view: (): View =>
+                {
+                    throw new Error("view");
+                }
+            })
+        });
+        router = createRouter(pages, { window, onError, observe: (event) => events.push(`${event.type} ${event.url.pathname}`) });
+        await settled(router);
+        const el = mount(html`<main>${router.outlet()}</main>`);
+
+        await router.navigate("/broken");
+        expect(onError).toHaveBeenCalledTimes(1);
+        expect(onError.mock.calls[0]?.[0]).toEqual(new Error("view"));
+        expect(location.pathname).toBe("/broken");
+        expect(router.current.get()?.name).toBe("broken");
+        expect(document.title).toBe("Broken");
+        expect(el.textContent).toBe("");
+        expect(events.slice(-2)).toEqual(["start /broken", "error /broken"]);
+
+        await router.navigate("/");
+        expect(el.textContent).toBe("home");
+        expect(onError).toHaveBeenCalledTimes(1);
+    });
+
+    it("throws a view's error from the mount that renders the outlet when no navigation is running", async () =>
+    {
+        history.replaceState(null, "", "/");
+        let fail = false;
+        const pages = defineRoutes({
+            home: route({
+                path: "/",
+                view: (): View =>
+                {
+                    if (fail)
+                    {
+                        throw new Error("view");
+                    }
+                    return html`<p>home</p>`;
+                }
+            })
+        });
+        router = createRouter(pages, { window, onError: () => undefined });
+        await settled(router);
+        fail = true;
+        expect(() => mount(html`<main>${router?.outlet()}</main>`)).toThrow("view");
     });
 
     it("fails a navigation whose head throws before the URL changes, and leaves another origin to the browser", async () =>

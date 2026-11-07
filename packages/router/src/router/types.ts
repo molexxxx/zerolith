@@ -139,7 +139,7 @@ export interface RouterOptions
      * head as a whole; a field neither gives goes back to what the document had when the router was created, as written in the page.
      */
     head?: Head | ((context: HeadContext) => Head);
-    /** Called when a loader, a lazy import, or a route's `head` throws, which leaves the page as it was, or when the new page throws as it renders, after the URL changed. Without it the error propagates from `navigate()`, and a navigation a link or the history started rejects unobserved, which the browser reports. */
+    /** Called when a loader, a lazy import, or a route's `head` throws, which leaves the page as it was, or when the new page throws as it renders, after the URL changed, which leaves the outlet empty. Without it the error propagates from `navigate()`, and a navigation a link or the history started rejects unobserved, which the browser reports. */
     onError?: (error: unknown, url: URL) => void;
     /** Set false to leave scrolling to the application. Defaults to true. */
     scroll?: boolean;
