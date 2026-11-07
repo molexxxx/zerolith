@@ -5,7 +5,7 @@
  * diagnostics pages from the runtime's own catalog. The home page and the
  * playground are rendered from their own modules. Every page gets a Markdown
  * twin, llms.txt indexes them, every script and module the pages load
- * carries its integrity hash, and a broken internal link or a missing
+ * carries its hash in its address, and a broken internal link or a missing
  * example fails the build.
  */
 import { createHash } from "node:crypto";
@@ -963,20 +963,20 @@ const styles = `${siteStyles()}\n${await readFile(join(lenis, "dist", "lenis.css
 const highlighter = await browserModule("scripts/docs/highlight.ts");
 const scroller = `/*!\n${await readFile(join(lenis, "LICENSE"), "utf8")}*/\n${await browserModule("scripts/docs/smooth.ts", true)}`;
 const fonts = siteFonts();
-const integrity: Record<string, string> = { "/fonts.css": sri(fonts), "/styles.css": sri(styles), "/highlight.js": sri(highlighter), "/smooth.js": sri(scroller) };
+const hashes: Record<string, string> = { "/fonts.css": sri(fonts), "/styles.css": sri(styles), "/highlight.js": sri(highlighter), "/smooth.js": sri(scroller) };
 for (const name of siteScripts)
 {
-    integrity[`/${name}`] = sri(await readFile(join(root, "scripts", "docs", name)));
+    hashes[`/${name}`] = sri(await readFile(join(root, "scripts", "docs", name)));
 }
 for (const [name, text] of coreLoaded)
 {
-    integrity[`/zerolith/${name}`] = sri(text);
+    hashes[`/zerolith/${name}`] = sri(text);
 }
 for (const [name, text] of routerLoaded)
 {
-    integrity[`/router/${name}`] = sri(text);
+    hashes[`/router/${name}`] = sri(text);
 }
-const shared = { version, integrity, image: new URL("social-card.png", siteUrl).href, ...(versionSwitch === undefined ? {} : { versionSwitch }) };
+const shared = { version, hashes, image: new URL("social-card.png", siteUrl).href, ...(versionSwitch === undefined ? {} : { versionSwitch }) };
 const absolute = (path: string): string => new URL(path.slice(1), siteUrl).href;
 const rendered = new Map<string, string>();
 

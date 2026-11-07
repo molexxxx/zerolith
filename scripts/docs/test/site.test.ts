@@ -15,7 +15,7 @@ import { type Entry, group, rank } from "../search.js";
  * Builds the documentation site once, serves it, and drives its islands in
  * headless Chromium: the search, the home page's running figure, the wheel
  * scroller, and the playground, each hydrated or started from the production build through
- * the page's import map with integrity hashes.
+ * the page's import map with versioned addresses.
  */
 
 const run = promisify(execFile);
@@ -1166,7 +1166,7 @@ describe("documentation site", () =>
         expect(fonts.toString("utf8").replace(/url\("data:[^"]+"\)/g, "")).not.toMatch(/[{;]\s*(?!font-|src:)[a-z-]+:/);
     });
 
-    it("keeps a page styled when a browser holds a copy of the stylesheet or the theme script from another deploy", { timeout: 60000 }, async () =>
+    it("keeps a page styled and working when a browser holds a copy of a stylesheet or a script from another deploy", { timeout: 60000 }, async () =>
     {
         const head = await readFile(join(site, "guide", "index.html"), "utf8");
         const stylesheet = /<link rel="stylesheet" href="\/styles\.css\?v=[\w-]+">/.exec(head);
@@ -1194,21 +1194,25 @@ describe("documentation site", () =>
         await page.goto(`${origin}/guide/`, { waitUntil: "load" });
         expect(await page.evaluate(() => getComputedStyle(document.body).margin)).toBe("0px");
         expect(await page.evaluate(() => document.documentElement.getAttribute("data-theme"))).toBe("dark");
+        await page.click("[data-island=\"search\"] .trigger");
+        await page.locator("[data-island=\"search\"] dialog[open]").waitFor();
         expect(errors.filter((error) => error.includes("integrity"))).toEqual([]);
+        await page.unrouteAll({ behavior: "wait" });
         await page.close();
     });
 
-    it("pins every module the pages load with an integrity hash", async () =>
+    it("gives every module the pages load an address that carries its hash, whichever module imports it", async () =>
     {
         const home = await readFile(join(site, "index.html"), "utf8");
-        const map = JSON.parse(/<script type="importmap">([\s\S]*?)<\/script>/.exec(home)?.[1] ?? "{}") as { imports: Record<string, string>; integrity: Record<string, string> };
-        expect(map.imports["zerolith"]).toBe("/zerolith/index.js");
-        expect(map.imports["@zerolith/router"]).toBe("/router/index.js");
-        for (const path of ["/zerolith/index.js", "/router/index.js", "/router/router.js", "/router/match.js", "/island.js", "/search.js", "/demo.js", "/playground.js", "/highlight.js", "/smooth.js"])
+        const map = JSON.parse(/<script type="importmap">([\s\S]*?)<\/script>/.exec(home)?.[1] ?? "{}") as { imports: Record<string, string>; integrity?: Record<string, string> };
+        expect(map.imports["zerolith"]).toMatch(/^\/zerolith\/index\.js\?v=[\w-]+$/);
+        expect(map.imports["@zerolith/router"]).toMatch(/^\/router\/index\.js\?v=[\w-]+$/);
+        for (const path of ["/zerolith/index.js", "/zerolith/render.js", "/router/index.js", "/router/router.js", "/router/match.js", "/island.js", "/search.js", "/demo.js", "/playground.js", "/highlight.js", "/smooth.js"])
         {
-            expect(map.integrity[path], path).toMatch(/^sha384-/);
+            expect(map.imports[path], path).toMatch(new RegExp(`^${path.replace(/\./g, "\\.")}\\?v=[\\w-]+$`));
         }
-        expect(home).toMatch(/<script type="module" src="\/island.js" integrity="sha384-/);
+        expect(map.integrity).toBeUndefined();
+        expect(home).toMatch(/<script type="module" src="\/island\.js\?v=[\w-]+"><\/script>/);
         expect(await readFile(join(site, "smooth.js"), "utf8")).toMatch(/^\/\*!\nThe MIT License\n\nCopyright \(c\) \d{4} darkroom\.engineering\n/);
         expect(await readFile(join(site, "styles.css"), "utf8")).toContain(".lenis.lenis-smooth iframe");
         expect(home).toContain("<link rel=\"canonical\" href=\"https://zerolith.dev/\">");
@@ -1247,9 +1251,9 @@ describe("documentation site", () =>
     it("serves the production builds of the core and the router, and the source map each pinned module names, with its sources inside", async () =>
     {
         const home = await readFile(join(site, "index.html"), "utf8");
-        const map = JSON.parse(/<script type="importmap">([\s\S]*?)<\/script>/.exec(home)?.[1] ?? "{}") as { integrity: Record<string, string> };
+        const map = JSON.parse(/<script type="importmap">([\s\S]*?)<\/script>/.exec(home)?.[1] ?? "{}") as { imports: Record<string, string> };
         let named = 0;
-        for (const path of Object.keys(map.integrity).filter((key) => key.endsWith(".js")))
+        for (const path of Object.keys(map.imports).filter((key) => key.startsWith("/")))
         {
             const file = /\/\/# sourceMappingURL=(\S+)\s*$/.exec(await readFile(join(site, path), "utf8"))?.[1];
             if (file === undefined)

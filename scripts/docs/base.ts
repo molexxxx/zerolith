@@ -19,7 +19,7 @@ export function rebasePath(path: string, base: string): string
     return base === "/" || !path.startsWith("/") || path.startsWith("//") ? path : base + path.slice(1);
 }
 
-/** Rebases the root-relative `href` and `src` attributes of a page, and the addresses and integrity keys of its import map; the header's version switch, marked `data-version-switch`, keeps its address, which names the other release's base already. */
+/** Rebases the root-relative `href` and `src` attributes of a page, and the addresses, the keys that are addresses, and the integrity keys of its import map; the header's version switch, marked `data-version-switch`, keeps its address, which names the other release's base already. */
 export function rebaseHtml(html: string, base: string): string
 {
     if (base === "/")
@@ -31,7 +31,7 @@ export function rebaseHtml(html: string, base: string): string
         .replace(/(<script type="importmap">)([\s\S]*?)(<\/script>)/g, (_, open: string, json: string, close: string) =>
         {
             const map = JSON.parse(json) as { imports?: Record<string, string>; integrity?: Record<string, string> };
-            const imports = Object.fromEntries(Object.entries(map.imports ?? {}).map(([specifier, path]) => [specifier, rebasePath(path, base)]));
+            const imports = Object.fromEntries(Object.entries(map.imports ?? {}).map(([specifier, path]) => [rebasePath(specifier, base), rebasePath(path, base)]));
             const integrity = Object.fromEntries(Object.entries(map.integrity ?? {}).map(([path, hash]) => [rebasePath(path, base), hash]));
             return open + JSON.stringify({ ...map, imports, ...(map.integrity === undefined ? {} : { integrity }) }) + close;
         });

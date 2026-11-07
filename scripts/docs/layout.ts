@@ -131,8 +131,8 @@ export interface PageData
     versionSwitch?: { label: string; base: string };
     /** The repository path of the page's Markdown source, for pages people edit by hand. */
     source?: string;
-    /** Subresource integrity of every script, module, and stylesheet the page loads, by root-relative path. */
-    integrity: Readonly<Record<string, string>>;
+    /** The hash of every script, module, and stylesheet the page loads, by root-relative path, which their addresses carry. */
+    hashes: Readonly<Record<string, string>>;
 }
 
 export const repository = "https://github.com/molexxxx/zerolith";
@@ -281,34 +281,28 @@ export function markdownTwin(path: string): string
     return path.replace(/\/$/, "") + ".md";
 }
 
-/** The `integrity` attribute for a file the page loads, when the build hashed it. */
-function integrityOf(page: PageData, path: string): string
-{
-    const hash = page.integrity[path];
-    return hash === undefined ? "" : ` integrity="${hash}"`;
-}
-
 /**
- * The address of a file that paints the page, carrying a short form of its
- * hash. A page from a new deploy then never takes an older copy from a
- * browser's cache. These files carry no integrity hash: GitHub Pages lets a
- * browser keep a file for ten minutes, so a page and a copy from either side
- * of a deploy could meet, and a browser refuses a file whose hash differs,
- * which leaves the page with no styles at all. The stylesheet comes from the
- * same place as the page, so a hash guards against nothing the page's own
- * markup could not do.
+ * The address of a file the page loads, carrying a short form of its hash. A
+ * page from a new deploy then never takes an older copy from a browser's
+ * cache. These files carry no integrity hash: GitHub Pages lets a browser
+ * keep a file for ten minutes, so a page and a copy from either side of a
+ * deploy could meet, and a browser refuses a file whose hash differs, which
+ * leaves the page with no styles or no scripts. The files come from the same
+ * place as the page, so a hash guards against nothing the page's own markup
+ * could not do.
  */
 function versioned(page: PageData, path: string): string
 {
-    const hash = page.integrity[path];
+    const hash = page.hashes[path];
     return hash === undefined ? path : `${path}?v=${hash.slice(7, 19).replace(/[+/=]/g, "")}`;
 }
 
-/** The import map: `zerolith` and `@zerolith/router` resolve to their production builds, and every module the page can load carries its hash. */
+/** The import map: `zerolith` and `@zerolith/router` resolve to their production builds, and every module the page can load resolves to its versioned address, whichever module imports it, for the reason `versioned` gives. */
 function importMap(page: PageData): string
 {
-    const integrity = Object.fromEntries(Object.entries(page.integrity).filter(([path]) => path.endsWith(".js") && path !== "/theme.js"));
-    return JSON.stringify({ imports: { "zerolith": "/zerolith/index.js", "@zerolith/router": "/router/index.js" }, integrity });
+    const modules = Object.keys(page.hashes).filter((path) => path.endsWith(".js") && path !== "/theme.js");
+    const imports = Object.fromEntries(modules.map((path) => [path, versioned(page, path)]));
+    return JSON.stringify({ imports: { ...imports, "zerolith": versioned(page, "/zerolith/index.js"), "@zerolith/router": versioned(page, "/router/index.js") } });
 }
 
 /** The full HTML document for a page. */
@@ -346,7 +340,7 @@ export function renderPage(page: PageData): string
 <noscript><style>@media (max-width: 960px) { .top { flex-wrap: wrap; height: auto; padding-block: 12px; } .sections { display: flex !important; flex-basis: 100%; flex-wrap: wrap; order: 1; } #sidebar { display: block !important; } .menu-toggle { display: none !important; } }</style></noscript>
 ${renderStyles()}
 <script type="importmap">${importMap(page)}</script>
-<script type="module" src="/island.js"${integrityOf(page, "/island.js")}></script>
+<script type="module" src="${versioned(page, "/island.js")}"></script>
 </head>
 <body>
 ${body}
