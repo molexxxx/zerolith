@@ -115,7 +115,7 @@ The first production site, [media.molex.cloud](https://media.molex.cloud/), runs
 
 ## Documentation
 
-- The [docs site](https://zerolith.dev/), rebuilt with every release: a [tutorial](https://zerolith.dev/learn/) that builds an app step by step, the guides, a [playground](https://zerolith.dev/playground/) that runs zerolith in the browser, the API reference generated from the source, and a page for every diagnostic code.
+- The [docs site](https://zerolith.dev/), rebuilt with every release: [tutorials](https://zerolith.dev/learn/) that each build an app step by step, the guides, a [playground](https://zerolith.dev/playground/) that runs zerolith in the browser, the API reference generated from the source, and a page for every diagnostic code.
 - [Guides](docs/guide/index.md), from [application structure](docs/guide/structure.md) and [building and serving](docs/guide/deploying.md) to [testing](docs/guide/testing.md). `npm run docs` builds them into a site with the generated reference.
 - The [roadmap](docs/ROADMAP.md), the [changelog](CHANGELOG.md), and the [releases](https://github.com/molexxxx/zerolith/releases) with their SBOMs.
 - [Support window and channels](docs/policy/support.md), [releases](docs/policy/releases.md), and [versioning](docs/policy/versioning.md).

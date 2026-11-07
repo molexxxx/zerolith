@@ -1,0 +1,14 @@
+body
+{
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+    color: #222222;
+    font: 1.125rem/1.6 Georgia, serif;
+}
+
+feedback-widget
+{
+    --feedback-accent: #6d28d9;
+    --feedback-radius: 0;
+}

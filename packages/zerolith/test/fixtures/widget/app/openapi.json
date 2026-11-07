@@ -1,0 +1,122 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Feedback",
+        "version": "1.0.0",
+        "description": "What <feedback-widget> sends, and what it expects back."
+    },
+    "paths": {
+        "/feedback": {
+            "post": {
+                "operationId": "sendFeedback",
+                "summary": "Records whether a page helped, and any comment.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Feedback"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The feedback is recorded.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Receipt"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "The body is not valid feedback.",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Problem"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too much feedback from one sender.",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Problem"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Any other failure.",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Problem"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "Feedback": {
+                "type": "object",
+                "required": ["helpful", "page"],
+                "properties": {
+                    "helpful": {
+                        "type": "boolean",
+                        "description": "Whether the page helped."
+                    },
+                    "comment": {
+                        "type": "string",
+                        "maxLength": 1000,
+                        "description": "What the reader wrote, if anything."
+                    },
+                    "page": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000,
+                        "description": "The page the feedback is about."
+                    }
+                }
+            },
+            "Receipt": {
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "The backend's name for the record."
+                    }
+                }
+            },
+            "Problem": {
+                "type": "object",
+                "description": "An RFC 9457 problem details document.",
+                "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "fields": {
+                        "type": "object",
+                        "description": "Messages for each invalid member.",
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": { "type": "string" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

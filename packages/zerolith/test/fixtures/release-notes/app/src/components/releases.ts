@@ -1,0 +1,98 @@
+// The releases, newest first, with a search kept in the page's address.
+import {
+    type View, computed, css, each, effect, html, signal
+} from "zerolith";
+import { debounced } from "@zerolith/state";
+import { router } from "../router.ts";
+import { type Release, releases } from "../store.ts";
+import { LoadStatus } from "./load-status.ts";
+import { PageHeading } from "./page-heading.ts";
+import { ReleaseRow } from "./release-row.ts";
+
+const page = css`
+    search { display: block; margin-top: 1rem; }
+`;
+
+/** The words of a search, in lower case. */
+function wordsOf(search: string): string[]
+{
+    return search.toLowerCase().split(/\s+/).filter((word) => word !== "");
+}
+
+/** Whether a release mentions every word, in its version, summary, or notes. */
+function mentions(release: Release, words: string[]): boolean
+{
+    const text = [release.version, release.summary, ...release.notes]
+        .join(" ").toLowerCase();
+    return words.every((word) => text.includes(word));
+}
+
+/** How many releases a search found, in words. */
+function found(count: number): string
+{
+    if (count === 0)
+    {
+        return "No release matches.";
+    }
+    return count === 1 ? "1 release matches." : `${count} releases match.`;
+}
+
+/** The search an address holds, after `#q=`. */
+function searchIn(address: URL): string
+{
+    return new URLSearchParams(address.hash.slice(1)).get("q") ?? "";
+}
+
+/** Puts a search in the address, unless it is already there. */
+function keepInAddress(search: string): void
+{
+    const address = new URL(location.href);
+    if (search !== searchIn(address))
+    {
+        address.hash = search === ""
+            ? ""
+            : new URLSearchParams({ q: search }).toString();
+        void router.navigate(address.href, { replace: true });
+    }
+}
+
+export function Releases(): View
+{
+    const asked = computed(() => searchIn(router.url.get()));
+    const query = signal("");
+    effect(() => query.set(asked.get()));
+    const settled = debounced(query, 300);
+    effect(() =>
+    {
+        const search = settled.get();
+        if (search === query.get())
+        {
+            keepInAddress(search);
+        }
+    });
+    const words = computed(() => wordsOf(asked.get()));
+    const shown = computed(() => (releases.get() ?? [])
+        .filter((release) => mentions(release, words.get())));
+    const summary = computed(() =>
+        (words.get().length > 0 && releases.get() !== undefined
+            ? found(shown.get().length)
+            : ""));
+    function typed(event: Event): void
+    {
+        query.set((event.currentTarget as HTMLInputElement).value);
+    }
+    return html`
+        <section class=${page}>
+            ${PageHeading({ text: "Release notes" })}
+            <search>
+                <label>Search the notes
+                    <input type="search" .value=${query} @input=${typed}>
+                </label>
+            </search>
+            ${LoadStatus()}
+            <p role="status">${summary}</p>
+            <ul>${each(shown, (release) => release.version,
+                (release) => ReleaseRow({ release }))}
+            </ul>
+        </section>`;
+}

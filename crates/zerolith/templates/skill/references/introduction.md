@@ -7,7 +7,7 @@ zerolith is a standalone frontend framework for single-page applications. State 
 > [!NOTE]
 > zerolith 1.0 is out. Every package's API is frozen at 1.0: a breaking change comes only in a major, after the deprecation notice the [versioning policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/versioning.md) describes.
 
-The guides explain one concept each, with the pattern zerolith uses for it and an example that runs as a test. New to zerolith? The [tutorial](https://zerolith.dev/learn/) builds a small app from an empty folder, one idea per step, and the [playground](https://zerolith.dev/playground/) runs code in your browser.
+The guides explain one concept each, with the pattern zerolith uses for it and an example that runs as a test. New to zerolith? The [tutorials](https://zerolith.dev/learn/) each build a small app from an empty folder, one idea per step, and the [playground](https://zerolith.dev/playground/) runs code in your browser.
 
 ## How it fits together
 

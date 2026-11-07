@@ -1,0 +1,67 @@
+[
+    {
+        "version": "2.3.0",
+        "date": "2026-10-20",
+        "summary": "A calendar of your entries",
+        "notes": [
+            "Browse your entries by day in the new calendar view.",
+            "Days that have an entry show a dot in the calendar.",
+            "Fixed a crash when an entry had an empty title."
+        ]
+    },
+    {
+        "version": "2.2.1",
+        "date": "2026-09-02",
+        "summary": "Fixes for photo import",
+        "notes": [
+            "Photos taken in portrait no longer import sideways.",
+            "Importing a large album no longer stops halfway."
+        ]
+    },
+    {
+        "version": "2.2.0",
+        "date": "2026-08-11",
+        "summary": "Photos in entries",
+        "notes": [
+            "Add photos to an entry from your library or your camera.",
+            "Search now matches the captions of your photos."
+        ]
+    },
+    {
+        "version": "2.1.0",
+        "date": "2026-06-30",
+        "summary": "Export to Markdown and PDF",
+        "notes": [
+            "Export a month of entries as Markdown or as a PDF.",
+            "Exported entries keep their dates and tags."
+        ]
+    },
+    {
+        "version": "2.0.0",
+        "date": "2026-05-04",
+        "summary": "Sync between devices",
+        "notes": [
+            "Entries sync between your phone and your computer.",
+            "Changes made offline sync once you are back online.",
+            "The dark theme now follows your system setting."
+        ]
+    },
+    {
+        "version": "1.1.0",
+        "date": "2026-02-16",
+        "summary": "Tags",
+        "notes": [
+            "Tag an entry with any word, and list entries by tag.",
+            "Fixed the date of entries written just after midnight."
+        ]
+    },
+    {
+        "version": "1.0.0",
+        "date": "2026-01-12",
+        "summary": "The first release",
+        "notes": [
+            "Write an entry for each day, with a title and its text.",
+            "Entries stay on your device."
+        ]
+    }
+]

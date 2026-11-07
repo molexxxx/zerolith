@@ -6,10 +6,12 @@ Every package in this repository is released together and carries the same versi
 
 ### Added
 
+- Docs: three more tutorials, each a small app built step by step from a fresh project and walked end to end on the published 1.2.0, with every file a step shows run by the test suite. Build a sign-up form uses `@zerolith/forms` and `@zerolith/a11y` against a small backend the reader runs; Build a release notes reader uses route parameters, `resource`, `@zerolith/i18n`, and `debounced`; and Build a widget for any backend makes a custom element posting through `@zerolith/client` to an OpenAPI contract, built into one script any page loads.
 - `@zerolith/router`: `createRouter` takes a `failed` option, a view the outlet shows in place of a page whose view throws as a navigation shows it, given the error and the URL, where the outlet could only stay empty. The navigation still fails with the error.
 
 ### Changed
 
+- Docs site: /learn/ lists the tutorials, and each has a folder, a sidebar, and a pager of its own. The packing list moved to /learn/packing-list/, and each of its old step addresses redirects to the new one.
 - Docs: the tutorial's undo step passes `validate` to `stored` with the `isItem` check from the step before, so a saved value that is not a list of items takes the starting items there too.
 
 ### Fixed

@@ -472,8 +472,10 @@ function sidebar(page: Page, pages: Page[]): { label: string; groups: NavGroup[]
 
 /**
  * The tutorials: `docs/learn/index.md` at `/learn/`, which lists them, then
- * each tutorial's folder in the order its `index.md` gives, its pages in
- * their own order. The build fails while the list misses a tutorial.
+ * each tutorial's folder in the order its `index.md` gives, its introduction
+ * first and its steps in their own order, since an introduction's `order`
+ * places the tutorial among the others. The build fails while the list
+ * misses a tutorial.
  */
 async function collectLearn(): Promise<Page[]>
 {
@@ -483,7 +485,8 @@ async function collectLearn(): Promise<Page[]>
         throw new Error("docs/learn/index.md is missing; it lists the tutorials");
     }
     const folders = (await readdir(join(root, "docs", "learn"), { withFileTypes: true })).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
-    const tracks = await Promise.all(folders.map(async (track) => (await collect(`learn/${track}`, "Learn")).map((page): Page => ({ ...page, track }))));
+    const introductionFirst = (pages: Page[], track: string): Page[] => pages.toSorted((a, b) => Number(b.path === `/learn/${track}/`) - Number(a.path === `/learn/${track}/`));
+    const tracks = await Promise.all(folders.map(async (track) => introductionFirst((await collect(`learn/${track}`, "Learn")).map((page): Page => ({ ...page, track })), track)));
     for (const track of folders)
     {
         if (!picker.markdown.includes(`(/learn/${track}/)`))

@@ -1,0 +1,6 @@
+{
+    "$schema": "./node_modules/@zerolith/cli/zerolith.schema.json",
+    "proxy": {
+        "/api": { "target": "http://127.0.0.1:3000", "run": "npm run api" }
+    }
+}
