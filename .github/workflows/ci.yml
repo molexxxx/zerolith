@@ -13,8 +13,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A release line moves with main, so a push of a commit main already holds
+  # skips the checks main's own run makes on it.
+  on-main:
+    name: Already on main
+    if: ${{ github.event_name == 'push' && github.ref_name != 'main' }}
+    runs-on: ubuntu-24.04
+    outputs:
+      contained: ${{ steps.compare.outputs.contained }}
+    steps:
+      - name: Compare with main
+        id: compare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          status="$(gh api "repos/$GITHUB_REPOSITORY/compare/main...$GITHUB_SHA" --jq .status || echo unknown)"
+          case "$status" in
+            identical | behind) contained=true ;;
+            *) contained=false ;;
+          esac
+          echo "main compared with $GITHUB_SHA: $status"
+          echo "contained=$contained" >> "$GITHUB_OUTPUT"
+
   check:
     name: Node ${{ matrix.node }}
+    needs: on-main
+    if: ${{ !cancelled() && needs.on-main.outputs.contained != 'true' }}
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -82,6 +107,8 @@ jobs:
 
   rust:
     name: Rust
+    needs: on-main
+    if: ${{ !cancelled() && needs.on-main.outputs.contained != 'true' }}
     runs-on: ubuntu-24.04
     steps:
       - name: Check out
@@ -138,6 +165,8 @@ jobs:
 
   benchmark:
     name: Benchmark
+    needs: on-main
+    if: ${{ !cancelled() && needs.on-main.outputs.contained != 'true' }}
     runs-on: ubuntu-24.04
     steps:
       - name: Check out
@@ -182,6 +211,8 @@ jobs:
 
   rust-windows:
     name: Rust on Windows
+    needs: on-main
+    if: ${{ !cancelled() && needs.on-main.outputs.contained != 'true' }}
     runs-on: windows-2025
     steps:
       - name: Check out
