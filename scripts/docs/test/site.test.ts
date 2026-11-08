@@ -784,7 +784,8 @@ describe("documentation site", () =>
             ["/learn/packing-list/", "Packing list", 10, true],
             ["/learn/sign-up-form/", "Sign-up form", 8, false],
             ["/learn/release-notes/", "Release notes reader", 8, false],
-            ["/learn/widget/", "Widget for any backend", 9, false]
+            ["/learn/widget/", "Widget for any backend", 9, false],
+            ["/learn/coding-agent/", "Coding agent", 3, false]
         ] as const;
         for (const device of [{ viewport: { width: 1440, height: 900 } }, { viewport: { width: 360, height: 800 } }])
         {

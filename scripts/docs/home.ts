@@ -127,7 +127,7 @@ const tools: Part[] = [
 ];
 
 const ways = [
-    { href: "/learn/", name: "Tutorials", text: "A packing list, a sign-up form, a release notes reader, and a widget for any backend, each from an empty folder to a build, one idea per step." },
+    { href: "/learn/", name: "Tutorials", text: "A packing list, a sign-up form, a release notes reader, and a widget for any backend, each from an empty folder to a build, one idea per step. Then a short one on working with a coding agent." },
     { href: "/guide/", name: "Guide", text: "Every concept with its one pattern and an example that runs as a test." },
     { href: "/playground/", name: "Playground", text: "Edit zerolith in the browser, see it run, and share a link to what you made." },
     { href: "/reference/zerolith/", name: "Reference", text: "Every export of every package, generated from the source." },
