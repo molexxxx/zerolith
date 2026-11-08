@@ -16,7 +16,7 @@ zerolith is a standalone frontend framework. A component is a function that runs
 
 ## Rules
 
-1. **Bind the signal, not its value.** `${count}` stays live; `${count.get()}` reads once and the page never updates. Call `.get()` only inside `computed`, `effect`, a `resource`'s `params`, and event handlers. `zerolith doctor` reports a frozen read as `template_frozen_read`.
+1. **Bind the signal, not its value.** `${count}` stays live; `${count.get()}` reads once and the page never updates. Call `.get()` only inside `computed`, `effect`, a `resource`'s `params`, and event handlers. `zerolith lint`, which the starter's `npm run check` runs, reports a frozen read as `template_frozen_read`.
 2. **A component runs once.** It is a capitalized function returning a view, called when its part of the page is created and never again. Create signals and computed values at its top; derive changing values with `computed` instead of expecting a re-run.
 3. **Change state with `set()` and a new value.** `set` ignores a value equal to the current one under `Object.is`, so mutating an array or object in place changes nothing on the page. Build a new array or object and set it.
 4. **Derive, do not sync.** A value that follows other state is a `computed`. Never keep two signals in step with an `effect`.
@@ -70,6 +70,7 @@ Every error and warning carries a stable code and a page at `https://zerolith.de
 | `npm run check` | The project's gate, where the starter defines it: typecheck, lint, browser tests, and the build |
 | `npm test` | Browser tests with Vitest |
 | `npx zerolith doctor` | Check the page, the import map, and template mistakes before running anything |
+| `npx zerolith lint` | Check the templates alone, failing on any finding; the starter's `lint` script runs it |
 | `npx zerolith skill` | Replace this skill with the one for the installed zerolith, after an upgrade |
 | `npm run build` | Bundle and minify into `dist/` |
 | `npm run preview` | Serve `dist/` as a static host would |

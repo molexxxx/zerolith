@@ -171,12 +171,12 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
     },
     template_component_uncalled:
     {
-        cause: "A function named like a component is bound as a template's content without being called, as ${AddItem}, which the renderer cannot display; `zerolith doctor` and the Vite plugin report it before the code runs, since the type checker cannot tell it from an event handler.",
+        cause: "A function named like a component is bound as a template's content without being called, as ${AddItem}, which the renderer cannot display; `zerolith lint` and the Vite plugin report it before the code runs, since the type checker cannot tell it from an event handler.",
         fix: "Call it, as ${AddItem()}, or write <AddItem /> in JSX."
     },
     template_frozen_read:
     {
-        cause: "A .get() read is bound in a template, so the value was read once when the template was created and never updates; the Vite plugin reports it in development, since the runtime cannot tell a frozen read from a deliberate one.",
+        cause: "A .get() read is bound in a template, so the value was read once when the template was created and never updates; `zerolith lint` and the Vite plugin report it before the code runs, since the runtime cannot tell a frozen read from a deliberate one.",
         fix: "Bind the signal itself, or computed(() => ...) for a derived value; call .get() only inside computed, effect, resource.params, and event handlers."
     },
     image_without_alt:

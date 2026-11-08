@@ -125,4 +125,4 @@ The runtime cannot tell a frozen read from a deliberate one, and it does not rea
 | `frame_without_title` | An `<iframe>` has no `title` |
 | `template_component_uncalled` | A component is bound as content without being called, as `${AddItem}`, which fails when the page renders |
 
-The accessibility codes are the same ones `@zerolith/test` reports at run time, and a project without Vite gets every one of these warnings from `zerolith doctor`, which runs the same checks over its sources. They are warnings, not errors, because a template may read a value once on purpose; `lint: false` turns them off.
+The accessibility codes are the same ones `@zerolith/test` reports at run time, and `zerolith doctor` runs the same checks over a project's sources. The plugin reports them as warnings, so the dev server keeps running, and `lint: false` turns them off. `zerolith lint`, which every starter's `npm run check` runs, reports them as errors.

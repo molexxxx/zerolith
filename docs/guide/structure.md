@@ -92,7 +92,7 @@ A zerolith application. The project develops and builds on the zerolith command 
 ## Commands
 
 - `npm run dev` serves the app with live reload; `npm run build` writes `dist/`; `npm run preview` serves `dist/`.
-- `npm run check` is the gate: typecheck, lint, browser tests, and the build.
+- `npm run check` is the gate: typecheck, lint (oxlint, then `zerolith lint` over the templates), browser tests, and the build.
 - With `@zerolith/client` installed, `npx zerolith-client openapi.json --out src/api.ts` regenerates the typed client from the API contract, in TypeScript, which the build serves in a JavaScript project too; with `@zerolith/i18n` installed, `npx zerolith-i18n messages --out src/messages` regenerates the message modules.
 
 ## Rules

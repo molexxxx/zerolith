@@ -374,6 +374,7 @@ fn writes_the_fullstack_example_as_a_project_of_its_own() {
     for script in ["check", "typecheck", "lint", "test"] {
         assert_eq!(scripts[script], starter["scripts"][script], "{script}");
     }
+    assert_eq!(starter["scripts"]["lint"], "oxlint && zerolith lint");
 
     let framework = env!("CARGO_PKG_VERSION");
     let versions: serde_json::Value = serde_json::from_str(TOOL_VERSIONS).unwrap();

@@ -210,13 +210,13 @@ Fix: Keep JSON values in a stored signal: objects, arrays, strings, numbers, boo
 
 ## template_component_uncalled
 
-Cause: A function named like a component is bound as a template's content without being called, as ${AddItem}, which the renderer cannot display; `zerolith doctor` and the Vite plugin report it before the code runs, since the type checker cannot tell it from an event handler.
+Cause: A function named like a component is bound as a template's content without being called, as ${AddItem}, which the renderer cannot display; `zerolith lint` and the Vite plugin report it before the code runs, since the type checker cannot tell it from an event handler.
 
 Fix: Call it, as ${AddItem()}, or write <AddItem /> in JSX.
 
 ## template_frozen_read
 
-Cause: A .get() read is bound in a template, so the value was read once when the template was created and never updates; the Vite plugin reports it in development, since the runtime cannot tell a frozen read from a deliberate one.
+Cause: A .get() read is bound in a template, so the value was read once when the template was created and never updates; `zerolith lint` and the Vite plugin report it before the code runs, since the runtime cannot tell a frozen read from a deliberate one.
 
 Fix: Bind the signal itself, or computed(() => ...) for a derived value; call .get() only inside computed, effect, resource.params, and event handlers.
 

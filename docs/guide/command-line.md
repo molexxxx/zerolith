@@ -19,6 +19,7 @@ The `zerolith` binary is written in Rust and covers the parts of development tha
 | `zerolith skill` | Writes the zerolith skill for coding agents into a project |
 | `zerolith importmap` | Vendors the packages and writes an import map with integrity hashes |
 | `zerolith doctor` | Checks a project and reports coded findings |
+| `zerolith lint` | Checks the templates in a project's sources and fails on any finding |
 
 ## Installing
 
@@ -395,4 +396,15 @@ Reports coded findings, each with a cause and a fix, as text or as JSON with `--
 
 The import map checks apply only to a page that has a map, as `zerolith importmap` writes one; a page without one is complete, since `dev` resolves the packages and `build` bundles them.
 
-It then runs the template lint of the [Vite plugin](vite.md) over the project's `.js`, `.ts`, `.jsx`, and `.tsx` sources, outside `node_modules`, `vendor`, `dist`, `target`, test folders, and hidden folders, and reports the same warnings with the file, line, and column: `template_frozen_read`, `image_without_alt`, `button_without_name`, and `frame_without_title`. JSX is lowered first, keeping its lines, so a finding in a `.tsx` file points at the line its element starts on. A shared fixture holds the two implementations to the same findings.
+It then runs the template lint of the [Vite plugin](vite.md) over the project's `.js`, `.ts`, `.jsx`, and `.tsx` sources, outside `node_modules`, `vendor`, `dist`, `target`, test folders, and hidden folders, and reports the same warnings with the file, line, and column: `template_frozen_read`, `template_component_uncalled`, `image_without_alt`, `button_without_name`, and `frame_without_title`. JSX is lowered first, keeping its lines, so a finding in a `.tsx` file points at the line its element starts on. A shared fixture holds the two implementations to the same findings.
+
+## lint
+
+```sh
+zerolith lint
+zerolith lint --json
+```
+
+Runs the template lint of `doctor` alone and reports each finding as an error, as text or as JSON with `--json`, so the exit code is 1 when it finds anything. Every project from `zerolith new` runs it in its `lint` script, after oxlint, so `npm run check` stops on a frozen read, a component bound uncalled, or an image, button, or frame without a name.
+
+A value read once on purpose goes in a constant before the template, as `const first = count.get();`, which the lint leaves alone.

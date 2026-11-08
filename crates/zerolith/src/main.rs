@@ -5,8 +5,8 @@
 //! `--unbundled`, writes it file by file with an import map, `preview`
 //! serves the output, `importmap` vendors the installed packages behind an
 //! import map with integrity hashes, `doctor` checks a project for the
-//! mistakes that are easy to make, and `new` writes the standard
-//! application layout.
+//! mistakes that are easy to make, `lint` fails on the template ones, and
+//! `new` writes the standard application layout.
 
 mod backend;
 mod build;
@@ -94,6 +94,14 @@ enum Command {
     },
     /// Check a project: index.html, its import map, the files it points at, and their integrity, then the templates in its sources.
     Doctor {
+        #[arg(default_value = ".")]
+        root: PathBuf,
+        /// Print findings as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Check the templates in a project's sources, as doctor does, and fail on any finding: a frozen read, a component passed uncalled, an image without alt text, a button without a name, or a frame without a title. A project's lint script runs it.
+    Lint {
         #[arg(default_value = ".")]
         root: PathBuf,
         /// Print findings as JSON.
@@ -273,6 +281,7 @@ async fn main() -> ExitCode {
             html,
         } => importmap::run(&root, &out, development, &html),
         Command::Doctor { root, json } => return doctor::run(&root, json),
+        Command::Lint { root, json } => return doctor::run_lint(&root, json),
         Command::Skill { root } => skill::run(&root),
         Command::Build {
             root,

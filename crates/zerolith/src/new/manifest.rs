@@ -65,7 +65,7 @@ const CHECKS: [(&str, &str); 4] = [
         "npm run typecheck && npm run lint && npm test && npm run build",
     ),
     ("typecheck", "tsc -p tsconfig.json"),
-    ("lint", "oxlint"),
+    ("lint", "oxlint && zerolith lint"),
     ("test", "vitest run"),
 ];
 

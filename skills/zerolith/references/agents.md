@@ -37,7 +37,7 @@ which replaces both copies with the skill for the new version; `zerolith doctor`
 
 ## What else an agent can use
 
-- **Diagnostics with their fix.** Every error and warning carries a stable code and a link to its page, which says what happened and what to do, such as [template_frozen_read](https://zerolith.dev/e/template_frozen_read/). `zerolith doctor` reports the same template mistakes before the code runs, and in a project from `zerolith new`, `npm run check` runs the typecheck, the lint, the tests, and the build, so an agent can verify its own work.
+- **Diagnostics with their fix.** Every error and warning carries a stable code and a link to its page, which says what happened and what to do, such as [template_frozen_read](https://zerolith.dev/e/template_frozen_read/). `zerolith lint` and `zerolith doctor` report the same template mistakes before the code runs. In a project from `zerolith new`, `npm run check` runs the typecheck, the lint with `zerolith lint`, the tests, and the build, so an agent can verify its own work. The [coding agent tutorial](https://zerolith.dev/learn/coding-agent/) follows one task from the request to a fix.
 - **The docs as Markdown.** Every page of this site has a Markdown version at its address with `.md` in place of the closing slash, such as [guide/signals.md](https://zerolith.dev/guide/signals.md) for the signals guide. [llms.txt](https://zerolith.dev/llms.txt) lists them all, [llms-full.txt](https://zerolith.dev/llms-full.txt) holds every page but the playground in one file, and [api.json](https://zerolith.dev/api.json) lists every export with its documentation. Point an agent at llms.txt when it works without the skill, as in a project that does not use zerolith yet.
 
 ## Which AGENTS.md is which

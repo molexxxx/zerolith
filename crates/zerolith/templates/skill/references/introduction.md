@@ -115,7 +115,7 @@ count.set(2);
 To show a value derived from signals, bind a computed value, as `${computed(() => item.get().name)}`.
 
 > [!IMPORTANT]
-> Both forms type-check, and at run time a frozen read looks like a deliberate one-time value, so the runtime cannot warn about it. `zerolith doctor` and the Vite plugin find it in the source and report `template_frozen_read`. Call `.get()` only inside `computed`, `effect`, the params of a `resource`, and event handlers.
+> Both forms type-check, and at run time a frozen read looks like a deliberate one-time value, so the runtime cannot warn about it. `zerolith lint`, which a starter's `npm run check` runs, finds it in the source and reports `template_frozen_read`, as `zerolith doctor` and the Vite plugin do. Call `.get()` only inside `computed`, `effect`, the params of a `resource`, and event handlers.
 
 ## Putting it on the page
 

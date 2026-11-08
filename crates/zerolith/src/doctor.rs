@@ -288,7 +288,27 @@ fn page_checks(root: &Path) -> Vec<Finding> {
 
 /// Runs the `doctor` command and maps findings to an exit code.
 pub fn run(root: &Path, json: bool) -> ExitCode {
-    let findings = check(root);
+    report("doctor", root, &check(root), json)
+}
+
+/// The template findings of `lint_sources`, each an error, since a project's checks fail on them.
+pub(crate) fn template_errors(root: &Path) -> Vec<Finding> {
+    lint_sources(root)
+        .into_iter()
+        .map(|finding| Finding {
+            severity: "error",
+            ..finding
+        })
+        .collect()
+}
+
+/// Runs the `lint` command: the template lint alone, failing on any finding.
+pub fn run_lint(root: &Path, json: bool) -> ExitCode {
+    report("lint", root, &template_errors(root), json)
+}
+
+/// Prints findings under the command's heading, or as JSON, and exits with 1 when any is an error.
+fn report(command: &str, root: &Path, findings: &[Finding], json: bool) -> ExitCode {
     if json {
         println!(
             "{}",
@@ -298,9 +318,9 @@ pub fn run(root: &Path, json: bool) -> ExitCode {
         let shown = crate::css::canonical(root).unwrap_or_else(|_| root.to_path_buf());
         anstream::println!(
             "{}",
-            term::heading("doctor", &crate::server::display(&shown))
+            term::heading(command, &crate::server::display(&shown))
         );
-        for finding in &findings {
+        for finding in findings {
             let style: fn(&str) -> String = match finding.severity {
                 "error" => term::failure,
                 "warning" => term::caution,
@@ -454,6 +474,14 @@ export const view = html`<p>${count.get()}</p>`;
         );
         assert!(findings.iter().all(|finding| finding.severity == "warning"));
         assert!(findings[0].fix.ends_with("/e/template_frozen_read/"));
+        let errors = super::template_errors(&root);
+        let pairs = |list: &[super::Finding]| -> Vec<(&str, String)> {
+            list.iter()
+                .map(|finding| (finding.code, finding.cause.clone()))
+                .collect()
+        };
+        assert_eq!(pairs(&errors), pairs(&findings));
+        assert!(errors.iter().all(|finding| finding.severity == "error"));
         let _ = fs::remove_dir_all(&root);
     }
 
