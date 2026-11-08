@@ -2,10 +2,19 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
-## Unreleased
+## 1.6.0 (2026-11-07)
+
+A minor release from `main`: `zerolith lint` checks a project's templates and fails on any finding, and every new project's `npm run check` runs it, so a frozen read stops the check. A fifth tutorial follows a coding agent from a request to a fix, and the other four are rewritten in plain language.
+
+### Added
+
+- `@zerolith/cli` and the `zerolith` crate: `zerolith lint` runs the template lint of `zerolith doctor` alone and exits with 1 on any finding: a frozen read, a component bound without being called, or an image, button, or frame without a name. `--json` prints the findings as JSON. `zerolith doctor` is unchanged, so its warnings, such as `skill_outdated` after an upgrade, still exit with 0.
+- Docs: a fifth tutorial, Coding agent, asks an agent for a page in a new project, checks what it wrote, and has it fix a frozen read from the code `npm run check` prints.
 
 ### Fixed
 
+- `@zerolith/cli` and the `zerolith` crate: a new project's `lint` script runs `oxlint && zerolith lint`, so `npm run check`, the gate its AGENTS.md names, fails on a template mistake that type-checks, where it passed unless a test happened to cover it. An existing project gets the same by adding `&& zerolith lint` to its `lint` script.
+- Docs: the four tutorials are rewritten in plain language, with terms defined where they first appear and a Try it section in every step.
 - Docs: in the packing list, an item added while Packed is selected switches the filter back to All, where it was added out of sight, and the release notes reader's search step uses the `/releases/:version` route the other steps use.
 - `@zerolith/router`, `@zerolith/cli`, and `@zerolith/vite`: the READMEs name `focus`, `shallow`, `failed`, and a table given as a function; `zerolith build --entry`; and the lint for a component bound without being called.
 

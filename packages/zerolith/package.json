@@ -1,6 +1,6 @@
 {
     "name": "zerolith",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "description": "A standalone frontend framework: fine-grained signals and HTML templates that run from an import map or a bundle with no second-class path",
     "license": "Apache-2.0",
     "author": "molexxxx",
