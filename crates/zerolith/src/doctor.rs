@@ -8,6 +8,7 @@ use std::process::ExitCode;
 use oxc_span::SourceType;
 use serde::Serialize;
 
+use crate::exports::{self, Binding};
 use crate::importmap::{ImportMap, PACKAGES, import_map_of, integrity};
 use crate::scan::DIAGNOSTIC_URL;
 use crate::{build, lint, skill, term, transform};
@@ -106,6 +107,11 @@ pub(crate) fn lint_sources(root: &Path) -> Vec<Finding> {
             .to_string_lossy()
             .replace('\\', "/");
         for finding in lint::lint(&code, source_type) {
+            if finding.code == "template_component_uncalled"
+                && !names_a_function(&file, &code, source_type, finding.offset)
+            {
+                continue;
+            }
             let (line, column) = lint::position(&code, finding.offset);
             findings.push(warning(
                 finding.code,
@@ -115,6 +121,81 @@ pub(crate) fn lint_sources(root: &Path) -> Vec<Finding> {
         }
     }
     findings
+}
+
+/// How many imports and re-exports the lint follows to find the module that defines a component.
+const FOLLOWED: usize = 8;
+
+/// The extensions a project's modules use, tried after a specifier that names no file.
+const MODULE_EXTENSIONS: [&str; 6] = ["ts", "tsx", "js", "jsx", "mts", "mjs"];
+
+/// The source type a module parses as, by its extension.
+fn source_type_of(path: &Path) -> SourceType {
+    match path.extension().and_then(|extension| extension.to_str()) {
+        Some("tsx") => SourceType::tsx(),
+        Some("jsx") => SourceType::jsx(),
+        Some("ts" | "mts") => SourceType::ts(),
+        _ => SourceType::mjs(),
+    }
+}
+
+/// The module file a relative specifier names from the module at `from`: the path as written, with one of the module extensions, or the index module of a folder. A package specifier names none.
+fn resolve(from: &Path, specifier: &str) -> Option<PathBuf> {
+    if !specifier.starts_with('.') {
+        return None;
+    }
+    let base = from.parent()?.join(specifier);
+    if base.is_file() {
+        return Some(base);
+    }
+    MODULE_EXTENSIONS
+        .iter()
+        .map(|extension| {
+            let mut path = base.clone().into_os_string();
+            path.push(format!(".{extension}"));
+            PathBuf::from(path)
+        })
+        .chain(
+            MODULE_EXTENSIONS
+                .iter()
+                .map(|extension| base.join(format!("index.{extension}"))),
+        )
+        .find(|candidate| candidate.is_file())
+}
+
+/// Whether the module at `file` exports `name` as a function or a class, following imports and re-exports within the project; `None` when the chain leaves the project, a module cannot be read, or it runs past `FOLLOWED` steps.
+fn exports_function(file: &Path, name: &str, depth: usize) -> Option<bool> {
+    if depth > FOLLOWED {
+        return None;
+    }
+    let source = fs::read_to_string(file).ok()?;
+    match exports::export(&source, source_type_of(file), name)? {
+        Binding::Function => Some(true),
+        Binding::Value => Some(false),
+        Binding::From { specifier, name } => {
+            exports_function(&resolve(file, &specifier)?, &name, depth + 1)
+        }
+        Binding::Stars(specifiers) => specifiers
+            .iter()
+            .find_map(|specifier| exports_function(&resolve(file, specifier)?, name, depth + 1)),
+    }
+}
+
+/// Whether the capitalized name a `template_component_uncalled` finding points at is a function: one the module defines, or one the project module it imports the name from exports as a function. An imported constant, or a name from a package, is not reported.
+fn names_a_function(file: &Path, code: &str, source_type: SourceType, offset: u32) -> bool {
+    let name: String = code
+        .get(offset as usize..)
+        .unwrap_or("")
+        .chars()
+        .take_while(|c| c.is_alphanumeric() || *c == '_' || *c == '$')
+        .collect();
+    match exports::local(code, source_type, &name) {
+        Some(Binding::From { specifier, name }) => {
+            resolve(file, &specifier).and_then(|module| exports_function(&module, &name, 0))
+                == Some(true)
+        }
+        _ => true,
+    }
 }
 
 /// The value of a double-quoted attribute in one tag.
@@ -482,6 +563,59 @@ export const view = html`<p>${count.get()}</p>`;
         };
         assert_eq!(pairs(&errors), pairs(&findings));
         assert!(errors.iter().all(|finding| finding.severity == "error"));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn reports_an_imported_name_only_when_its_module_exports_a_function() {
+        let root = std::env::temp_dir().join(format!(
+            "zerolith-doctor-imports-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("src/parts")).unwrap();
+        fs::write(
+            root.join("src/config.ts"),
+            "import { html } from \"zerolith\";\nexport const APP_NAME = \"Tips\";\nexport const Logo = html`<b>Tips</b>`;\nexport function Footer() { return html`<p></p>`; }\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("src/parts/index.ts"),
+            "export { Footer as Bottom, Logo as Mark } from \"../config.ts\";\nexport * from \"./more.ts\";\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("src/parts/more.ts"),
+            "import { html } from \"zerolith\";\nexport const Side = () => html`<aside></aside>`;\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("src/card.ts"),
+            "import { html } from \"zerolith\";\nconst Card = () => html`<div></div>`;\nexport default Card;\n",
+        )
+        .unwrap();
+        let line = "export const page = html`${APP_NAME}${Logo}${Footer}${Bottom}${Mark}${Side}${Card}${Widget}${Local}`;";
+        fs::write(
+            root.join("src/page.ts"),
+            format!(
+                "import {{ html }} from \"zerolith\";\nimport {{ APP_NAME, Footer, Logo }} from \"./config.ts\";\nimport {{ Bottom, Mark, Side }} from \"./parts\";\nimport Card from \"./card.ts\";\nimport {{ Widget }} from \"some-package\";\nfunction Local() {{ return html``; }}\n{line}\n"
+            ),
+        )
+        .unwrap();
+        let at = |name: &str| {
+            let column = line.find(&format!("${{{name}}}")).unwrap() + 3;
+            format!("src/page.ts:7:{column}")
+        };
+        let reported: Vec<String> = super::lint_sources(&root)
+            .iter()
+            .filter(|finding| finding.code == "template_component_uncalled")
+            .map(|finding| finding.cause.split(": ").next().unwrap_or("").to_string())
+            .collect();
+        let expected: Vec<String> = ["Footer", "Bottom", "Side", "Card", "Local"]
+            .iter()
+            .map(|name| at(name))
+            .collect();
+        assert_eq!(reported, expected);
         let _ = fs::remove_dir_all(&root);
     }
 

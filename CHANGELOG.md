@@ -13,6 +13,7 @@ A minor release from `main`: `zerolith lint` checks a project's templates and fa
 
 ### Fixed
 
+- `@zerolith/cli` and the `zerolith` crate: across a project, `zerolith lint` and `zerolith doctor` report a capitalized name a module imports as a component bound uncalled only when the module it comes from exports a function or a class under that name, following re-exports and `export *`, so an imported constant such as `${APP_NAME}`, or a view held in a `const`, is no longer reported. The Vite plugin, which reads one module at a time, still warns on every imported capitalized name.
 - `@zerolith/cli` and the `zerolith` crate: a new project's `lint` script runs `oxlint && zerolith lint`, so `npm run check`, the gate its AGENTS.md names, fails on a template mistake that type-checks, where it passed unless a test happened to cover it. An existing project gets the same by adding `&& zerolith lint` to its `lint` script.
 - Docs: the four tutorials are rewritten in plain language, with terms defined where they first appear and a Try it section in every step.
 - Docs: in the packing list, an item added while Packed is selected switches the filter back to All, where it was added out of sight, and the release notes reader's search step uses the `/releases/:version` route the other steps use.

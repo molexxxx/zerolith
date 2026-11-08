@@ -14,6 +14,7 @@ mod config;
 mod css;
 mod doctor;
 mod env;
+mod exports;
 mod html;
 mod importmap;
 mod lint;
