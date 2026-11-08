@@ -718,6 +718,7 @@ export function Home(data: HomeData): View
                 </div>
             </div>
             <figure class="figure" aria-label="Launch control running on this page: its code, the rocket, the signal graph each change runs along, and what each change did to the DOM">
+                <p class="cue">The rocket is LaunchControl(), a zerolith component running on this page beside its code. Press Launch: each change updates only the text it touches, and the counters show it.</p>
                 <div class="code" data-language="js"><pre tabindex="0" role="region" aria-label="Launch control's code" data-scroll-on-focus><code>${unsafeHtml(data.figureCode)}</code></pre></div>
                 <div class="run" data-island="figure">${Figure()}</div>
                 <div class="flow">${unsafeHtml(flowSvg())}${unsafeHtml(flowSvgTall())}<p class="flow-key">Solid: a change runs along it. Dashed: read on each tick, not tracked; it moves while the clock reads it.</p></div>

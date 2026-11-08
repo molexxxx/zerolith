@@ -134,12 +134,11 @@ export function Figure()
 {
     return html`
         <div class="output">${counted()}</div>
-        <p class="cue">The page called LaunchControl() once to draw this panel. Press Launch: from here, each change updates only the text it touches.</p>
         <dl class="readout">
-            <div><dt>Text nodes changed</dt><dd>${textNodes}</dd></div>
-            <div><dt>Attributes changed</dt><dd>${attributes}</dd></div>
-            <div><dt>Elements created</dt><dd>${elements}</dd></div>
-            <div><dt>LaunchControl() calls</dt><dd>${calls}</dd></div>
+            <div><dt>Text nodes changed</dt><dd>${textNodes}</dd><dd class="meaning">Each one a binding updating its own text</dd></div>
+            <div><dt>Attributes changed</dt><dd>${attributes}</dd><dd class="meaning">The two bars, each value set in place</dd></div>
+            <div><dt>Elements created</dt><dd>${elements}</dd><dd class="meaning">Stays at 0: nothing is rebuilt</dd></div>
+            <div><dt>LaunchControl() calls</dt><dd>${calls}</dd><dd class="meaning">Stays at 1: the component never runs again</dd></div>
         </dl>`;
 }
 

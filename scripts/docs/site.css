@@ -1719,9 +1719,9 @@ main[tabindex="-1"]:focus
     display: grid;
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
     grid-template-areas:
+        "cue cue"
         "code run"
         "code readout"
-        "cue cue"
         "flow flow";
     margin: 0;
 }
@@ -2557,9 +2557,9 @@ main[tabindex="-1"]:focus
     margin: 0;
     padding: var(--zl-space-3) var(--zl-space-4);
     border: var(--zl-rule) solid var(--zl-line);
-    border-top: 0;
+    border-bottom: 0;
     background: var(--zl-surface);
-    color: var(--zl-text-muted);
+    color: var(--zl-text);
     font-size: var(--zl-text-sm);
 }
 
@@ -2606,6 +2606,14 @@ main[tabindex="-1"]:focus
     font-size: var(--zl-text-xl);
     font-variant-numeric: tabular-nums;
     line-height: 1;
+}
+
+.readout dd.meaning
+{
+    color: var(--zl-text-muted);
+    font-family: inherit;
+    font-size: var(--zl-text-xs);
+    line-height: var(--zl-leading-text);
 }
 
 .scores figcaption
@@ -3432,9 +3440,9 @@ article .tracks li
     .figure
     {
         grid-template-areas:
+            "cue"
             "code"
             "run"
-            "cue"
             "readout"
             "flow";
     }

@@ -193,7 +193,7 @@ describe("documentation site", () =>
     it("runs launch control on the home page, totals what each change did to the DOM, and draws it only when the reader acts", { timeout: 60000 }, async () =>
     {
         const { page, errors } = await open("/");
-        const readout = (): Promise<string[]> => page.$$eval(".readout dd", (values) => values.map((value) => value.textContent ?? ""));
+        const readout = (): Promise<string[]> => page.$$eval(".readout dd:not(.meaning)", (values) => values.map((value) => value.textContent ?? ""));
         const drawing = (): Promise<number> => page.evaluate(() => document.querySelector(".flow .landscape")?.getAnimations({ subtree: true }).length ?? 0);
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
         expect(await readout()).toEqual(["0", "0", "0", "1"]);
@@ -874,7 +874,7 @@ describe("documentation site", () =>
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
         await page.click(".run .output button");
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.startsWith("T-") === true);
-        await page.waitForFunction(() => Number(document.querySelector(".readout dd")?.textContent) > 0);
+        await page.waitForFunction(() => Number(document.querySelector(".readout dd:not(.meaning)")?.textContent) > 0);
         await page.click(".run .output button");
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Aborted");
         expect(await kept()).toBe(true);
@@ -1048,17 +1048,18 @@ describe("documentation site", () =>
         await page.waitForFunction(() => document.documentElement.classList.contains("lenis"));
         const pane = page.locator(".figure .code pre");
         await pane.hover();
+        const start = await page.evaluate(() => Math.round(scrollY));
         await page.mouse.wheel(0, 300);
-        await expect.poll(() => page.evaluate(() => Math.round(scrollY))).toBe(300);
+        await expect.poll(() => page.evaluate(() => Math.round(scrollY))).toBe(start + 300);
         expect(await pane.evaluate((element) => element.scrollTop)).toBe(0);
 
         const box = await pane.boundingBox();
         expect(box).not.toBeNull();
-        await page.mouse.click((box?.x ?? 0) + 40, (box?.y ?? 0) + 40);
+        await page.mouse.click((box?.x ?? 0) + 40, (box?.y ?? 0) + 200);
         expect(await pane.evaluate((element) => element === document.activeElement)).toBe(true);
         await page.mouse.wheel(0, 200);
         await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-        expect(await page.evaluate(() => Math.round(scrollY))).toBe(300);
+        expect(await page.evaluate(() => Math.round(scrollY))).toBe(start + 300);
         expect(errors).toEqual([]);
         await page.close();
     });
