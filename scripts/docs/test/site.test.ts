@@ -248,6 +248,11 @@ describe("documentation site", () =>
         await page.focus(".figure .code pre");
         await page.keyboard.press("Tab");
         expect(await paired()).toEqual(["dom-throttle", "dom-throttle", "label", "throttle", "throttle", "throttle", "throttle"]);
+        for (const label of await page.locator(".figure .pane-label").all())
+        {
+            await label.hover();
+            expect(await label.evaluate((element) => getComputedStyle(element).transform)).toBe("none");
+        }
         expect(errors).toEqual([]);
         await page.close();
     });

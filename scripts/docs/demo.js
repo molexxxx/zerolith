@@ -150,9 +150,9 @@ const spoken = computed(() =>
 export function Figure()
 {
     return html`
-        <div class="output"><p class="part">LaunchControl() · running on this page</p>${counted()}</div>
+        <div class="output"><p class="pane-label">LaunchControl() · running on this page</p>${counted()}</div>
         <div class="readout">
-            <p class="part">Measured on the panel</p>
+            <p class="pane-label">Measured on the panel</p>
             <dl>
                 <div class="claim" data-count="calls"><dt>LaunchControl() calls</dt><dd>${calls}</dd></div>
                 <div class="claim" data-count="elements"><dt>Elements created</dt><dd>${elements}</dd></div>
@@ -228,7 +228,7 @@ function nameOf(element, output)
     {
         return node;
     }
-    if (!output.contains(element) || element.closest(".part") !== null)
+    if (!output.contains(element) || element.closest(".pane-label") !== null)
     {
         return undefined;
     }

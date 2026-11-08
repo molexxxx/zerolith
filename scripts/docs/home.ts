@@ -719,9 +719,9 @@ export function Home(data: HomeData): View
             </div>
             <figure class="figure" aria-label="Launch control running on this page: its code, the panel its template draws, the counters that measure the panel, and the signal graph a change runs along to reach it">
                 <p class="cue">LaunchControl() runs on this page. Press Launch, then follow the same change through its code, the counters, and the signal graph. Point at a part of the panel to find it in each.</p>
-                <div class="code" data-language="js"><p class="part">Its code · the template draws the panel</p><pre tabindex="0" role="region" aria-label="Launch control's code" data-scroll-on-focus><code>${unsafeHtml(data.figureCode)}</code></pre></div>
+                <div class="code" data-language="js"><p class="pane-label">Its code · the template draws the panel</p><pre tabindex="0" role="region" aria-label="Launch control's code" data-scroll-on-focus><code>${unsafeHtml(data.figureCode)}</code></pre></div>
                 <div class="run" data-island="figure">${Figure()}</div>
-                <div class="flow"><p class="part">How a change reaches the panel</p><p class="visually-hidden">Pressing Launch writes the stage. While the stage is live, the clock effect writes the countdown, the altitude, and the fuel on each tick; the readout follows them into the panel's display, the bars take the altitude and the fuel, and the button's label follows whether the stage is live.</p>${unsafeHtml(flowSvg())}${unsafeHtml(flowSvgTall())}<p class="flow-key">Solid: a change runs along it. Dashed: read on each tick, not tracked; it moves while the clock reads it.</p></div>
+                <div class="flow"><p class="pane-label">How a change reaches the panel</p><p class="visually-hidden">Pressing Launch writes the stage. While the stage is live, the clock effect writes the countdown, the altitude, and the fuel on each tick; the readout follows them into the panel's display, the bars take the altitude and the fuel, and the button's label follows whether the stage is live.</p>${unsafeHtml(flowSvg())}${unsafeHtml(flowSvgTall())}<p class="flow-key">Solid: a change runs along it. Dashed: read on each tick, not tracked; it moves while the clock reads it.</p></div>
             </figure>
         </section>
         ${Tour(data.tour)}

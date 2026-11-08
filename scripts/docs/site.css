@@ -1742,7 +1742,7 @@ main[tabindex="-1"]:focus
     overflow: auto;
 }
 
-.figure .part
+.figure .pane-label
 {
     margin: 0;
     padding: var(--zl-space-2) var(--zl-space-4);
@@ -1754,14 +1754,14 @@ main[tabindex="-1"]:focus
     text-transform: uppercase;
 }
 
-.figure > .code .part
+.figure > .code .pane-label
 {
     border: var(--zl-rule) solid var(--zl-line);
     border-bottom: 0;
     background: var(--zl-code-bg);
 }
 
-.run .output > .part
+.run .output > .pane-label
 {
     margin: calc(-1 * var(--inset-y)) calc(-1 * var(--inset-x)) var(--zl-space-3);
     border-bottom: var(--zl-rule) solid var(--zl-line);
@@ -1917,7 +1917,7 @@ main[tabindex="-1"]:focus
     background: var(--zl-surface);
 }
 
-.flow > .part
+.flow > .pane-label
 {
     margin: calc(-1 * var(--inset-y)) calc(-1 * var(--inset-x)) var(--zl-space-3);
     border-bottom: var(--zl-rule) solid var(--zl-line);
@@ -2633,7 +2633,7 @@ main[tabindex="-1"]:focus
     background: var(--zl-surface);
 }
 
-.readout > .part
+.readout > .pane-label
 {
     border-bottom: var(--zl-rule) solid var(--zl-line);
 }
@@ -3534,7 +3534,7 @@ article .tracks li
         border-bottom: var(--zl-rule) solid var(--zl-line);
     }
 
-    .figure > .code .part
+    .figure > .code .pane-label
     {
         border-top: 0;
     }
@@ -3900,7 +3900,6 @@ article .tracks li
     .icon,
     .icon svg,
     .menu-toggle,
-    .part,
     .pager a,
     .tour [role="tab"],
     .run .output button,
@@ -3921,7 +3920,6 @@ article .tracks li
     }
 
     .button:hover,
-    .part:hover,
     .pager a:hover
     {
         transform: translateY(-2px);
