@@ -728,7 +728,8 @@ async function browserModule(file: string, minify = false): Promise<string>
  * The figure's code from demo.js, highlighted: each binding the template
  * makes is marked with `data-signal` for the readout, and the lines of each
  * function the figure animates with `data-run`, so the page can show which
- * code a change ran.
+ * code a change ran, and the template that draws the panel as `template`.
+ * A narrow screen wraps the code after a `.` or a `(`, never inside a name.
  */
 async function figureCode(): Promise<string>
 {
@@ -773,7 +774,9 @@ async function figureCode(): Promise<string>
     mark("clock", (text) => text === "    effect(() =>", (text) => text === "    });");
     single("press", "    const press = ");
     single("steer", "    const steer = ");
+    mark("template", (text) => text === "    return html`", (text) => text.endsWith("</button>`;"));
     return html
+        .replace(/(^|>)([^<]+)/g, (_, open: string, text: string) => open + text.replace(/([.(])(?=\S)/g, "$1<wbr>"))
         .split("\n")
         .map((line, index) =>
         {

@@ -193,10 +193,11 @@ describe("documentation site", () =>
     it("runs launch control on the home page, totals what each change did to the DOM, and draws it only when the reader acts", { timeout: 60000 }, async () =>
     {
         const { page, errors } = await open("/");
-        const readout = (): Promise<string[]> => page.$$eval(".readout dd:not(.meaning)", (values) => values.map((value) => value.textContent ?? ""));
+        const readout = (): Promise<string[]> => page.$$eval(".readout dd", (values) => values.map((value) => value.textContent ?? ""));
         const drawing = (): Promise<number> => page.evaluate(() => document.querySelector(".flow .landscape")?.getAnimations({ subtree: true }).length ?? 0);
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
-        expect(await readout()).toEqual(["0", "0", "0", "1"]);
+        expect(await readout()).toEqual(["1", "0", "0", "0"]);
+        expect(await page.textContent(".run [aria-live]")).toBe("");
         expect(await drawing()).toBe(0);
         await page.locator(".run .output input[type=\"range\"]").fill("90");
         await page.waitForFunction(() => document.querySelector(".run .output label:nth-of-type(3)")?.textContent?.includes("90%") === true);
@@ -208,14 +209,45 @@ describe("documentation site", () =>
         await page.click(".run .output button");
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Aborted");
         expect(await page.textContent(".run .output button")).toBe("Launch");
+        const [stoppedCalls, stoppedCreated, stoppedTexts, stoppedAttributes] = await readout();
+        expect(await page.textContent(".run [aria-live]")).toBe(`Aborted. ${stoppedTexts} text nodes and ${stoppedAttributes} attributes changed, ${stoppedCreated} elements created, and LaunchControl() ran ${stoppedCalls} time.`);
         await page.click(".run .output button");
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.startsWith("T-") === true);
-        const [texts, , created, calls] = await readout();
+        expect(await page.textContent(".run [aria-live]")).toBe("Countdown");
+        const [calls, created, texts] = await readout();
         expect(Number(texts)).toBeGreaterThan(3);
         expect(created).toBe("0");
         expect(calls).toBe("1");
         expect(await page.textContent(".run .output button")).toBe("Abort");
         expect(await page.locator(".figure code [data-signal]").count()).toBe(6);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("opens launch control's code on the template that draws the panel, and marks a part of the panel in the code and the flow", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/");
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
+        await page.waitForFunction(() => (document.querySelector(".figure .code pre")?.scrollTop ?? 0) > 0);
+        expect(await page.$eval(".figure .code pre", (pane) =>
+        {
+            const box = pane.getBoundingClientRect();
+            const lines = Array.from(pane.querySelectorAll("[data-run~=\"template\"]"), (line) => line.getBoundingClientRect());
+            return { lines: lines.length, shown: lines.every((line) => line.top >= box.top && line.bottom <= box.bottom) };
+        })).toEqual({ lines: 16, shown: true });
+        const paired = () => page.$$eval("[data-paired]", (marked) => marked.map((element) => element.getAttribute("data-signal") ?? element.getAttribute("data-node") ?? element.tagName.toLowerCase()).toSorted());
+        await page.hover(".run .output progress >> nth=1");
+        expect(await paired()).toEqual(["dom-fuel", "dom-fuel", "fuel", "fuel", "fuel", "progress"]);
+        await page.hover(".figure code [data-signal=\"readout\"]");
+        expect(await paired()).toEqual(["dom-readout", "dom-readout", "p", "readout", "readout", "readout"]);
+        await page.hover(".flow .landscape [data-node=\"dom-action\"]");
+        expect(await paired()).toEqual(["action", "action", "action", "button", "dom-action", "dom-action"]);
+        await page.mouse.move(0, 0);
+        expect(await paired()).toEqual([]);
+        await page.focus(".figure .code pre");
+        await page.keyboard.press("Tab");
+        expect(await paired()).toEqual(["dom-throttle", "dom-throttle", "label", "throttle", "throttle", "throttle", "throttle"]);
         expect(errors).toEqual([]);
         await page.close();
     });
@@ -296,7 +328,7 @@ describe("documentation site", () =>
         expect(await page.isVisible(".flow .landscape")).toBe(false);
         expect(await page.isVisible(".flow .portrait")).toBe(true);
         expect(await page.$eval(".flow", (flow) => flow.scrollWidth <= flow.clientWidth)).toBe(true);
-        expect(await page.$$eval(".flow .portrait .head", (heads) => heads.map((head) => head.textContent))).toEqual(["event", "signal", "computed", "effect", "signal", "computed", "DOM"]);
+        expect(await page.$$eval(".flow .portrait .head", (heads) => heads.map((head) => head.textContent))).toEqual(["event", "signal", "computed", "effect", "signal", "computed", "panel"]);
         const layout = await page.$eval(".flow .portrait", (svg) =>
         {
             const view = (svg as SVGSVGElement).viewBox.baseVal;
@@ -874,7 +906,7 @@ describe("documentation site", () =>
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
         await page.click(".run .output button");
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.startsWith("T-") === true);
-        await page.waitForFunction(() => Number(document.querySelector(".readout dd:not(.meaning)")?.textContent) > 0);
+        await page.waitForFunction(() => Number(document.querySelector(".readout [data-count=\"text\"] dd")?.textContent) > 0);
         await page.click(".run .output button");
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Aborted");
         expect(await kept()).toBe(true);
@@ -1047,18 +1079,20 @@ describe("documentation site", () =>
         await page.setViewportSize({ width: 1600, height: 900 });
         await page.waitForFunction(() => document.documentElement.classList.contains("lenis"));
         const pane = page.locator(".figure .code pre");
+        await page.waitForFunction(() => (document.querySelector(".figure .code pre")?.scrollTop ?? 0) > 0);
+        const resting = await pane.evaluate((element) => element.scrollTop);
         await pane.hover();
         const start = await page.evaluate(() => Math.round(scrollY));
         await page.mouse.wheel(0, 300);
         await expect.poll(() => page.evaluate(() => Math.round(scrollY))).toBe(start + 300);
-        expect(await pane.evaluate((element) => element.scrollTop)).toBe(0);
+        expect(await pane.evaluate((element) => element.scrollTop)).toBe(resting);
 
         const box = await pane.boundingBox();
         expect(box).not.toBeNull();
         await page.mouse.click((box?.x ?? 0) + 40, (box?.y ?? 0) + 200);
         expect(await pane.evaluate((element) => element === document.activeElement)).toBe(true);
-        await page.mouse.wheel(0, 200);
-        await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+        await page.mouse.wheel(0, -200);
+        await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBeLessThan(resting);
         expect(await page.evaluate(() => Math.round(scrollY))).toBe(start + 300);
         expect(errors).toEqual([]);
         await page.close();

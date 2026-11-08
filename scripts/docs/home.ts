@@ -267,14 +267,14 @@ interface FlowNode
     row: number;
 }
 
-const flowColumns = ["event", "signal", "computed", "effect", "signal", "computed", "DOM"];
+const flowColumns = ["event", "signal", "computed", "effect", "signal", "computed", "panel"];
 const flowX = [72, 232, 392, 552, 712, 872, 1048];
 const flowY = [58, 92, 126, 160, 194];
 const nodeHeight = 24;
 
 const flowNodes: FlowNode[] = [
-    { id: "press", label: "@click", kind: "event", column: 0, row: 0 },
-    { id: "steer", label: "@input", kind: "event", column: 0, row: 2 },
+    { id: "press", label: "Launch click", kind: "event", column: 0, row: 0 },
+    { id: "steer", label: "Throttle input", kind: "event", column: 0, row: 2 },
     { id: "stage", label: "stage", kind: "signal", column: 1, row: 0 },
     { id: "throttle", label: "throttle", kind: "signal", column: 1, row: 2 },
     { id: "live", label: "live", kind: "computed", column: 2, row: 0 },
@@ -284,17 +284,17 @@ const flowNodes: FlowNode[] = [
     { id: "altitude", label: "altitude", kind: "signal", column: 4, row: 1 },
     { id: "fuel", label: "fuel", kind: "signal", column: 4, row: 2 },
     { id: "readout", label: "readout", kind: "computed", column: 5, row: 0 },
-    { id: "dom-readout", label: "${readout}", kind: "dom", column: 6, row: 0 },
-    { id: "dom-altitude", label: "value=${altitude}", kind: "dom", column: 6, row: 1 },
-    { id: "dom-fuel", label: "value=${fuel}", kind: "dom", column: 6, row: 2 },
-    { id: "dom-throttle", label: "${throttle}%", kind: "dom", column: 6, row: 3 },
-    { id: "dom-action", label: "${action}", kind: "dom", column: 6, row: 4 }
+    { id: "dom-readout", label: "Display", kind: "dom", column: 6, row: 0 },
+    { id: "dom-altitude", label: "Altitude bar", kind: "dom", column: 6, row: 1 },
+    { id: "dom-fuel", label: "Fuel bar", kind: "dom", column: 6, row: 2 },
+    { id: "dom-throttle", label: "Throttle label", kind: "dom", column: 6, row: 3 },
+    { id: "dom-action", label: "Button label", kind: "dom", column: 6, row: 4 }
 ];
 
-/** The half width of a node's box in the wide drawing: DOM nodes are wider, since their labels are bindings. */
+/** The half width of a node's box in the wide drawing: the panel's parts and the events that name a control are wider than a signal's name. */
 function halfWidth(node: FlowNode): number
 {
-    return node.kind === "dom" ? 80 : 56;
+    return node.kind === "dom" ? 80 : node.kind === "event" ? 64 : 56;
 }
 
 /** A node's box in the drawing that runs across a wide screen: its center and half its width. */
@@ -717,11 +717,11 @@ export function Home(data: HomeData): View
                     <p class="ways-in"><a href="/learn/">Start the tutorial</a><a href="/playground/">Open the playground</a></p>
                 </div>
             </div>
-            <figure class="figure" aria-label="Launch control running on this page: its code, the rocket, the signal graph each change runs along, and what each change did to the DOM">
-                <p class="cue">The rocket is LaunchControl(), a zerolith component running on this page beside its code. Press Launch: each change updates only the text it touches, and the counters show it.</p>
-                <div class="code" data-language="js"><pre tabindex="0" role="region" aria-label="Launch control's code" data-scroll-on-focus><code>${unsafeHtml(data.figureCode)}</code></pre></div>
+            <figure class="figure" aria-label="Launch control running on this page: its code, the panel its template draws, the counters that measure the panel, and the signal graph a change runs along to reach it">
+                <p class="cue">LaunchControl() runs on this page. Press Launch, then follow the same change through its code, the counters, and the signal graph. Point at a part of the panel to find it in each.</p>
+                <div class="code" data-language="js"><p class="part">Its code · the template draws the panel</p><pre tabindex="0" role="region" aria-label="Launch control's code" data-scroll-on-focus><code>${unsafeHtml(data.figureCode)}</code></pre></div>
                 <div class="run" data-island="figure">${Figure()}</div>
-                <div class="flow">${unsafeHtml(flowSvg())}${unsafeHtml(flowSvgTall())}<p class="flow-key">Solid: a change runs along it. Dashed: read on each tick, not tracked; it moves while the clock reads it.</p></div>
+                <div class="flow"><p class="part">How a change reaches the panel</p><p class="visually-hidden">Pressing Launch writes the stage. While the stage is live, the clock effect writes the countdown, the altitude, and the fuel on each tick; the readout follows them into the panel's display, the bars take the altitude and the fuel, and the button's label follows whether the stage is live.</p>${unsafeHtml(flowSvg())}${unsafeHtml(flowSvgTall())}<p class="flow-key">Solid: a change runs along it. Dashed: read on each tick, not tracked; it moves while the clock reads it.</p></div>
             </figure>
         </section>
         ${Tour(data.tour)}

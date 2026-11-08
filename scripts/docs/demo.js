@@ -129,17 +129,39 @@ export function reset()
     });
 }
 
-/** The figure's running half: launch control in its output pane and the readout. */
+/**
+ * What a screen reader hears: the stage while a flight runs, and when it
+ * ends, the stage with what the run did to the page. A running flight reads
+ * only the stage, so its ten ticks a second are not spoken; the last counts
+ * land in the same task as the stage that ends it, so the summary is
+ * announced once, with them.
+ */
+const spoken = computed(() =>
+{
+    const current = stage.get();
+    if (current === "Ready" || RUNNING.has(current))
+    {
+        return current === "Ready" ? "" : current;
+    }
+    return `${current}. ${textNodes.get()} text nodes and ${attributes.get()} attributes changed, ${elements.get()} elements created, and LaunchControl() ran ${calls.get()} time${calls.get() === 1 ? "" : "s"}.`;
+});
+
+/** The figure's running half: launch control under its name, the readout that measures it, and what a screen reader hears of a run. */
 export function Figure()
 {
     return html`
-        <div class="output">${counted()}</div>
-        <dl class="readout">
-            <div><dt>Text nodes changed</dt><dd>${textNodes}</dd><dd class="meaning">Each one a binding updating its own text</dd></div>
-            <div><dt>Attributes changed</dt><dd>${attributes}</dd><dd class="meaning">The two bars, each value set in place</dd></div>
-            <div><dt>Elements created</dt><dd>${elements}</dd><dd class="meaning">Stays at 0: nothing is rebuilt</dd></div>
-            <div><dt>LaunchControl() calls</dt><dd>${calls}</dd><dd class="meaning">Stays at 1: the component never runs again</dd></div>
-        </dl>`;
+        <div class="output"><p class="part">LaunchControl() · running on this page</p>${counted()}</div>
+        <div class="readout">
+            <p class="part">Measured on the panel</p>
+            <dl>
+                <div class="claim" data-count="calls"><dt>LaunchControl() calls</dt><dd>${calls}</dd></div>
+                <div class="claim" data-count="elements"><dt>Elements created</dt><dd>${elements}</dd></div>
+                <div data-count="text"><dt>Text nodes changed</dt><dd>${textNodes}</dd></div>
+                <div data-count="attributes"><dt>Attributes changed</dt><dd>${attributes}</dd></div>
+            </dl>
+            <p class="sum">Each update rewrote one text node or one bar's value in place. Nothing was rebuilt, and LaunchControl() never ran again.</p>
+        </div>
+        <p class="visually-hidden" aria-live="polite">${spoken}</p>`;
 }
 
 /** The diagram's layers, in the order a change runs through them, which set when each node and edge lights. */
@@ -181,6 +203,98 @@ function bindingOf(node, output)
         return "action";
     }
     return element.closest("label") === null ? undefined : "throttle";
+}
+
+/** The bindings the panel shows, each one a part of the panel, a binding in the template, and a node in the flow. */
+const PARTS = ["readout", "altitude", "fuel", "throttle", "action"];
+
+/**
+ * The binding a pointed-at or focused element stands for: a part of the
+ * panel, its binding in the code, or its node in the flow, either the signal
+ * it reads or the part it reaches.
+ * @param {Element} element
+ * @param {Element} output
+ * @returns {string | undefined}
+ */
+function nameOf(element, output)
+{
+    const token = element.closest("[data-signal]")?.getAttribute("data-signal");
+    if (token !== undefined && token !== null)
+    {
+        return token;
+    }
+    const node = element.closest("[data-node]")?.getAttribute("data-node")?.replace(/^dom-/, "");
+    if (node !== undefined && PARTS.includes(node))
+    {
+        return node;
+    }
+    if (!output.contains(element) || element.closest(".part") !== null)
+    {
+        return undefined;
+    }
+    if (element.closest(".display") !== null)
+    {
+        return "readout";
+    }
+    if (element.closest("button") !== null)
+    {
+        return "action";
+    }
+    const label = element.closest("label");
+    const bar = element.matches("progress") ? element : label?.querySelector("progress");
+    if (bar !== null && bar !== undefined)
+    {
+        return [...output.querySelectorAll("progress")].indexOf(bar) === 0 ? "altitude" : "fuel";
+    }
+    return label === null ? undefined : "throttle";
+}
+
+/**
+ * The part of the panel a binding draws.
+ * @param {Element} output
+ * @param {string} name
+ * @returns {Element | null}
+ */
+function partOf(output, name)
+{
+    if (name === "readout")
+    {
+        return output.querySelector(".display");
+    }
+    if (name === "action")
+    {
+        return output.querySelector("button");
+    }
+    if (name === "throttle")
+    {
+        return output.querySelector("input[type=range]")?.closest("label") ?? null;
+    }
+    return output.querySelectorAll("progress")[name === "altitude" ? 0 : 1] ?? null;
+}
+
+/**
+ * Marks one binding wherever the figure shows it, so pointing at a part of
+ * the panel finds it in the code and the flow, and pointing at either finds
+ * it in the panel; `undefined` clears the marks.
+ * @param {Element | null} figure
+ * @param {Element} output
+ * @param {string | undefined} name
+ */
+function pair(figure, output, name)
+{
+    for (const marked of figure?.querySelectorAll("[data-paired]") ?? [])
+    {
+        marked.removeAttribute("data-paired");
+    }
+    if (figure === null || name === undefined)
+    {
+        return;
+    }
+    partOf(output, name)?.setAttribute("data-paired", "");
+    for (const marked of figure.querySelectorAll(`[data-signal="${name}"], [data-node="${name}"], [data-node="dom-${name}"]`))
+    {
+        marked.setAttribute("data-paired", "");
+    }
 }
 
 /**
@@ -291,6 +405,23 @@ export function watch(host)
     {
         pane?.addEventListener(type, stopGlide, { passive: true });
     }
+    if (pane instanceof HTMLElement)
+    {
+        pane.scrollTop = pane.scrollHeight;
+    }
+    /** @param {Event} event */
+    const point = (event) =>
+    {
+        pair(figure, output, event.target instanceof Element ? nameOf(event.target, output) : undefined);
+    };
+    const unpoint = () =>
+    {
+        pair(figure, output, undefined);
+    };
+    figure?.addEventListener("pointerover", point);
+    figure?.addEventListener("focusin", point);
+    figure?.addEventListener("pointerleave", unpoint);
+    figure?.addEventListener("focusout", unpoint);
     output.addEventListener("click", pressed, { capture: true });
     output.addEventListener("input", steered, { capture: true });
     output.addEventListener("click", settle);
@@ -370,6 +501,11 @@ export function watch(host)
             pane?.removeEventListener(type, stopGlide);
         }
         stopGlide();
+        pair(figure, output, undefined);
+        figure?.removeEventListener("pointerover", point);
+        figure?.removeEventListener("focusin", point);
+        figure?.removeEventListener("pointerleave", unpoint);
+        figure?.removeEventListener("focusout", unpoint);
         output.removeEventListener("click", pressed, { capture: true });
         output.removeEventListener("input", steered, { capture: true });
         output.removeEventListener("click", settle);
@@ -497,7 +633,7 @@ function draw(flow, figure, seen, before)
     }
     const first = Math.min(...hits.map(([, , layer]) => layer));
     const accent = getComputedStyle(flow).getPropertyValue("--zl-accent-text");
-    const shown = Array.from(flow.children).find((child) => child.getClientRects().length > 0) ?? flow;
+    const shown = Array.from(flow.querySelectorAll(":scope > svg")).find((drawing) => drawing.getClientRects().length > 0) ?? flow;
     for (const [kind, id, layer] of hits)
     {
         const delay = (layer - first) * 180;
@@ -640,8 +776,9 @@ function ran(seen, before)
 }
 
 /**
- * The stretch of the figure's code to show for a round: the clock's effect
- * and the handlers when the stage turns live or still or the reader clicks,
+ * The stretch of the figure's code to show for a round: the template that
+ * draws the panel when a flight ends, the clock's effect and the handlers
+ * when the stage turns live or the reader clicks,
  * the slider's handler when the reader steers, the readout's countdown
  * branch with the tick's countdown half while counting down, and the tick's
  * flight half while flying.
@@ -651,6 +788,10 @@ function ran(seen, before)
  */
 function view(seen, before)
 {
+    if (seen.has("live") && !live.get())
+    {
+        return ["template"];
+    }
     if (seen.has("press") || seen.has("live"))
     {
         return ["clock", "press"];

@@ -1729,15 +1729,65 @@ main[tabindex="-1"]:focus
 .figure > .code
 {
     position: relative;
+    display: flex;
+    flex-direction: column;
     grid-area: code;
     margin: 0;
 }
 
 .figure > .code pre
 {
-    position: absolute;
-    inset: 0;
+    flex: 1 1 0;
+    min-height: 0;
     overflow: auto;
+}
+
+.figure .part
+{
+    margin: 0;
+    padding: var(--zl-space-2) var(--zl-space-4);
+    color: var(--zl-text-muted);
+    font-family: var(--zl-font-mono);
+    font-size: var(--zl-text-xs);
+    letter-spacing: 0.06em;
+    line-height: 1.7;
+    text-transform: uppercase;
+}
+
+.figure > .code .part
+{
+    border: var(--zl-rule) solid var(--zl-line);
+    border-bottom: 0;
+    background: var(--zl-code-bg);
+}
+
+.run .output > .part
+{
+    margin: calc(-1 * var(--inset-y)) calc(-1 * var(--inset-x)) var(--zl-space-3);
+    border-bottom: var(--zl-rule) solid var(--zl-line);
+    color: var(--zl-text);
+}
+
+.run .output [data-paired]
+{
+    outline: var(--zl-rule) solid var(--zl-text);
+    outline-offset: 4px;
+}
+
+.figure .code [data-paired]
+{
+    background: var(--zl-code-text);
+    color: var(--zl-code-bg);
+}
+
+.flow .node[data-paired] rect
+{
+    stroke: var(--zl-text);
+}
+
+.flow .node[data-paired] text
+{
+    fill: var(--zl-text);
 }
 
 .run
@@ -1747,11 +1797,13 @@ main[tabindex="-1"]:focus
 
 .run .output
 {
+    --inset-y: var(--zl-space-6);
+    --inset-x: var(--zl-space-8);
     display: grid;
     align-content: start;
     gap: var(--zl-space-3);
     grid-area: run;
-    padding: var(--zl-space-6) var(--zl-space-8);
+    padding: var(--inset-y) var(--inset-x);
     border: var(--zl-rule) solid var(--zl-line);
     border-left: 0;
     background: var(--zl-surface);
@@ -1855,12 +1907,20 @@ main[tabindex="-1"]:focus
 
 .flow
 {
+    --inset-y: var(--zl-space-3);
+    --inset-x: var(--zl-space-6);
     grid-area: flow;
     overflow-x: auto;
-    padding: var(--zl-space-3) var(--zl-space-6);
+    padding: var(--inset-y) var(--inset-x);
     border: var(--zl-rule) solid var(--zl-line);
     border-top: 0;
-    background: var(--zl-bg);
+    background: var(--zl-surface);
+}
+
+.flow > .part
+{
+    margin: calc(-1 * var(--inset-y)) calc(-1 * var(--inset-x)) var(--zl-space-3);
+    border-bottom: var(--zl-rule) solid var(--zl-line);
 }
 
 .flow svg
@@ -1939,7 +1999,7 @@ main[tabindex="-1"]:focus
 
 .flow .node rect
 {
-    fill: var(--zl-surface);
+    fill: var(--zl-bg);
     stroke: var(--zl-line);
     stroke-width: 2;
 }
@@ -2555,7 +2615,7 @@ main[tabindex="-1"]:focus
 {
     grid-area: cue;
     margin: 0;
-    padding: var(--zl-space-3) var(--zl-space-4);
+    padding: var(--zl-space-3) max(var(--zl-space-4), calc(100% - 72ch)) var(--zl-space-3) var(--zl-space-4);
     border: var(--zl-rule) solid var(--zl-line);
     border-bottom: 0;
     background: var(--zl-surface);
@@ -2565,9 +2625,7 @@ main[tabindex="-1"]:focus
 
 .readout
 {
-    display: grid;
     grid-area: readout;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     margin: 0;
     border: var(--zl-rule) solid var(--zl-line);
     border-top: 0;
@@ -2575,19 +2633,51 @@ main[tabindex="-1"]:focus
     background: var(--zl-surface);
 }
 
-.readout div
+.readout > .part
+{
+    border-bottom: var(--zl-rule) solid var(--zl-line);
+}
+
+.readout dl
+{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0;
+}
+
+.readout dl > div
 {
     padding: var(--zl-space-4);
 }
 
-.readout div:nth-child(even)
+.readout dl > div:nth-child(even)
 {
     border-left: var(--zl-rule) solid var(--zl-line);
 }
 
-.readout div:nth-child(n + 3)
+.readout dl > div:nth-child(n + 3)
 {
     border-top: var(--zl-rule) solid var(--zl-line);
+}
+
+.readout .claim dt
+{
+    color: var(--zl-text);
+}
+
+.readout dl > div:not(.claim) dd
+{
+    color: var(--zl-text-muted);
+    font-size: var(--zl-text-lg);
+}
+
+.readout .sum
+{
+    margin: 0;
+    padding: var(--zl-space-3) var(--zl-space-4);
+    border-top: var(--zl-rule) solid var(--zl-line);
+    color: var(--zl-text-muted);
+    font-size: var(--zl-text-xs);
 }
 
 .readout dt
@@ -2606,14 +2696,6 @@ main[tabindex="-1"]:focus
     font-size: var(--zl-text-xl);
     font-variant-numeric: tabular-nums;
     line-height: 1;
-}
-
-.readout dd.meaning
-{
-    color: var(--zl-text-muted);
-    font-family: inherit;
-    font-size: var(--zl-text-xs);
-    line-height: var(--zl-leading-text);
 }
 
 .scores figcaption
@@ -3441,15 +3523,25 @@ article .tracks li
     {
         grid-template-areas:
             "cue"
-            "code"
             "run"
             "readout"
-            "flow";
+            "flow"
+            "code";
+    }
+
+    .figure .cue
+    {
+        border-bottom: var(--zl-rule) solid var(--zl-line);
+    }
+
+    .figure > .code .part
+    {
+        border-top: 0;
     }
 
     .figure > .code pre
     {
-        position: static;
+        flex: none;
         max-height: calc(2 * var(--zl-rule) + var(--zl-space-6) + 14lh);
         white-space: pre-wrap;
         overflow-wrap: anywhere;
@@ -3581,13 +3673,14 @@ article .tracks li
         padding: var(--zl-space-12) 0;
     }
 
-    .readout div
+    .readout dl > div
     {
         padding: var(--zl-space-3);
     }
 
     .flow
     {
+        --inset-x: var(--zl-space-3);
         padding: var(--zl-space-3);
     }
 
@@ -3598,7 +3691,7 @@ article .tracks li
 
     .run .output
     {
-        padding: var(--zl-space-6);
+        --inset-x: var(--zl-space-6);
     }
 
     .index a
