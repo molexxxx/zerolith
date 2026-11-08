@@ -62,8 +62,9 @@ jobs:
         with:
           node-version: 24
 
-      # The release workflow starts this one right after publishing, before
-      # the registry may serve every package at the version.
+      # The release workflow starts this one right after publishing, and the
+      # registry lists a version before its tarball downloads, so the run
+      # waits until every package's tarball does.
       - name: Wait for the release on the registry
         run: |
           set -eu
@@ -75,7 +76,8 @@ jobs:
               done < <(printf '%s' "$platforms" | jq -r 'to_entries[] | "\(.key)@\(.value)"')
               missing=""
               for package in "${packages[@]}"; do
-                if [ "$(npm view "$package" version 2>/dev/null)" != "${package##*@}" ]; then
+                tarball="$(npm view "$package" dist.tarball 2>/dev/null || true)"
+                if [ -z "$tarball" ] || ! curl -fsIL "$tarball" >/dev/null; then
                   missing="$missing $package"
                 fi
               done
@@ -183,12 +185,17 @@ jobs:
         env:
           ENTRIES: ${{ steps.previous.outputs.entries }}
         run: |
-          set -eu
+          set -euo pipefail
           for entry in $ENTRIES; do
             case "$entry" in
-              keyed/zerolith | keyed/zerolith-previous) npm run rebuild -- "$entry" ;;
-              *) npm run rebuild-ci -- "$entry" ;;
+              keyed/zerolith | keyed/zerolith-previous) command=rebuild ;;
+              *) command=rebuild-ci ;;
             esac
+            npm run "$command" -- "$entry" 2>&1 | tee "$RUNNER_TEMP/rebuild.log"
+            if grep -q "was not successful" "$RUNNER_TEMP/rebuild.log"; then
+              echo "::error::$entry did not build, so the run stops before measuring anything"
+              exit 1
+            fi
           done
 
       - name: Run the benchmark
