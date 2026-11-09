@@ -206,7 +206,7 @@ function bindingOf(node, output)
 }
 
 /** The bindings the panel shows, each one a part of the panel, a binding in the template, and a node in the flow. */
-const PARTS = ["readout", "altitude", "fuel", "throttle", "action"];
+const PARTS = new Set(["readout", "altitude", "fuel", "throttle", "action"]);
 
 /**
  * The binding a pointed-at or focused element stands for: a part of the
@@ -224,7 +224,7 @@ function nameOf(element, output)
         return token;
     }
     const node = element.closest("[data-node]")?.getAttribute("data-node")?.replace(/^dom-/, "");
-    if (node !== undefined && PARTS.includes(node))
+    if (node !== undefined && PARTS.has(node))
     {
         return node;
     }
@@ -405,14 +405,19 @@ export function watch(host)
     {
         pane?.addEventListener(type, stopGlide, { passive: true });
     }
-    if (pane instanceof HTMLElement)
-    {
-        pane.scrollTop = pane.scrollHeight;
-    }
-    /** @param {Event} event */
+    /**
+     * Marks what the reader points at or focuses, and brings a binding the
+     * panel shows into the code pane when it is out of view.
+     * @param {Event} event
+     */
     const point = (event) =>
     {
-        pair(figure, output, event.target instanceof Element ? nameOf(event.target, output) : undefined);
+        const name = event.target instanceof Element ? nameOf(event.target, output) : undefined;
+        pair(figure, output, name);
+        if (name !== undefined && event.target instanceof Element && output.contains(event.target))
+        {
+            reveal(pane ?? null, name);
+        }
     };
     const unpoint = () =>
     {
@@ -863,6 +868,35 @@ function follow(pane, seen, before, hold)
     }
     pane.scrollTop = target;
     return 0;
+}
+
+/**
+ * Centers the first binding of `name` in the code pane when it is out of
+ * view, so pointing at a part of the panel finds it in the code; the pane is
+ * left alone while the reader is in it.
+ * @param {Element | null} pane
+ * @param {string} name
+ */
+function reveal(pane, name)
+{
+    const token = pane?.querySelector(`[data-signal="${name}"]`);
+    if (!(pane instanceof HTMLElement) || token === null || token === undefined || pane.matches(":focus-within"))
+    {
+        return;
+    }
+    const box = pane.getBoundingClientRect();
+    const line = token.getBoundingClientRect();
+    if (line.top >= box.top && line.bottom <= box.bottom)
+    {
+        return;
+    }
+    const target = Math.max(0, line.top - box.top + pane.scrollTop - (pane.clientHeight - line.height) / 2);
+    if (still?.matches === false)
+    {
+        glide(pane, target);
+        return;
+    }
+    pane.scrollTop = target;
 }
 
 /** The frame of the code pane's glide in flight, so a new glide replaces it and the reader can stop it. */

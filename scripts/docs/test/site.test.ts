@@ -206,9 +206,15 @@ describe("documentation site", () =>
         await page.click(".run .output button");
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.startsWith("T-") === true);
         expect(await page.textContent(".run .output button")).toBe("Abort");
-        await page.click(".run .output button");
+        await page.$eval(".run .output button", (button) => (button as HTMLButtonElement).click());
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Aborted");
         expect(await page.textContent(".run .output button")).toBe("Launch");
+        await expect.poll(() => page.$eval(".figure .code pre", (pane, target) =>
+        {
+            const box = pane.getBoundingClientRect();
+            const lines = Array.from(pane.querySelectorAll(target), (line) => line.getBoundingClientRect());
+            return lines.length > 0 && lines.every((line) => line.top >= box.top && line.bottom <= box.bottom);
+        }, "[data-run~=\"template\"]")).toBe(true);
         const [stoppedCalls, stoppedCreated, stoppedTexts, stoppedAttributes] = await readout();
         expect(await page.textContent(".run [aria-live]")).toBe(`Aborted. ${stoppedTexts} text nodes and ${stoppedAttributes} attributes changed, ${stoppedCreated} elements created, and LaunchControl() ran ${stoppedCalls} time.`);
         await page.click(".run .output button");
@@ -224,21 +230,24 @@ describe("documentation site", () =>
         await page.close();
     });
 
-    it("opens launch control's code on the template that draws the panel, and marks a part of the panel in the code and the flow", { timeout: 60000 }, async () =>
+    it("keeps launch control's code where the page drew it, and finds a part of the panel in the code and the flow", { timeout: 60000 }, async () =>
     {
         const { page, errors } = await open("/");
         await page.setViewportSize({ width: 1440, height: 900 });
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent === "Ready");
-        await page.waitForFunction(() => (document.querySelector(".figure .code pre")?.scrollTop ?? 0) > 0);
-        expect(await page.$eval(".figure .code pre", (pane) =>
+        await page.waitForTimeout(600);
+        expect(await page.$eval(".figure .code pre", (pane) => pane.scrollTop)).toBe(0);
+        const shown = (selector: string) => page.$eval(".figure .code pre", (pane, target) =>
         {
             const box = pane.getBoundingClientRect();
-            const lines = Array.from(pane.querySelectorAll("[data-run~=\"template\"]"), (line) => line.getBoundingClientRect());
-            return { lines: lines.length, shown: lines.every((line) => line.top >= box.top && line.bottom <= box.bottom) };
-        })).toEqual({ lines: 16, shown: true });
+            const lines = Array.from(pane.querySelectorAll(target), (line) => line.getBoundingClientRect());
+            return lines.length > 0 && lines.every((line) => line.top >= box.top && line.bottom <= box.bottom);
+        }, selector);
+        expect(await shown("[data-signal=\"fuel\"]")).toBe(false);
         const paired = () => page.$$eval("[data-paired]", (marked) => marked.map((element) => element.getAttribute("data-signal") ?? element.getAttribute("data-node") ?? element.tagName.toLowerCase()).toSorted());
         await page.hover(".run .output progress >> nth=1");
         expect(await paired()).toEqual(["dom-fuel", "dom-fuel", "fuel", "fuel", "fuel", "progress"]);
+        await expect.poll(() => shown("[data-signal=\"fuel\"]")).toBe(true);
         await page.hover(".figure code [data-signal=\"readout\"]");
         expect(await paired()).toEqual(["dom-readout", "dom-readout", "p", "readout", "readout", "readout"]);
         await page.hover(".flow .landscape [data-node=\"dom-action\"]");
@@ -1084,20 +1093,18 @@ describe("documentation site", () =>
         await page.setViewportSize({ width: 1600, height: 900 });
         await page.waitForFunction(() => document.documentElement.classList.contains("lenis"));
         const pane = page.locator(".figure .code pre");
-        await page.waitForFunction(() => (document.querySelector(".figure .code pre")?.scrollTop ?? 0) > 0);
-        const resting = await pane.evaluate((element) => element.scrollTop);
         await pane.hover();
         const start = await page.evaluate(() => Math.round(scrollY));
         await page.mouse.wheel(0, 300);
         await expect.poll(() => page.evaluate(() => Math.round(scrollY))).toBe(start + 300);
-        expect(await pane.evaluate((element) => element.scrollTop)).toBe(resting);
+        expect(await pane.evaluate((element) => element.scrollTop)).toBe(0);
 
         const box = await pane.boundingBox();
         expect(box).not.toBeNull();
         await page.mouse.click((box?.x ?? 0) + 40, (box?.y ?? 0) + 200);
         expect(await pane.evaluate((element) => element === document.activeElement)).toBe(true);
-        await page.mouse.wheel(0, -200);
-        await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBeLessThan(resting);
+        await page.mouse.wheel(0, 200);
+        await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
         expect(await page.evaluate(() => Math.round(scrollY))).toBe(start + 300);
         expect(errors).toEqual([]);
         await page.close();
