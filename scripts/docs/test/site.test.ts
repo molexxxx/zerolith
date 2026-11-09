@@ -240,6 +240,8 @@ describe("documentation site", () =>
         const paired = () => page.$$eval("[data-paired]", (marked) => marked.map((element) => element.getAttribute("data-signal") ?? element.getAttribute("data-node") ?? element.tagName.toLowerCase()).toSorted());
         await page.hover(".run .output progress >> nth=1");
         expect(await paired()).toEqual(["dom-fuel", "dom-fuel", "fuel", "fuel", "fuel", "progress"]);
+        expect(await page.$eval(".run .output progress[data-paired]", (bar) => getComputedStyle(bar).outlineStyle)).toBe("none");
+        expect(await page.$eval(".flow .landscape [data-node=\"dom-fuel\"] rect", (box) => getComputedStyle(box).stroke)).toBe(await page.$eval(".flow .landscape [data-node=\"dom-altitude\"] rect", (box) => getComputedStyle(box).stroke));
         await page.hover(".flow .landscape [data-node=\"dom-altitude\"]");
         expect(await paired()).toEqual(["altitude", "altitude", "altitude", "dom-altitude", "dom-altitude", "progress"]);
         await page.waitForTimeout(600);

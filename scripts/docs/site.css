@@ -1768,21 +1768,10 @@ main[tabindex="-1"]:focus
     color: var(--zl-text);
 }
 
-.run .output [data-paired]
-{
-    outline: var(--zl-rule) solid var(--zl-text);
-    outline-offset: 4px;
-}
-
 .figure .code [data-paired]
 {
     background: var(--zl-code-text);
     color: var(--zl-code-bg);
-}
-
-.flow .node[data-paired] rect
-{
-    stroke: var(--zl-text);
 }
 
 .flow .node[data-paired] text
