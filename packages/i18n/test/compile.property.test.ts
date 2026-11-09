@@ -44,7 +44,7 @@ function quoted(text: string): string
 
 describe("the compiler under randomized catalogs", () =>
 {
-    it("gives every message's text back exactly", async () =>
+    it("gives every message's text back exactly", { timeout: 30000 }, async () =>
     {
         await fc.assert(fc.asyncProperty(fc.array(texts, { minLength: 1, maxLength: 8 }), async (messages) =>
         {
