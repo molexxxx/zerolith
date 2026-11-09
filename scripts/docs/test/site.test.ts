@@ -316,6 +316,41 @@ describe("documentation site", () =>
 
         await page.waitForFunction(() => document.querySelector(".run .output .display")?.textContent?.endsWith("km") === true, null, { timeout: 15000 });
         await page.waitForTimeout(400);
+        const offLine = await page.evaluate(async () =>
+        {
+            const distances: number[] = [];
+            const places = new Map<Element, Set<string>>();
+            for (let frame = 0; frame < 30; frame++)
+            {
+                await new Promise((done) => requestAnimationFrame(done));
+                for (const square of document.querySelectorAll<SVGRectElement>(".flow .landscape .pulse"))
+                {
+                    if (Number(getComputedStyle(square).opacity) < 0.5)
+                    {
+                        continue;
+                    }
+                    const box = square.getBoundingClientRect();
+                    places.set(square, (places.get(square) ?? new Set()).add(`${Math.round(box.x)},${Math.round(box.y)}`));
+                    const edge = document.querySelector<SVGPathElement>(`.flow .landscape [data-edge="${square.getAttribute("data-for") ?? ""}"]`);
+                    const matrix = edge?.getScreenCTM();
+                    if (edge === null || matrix === null || matrix === undefined)
+                    {
+                        continue;
+                    }
+                    let nearest = Infinity;
+                    for (let at = 0; at <= edge.getTotalLength(); at += 1)
+                    {
+                        const point = edge.getPointAtLength(at).matrixTransform(matrix);
+                        nearest = Math.min(nearest, Math.hypot(point.x - (box.x + box.width / 2), point.y - (box.y + box.height / 2)));
+                    }
+                    distances.push(nearest);
+                }
+            }
+            return { distances, traveled: Math.max(0, ...Array.from(places.values(), (seen) => seen.size)) };
+        });
+        expect(offLine.distances.length).toBeGreaterThan(0);
+        expect(Math.max(...offLine.distances)).toBeLessThan(2);
+        expect(offLine.traveled).toBeGreaterThan(3);
         const flying = await lit();
         expect(flying).toEqual(expect.arrayContaining(["clock>stage", "clock>countdown", "clock>altitude", "clock>fuel", "altitude>readout"]));
         expect(flying).not.toContain("live>clock");

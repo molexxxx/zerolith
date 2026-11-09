@@ -703,10 +703,41 @@ function corners(path)
 }
 
 /**
+ * The point `share` of the way along a path of corners, by the length of its
+ * straight runs.
+ * @param {Array<[number, number]>} points
+ * @param {number} share
+ * @returns {[number, number]}
+ */
+function along(points, share)
+{
+    const lengths = points.map((point, index) =>
+    {
+        const before = points[index - 1] ?? point;
+        return Math.abs(point[0] - before[0]) + Math.abs(point[1] - before[1]);
+    });
+    let left = Math.min(1, Math.max(0, share)) * lengths.reduce((sum, length) => sum + length, 0);
+    for (let index = 1; index < points.length; index++)
+    {
+        const length = lengths[index] ?? 0;
+        const [x0, y0] = points[index - 1] ?? [0, 0];
+        const [x1, y1] = points[index] ?? [0, 0];
+        if (left <= length && length > 0)
+        {
+            return [x0 + (x1 - x0) * (left / length), y0 + (y1 - y0) * (left / length)];
+        }
+        left -= length;
+    }
+    return points.at(-1) ?? [0, 0];
+}
+
+/**
  * Sends a small square along one edge, from its source to its target, and
  * removes it when it arrives. It stays hidden while it waits its turn in the
- * wave, and it moves by transform alone, so the line under it is never
- * repainted.
+ * wave. An opacity animation keeps its time, and each frame sets its place
+ * from that animation's eased progress, as attributes of the drawing, so it
+ * is painted in the same frame as the line under it however the page
+ * scrolls; a transform runs on the compositor and could trail a scroll.
  * @param {Element | null} edge
  * @param {string} id
  * @param {number} delay
@@ -718,28 +749,35 @@ function travel(edge, id, delay)
     {
         return;
     }
-    const lengths = points.map((point, index) =>
-    {
-        const before = points[index - 1] ?? point;
-        return Math.abs(point[0] - before[0]) + Math.abs(point[1] - before[1]);
-    });
-    const total = lengths.reduce((sum, length) => sum + length, 0);
-    let walked = 0;
-    const keyframes = points.map(([x, y], index) =>
-    {
-        walked += lengths[index] ?? 0;
-        return { transform: `translate(${x}px, ${y}px)`, opacity: 1, offset: total === 0 ? 0 : walked / total };
-    });
     const square = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    /** @param {[number, number]} point */
+    const place = ([x, y]) =>
+    {
+        square.setAttribute("x", String(x - 2));
+        square.setAttribute("y", String(y - 2));
+    };
     square.setAttribute("class", "pulse");
     square.setAttribute("data-for", id);
-    square.setAttribute("x", "-2");
-    square.setAttribute("y", "-2");
     square.setAttribute("width", "4");
     square.setAttribute("height", "4");
+    place(points[0] ?? [0, 0]);
     square.style.opacity = "0";
     edge.parentElement?.append(square);
-    const run = square.animate(keyframes, { duration: 260, delay, easing: "ease-in-out" });
+    const run = square.animate([{ opacity: 1 }, { opacity: 1 }], { duration: 260, delay, easing: "ease-in-out" });
+    const step = () =>
+    {
+        if (!square.isConnected)
+        {
+            return;
+        }
+        const progress = run.effect?.getComputedTiming().progress;
+        if (typeof progress === "number")
+        {
+            place(along(points, progress));
+        }
+        requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
     run.addEventListener("finish", () => square.remove());
     run.addEventListener("cancel", () => square.remove());
 }
