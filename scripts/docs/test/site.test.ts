@@ -250,6 +250,22 @@ describe("documentation site", () =>
         expect(await paired()).toEqual(["dom-readout", "dom-readout", "p", "readout", "readout", "readout"]);
         await page.hover(".flow .landscape [data-node=\"dom-action\"]");
         expect(await paired()).toEqual(["action", "action", "action", "button", "dom-action", "dom-action"]);
+        const inView = (selector: string) => page.$eval(".figure .code pre", (pane, target) =>
+        {
+            const box = pane.getBoundingClientRect();
+            const token = pane.querySelector(target)?.getBoundingClientRect();
+            return token !== undefined && token.top >= box.top && token.bottom <= box.bottom;
+        }, selector);
+        await page.$eval(".figure .code pre", (pane) =>
+        {
+            pane.scrollTop = 0;
+        });
+        await page.click(".flow .landscape [data-node=\"clock\"]");
+        await page.waitForTimeout(600);
+        expect(await page.$eval(".figure .code pre", (pane) => pane.scrollTop)).toBe(0);
+        expect(await inView("[data-signal=\"fuel\"]")).toBe(false);
+        await page.click(".flow .landscape [data-node=\"dom-fuel\"]");
+        await expect.poll(() => inView("[data-signal=\"fuel\"]")).toBe(true);
         await page.mouse.move(0, 0);
         expect(await paired()).toEqual([]);
         await page.focus(".figure .code pre");

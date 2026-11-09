@@ -414,6 +414,16 @@ export function watch(host)
     {
         pair(figure, output, undefined);
     };
+    /** @param {Event} event */
+    const find = (event) =>
+    {
+        const name = event.target instanceof Element ? event.target.closest("[data-binding]")?.getAttribute("data-binding") : undefined;
+        if (name !== undefined && name !== null)
+        {
+            showBinding(pane ?? null, name);
+        }
+    };
+    flow?.addEventListener("click", find);
     figure?.addEventListener("pointerover", point);
     figure?.addEventListener("focusin", point);
     figure?.addEventListener("pointerleave", unpoint);
@@ -498,6 +508,7 @@ export function watch(host)
         }
         stopGlide();
         pair(figure, output, undefined);
+        flow?.removeEventListener("click", find);
         figure?.removeEventListener("pointerover", point);
         figure?.removeEventListener("focusin", point);
         figure?.removeEventListener("pointerleave", unpoint);
@@ -859,6 +870,30 @@ function follow(pane, seen, before, hold)
     }
     pane.scrollTop = target;
     return 0;
+}
+
+/**
+ * Centers the first binding of `name` in the code pane, when a click on its
+ * node in the flow asks for it.
+ * @param {Element | null} pane
+ * @param {string} name
+ */
+function showBinding(pane, name)
+{
+    const token = pane?.querySelector(`[data-signal="${name}"]`);
+    if (!(pane instanceof HTMLElement) || token === null || token === undefined)
+    {
+        return;
+    }
+    const box = pane.getBoundingClientRect();
+    const line = token.getBoundingClientRect();
+    const target = Math.max(0, line.top - box.top + pane.scrollTop - (pane.clientHeight - line.height) / 2);
+    if (still?.matches === false)
+    {
+        glide(pane, target);
+        return;
+    }
+    pane.scrollTop = target;
 }
 
 /** The frame of the code pane's glide in flight, so a new glide replaces it and the reader can stop it. */

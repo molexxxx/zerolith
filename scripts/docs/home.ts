@@ -379,10 +379,14 @@ function flowDrawing(shape: string, size: string, heads: string, edges: Array<{ 
     const boxes = flowNodes.map((node) =>
     {
         const { x, y, half } = place(node);
-        return `<g class="node ${node.kind}" data-node="${node.id}"><rect x="${x - half}" y="${y - nodeHeight / 2}" width="${half * 2}" height="${nodeHeight}"/><text x="${x}" y="${y}">${flowLabel(node)}</text></g>`;
+        const binding = node.id.replace(/^dom-/, "");
+        return `<g class="node ${node.kind}" data-node="${node.id}"${bindings.has(binding) ? ` data-binding="${binding}"` : ""}><rect x="${x - half}" y="${y - nodeHeight / 2}" width="${half * 2}" height="${nodeHeight}"/><text x="${x}" y="${y}">${flowLabel(node)}</text></g>`;
     }).join("");
     return `<svg class="${shape}" viewBox="0 0 ${size}" aria-hidden="true" focusable="false">${heads}<g class="edges">${paths}</g>${boxes}</svg>`;
 }
+
+/** The bindings the panel shows: a flow node named for one finds it in the figure's code when clicked. */
+const bindings = new Set(["readout", "altitude", "fuel", "throttle", "action"]);
 
 /** The launch figure's flow diagram as SVG markup, running across a wide screen. */
 function flowSvg(): string

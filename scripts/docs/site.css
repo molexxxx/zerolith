@@ -1774,6 +1774,11 @@ main[tabindex="-1"]:focus
     color: var(--zl-code-bg);
 }
 
+.flow [data-binding]
+{
+    cursor: pointer;
+}
+
 .flow .node[data-paired] text
 {
     fill: var(--zl-text);
