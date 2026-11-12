@@ -27,10 +27,11 @@ In order:
 
 Work happens on `main`, which releases under `latest`; the `1.x` branch follows `main`, and the stable docs are built from it. What comes next, in this order:
 
-1. The application utilities, as typed packages with one form each, diagnostics, tested docs examples, and skill coverage: `@zerolith/state` and `@zerolith/browser` first, then retry and timeout for `resource`, the plain fetch client in `@zerolith/client`, an `svg` tag, a multi-way `match`, `keyed`, transitions for `when` and `each`, and router guards with a hash mode.
-2. Data and rendering: signals the server pushes over Server-Sent Events, WebSocket, the in-process transport for tests, streaming server rendering, islands as a public API, and form-associated custom elements.
-3. Tools: the bolder inspector, the MCP server inside `zerolith dev`, the docs MCP, the inspector verified in a packaged Electron build, `zerolith migrate`, the `https://` proxy, and the musl binary.
-4. zero-query's retirement behind its gates: the WebRTC decision, the migration guide, then the deprecation and the archives.
+1. The gaps the 1.7.0 benchmark run measures against Solid, which scored 1.11 to zerolith's 1.13. Editing a list's rows one at a time comes first: updating every 10th row takes 1.22 times Solid's time, because the entry sets a new array, as the guides teach, and the list walks every key to find the changed rows, where Solid's entry writes to a signal in each changed row. A `store` in `@zerolith/state` fixes it without taxing the rest: its fields become signals only when a binding reads them, writes go through a path setter so one edit reaches only what reads that field, and the core does not change. A guide section then says when to hold data in a signal, a `computed`, a `selector`, a store, or a signal per row, with what each costs on an update. Then removing one row (1.11), creating rows (1.04 to 1.05), and the entry's size and first paint (9 KB and 131 ms against 4.5 KB and 110 ms).
+2. The application utilities, as typed packages with one form each, diagnostics, tested docs examples, and skill coverage: `@zerolith/state` and `@zerolith/browser` first, then retry and timeout for `resource`, the plain fetch client in `@zerolith/client`, an `svg` tag, a multi-way `match`, `keyed`, transitions for `when` and `each`, router guards with a hash mode, context for values a subtree shares, and an error boundary for any part of a view.
+3. Data and rendering: signals the server pushes over Server-Sent Events, WebSocket, the in-process transport for tests, streaming server rendering, islands as a public API, and form-associated custom elements.
+4. Tools: the bolder inspector, the MCP server inside `zerolith dev`, the docs MCP, the inspector verified in a packaged Electron build, `zerolith migrate`, the `https://` proxy, and the musl binary.
+5. zero-query's retirement behind its gates: the WebRTC decision, the migration guide, then the deprecation and the archives.
 
 1.8.0 moves the oldest supported browsers to Chrome and Edge 118, Firefox 146, and Safari 17.4, the first with `@scope`, as the [support policy](policy/support.md) announces in 1.7.0, and `zerolith build` lowers CSS for them.
 
@@ -101,6 +102,9 @@ The everyday helpers applications otherwise write by hand, each with one form, f
 - [x] Retry with backoff and a timeout for `resource`.
 - [ ] A plain fetch client in `@zerolith/client` for backends without an OpenAPI document: a base URL, headers, JSON in and out, timeouts, and problems as errors.
 - [ ] Query parameters in `@zerolith/client` written as the document declares them: the route table records each parameter's `style` and `explode`, and a call writes form, form without explode, `spaceDelimited`, `pipeDelimited`, and `deepObject` accordingly, with JSON only for a parameter declared with `content`.
+- [ ] A `store` in `@zerolith/state` for nested objects and lists edited in place: a field becomes a signal the first time a binding, an effect, or a `computed` reads it, writes go through a path setter so one edit wakes only what reads that field, `reconcile` merges data the server sends again whole by key, and `snapshot` gives a plain copy. It ships only when `npm run bench:compare` shows it faster than replacing the array on updating every 10th row, with no operation slower beyond noise.
+- [ ] Context: a value an owner provides to every component created under it, read with no prop passed through each level, so per-request data on the server has a place that is not a module-level signal shared by every request.
+- [ ] An error boundary: a part of a view that shows a fallback when what it holds throws, as the router's `failed` view does for a page.
 - [ ] Enter and leave transitions for `when` and `each` that follow the reduced-motion preference.
 - [ ] Router guards that can hold a navigation, such as for unsaved changes, and a hash mode for hosts with no fallback to `index.html`.
 
@@ -180,6 +184,7 @@ See the [command line guide](guide/command-line.md).
 - [ ] Type-checked code samples on every page.
 - [ ] A spell checker and a prose linter in CI, beyond the style rules the docs checks hold the text to.
 - [ ] A VS Code extension for templates, generated from the manifest.
+- [ ] Which to use, in the state guide: a signal, a `computed`, a `selector`, a store, or a signal per row, with what each costs on an update, and a table from Solid's and React's names, such as `createMemo`, `createStore`, `useMemo`, and `useRef`, to zerolith's.
 
 ## Coding agents
 
