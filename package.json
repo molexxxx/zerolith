@@ -59,7 +59,7 @@
     "devDependencies": {
         "@opentelemetry/api": "1.10.0",
         "@opentelemetry/context-async-hooks": "3.0.0",
-        "@opentelemetry/sdk-trace": "3.0.0",
+        "@opentelemetry/sdk-trace": "3.1.0",
         "@types/node": "26.6.6",
         "@vitest/browser-playwright": "5.1.0",
         "@vitest/coverage-v8": "5.1.0",
