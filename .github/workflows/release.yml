@@ -448,6 +448,29 @@ jobs:
                 ;;
             esac
           }
+          # Waits until a package's version downloads from the registry, up to 30 minutes, since npm lists a version minutes before it serves the tarball.
+          downloadable()
+          {
+            attempt=0
+            until address="$(npm view "$1@$version" dist.tarball 2>/dev/null)" && [ -n "$address" ] && curl -fsIL "$address" >/dev/null; do
+              attempt=$((attempt + 1))
+              if [ "$attempt" -ge 60 ]; then
+                return 1
+              fi
+              sleep 30
+            done
+          }
+          # @zerolith/cli goes out under this tag and takes the run's tag once it downloads, since running the command line by its package name installs what the tag names and fails while npm lists a version it does not serve yet.
+          staged="zerolith-staged"
+          release_cli()
+          {
+            if ! downloadable "@zerolith/cli"; then
+              echo "::error::@zerolith/cli@$version did not download from the registry within 30 minutes, so it stays under $staged and $tag still names the version before"
+              exit 1
+            fi
+            npm dist-tag add "@zerolith/cli@$version" "$tag"
+            npm dist-tag rm @zerolith/cli "$staged" || true
+          }
           for package in $packages; do
             case "$unpublished" in
               *" $package "*)
@@ -464,6 +487,9 @@ jobs:
                 continue
               fi
               echo "$package@$version is on the registry already"
+              if [ "$package" = "@zerolith/cli" ] && [ "$CANARY" != "true" ] && [ "$(npm view @zerolith/cli "dist-tags.$staged" 2>/dev/null || true)" = "$version" ]; then
+                release_cli
+              fi
               if [ "$tag" != "latest" ] && [ "$CANARY" != "true" ] && [ "$selection" = "all" ]; then
                 move_latest "$package"
               fi
@@ -471,25 +497,20 @@ jobs:
             fi
             echo "publishing $package"
             file="$(tarball "$package")"
-            case "$package" in
-              @zerolith/cli)
-                if [ "$DRY_RUN" != "true" ]; then
-                  for platform in $platforms; do
-                    attempt=0
-                    until address="$(npm view "$platform@$version" dist.tarball 2>/dev/null)" && [ -n "$address" ] && curl -fsIL "$address" >/dev/null; do
-                      attempt=$((attempt + 1))
-                      if [ "$attempt" -ge 60 ]; then
-                        echo "::error::$platform@$version did not download from the registry within 30 minutes, so @zerolith/cli was not published; an install of it now would lack that binary"
-                        exit 1
-                      fi
-                      sleep 30
-                    done
-                  done
+            if [ "$package" = "@zerolith/cli" ] && [ "$DRY_RUN" != "true" ] && [ "$CANARY" != "true" ]; then
+              for platform in $platforms; do
+                if ! downloadable "$platform"; then
+                  echo "::error::$platform@$version did not download from the registry within 30 minutes, so @zerolith/cli was not published; an install of it now would lack that binary"
+                  exit 1
                 fi
-                ;;
-            esac
-            # shellcheck disable=SC2086
-            npm publish "$file" $flags
+              done
+              # shellcheck disable=SC2086
+              npm publish "$file" ${flags/--tag $tag/--tag $staged}
+              release_cli
+            else
+              # shellcheck disable=SC2086
+              npm publish "$file" $flags
+            fi
             # A single package moves only its own tag: latest names a set released together.
             if [ "$DRY_RUN" != "true" ] && [ "$tag" != "latest" ] && [ "$CANARY" != "true" ] && [ "$selection" = "all" ]; then
               move_latest "$package"

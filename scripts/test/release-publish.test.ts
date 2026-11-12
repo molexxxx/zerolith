@@ -16,6 +16,8 @@ npm()
       case "$3" in
         dist.tarball) echo "https://registry.example/tarball.tgz"; return 0 ;;
         dist-tags.latest) echo "0.1.0-alpha.10"; return 0 ;;
+        dist-tags.zerolith-staged) [ "\${CLI_STAGED:-no}" = "yes" ] && { echo "\${VERSION:-2.0.0-alpha.1}"; return 0; } ;;
+        version) [ "\${CLI_STAGED:-no}" = "yes" ] && [ "\${2%@*}" = "@zerolith/cli" ] && { echo "\${2##*@}"; return 0; } ;;
       esac
       return 1
       ;;
@@ -28,7 +30,7 @@ npm()
       echo "PUBLISHED $2"
       return 0
       ;;
-    dist-tag) echo "TAGGED $3"; return 0 ;;
+    dist-tag) if [ "$2" = "rm" ]; then echo "UNTAGGED $3 $4"; else echo "TAGGED $3 $4"; fi; return 0 ;;
   esac
   echo "unexpected npm $*" >&2
   return 2
@@ -58,6 +60,8 @@ interface Run
     output: string;
     published: string[];
     tagged: string[];
+    untagged: string[];
+    flags: string[];
 }
 
 let workflow = "";
@@ -110,7 +114,9 @@ function publish(env: Record<string, string>, missing: string[] = []): Run
         code: done.status,
         output,
         published: lines.filter((line) => line.startsWith("PUBLISHED ")).map((line) => packageOf(line.slice("PUBLISHED ".length).trim(), version)),
-        tagged: lines.filter((line) => line.startsWith("TAGGED ")).map((line) => line.slice("TAGGED ".length).trim())
+        tagged: lines.filter((line) => line.startsWith("TAGGED ")).map((line) => line.slice("TAGGED ".length).trim()),
+        untagged: lines.filter((line) => line.startsWith("UNTAGGED ")).map((line) => line.slice("UNTAGGED ".length).trim()),
+        flags: lines.filter((line) => line.startsWith("FLAGS ")).map((line) => line.slice("FLAGS ".length).trim())
     };
 }
 
@@ -165,7 +171,7 @@ describe("the release workflow's publish step with names npm has never published
         const run = publish({ INPUT_PACKAGE: "all", INPUT_TAG: "alpha", WHOAMI: "yes" });
         expect(run.code).toBe(0);
         expect(run.published).toEqual(releaseOrder());
-        expect(run.tagged).toEqual(releaseOrder().map((name) => `${name}@2.0.0-alpha.1`));
+        expect(run.tagged).toEqual(releaseOrder().flatMap((name) => (name === "@zerolith/cli" ? [`${name}@2.0.0-alpha.1 alpha`, `${name}@2.0.0-alpha.1 latest`] : [`${name}@2.0.0-alpha.1 latest`])));
     });
 
     it("publishes nothing else when npm accepts the token but refuses to create a new name", () =>
@@ -180,19 +186,37 @@ describe("the release workflow's publish step with names npm has never published
         const run = publish({ INPUT_PACKAGE: "all", WHOAMI: "yes", VERSION: "1.7.0" });
         expect(run.code).toBe(0);
         expect(run.published).toEqual(releaseOrder());
-        expect(run.output.split("\n").filter((line) => line.startsWith("FLAGS ")).every((line) => line.includes("--tag latest"))).toBe(true);
-        expect(run.tagged).toEqual([]);
+        expect(run.flags.filter((line) => !line.includes("zerolith-cli-1.7.0.tgz")).every((line) => line.includes("--tag latest"))).toBe(true);
+        expect(run.tagged).toEqual(["@zerolith/cli@1.7.0 latest"]);
     });
 
     it("publishes a pre-release under its own word when no tag is given, and refuses latest for it", () =>
     {
         const own = publish({ INPUT_PACKAGE: "all", WHOAMI: "yes", VERSION: "2.0.0-beta.3" });
         expect(own.code).toBe(0);
-        expect(own.output.split("\n").filter((line) => line.startsWith("FLAGS ")).every((line) => line.includes("--tag beta"))).toBe(true);
+        expect(own.flags.filter((line) => !line.includes("zerolith-cli-2.0.0-beta.3.tgz")).every((line) => line.includes("--tag beta"))).toBe(true);
         const refused = publish({ INPUT_PACKAGE: "all", INPUT_TAG: "latest", WHOAMI: "yes", VERSION: "2.0.0-beta.3" });
         expect(refused.code).toBe(1);
         expect(refused.published).toEqual([]);
         expect(refused.output).toContain("2.0.0-beta.3 is a pre-release, which goes under a tag of its own such as beta, not latest");
+    });
+
+    it("publishes @zerolith/cli under a holding tag and gives it the run's tag only once it downloads, as a rerun finishes", () =>
+    {
+        const run = publish({ INPUT_PACKAGE: "all", WHOAMI: "yes", VERSION: "1.7.0" });
+        const lines = run.output.split("\n");
+        const published = lines.findIndex((line) => line === "PUBLISHED packed/zerolith-cli-1.7.0.tgz");
+        expect(run.flags.find((line) => line.includes("zerolith-cli-1.7.0.tgz"))).toContain("--tag zerolith-staged");
+        expect(published).toBeGreaterThan(-1);
+        expect(lines.findIndex((line) => line === "TAGGED @zerolith/cli@1.7.0 latest")).toBeGreaterThan(published);
+        expect(run.untagged).toEqual(["@zerolith/cli zerolith-staged"]);
+        const rerun = publish({ INPUT_PACKAGE: "all", WHOAMI: "yes", VERSION: "1.7.0", CLI_STAGED: "yes" });
+        expect(rerun.code).toBe(0);
+        expect(rerun.published).not.toContain("@zerolith/cli");
+        expect([rerun.tagged, rerun.untagged]).toEqual([["@zerolith/cli@1.7.0 latest"], ["@zerolith/cli zerolith-staged"]]);
+        const canary = publish({ CANARY: "true" });
+        expect(canary.flags.find((line) => line.includes("zerolith-cli-2.0.0-alpha.1.tgz"))).toContain("--tag canary");
+        expect(canary.untagged).toEqual([]);
     });
 
     it("publishes nothing when the pack job made no tarball of a package it would publish", () =>
