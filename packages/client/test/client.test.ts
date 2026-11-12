@@ -640,6 +640,23 @@ describe("requests and responses at the edges", () =>
         expect(requests.map((request) => request.headers.get("content-type"))).toEqual(["text/csv", "application/vnd.notes+json", "application/x-www-form-urlencoded; charset=latin1"]);
     });
 
+    it("keeps the parsed body beside the problem, so members the problem leaves out stay reachable", async () =>
+    {
+        const sent = { title: "Invalid", fields: [{ name: "email", reason: "taken" }], errors: [{ pointer: "#/email" }] };
+        const answers = [problem(422, sent), new Response("not json", { status: 500, headers: { "content-type": "application/json" } }), new Response("plain", { status: 503 })];
+        const api = createClient<Api>(routes, { baseUrl: "https://api.test", transport: async () => answers.shift() ?? Response.json({}) });
+        const failures: unknown[] = [];
+        for (const _ of [1, 2, 3])
+        {
+            failures.push(await api.call("getNote", { params: { id: "a" } }).catch((error: unknown) => error));
+        }
+        const [kept, broken, plain] = failures as ProblemError[];
+        expect(kept?.problem).toEqual({ title: "Invalid", errors: sent.errors, status: 422 });
+        expect(kept?.body).toEqual(sent);
+        expect([broken?.body, plain?.body]).toEqual([undefined, undefined]);
+        expect(new ProblemError({ status: 400 }, new Response(null, { status: 400 })).body).toBeUndefined();
+    });
+
     it("leaves out a problem's detail of the wrong type", async () =>
     {
         const api = createClient<Api>(routes, { baseUrl: "https://api.test", transport: async () => problem(409, { title: "Conflict", detail: 5 }) });

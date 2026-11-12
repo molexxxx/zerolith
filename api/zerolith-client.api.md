@@ -7,9 +7,10 @@ function createClient<A extends Contract<A>>(routes: RouteTable<A>, options?: Cl
 
 class ProblemError extends Error
 {
-    constructor(problem: Problem, response: Response)
+    constructor(problem: Problem, response: Response, body?: unknown)
     readonly problem: Problem
     readonly response: Response
+    readonly body: unknown
 }
 
 interface CallOptions

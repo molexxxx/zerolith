@@ -72,16 +72,19 @@ export class ProblemError extends Error
 {
     /** The problem the server sent, with `status` filled from the response when the body omits it, a standard member of the wrong type left out (RFC 9457, section 3.1), and `fields` read as lists of messages; a body that is not a JSON problem, or the response to a HEAD request, which carries no content, yields `status` and a `title` from the status line. */
     readonly problem: Problem;
-    /** The response outside 2xx, for its status and headers; its body has already been read when the content type is JSON and the request was not HEAD. */
+    /** The response outside 2xx, for its status and headers; its body has already been read when the content type is JSON and the request was not HEAD, and `body` holds what it parsed to. */
     readonly response: Response;
+    /** The response's JSON body as the server sent it, before `problem` was read from it, so a member `problem` leaves out, such as a `fields` of another shape or an API's own error list, stays reachable; undefined when the body is not JSON, does not parse, or the request was HEAD. */
+    readonly body: unknown;
 
-    /** Wraps `problem` and the `response` it came from; the message is the problem's `title`, or `HTTP <status>` when it has none. */
-    constructor(problem: Problem, response: Response)
+    /** Wraps `problem`, the `response` it came from, and the parsed `body`; the message is the problem's `title`, or `HTTP <status>` when it has none. */
+    constructor(problem: Problem, response: Response, body?: unknown)
     {
         super(problem.title ?? `HTTP ${response.status}`);
         this.name = "ProblemError";
         this.problem = problem;
         this.response = response;
+        this.body = body;
     }
 }
 
@@ -366,19 +369,20 @@ async function settle(response: Response, method: string): Promise<unknown>
         return readBody(response, method);
     }
     let problem: Problem | undefined;
+    let body: unknown;
     if (method === "HEAD")
     {
         release(response);
     }
     else if ((response.headers.get("content-type") ?? "").toLowerCase().includes("json"))
     {
-        const body: unknown = await response.json().catch(() => undefined);
+        body = await response.json().catch(() => undefined);
         if (isProblem(body))
         {
             problem = standard(body, response.status);
         }
     }
-    throw new ProblemError(problem ?? { status: response.status, title: response.statusText === "" ? `HTTP ${response.status}` : response.statusText }, response);
+    throw new ProblemError(problem ?? { status: response.status, title: response.statusText === "" ? `HTTP ${response.status}` : response.statusText }, response, body);
 }
 
 /**
