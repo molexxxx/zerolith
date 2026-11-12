@@ -2,7 +2,7 @@
  * A signal kept in the browser's storage under a key, as JSON, and in step
  * across tabs through the `storage` event.
  */
-import { type Signal, diagnostic, effect, hasOwner, onDispose, report, signal } from "zerolith";
+import { type Signal, batch, diagnostic, effect, hasOwner, onDispose, report, signal } from "zerolith";
 
 /** Options for `stored`. */
 export interface StoredOptions<T>
@@ -50,12 +50,22 @@ export function onOutsideWrite(source: Signal<unknown>, listener: () => void): (
     };
 }
 
-/** The storage of a kind, or undefined where the page has none or refuses it, which is reported once per kind with the first key asked for. */
+/**
+ * The storage of a kind, or undefined where the page has none or refuses it,
+ * which is reported once per kind with the first key asked for. A runtime
+ * with no window has none, even with Web Storage globals, as Node has from
+ * 25: there the storage is one store for the whole process, so a value one
+ * request set would be read back by the next.
+ */
 function storageOf(kind: "local" | "session", key: string): Storage | undefined
 {
     try
     {
-        const store = kind === "session" ? globalThis.sessionStorage : globalThis.localStorage;
+        if (typeof window === "undefined")
+        {
+            throw new TypeError("no window");
+        }
+        const store = kind === "session" ? window.sessionStorage : window.localStorage;
         store.getItem("");
         return store;
     }
@@ -144,13 +154,18 @@ export function stored<T>(key: string, initial: T, options: StoredOptions<T> = {
         report(diagnostic("state_key_duplicate", "warning", { storage: kind, key }));
     }
     let first = true;
-    let echo = false;
+    let incoming: { value: T } | undefined;
     effect(() =>
     {
         const next = value.get();
-        if (first || echo)
+        if (first)
         {
             first = false;
+            return;
+        }
+        if (incoming !== undefined && Object.is(next, incoming.value))
+        {
+            incoming = undefined;
             return;
         }
         const json = toJson(next);
@@ -181,26 +196,36 @@ export function stored<T>(key: string, initial: T, options: StoredOptions<T> = {
         {
             return;
         }
-        echo = true;
+        const next = parse(event.newValue, key, initial, options.validate);
+        incoming = { value: next };
         try
         {
-            value.set(parse(event.newValue, key, initial, options.validate));
+            batch(() =>
+            {
+                try
+                {
+                    value.set(next);
+                }
+                finally
+                {
+                    for (const listener of outside.get(value as Signal<unknown>) ?? [])
+                    {
+                        listener();
+                    }
+                }
+            });
         }
         finally
         {
-            echo = false;
-        }
-        for (const listener of outside.get(value as Signal<unknown>) ?? [])
-        {
-            listener();
+            incoming = undefined;
         }
     };
-    addEventListener("storage", onStorage);
+    window.addEventListener("storage", onStorage);
     if (hasOwner())
     {
         onDispose(() =>
         {
-            removeEventListener("storage", onStorage);
+            window.removeEventListener("storage", onStorage);
             const left = (live.get(id) ?? 1) - 1;
             if (left > 0)
             {

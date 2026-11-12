@@ -86,6 +86,28 @@ describe("stored", () =>
         expect(writes).toHaveBeenCalledTimes(1);
     });
 
+    it("writes a value an effect sets in answer to another tab's write", () =>
+    {
+        const handle = scope(() =>
+        {
+            const list = stored<number[]>("trimmed", []);
+            effect(() =>
+            {
+                const now = list.get();
+                if (now.length > 2)
+                {
+                    list.set(now.slice(0, 2));
+                }
+            });
+            return list;
+        });
+        localStorage.setItem("trimmed", JSON.stringify([1, 2, 3]));
+        otherTabWrote(localStorage, "trimmed", JSON.stringify([1, 2, 3]));
+        expect(handle.value.get()).toEqual([1, 2]);
+        expect(localStorage.getItem("trimmed")).toBe(JSON.stringify([1, 2]));
+        handle.dispose();
+    });
+
     it("keeps a value in session storage when asked, this tab's alone", () =>
     {
         const token = stored("token", "", { storage: "session" });
@@ -298,6 +320,57 @@ describe("history", () =>
         list.set(["e"]);
         expect(changes.undo()).toBe(true);
         expect(list.get()).toEqual(["d"]);
+    });
+
+    it("forgets in the same batch as another tab's write, so no effect sees that value beside the old checkpoints", () =>
+    {
+        const seen: string[] = [];
+        const handle = scope(() =>
+        {
+            const text = stored("draft", "a");
+            const changes = history(text);
+            changes.checkpoint();
+            text.set("b");
+            effect(() =>
+            {
+                seen.push(`${text.get()}:${String(changes.canUndo.get())}`);
+            });
+        });
+        otherTabWrote(localStorage, "draft", JSON.stringify("c"));
+        expect(seen).toEqual(["b:true", "c:false"]);
+        handle.dispose();
+    });
+
+    it("forgets its checkpoints when an effect throws on another tab's value", () =>
+    {
+        const handle = scope(() =>
+        {
+            const text = stored("note", "a");
+            const changes = history(text);
+            changes.checkpoint();
+            text.set("b");
+            effect(() =>
+            {
+                if (text.get() === "boom")
+                {
+                    throw new Error("observer");
+                }
+            });
+            return { text, changes };
+        });
+        const reported: unknown[] = [];
+        const onError = (event: ErrorEvent): void =>
+        {
+            reported.push(event.error);
+            event.preventDefault();
+        };
+        addEventListener("error", onError);
+        otherTabWrote(localStorage, "note", JSON.stringify("boom"));
+        removeEventListener("error", onError);
+        expect(reported.map(String)).toEqual(["Error: observer"]);
+        expect(handle.value.text.get()).toBe("boom");
+        expect(handle.value.changes.canUndo.get()).toBe(false);
+        handle.dispose();
     });
 
     it("stops listening for other tabs' writes when the owner it was created in is disposed", () =>
