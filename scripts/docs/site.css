@@ -399,12 +399,6 @@ svg
     text-decoration: none;
 }
 
-.side .reference a
-{
-    font-family: var(--zl-font-mono);
-    font-size: 0.8125rem;
-}
-
 .side li a:hover
 {
     color: var(--zl-text);
