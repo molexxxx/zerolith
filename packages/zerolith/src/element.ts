@@ -6,7 +6,7 @@
  * zerolith view, so scoped styles and design tokens apply unchanged.
  */
 import { type Renderable, type Root, hasServerMarkup, hydrate, render } from "./render.js";
-import { type ReadableSignal, type Signal, signal } from "./signals.js";
+import { type ReadableSignal, type Signal, signal, untracked } from "./signals.js";
 
 /** The signals an element's view receives: one per declared prop, and `children`, what the tag held, unless a prop takes that name. */
 export type ElementProps<Props extends readonly string[]> = { readonly [K in Props[number]]: ReadableSignal<unknown> } & { readonly children: ReadableSignal<readonly Node[]> };
@@ -38,6 +38,32 @@ function store(host: HTMLElement, props: readonly string[]): Record<string, Sign
 }
 
 /**
+ * The nodes from the first of `nodes` to the last as they stand now, which
+ * takes in what another view inserted among them, such as a list's new rows,
+ * or the nodes as given when the first and the last are no longer in order
+ * under one parent.
+ */
+function standing(nodes: readonly Node[]): readonly Node[]
+{
+    const first = nodes[0];
+    const last = nodes[nodes.length - 1];
+    if (first === undefined || last === undefined || first.parentNode === null || first.parentNode !== last.parentNode)
+    {
+        return nodes;
+    }
+    const range: Node[] = [];
+    for (let node: Node | null = first; node !== null; node = node.nextSibling)
+    {
+        range.push(node);
+        if (node === last)
+        {
+            return range;
+        }
+    }
+    return nodes;
+}
+
+/**
  * Registers a custom element for the view. Declared props are observed as
  * attributes and exposed as properties, both feeding the same signals, and
  * values assigned before the element was upgraded are kept. The content is
@@ -46,9 +72,9 @@ function store(host: HTMLElement, props: readonly string[]): Record<string, Sign
  * What the tag holds is not shown on its own: it arrives as `children`, a
  * signal the view binds where it belongs, as a slot does, and it stays
  * through a move. A view that does not bind it shows none of it, so text in
- * the tag serves as a fallback until the script loads, and a view that throws
- * leaves it in place. A view inside another component's shadow root gets the
- * scoped styles there too.
+ * the tag serves as a fallback until the script loads, and a view that throws,
+ * or returns content that fails to render, leaves it in place. A view inside
+ * another component's shadow root gets the scoped styles there too.
  * The view runs inside the root's owner, so the effects and `onDispose`
  * cleanups it registers end when the element disconnects. Without a
  * `customElements` registry, as on the server, nothing is registered.
@@ -63,6 +89,7 @@ export function define<const Props extends readonly string[]>(name: string, opti
     }
     const props = options.props;
     const roots: WeakMap<HTMLElement, Root> = new WeakMap();
+    const parsing: WeakMap<HTMLElement, () => void> = new WeakMap();
     class ZerolithElement extends HTMLElement
     {
         static observedAttributes: readonly string[] = props;
@@ -106,23 +133,28 @@ export function define<const Props extends readonly string[]>(name: string, opti
             {
                 children?.set(held);
             }
-            roots.set(this, render(() =>
+            try
             {
-                const content = view();
-                for (const node of held)
+                roots.set(this, render(view, this));
+            }
+            catch (error)
+            {
+                this.replaceChildren(...held);
+                throw error;
+            }
+            for (const node of held)
+            {
+                if (node.parentNode === this)
                 {
-                    if (node.parentNode === this)
-                    {
-                        node.remove();
-                    }
+                    node.remove();
                 }
-                return content;
-            }, this));
+            }
             if (document.readyState === "loading")
             {
                 const end = this.lastChild as ChildNode;
-                document.addEventListener("DOMContentLoaded", () =>
+                const loaded = (): void =>
                 {
+                    parsing.delete(this);
                     const added: Node[] = [];
                     let next = end.nextSibling;
                     while (next !== null)
@@ -135,14 +167,28 @@ export function define<const Props extends readonly string[]>(name: string, opti
                     {
                         children?.set([...children.get() as Node[], ...added]);
                     }
-                }, { once: true });
+                };
+                parsing.set(this, loaded);
+                document.addEventListener("DOMContentLoaded", loaded, { once: true });
             }
         }
 
         disconnectedCallback(): void
         {
+            const loaded = parsing.get(this);
+            if (loaded !== undefined)
+            {
+                parsing.delete(this);
+                document.removeEventListener("DOMContentLoaded", loaded);
+            }
+            const children = props.includes("children") ? undefined : store(this, props)["children"];
+            const held = children === undefined ? undefined : standing(untracked(() => children.get()) as readonly Node[]);
             roots.get(this)?.dispose();
             roots.delete(this);
+            if (held !== undefined)
+            {
+                children?.set(held);
+            }
         }
     }
     for (const prop of props)

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { type Diagnostic, computed, effect, html, onDiagnostic, onDispose, signal } from "zerolith";
+import { type Diagnostic, computed, each, effect, html, onDiagnostic, onDispose, render, signal } from "zerolith";
 import { define } from "zerolith/element";
 import { renderToString } from "zerolith/ssr";
 
@@ -274,6 +274,115 @@ describe("define", () =>
         expect(body.textContent).toBe("First second third");
         expect(body.querySelector("strong")).toBe(strong);
         expect(element.childElementCount).toBe(1);
+    });
+
+    it("keeps the rows another view added to its children since it connected when it moves", () =>
+    {
+        const items = signal(["a"]);
+        define("zl-rows", { props: [], view: ({ children }) => html`<ul>${children}</ul>` });
+        host = document.createElement("div");
+        document.body.append(host);
+        const root = render(html`<zl-rows>${each(items, (item) => item, (item) => html`<li>${item}</li>`)}</zl-rows>`, host);
+        const element = host.querySelector("zl-rows") as HTMLElement;
+        items.set(["a", "b"]);
+        const added = element.querySelectorAll("li")[1];
+        const moved = document.createElement("section");
+        host.append(moved);
+        moved.append(element);
+        expect(element.querySelector("ul")?.textContent).toBe("ab");
+        expect(element.querySelectorAll("li")[1]).toBe(added);
+        items.set(["a", "b", "c"]);
+        expect(element.querySelector("ul")?.textContent).toBe("abc");
+        items.set(["c"]);
+        expect(element.querySelector("ul")?.textContent).toBe("c");
+        root.dispose();
+    });
+
+    it("leaves an effect that moves it unsubscribed from what it holds", () =>
+    {
+        define("zl-moved", { props: [], view: ({ children }) => html`<p>${children}</p>` });
+        host = document.createElement("div");
+        document.body.append(host);
+        const element = document.createElement("zl-moved");
+        element.append("first");
+        host.append(element);
+        const other = document.createElement("section");
+        host.append(other);
+        let runs = 0;
+        const stop = effect(() =>
+        {
+            runs += 1;
+            other.append(element);
+        });
+        element.remove();
+        element.append("second");
+        host.append(element);
+        stop();
+        expect([runs, element.textContent]).toEqual([1, "second"]);
+    });
+
+    it("keeps what the tag held when the content its view returns fails to render", () =>
+    {
+        define("zl-unrenderable", { props: [], view: () => html`<p>${{ not: "renderable" } as unknown as string}</p>` });
+        host = document.createElement("div");
+        document.body.append(host);
+        const element = document.createElement("zl-unrenderable");
+        element.append("Fallback", document.createElement("hr"));
+        const held = [...element.childNodes];
+        const failures: unknown[] = [];
+        const onError = (event: ErrorEvent): void =>
+        {
+            failures.push(event.error);
+            event.preventDefault();
+        };
+        window.addEventListener("error", onError);
+        host.append(element);
+        window.removeEventListener("error", onError);
+        expect(failures).toHaveLength(1);
+        expect([...element.childNodes]).toEqual(held);
+    });
+
+    it("stops waiting for the page to finish parsing when it disconnects first", () =>
+    {
+        define("zl-brief", { props: [], view: () => html`<p>x</p>` });
+        host = document.createElement("div");
+        document.body.append(host);
+        const listening = new Set<unknown>();
+        const add = document.addEventListener.bind(document);
+        const remove = document.removeEventListener.bind(document);
+        document.addEventListener = ((type: string, listener: EventListener, options?: AddEventListenerOptions) =>
+        {
+            if (type === "DOMContentLoaded")
+            {
+                listening.add(listener);
+            }
+            add(type, listener, options);
+        }) as typeof document.addEventListener;
+        document.removeEventListener = ((type: string, listener: EventListener, options?: EventListenerOptions) =>
+        {
+            if (type === "DOMContentLoaded")
+            {
+                listening.delete(listener);
+            }
+            remove(type, listener, options);
+        }) as typeof document.removeEventListener;
+        Object.defineProperty(document, "readyState", { configurable: true, get: () => "loading" });
+        try
+        {
+            for (let made = 0; made < 3; made += 1)
+            {
+                const element = document.createElement("zl-brief");
+                host.append(element);
+                element.remove();
+            }
+        }
+        finally
+        {
+            delete (document as unknown as { readyState?: string }).readyState;
+            delete (document as unknown as { addEventListener?: unknown }).addEventListener;
+            delete (document as unknown as { removeEventListener?: unknown }).removeEventListener;
+        }
+        expect(listening.size).toBe(0);
     });
 
     it("ends the effects and cleanups its view registers when it disconnects", () =>
