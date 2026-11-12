@@ -90,7 +90,7 @@ The same `Problem` type is what forms show and what the core exports, so one err
 | Option | What it does |
 | --- | --- |
 | `baseUrl` | Prepended to every path. It defaults to the empty string, the page's origin in a browser; pass an absolute URL anywhere else |
-| `headers` | Sent with every request, or computed per request when given as a function, which is where a bearer token goes; a `content-type` among them is left out for a `FormData` body |
+| `headers` | Sent with every request, or computed per request when given as a function, which is where a bearer token goes; a `content-type` among them is left out for a `FormData` body, and for a `URLSearchParams` body or a `Blob` with a type, which name their own |
 | `transport` | Replaces `fetch`: a function from a `Request` to a promise of a `Response`. A test can answer in process, and an Electron renderer can forward requests over a message port |
 
 Each call also takes options of its own as its last argument, a `signal` and `headers` that override the client's. `request` takes the same arguments as `call` and returns the `Request` a call would send, without sending it.

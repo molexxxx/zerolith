@@ -2,7 +2,9 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
-## Unreleased
+## 1.8.0 (2026-11-12)
+
+A minor release from `main`: the oldest supported browsers move to the first with `@scope`, as 1.7.0 announced, and `zerolith build` lowers CSS for them. The templates guide shows a list edited a row at a time and the signals guide which state holder to use, with what each costs as measured, and the js-framework-benchmark entry follows them. Three client fixes, and new projects pin the tools this repository tests with.
 
 ### Changed
 
