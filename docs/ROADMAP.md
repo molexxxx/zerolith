@@ -116,6 +116,7 @@ See the [Vite guide](guide/vite.md).
 - [x] A check that fails a client build when a lazy route view or a compiled locale is also imported statically, which would merge it into the importing chunk, in `vite build` and in `zerolith build`.
 - [x] The Vite plugin, the inspector, and `zerolith build` require the `zerolith` of their own version, which they share `zerolith/internal` with, and stop with `package_version_mismatch` when they meet another.
 - [ ] Adapters for Rolldown, esbuild, Rspack, and webpack, each as it is asked for.
+- [ ] Module workers in `zerolith build` and its `--unbundled` output: a worker started with `new Worker(new URL("./worker.ts", import.meta.url), { type: "module" })` built with its imports, and in the unbundled output given addresses that carry their hash, since an import map does not reach a worker.
 
 ## Command line
 
