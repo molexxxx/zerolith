@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const workflowUrl = new URL("../../.github/workflows/release.yml", import.meta.url);
 
-/** Stands in for npm, curl, node, and sleep: npm has never published @zerolith/state or @zerolith/browser, accepts the token only when WHOAMI is yes, refuses to create a package when CREATE is no, and the registry answers FORMS_STATUS for @zerolith/forms, with curl failing as it does when no registry answers. */
+/** Stands in for npm, curl, node, and sleep: npm has never published @zerolith/state or @zerolith/browser, accepts the token only when WHOAMI is yes, refuses to create a package when CREATE is no, and the registry answers FORMS_STATUS for @zerolith/forms, with curl failing as it does when no registry answers. npm publishes the tarball it is given, printing its path. */
 const STUBS = `
 npm()
 {
@@ -22,14 +22,10 @@ npm()
     whoami) [ "\${WHOAMI:-no}" = "yes" ] && return 0; return 1 ;;
     publish)
       echo "FLAGS $*"
-      if [ "$2" = "--workspace" ]; then
-        case "$3" in
-          @zerolith/state|@zerolith/browser) [ "\${CREATE:-yes}" = "no" ] && { echo "npm error code E403" >&2; return 1; } ;;
-        esac
-        echo "PUBLISHED $3"
-      else
-        echo "PUBLISHED @zerolith/cli-\${PWD##*/}"
-      fi
+      case "$2" in
+        */zerolith-state-*|*/zerolith-browser-*) [ "\${CREATE:-yes}" = "no" ] && { echo "npm error code E403" >&2; return 1; } ;;
+      esac
+      echo "PUBLISHED $2"
       return 0
       ;;
     dist-tag) echo "TAGGED $3"; return 0 ;;
@@ -76,7 +72,7 @@ function publishScript(): string
     const body: string[] = [];
     for (const line of lines.slice(run + 1))
     {
-        if (line.startsWith("      - name:"))
+        if (line.startsWith("      - name:") || (line.trim() !== "" && !line.startsWith("        ")))
         {
             break;
         }
@@ -85,13 +81,27 @@ function publishScript(): string
     return body.join("\n");
 }
 
-/** Runs the publish script under bash with the stubs and `env`, in a folder that holds the platform binaries it lists. */
-function publish(env: Record<string, string>): Run
+/** The name of the package a tarball the pack job makes holds, from its file name at `version`. */
+function packageOf(file: string, version: string): string
 {
+    const base = file.slice(file.lastIndexOf("/") + 1, -`-${version}.tgz`.length);
+    return base === "zerolith" ? base : `@zerolith/${base.slice("zerolith-".length)}`;
+}
+
+/** Runs the publish script under bash with the stubs and `env`, in a folder whose `packed` folder holds a tarball of every package at each version the tests use, less any in `missing`. */
+function publish(env: Record<string, string>, missing: string[] = []): Run
+{
+    const version = env["VERSION"] ?? "2.0.0-alpha.1";
+    rmSync(join(folder, "packed"), { recursive: true, force: true });
+    mkdirSync(join(folder, "packed"));
+    for (const name of everything().filter((each) => !missing.includes(each)))
+    {
+        writeFileSync(join(folder, "packed", `${name.replace(/^@/, "").replace("/", "-")}-${version}.tgz`), "");
+    }
     writeFileSync(join(folder, "run.sh"), STUBS + publishScript());
     const done = spawnSync("bash", ["run.sh"], {
         cwd: folder,
-        env: { ...process.env, INPUT_PACKAGE: "", INPUT_TAG: "", DRY_RUN: "false", REF_NAME: "main", CANARY: "", WHOAMI: "no", CREATE: "yes", FORMS_STATUS: "200", ...env },
+        env: { ...process.env, INPUT_PACKAGE: "", INPUT_TAG: "", DRY_RUN: "false", REF_NAME: "main", CANARY: "", WHOAMI: "no", CREATE: "yes", FORMS_STATUS: "200", PACKED: "packed", ...env },
         encoding: "utf8"
     });
     const output = `${done.stdout}${done.stderr}`;
@@ -99,7 +109,7 @@ function publish(env: Record<string, string>): Run
     return {
         code: done.status,
         output,
-        published: lines.filter((line) => line.startsWith("PUBLISHED ")).map((line) => line.slice("PUBLISHED ".length).trim()),
+        published: lines.filter((line) => line.startsWith("PUBLISHED ")).map((line) => packageOf(line.slice("PUBLISHED ".length).trim(), version)),
         tagged: lines.filter((line) => line.startsWith("TAGGED ")).map((line) => line.slice("TAGGED ".length).trim())
     };
 }
@@ -124,12 +134,6 @@ beforeAll(async () =>
 {
     workflow = (await readFile(workflowUrl, "utf8")).replaceAll("\r\n", "\n");
     folder = mkdtempSync(join(tmpdir(), "zerolith-publish-"));
-    for (const platform of /platforms="([^"]+)"/.exec(workflow)?.[1]?.split(" ") ?? [])
-    {
-        const directory = join(folder, "packages", "cli", "platforms", platform.replace("@zerolith/cli-", ""));
-        mkdirSync(directory, { recursive: true });
-        writeFileSync(join(directory, "zerolith"), "");
-    }
 });
 
 afterAll(() =>
@@ -189,6 +193,14 @@ describe("the release workflow's publish step with names npm has never published
         expect(refused.code).toBe(1);
         expect(refused.published).toEqual([]);
         expect(refused.output).toContain("2.0.0-beta.3 is a pre-release, which goes under a tag of its own such as beta, not latest");
+    });
+
+    it("publishes nothing when the pack job made no tarball of a package it would publish", () =>
+    {
+        const run = publish({ INPUT_PACKAGE: "all", INPUT_TAG: "alpha", WHOAMI: "yes" }, ["@zerolith/otel"]);
+        expect(run.code).not.toBe(0);
+        expect(run.published).toEqual([]);
+        expect(run.output).toContain("the pack job made no tarball of @zerolith/otel at 2.0.0-alpha.1, so nothing was published");
     });
 
     it("publishes nothing when the registry cannot say whether a package exists", () =>

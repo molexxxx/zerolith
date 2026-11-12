@@ -141,13 +141,37 @@ describe("the repository", () =>
     it("orders the release so a failure leaves nothing half published and a rerun completes it", async () =>
     {
         const workflow = await read(".github/workflows/release.yml");
-        expect(workflow.slice(workflow.indexOf("\n  crate:\n"))).toContain("\n    needs: npm\n");
-        const npm = workflow.slice(workflow.indexOf("\n  npm:\n"), workflow.indexOf("\n  docs:\n"));
+        expect(workflow.slice(workflow.indexOf("\n  crate-check:\n"))).toContain("\n    needs: npm\n");
+        expect(workflow.slice(workflow.indexOf("\n  crate:\n"))).toContain("\n    needs: [npm, crate-check]\n");
+        const npm = workflow.slice(workflow.indexOf("\n  pack:\n"), workflow.indexOf("\n  docs:\n"));
         expect(npm.indexOf("name: Canary version")).toBeLessThan(npm.indexOf("name: Built versions"));
         expect(npm.indexOf("name: Built versions")).toBeLessThan(npm.indexOf("name: Publish"));
         expect(npm).toContain("is on the registry already");
         expect(npm).toContain("a real run skips it");
         expect(npm).toContain("name: Tag version");
+    });
+
+    it("installs and checks in a job with no publishing credential, and publishes from one that runs no dependency's code", async () =>
+    {
+        const workflow = await read(".github/workflows/release.yml");
+        const pack = workflow.slice(workflow.indexOf("\n  pack:\n"), workflow.indexOf("\n  npm:\n"));
+        const npm = workflow.slice(workflow.indexOf("\n  npm:\n"), workflow.indexOf("\n  docs:\n"));
+        expect(pack).toContain("run: npm ci\n");
+        expect(pack).toContain("run: npm run check\n");
+        expect(pack).not.toMatch(/id-token|secrets\./);
+        expect(npm).toContain("id-token: write");
+        expect(npm.match(/npm ci[^\n]*/g)).toEqual(["npm ci --prefix .github/npm --no-audit --no-fund --ignore-scripts"]);
+        expect(npm).not.toMatch(/npx |npm run |npm install|npm exec|playwright|cache: npm|--workspace/);
+        expect(workflow).toContain("name: packed-${{ github.run_id }}");
+        const check = workflow.slice(workflow.indexOf("\n  crate-check:\n"), workflow.indexOf("\n  crate:\n"));
+        const crate = workflow.slice(workflow.indexOf("\n  crate:\n"));
+        expect(check).toContain("cargo test --locked");
+        expect(check).toContain("cargo package --package zerolith --locked");
+        expect(check).not.toMatch(/id-token|secrets\.|crates-io-auth-action/);
+        expect(crate).toContain("id-token: write");
+        expect(crate).not.toMatch(/cargo (?:build|test|clippy|package|check|run)/);
+        expect(workflow).toContain("(needs.crate-check.result == 'success' || needs.crate-check.result == 'skipped') && (needs.crate.result == 'success' || needs.crate.result == 'skipped')");
+        expect(crate.match(/cargo publish[^\n]*/g)).toEqual(["cargo publish --package zerolith --locked --no-verify --dry-run", "cargo publish --package zerolith --locked --no-verify"]);
     });
 
     it("runs every check of npm run check in CI", async () =>

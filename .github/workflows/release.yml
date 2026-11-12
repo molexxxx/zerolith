@@ -28,6 +28,13 @@ name: Release
 # published, since npm gives a package's first version the latest tag, so
 # that first version comes from a release.
 #
+# One job installs, checks, builds, and packs the npm packages with no
+# publishing credential, and another publishes its tarballs, installing
+# nothing but the pinned npm without install scripts, so a compromised
+# dependency's install script never runs beside the OIDC token or the
+# NPM_TOKEN secret. The crate is checked and built as packaged in one job
+# and published without a build from another, for the same reason.
+#
 # A release that publishes the core also rebuilds the documentation site
 # from the same commit and deploys it to GitHub Pages, and a release of
 # every package creates a GitHub release tagged zerolith@<version> with the
@@ -179,14 +186,16 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  npm:
-    name: npm ${{ needs.canary.outputs.publish == 'true' && 'canary' || github.event.inputs.package || github.ref_name }}
+  # Installs, checks, builds, and packs every package in a job that holds no
+  # publishing credential, since an install runs the dependencies' own
+  # scripts; the npm job below publishes the tarballs it hands on.
+  pack:
+    name: pack ${{ needs.canary.outputs.publish == 'true' && 'canary' || github.event.inputs.package || github.ref_name }}
     needs: [canary, binaries]
     if: ${{ !cancelled() && (needs.binaries.result == 'success' || needs.binaries.result == 'skipped') && (needs.canary.outputs.publish == 'true' || (needs.canary.result == 'skipped' && (github.event_name == 'workflow_dispatch' || !startsWith(github.ref_name, 'crate@')))) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      id-token: write
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -254,6 +263,86 @@ jobs:
         if: needs.binaries.result == 'success'
         run: find packages/cli/platforms -name zerolith -type f -exec chmod 755 {} +
 
+      - name: Pack
+        env:
+          BINARIES: ${{ needs.binaries.result }}
+        run: |
+          set -eu
+          packed="$RUNNER_TEMP/packed"
+          mkdir -p "$packed"
+          if [ "$BINARIES" = "success" ]; then
+            for directory in packages/cli/platforms/*/; do
+              ls "$directory"zerolith* >/dev/null
+              (cd "$directory" && npm pack --pack-destination "$packed")
+            done
+            node scripts/platforms.ts
+          fi
+          npm pack --workspaces --pack-destination "$packed"
+          # Without the binaries, @zerolith/cli would go out naming no platform package, so no tarball of it is made.
+          if [ "$BINARIES" != "success" ]; then
+            rm -f "$packed"/zerolith-cli-[0-9]*.tgz
+          fi
+          ls -l "$packed"
+
+      - name: Upload the tarballs
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packed-${{ github.run_id }}
+          path: ${{ runner.temp }}/packed
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom-${{ github.run_id }}
+          path: sbom.cdx.json
+          retention-days: 90
+
+  # Publishes the tarballs the pack job made. It installs nothing but the
+  # pinned npm, without install scripts, so no dependency's code runs where
+  # the OIDC token and the NPM_TOKEN secret are.
+  npm:
+    name: npm ${{ needs.canary.outputs.publish == 'true' && 'canary' || github.event.inputs.package || github.ref_name }}
+    needs: [canary, pack]
+    if: ${{ !cancelled() && needs.pack.result == 'success' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          registry-url: https://registry.npmjs.org
+
+      - name: npm
+        run: |
+          npm ci --prefix .github/npm --no-audit --no-fund --ignore-scripts
+          echo "$GITHUB_WORKSPACE/.github/npm/node_modules/.bin" >> "$GITHUB_PATH"
+
+      - name: npm version
+        run: npm --version
+
+      - name: Canary version
+        if: needs.canary.outputs.publish == 'true'
+        env:
+          VERSION: ${{ needs.canary.outputs.version }}
+        run: node scripts/version.ts "$VERSION"
+
+      - name: Tarballs
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: packed-${{ github.run_id }}
+          path: ${{ runner.temp }}/packed
+
       - name: Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -262,6 +351,7 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run }}
           REF_NAME: ${{ github.ref_name }}
           CANARY: ${{ needs.canary.outputs.publish }}
+          PACKED: ${{ runner.temp }}/packed
         run: |
           set -eu
           if [ "$CANARY" = "true" ]; then
@@ -324,6 +414,19 @@ jobs:
             exit 1
           fi
           packages="$unpublished$published"
+          # The tarball the pack job made of a package, named as npm pack names it; a missing one stops the step.
+          tarball()
+          {
+            file="$PACKED/$(printf '%s' "$1" | sed 's|^@||; s|/|-|')-$version.tgz"
+            if [ ! -f "$file" ]; then
+              echo "::error::the pack job made no tarball of $1 at $version, so nothing was published" >&2
+              return 1
+            fi
+            printf '%s' "$file"
+          }
+          for package in $packages; do
+            file="$(tarball "$package")"
+          done
           # npm gives a package a latest tag with its first publish, so until a
           # stable version exists latest follows the newest prerelease; after
           # that, a prerelease moves only its own tag.
@@ -367,18 +470,13 @@ jobs:
               continue
             fi
             echo "publishing $package"
+            file="$(tarball "$package")"
             case "$package" in
-              @zerolith/cli-*)
-                directory="packages/cli/platforms/${package#@zerolith/cli-}"
-                ls "$directory"/zerolith* >/dev/null
-                # shellcheck disable=SC2086
-                (cd "$directory" && npm publish $flags)
-                ;;
               @zerolith/cli)
                 if [ "$DRY_RUN" != "true" ]; then
                   for platform in $platforms; do
                     attempt=0
-                    until tarball="$(npm view "$platform@$version" dist.tarball 2>/dev/null)" && [ -n "$tarball" ] && curl -fsIL "$tarball" >/dev/null; do
+                    until address="$(npm view "$platform@$version" dist.tarball 2>/dev/null)" && [ -n "$address" ] && curl -fsIL "$address" >/dev/null; do
                       attempt=$((attempt + 1))
                       if [ "$attempt" -ge 60 ]; then
                         echo "::error::$platform@$version did not download from the registry within 30 minutes, so @zerolith/cli was not published; an install of it now would lack that binary"
@@ -388,27 +486,15 @@ jobs:
                     done
                   done
                 fi
-                node scripts/platforms.ts
-                # shellcheck disable=SC2086
-                npm publish --workspace "$package" $flags
-                ;;
-              *)
-                # shellcheck disable=SC2086
-                npm publish --workspace "$package" $flags
                 ;;
             esac
+            # shellcheck disable=SC2086
+            npm publish "$file" $flags
             # A single package moves only its own tag: latest names a set released together.
             if [ "$DRY_RUN" != "true" ] && [ "$tag" != "latest" ] && [ "$CANARY" != "true" ] && [ "$selection" = "all" ]; then
               move_latest "$package"
             fi
           done
-
-      - name: Upload SBOM
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: sbom-${{ github.run_id }}
-          path: sbom.cdx.json
-          retention-days: 90
 
   # After the GitHub release, which makes the tag the docs build reads the
   # shown releases from. The docs deploy runs on main, which the Pages
@@ -429,8 +515,8 @@ jobs:
 
   github-release:
     name: GitHub release
-    needs: [npm, crate]
-    if: ${{ !cancelled() && needs.npm.result == 'success' && (needs.crate.result == 'success' || needs.crate.result == 'skipped') && github.event_name == 'workflow_dispatch' && github.event.inputs.canary != 'true' && github.event.inputs.package == 'all' && github.event.inputs.dry_run != 'true' }}
+    needs: [npm, crate-check, crate]
+    if: ${{ !cancelled() && needs.npm.result == 'success' && (needs.crate-check.result == 'success' || needs.crate-check.result == 'skipped') && (needs.crate.result == 'success' || needs.crate.result == 'skipped') && github.event_name == 'workflow_dispatch' && github.event.inputs.canary != 'true' && github.event.inputs.package == 'all' && github.event.inputs.dry_run != 'true' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -484,14 +570,16 @@ jobs:
           VERSION: ${{ needs.github-release.outputs.version }}
         run: gh workflow run benchmarks.yml --ref "zerolith@$VERSION" -f version="$VERSION"
 
-  crate:
-    name: crates.io
+  # Checks the crate and builds it as packaged in a job with no publishing
+  # credential, since a build runs the dependencies' build scripts; the
+  # crate job below publishes it without building it again.
+  crate-check:
+    name: crates.io check
     needs: npm
     if: ${{ !cancelled() && github.event.inputs.canary != 'true' && ((startsWith(github.ref_name, 'crate@') && needs.npm.result == 'skipped') || (github.event.inputs.crate == 'true' && needs.npm.result == 'success')) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      id-token: write
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -519,6 +607,26 @@ jobs:
           cargo clippy --all-targets --locked -- -D warnings
           cargo test --locked
 
+      - name: Package
+        run: cargo package --package zerolith --locked
+
+  crate:
+    name: crates.io
+    needs: [npm, crate-check]
+    if: ${{ !cancelled() && needs.crate-check.result == 'success' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Toolchain
+        run: rustup show active-toolchain
+
       - name: Authenticate with crates.io
         id: auth
         uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
@@ -529,8 +637,9 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
           set -eu
+          # The crate-check job built the package; --no-verify packages the source without compiling anything here.
           if [ "$DRY_RUN" = "true" ]; then
-            cargo publish --package zerolith --locked --dry-run
+            cargo publish --package zerolith --locked --no-verify --dry-run
           else
-            cargo publish --package zerolith --locked
+            cargo publish --package zerolith --locked --no-verify
           fi
