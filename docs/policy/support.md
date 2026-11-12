@@ -25,7 +25,8 @@ While the project has one maintainer with release rights, the newest major line 
 
 ## Platforms
 
-- Browsers: the current and previous major version of Chrome, Edge, Firefox, and Safari, and every version since Chrome and Edge 118, Firefox 146, and Safari 17.4, the first with `@scope`, which scoped styles are built on, as well as import maps, `adoptedStyleSheets`, and `<template>`. The runtime does not polyfill, and the command line lowers CSS for those versions.
+- Browsers: the current and previous major version of Chrome, Edge, Firefox, and Safari, plus any version that supports import maps, `adoptedStyleSheets`, and `<template>`: Chrome and Edge 89, Firefox 108, and Safari 16.4. Scoped styles also need `@scope`, which arrived in Chrome and Edge 118, Firefox 146, and Safari 17.4, and below those an app's scoped styles do not apply. The runtime does not polyfill, and the command line lowers CSS for the oldest versions named here.
+- Announced in 1.7.0: from 1.8.0 the oldest browsers are Chrome and Edge 118, Firefox 146, and Safari 17.4 for every part of zerolith, and the command line lowers CSS for them, so a build stops adding the fallbacks only older browsers need, such as those for `oklch()` colors.
 - Node: every release line in active or maintenance LTS at the time of a zerolith release, for server rendering and tooling.
 - Electron: the current stable major and the one before it, for the dev tools and the transport adapters.
 
