@@ -48,7 +48,7 @@ The rows now come from `shown` instead of `items`, so they follow the filter.
 `when` shows something only while a condition is true. Here it shows "Nothing to show here." when the filter leaves no rows, such as choosing **Left to pack** after everything is packed. You can pass a third argument to show something else while the condition is false.
 
 > [!NOTE]
-> `when` is zerolith's if and else, like `? :` in React or `@if` and `@else` in Angular. Its condition must be a signal, which is why `empty` is a computed value. If you pass a function by mistake, your editor marks it as an error.
+> `when` is zerolith's if and else, like `? :` in React or `@if` and `@else` in Angular. Give it a signal as its condition so it can change, which is why `empty` is a computed value. If you pass a function by mistake, your editor marks it as an error.
 
 ## Try it
 

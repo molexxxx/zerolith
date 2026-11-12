@@ -53,7 +53,7 @@ The starter already wrote two things for agents, so there's nothing to set up:
 
 Both folders hold the same skill, because different agents look in different places. Claude Code reads `.claude/skills/`, and most others read `.agents/skills/`.
 
-Open `AGENTS.md` and read it. It's short, and it's what your agent follows. Commit both, so other people's agents get them too.
+Open `AGENTS.md` and read it. It's short, and it's what your agent follows. Both are in the commit you just made, so other people's agents get them too.
 
 ## The steps
 

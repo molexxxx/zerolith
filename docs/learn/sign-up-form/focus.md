@@ -58,7 +58,7 @@ Use only the keyboard:
 3. Use `ada@example.com` as the email and press **Create account**. The focus lands on Email.
 4. Change the email and press **Create account** again. The focus lands on the welcome's heading.
 
-If you have a screen reader, such as Narrator on Windows or VoiceOver on a Mac, try the same steps. It reads each field with its message, then "Fix 1 field to create your account."
+If you have a screen reader, such as Narrator on Windows or VoiceOver on a Mac, try the same steps. It reads the field that gets the focus with its message, then how many fields need a change, such as "Fix 1 field to create your account."
 
 ## What you learned
 

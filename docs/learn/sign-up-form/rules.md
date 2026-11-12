@@ -65,7 +65,7 @@ Create `src/components/checkbox.ts`:
 
 @include packages/zerolith/test/fixtures/sign-up-form/rules/src/components/checkbox.ts
 
-A checkbox takes `aria-invalid` like a text field does. A group of radio buttons can't, as [ARIA 1.2](https://www.w3.org/TR/wai-aria-1.2/#aria-invalid) defines it, so the plan group connects its message with `aria-describedby` only.
+A checkbox takes `aria-invalid` like a text field does. The plan group is a `<fieldset>`, whose role is `group`, and [ARIA 1.2](https://www.w3.org/TR/wai-aria-1.2/#aria-invalid) defines `aria-invalid` for neither a group nor a single radio button, so the plan group connects its message with `aria-describedby` only.
 
 ## The form
 

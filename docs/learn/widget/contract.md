@@ -78,7 +78,7 @@ It checks each part of the body against the contract:
 - If anything is wrong, it answers `400` with a message for each problem.
 - Otherwise, it passes the feedback to `save`, keeping only the parts the contract names, and answers `201` with a new id.
 
-Lengths are counted in characters, the way JSON Schema counts them, so an emoji counts as one.
+Lengths are counted in characters, the way JSON Schema counts them, so an emoji such as 👍 counts as one, not two.
 
 Every answer includes `access-control-allow-origin: *`, and an `OPTIONS` request gets the three headers CORS asks for. **CORS** is the browser's rule about requests between sites: a page on one site, such as a blog, can only read an answer from another site, such as your API, if that server allows it. Because the widget sends JSON, the browser first asks permission with an `OPTIONS` request, and only sends the real request if the answer allows it. `*` allows every site, which is fine for feedback, since the widget sends no cookies. A server that only takes feedback from its own sites would name them instead.
 

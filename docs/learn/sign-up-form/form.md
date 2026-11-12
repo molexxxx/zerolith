@@ -72,7 +72,7 @@ Now try what the browser does on its own:
 
 All of that comes from `required` and `type="email"`. You haven't written any script for it.
 
-Fix the email and press **Create account** again. The browser sends the form to `/api/sign-ups` and leaves the page. There's nothing there yet, so the dev server shows an error. Go back. The next step keeps you on the page.
+Fix the email and press **Create account** again. The browser sends the form to `/api/sign-ups` and leaves the page. There's nothing there yet, so the dev server refuses it, and the browser shows an error. Go back. The next step keeps you on the page.
 
 ## What you learned
 

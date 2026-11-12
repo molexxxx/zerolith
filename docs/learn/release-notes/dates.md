@@ -33,7 +33,7 @@ Create `src/dates.ts`:
 - **`dateStyle: "long"`** writes the month as a word, in that language's order.
 - **`timeZone: "UTC"`** keeps the day right everywhere.
 
-Here's why the time zone matters. `Date.parse("2026-10-20")` means midnight at the start of that day in UTC. A date is normally shown in the reader's own time zone. A reader in New York is five hours behind UTC, so without this option they'd see October 19. A release date is a day on the calendar, not a moment in time, so showing it in UTC gives every reader the day the file says.
+Here's why the time zone matters. `Date.parse("2026-10-20")` means midnight at the start of that day in UTC. A date is normally shown in the reader's own time zone. A reader in New York is four or five hours behind UTC, depending on the season, so without this option they'd see October 19. A release date is a day on the calendar, not a moment in time, so showing it in UTC gives every reader the day the file says.
 
 > [!NOTE]
 > An app with more than one language keeps the reader's choice in a signal made by `createLocale`, and passes it to `formatters` instead of a fixed language. Then every date changes when the reader picks another language. The [internationalization guide](../../guide/i18n.md) covers it, along with translated messages.

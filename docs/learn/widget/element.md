@@ -58,7 +58,7 @@ npm run dev
 
 ## Try it
 
-Open the address it prints, usually `http://127.0.0.1:8080/`. The form appears under the article.
+Open the address it prints, usually `http://127.0.0.1:8080/`. The form appears under the paragraph.
 
 1. Press **Send** without an answer. The browser asks you to pick one.
 2. Pick an answer and press **Send**. The browser sends the form the way it sends any form without an `action`: it reloads the page with your answer in the address. Step 4 sends it to a server instead.
