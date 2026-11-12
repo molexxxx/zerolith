@@ -5,6 +5,7 @@
  * its paths. Failures are RFC 9457 problems, thrown as `ProblemError`.
  */
 import { PROBLEM_MEDIA_TYPE, type Problem, type Resource, isProblem, resource } from "zerolith";
+import { release } from "./release.js";
 
 /**
  * The HTTP method of an operation, in lowercase: one OpenAPI names, `query`
@@ -63,7 +64,7 @@ export interface ClientOptions
     baseUrl?: string;
     /** Sends every request the client builds and resolves with the response. Defaults to the global `fetch`, looked up on each call. */
     transport?: Transport;
-    /** Headers sent with every request, or a function returning them, for values such as a bearer token; a `content-type` among them is left out for a `FormData` body, whose boundary the platform writes. */
+    /** Headers sent with every request, or a function returning them, for values such as a bearer token; a `content-type` among them is left out for a `FormData` body, whose boundary the platform writes, and for a `URLSearchParams` body or a `Blob` with a type, which name their own. */
     headers?: HeadersInit | (() => HeadersInit);
 }
 
@@ -117,7 +118,7 @@ function kindOf(value: unknown): string
     return Object.prototype.toString.call(value).slice(8, -1);
 }
 
-/** The query string of `query`, from `?`, or nothing when it has no pair; a query that is a non-empty string, an iterable, or a `Date` throws a `TypeError` that names `route`, since its values would be lost, and any other value is read by its own keys, as `Object.entries` reads them. */
+/** The query string of `query`, from `?`, or nothing when it has no pair; a query that is a non-empty string, an iterable, or a `Date` throws a `TypeError` that names `route`, since its values would be lost, and any other value is read by its own keys, as `Object.entries` reads them. A value with no text form, as a function, a symbol, or an object whose `toJSON` returns nothing, throws a `TypeError` that names its key, where it would go as the text `undefined` or a function's source. */
 function searchOf(route: { method: Method; path: string }, query: unknown): string
 {
     if (query === undefined || query === null)
@@ -141,11 +142,16 @@ function searchOf(route: { method: Method; path: string }, query: unknown): stri
             {
                 continue;
             }
-            search.append(key, typeof item === "object" ? JSON.stringify(item) : String(item));
+            const text = typeof item === "object" ? JSON.stringify(item) as string | undefined : typeof item === "function" || typeof item === "symbol" ? undefined : String(item);
+            if (text === undefined)
+            {
+                throw new TypeError(`zerolith/client: ${route.method.toUpperCase()} ${route.path} got a query value for "${key}" that has no text form, as a function, a symbol, or an object whose toJSON returns nothing; send a string, a number, a boolean, or a value JSON can hold`);
+            }
+            search.append(key, text);
         }
     }
-    const text = search.toString();
-    return text === "" ? "" : `?${text}`;
+    const encoded = search.toString();
+    return encoded === "" ? "" : `?${encoded}`;
 }
 
 /** Whether this platform keeps a `ReadableStream` body as a stream: one that cannot turns it into the text "[object ReadableStream]" and labels it `text/plain`, as the streaming-requests guide for Chrome describes, or refuses it. */
@@ -212,7 +218,8 @@ function buildRequest(route: { method: Method; path: string }, input: LooseInput
         if (isRawBody(input.body))
         {
             init.body = input.body;
-            if (input.body instanceof FormData)
+            const ownType = input.body instanceof URLSearchParams || (input.body instanceof Blob && input.body.type !== "");
+            if (input.body instanceof FormData || (ownType && !new Headers(options.headers).has("content-type")))
             {
                 headers.delete("content-type");
             }
@@ -240,12 +247,6 @@ function buildRequest(route: { method: Method; path: string }, input: LooseInput
         }
     }
     return new Request(`${base}${path}${searchOf(route, input.query)}`, init);
-}
-
-/** Cancels the body of a HEAD response unread, which RFC 9110, section 9.3.2, says carries none, so a transport that streams one anyway is released. */
-function release(response: Response): void
-{
-    void Promise.resolve().then(() => response.body?.cancel()).catch(() => undefined);
 }
 
 /** A successful response's body: JSON parsed, or `undefined` when it is empty or holds only the whitespace JSON allows; text for `text/*` or no type, or `undefined` when it is empty; a `Blob` for any other type, such as an image; and `undefined` for a 204 or a 205. A HEAD response is read without its body, since RFC 9110, section 9.3.2, gives it none: `undefined` for JSON or text, and an empty `Blob` of its type, as a GET's would carry it, otherwise. A stand-in for a `Response` with `json()` and no `text()` is read with `json()`. */

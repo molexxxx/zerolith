@@ -279,6 +279,23 @@ describe("portTransport and servePort", () =>
         }
     });
 
+    it("destroys a handler's body that has no cancel() for a HEAD request, as a Node stream has none", async () =>
+    {
+        const { client, server, close } = pair();
+        try
+        {
+            const destroyed: string[] = [];
+            servePort(server, () => ({ status: 200, statusText: "", headers: new Headers(), body: { destroy: () => destroyed.push("handler") }, text: async () => "unread" }) as unknown as Response);
+            const answer = await portTransport(client)(new Request("https://app.local/notes", { method: "HEAD" }));
+            expect(answer.status).toBe(200);
+            await vi.waitFor(() => expect(destroyed).toEqual(["handler"]));
+        }
+        finally
+        {
+            close();
+        }
+    });
+
     it("sends no body in the answer to a HEAD request, a failure's included, and leaves the handler's body unread", async () =>
     {
         const reported = vi.fn();

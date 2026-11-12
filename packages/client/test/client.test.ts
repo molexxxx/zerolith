@@ -17,6 +17,12 @@ function recorder(respond: (request: Request) => Response | Promise<Response>): 
     };
 }
 
+/** A raw body typed as the upload operation's stream, to send any kind of body through it. */
+function rawBody(value: unknown): { body: ReadableStream<Uint8Array> }
+{
+    return { body: value as ReadableStream<Uint8Array> };
+}
+
 const problem = (status: number, body: unknown): Response => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/problem+json" } });
 
 describe("createClient", () =>
@@ -528,6 +534,17 @@ describe("requests and responses at the edges", () =>
         expect(api.request("listNotes", { query: { q: "d", [Symbol.iterator]: undefined } as never }).url).toBe("https://api.test/notes?q=d");
     });
 
+    it("refuses a query value with no text form, and still sends strings, numbers, booleans, and JSON values", () =>
+    {
+        const api = createClient<Api>(routes, { baseUrl: "https://api.test" });
+        const listed = (query: unknown) => () => api.request("listNotes", { query } as never);
+        expect(listed({ sort: () => "title" })).toThrow(new TypeError("zerolith/client: GET /notes got a query value for \"sort\" that has no text form, as a function, a symbol, or an object whose toJSON returns nothing; send a string, a number, a boolean, or a value JSON can hold"));
+        expect(listed({ tag: Symbol("x") })).toThrow(TypeError);
+        expect(listed({ page: { toJSON: () => undefined } })).toThrow(TypeError);
+        expect(listed({ tags: ["a", () => "b"] })).toThrow(TypeError);
+        expect(listed({ page: 2, open: true, q: "a b", range: { from: 1 }, big: 10n })().url).toBe("https://api.test/notes?page=2&open=true&q=a+b&range=%7B%22from%22%3A1%7D&big=10");
+    });
+
     it("leaves undefined and null items of a query array out", () =>
     {
         const api = createClient<Api>(routes, { baseUrl: "https://api.test", transport: async () => Response.json({ items: [] }) });
@@ -655,6 +672,34 @@ describe("requests and responses at the edges", () =>
         expect(kept?.body).toEqual(sent);
         expect([broken?.body, plain?.body]).toEqual([undefined, undefined]);
         expect(new ProblemError({ status: 400 }, new Response(null, { status: 400 })).body).toBeUndefined();
+    });
+
+    it("lets a URLSearchParams body or a typed Blob name its own type over the client's, and keeps a call's own", async () =>
+    {
+        const files = { download: { method: "get", path: "/files/{id}" }, upload: { method: "post", path: "/files" } } as const satisfies RouteTable<Files>;
+        const { transport, requests } = recorder(() => new Response(null, { status: 204 }));
+        const api = createClient<Files>(files, { baseUrl: "https://api.test", transport, headers: { "content-type": "application/json" } });
+        await api.call("upload", rawBody(new URLSearchParams("a=1")));
+        await api.call("upload", rawBody(new Blob(["png"], { type: "image/png" })));
+        await api.call("upload", rawBody(new Blob(["raw"])));
+        await api.call("upload", rawBody("{}"));
+        await api.call("upload", rawBody(new Blob(["png"], { type: "image/png" })), { headers: { "content-type": "image/webp" } });
+        expect(requests.map((request) => request.headers.get("content-type"))).toEqual(["application/x-www-form-urlencoded;charset=UTF-8", "image/png", "application/json", "application/json", "image/webp"]);
+    });
+
+    it("destroys a HEAD response's body that has no cancel(), as a stand-in's Node stream", async () =>
+    {
+        interface Heads
+        {
+            check: { method: "head"; path: "/check"; output: undefined };
+        }
+        const destroyed: string[] = [];
+        const api = createClient<Heads>({ check: { method: "head", path: "/check" } }, {
+            baseUrl: "https://api.test",
+            transport: async () => ({ ok: true, status: 200, headers: new Headers(), body: { destroy: () => destroyed.push("stand-in") } }) as unknown as Response
+        });
+        await expect(api.call("check")).resolves.toBeUndefined();
+        await vi.waitFor(() => expect(destroyed).toEqual(["stand-in"]));
     });
 
     it("leaves out a problem's detail of the wrong type", async () =>

@@ -5,6 +5,7 @@
  * handler runs. Bodies travel as text, which covers JSON and encoded forms.
  */
 import type { Transport } from "./index.js";
+import { release } from "./release.js";
 
 /** The port shapes supported: a DOM `MessagePort`, Node's, or Electron's `MessagePortMain`. */
 export interface PortLike
@@ -159,8 +160,9 @@ export function portTransport(port: PortLike): Transport
  * resolves to something other than a `Response`, or answers with a body that
  * cannot be read answers with a 500 problem, so the client sees a
  * `ProblemError` rather than waiting for good. The answer to a HEAD
- * request carries no body: the handler's is canceled unread, and a
- * failure's 500 goes without its problem.
+ * request carries no body: the handler's is canceled unread, or destroyed
+ * when it has no `cancel()`, as a Node stream does not, and a failure's 500
+ * goes without its problem.
  */
 export function servePort(port: PortLike, handler: (request: Request) => Response | Promise<Response>): void
 {
@@ -182,7 +184,7 @@ export function servePort(port: PortLike, handler: (request: Request) => Respons
                 let text = "";
                 if (head)
                 {
-                    void Promise.resolve().then(() => response.body?.cancel()).catch(() => undefined);
+                    release(response);
                 }
                 else
                 {
