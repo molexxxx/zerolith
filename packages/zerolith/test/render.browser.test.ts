@@ -119,6 +119,23 @@ describe("html and render", () =>
         expect(el.querySelector("b")).toBeNull();
     });
 
+    it("binds each part on its own node, past siblings, deeper elements, and back up, in one root and in several", () =>
+    {
+        const el = mount(html`<section data-a=${"a"}><div><p title=${"p"} lang=${"en"}>${"one"}<b>${"two"}</b></p><i data-i=${"i"}></i></div><span>${"three"} tail</span><em data-e=${"e"}>${"four"}</em></section>`);
+        expect(el.querySelector("section")?.dataset["a"]).toBe("a");
+        expect([el.querySelector("p")?.title, el.querySelector("p")?.lang]).toEqual(["p", "en"]);
+        expect(el.querySelector("p")?.firstChild?.textContent).toBe("one");
+        expect(el.querySelector("b")?.textContent).toBe("two");
+        expect(el.querySelector("i")?.dataset["i"]).toBe("i");
+        expect(el.querySelector("span")?.textContent).toBe("three tail");
+        expect([el.querySelector("em")?.dataset["e"], el.querySelector("em")?.textContent]).toEqual(["e", "four"]);
+        const lists = mount(html`<ul><li data-x=${"x"}>${"first"}</li><li><span data-y=${"y"}></span></li><li></li><li data-z=${"z"}></li></ul><ol><li>${"second"}</li></ol>`);
+        expect(lists.querySelector("[data-x]")?.textContent).toBe("first");
+        expect(lists.querySelector("span")?.dataset["y"]).toBe("y");
+        expect(lists.querySelector("ul")?.lastElementChild?.getAttribute("data-z")).toBe("z");
+        expect(lists.querySelector("ol li")?.textContent).toBe("second");
+    });
+
     it("updates a signal binding in place without re-running the template", () =>
     {
         const count = signal(1);
