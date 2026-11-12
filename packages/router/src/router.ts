@@ -43,6 +43,10 @@ interface Resolved
 export function createRouter<const T extends RouteTable>(routes: T | (() => T), options: RouterOptions = {}): Router<T>
 {
     const win = options.window === null ? undefined : (options.window ?? (typeof window === "undefined" ? undefined : window));
+    if (win !== undefined && options.focus !== undefined)
+    {
+        win.document.createDocumentFragment().querySelector(options.focus);
+    }
     let embedded = win === undefined ? undefined : readEmbeddedState(win.document);
     const deferred = typeof routes === "function";
     let compiledRoutes: Compiled[] | undefined;
@@ -331,6 +335,7 @@ export function createRouter<const T extends RouteTable>(routes: T | (() => T), 
         }
         if (attempt.failed)
         {
+            committed = false;
             throw attempt.error;
         }
         settleReady?.resolve();
@@ -361,7 +366,7 @@ export function createRouter<const T extends RouteTable>(routes: T | (() => T), 
                 clearTimeout(scrollPause);
                 saveScroll();
                 position++;
-                win.history.pushState({ position, page: pageKey }, "", target.href);
+                win.history.pushState({ position, page: pageKey, scroll: win.scrollY }, "", target.href);
             }
             else if (win !== undefined && mode === "replace")
             {
@@ -374,10 +379,11 @@ export function createRouter<const T extends RouteTable>(routes: T | (() => T), 
         }
         pending.set(true);
         options.observe?.({ type: "start", id: run, url: target, mode });
-        const failed = (error: unknown): void =>
+        /** Ends the navigation in an `error` event; a failure before the commit, while the page before is still shown, also moves the history back to it. */
+        const failed = (error: unknown, beforeCommit = true): void =>
         {
             pending.set(false);
-            if (mode === "pop" && moved !== 0 && win !== undefined)
+            if (beforeCommit && mode === "pop" && moved !== 0 && win !== undefined)
             {
                 position -= moved;
                 win.history.go(-moved);
@@ -431,11 +437,19 @@ export function createRouter<const T extends RouteTable>(routes: T | (() => T), 
                     win.history.replaceState({ ...entryState(), position, page: key }, "", target.href);
                 }
             }
-            commit(target, resolved, value, restored, first, key);
         }
         catch (error)
         {
             failed(error);
+            return;
+        }
+        try
+        {
+            commit(target, resolved, value, restored, first, key);
+        }
+        catch (error)
+        {
+            failed(error, false);
             return;
         }
         options.observe?.({ type: "commit", id: run, url: target, mode, name: resolved.match?.name });
@@ -497,7 +511,7 @@ export function createRouter<const T extends RouteTable>(routes: T | (() => T), 
         if (!pending.get() && target.pathname === shown.pathname && (target.search === shown.search || ownEntry))
         {
             url.set(target);
-            scrollTo(target, target.hash === "" ? restored : undefined);
+            scrollTo(target, target.hash === "" ? restored : undefined, false);
             return;
         }
         void go(target, "pop", restored, false, false, moved);
@@ -573,7 +587,15 @@ export function createRouter<const T extends RouteTable>(routes: T | (() => T), 
             }
             committing.failed = true;
             committing.error = error;
-            return options.failed?.(error, matched.url);
+            try
+            {
+                return options.failed?.(error, matched.url);
+            }
+            catch (failure)
+            {
+                committing.error = failure;
+                return undefined;
+            }
         }
     }));
 
@@ -608,7 +630,7 @@ export function createRouter<const T extends RouteTable>(routes: T | (() => T), 
                 }
                 return Promise.resolve();
             }
-            return go(target, navigation.replace === true ? "replace" : "push", undefined, false, navigation.reload === true, 0, navigation.shallow === true);
+            return untracked(() => go(target, navigation.replace === true ? "replace" : "push", undefined, false, navigation.reload === true, 0, navigation.shallow === true));
         },
         matches(path, matching = {})
         {

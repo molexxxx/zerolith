@@ -137,9 +137,12 @@ export interface RouterOptions
      * A selector for the element that takes keyboard focus after each
      * navigation to another page, such as `"h1"`, so keyboard and screen
      * reader users stay with the page when the link they pressed goes away.
-     * The scroll position does not move, and an element that cannot take focus
-     * gets `tabindex="-1"`. The first page of a load, a shallow navigation, and
-     * a URL with a hash leave focus where it is.
+     * The first match in the document takes it, so a layout that uses the
+     * same element above the outlet needs a selector only the page matches,
+     * such as `"main h1"`; one the browser cannot parse throws from
+     * `createRouter`. The scroll position does not move, and an element that
+     * cannot take focus gets `tabindex="-1"`. The first page of a load, a
+     * shallow navigation, and a URL with a hash leave focus where it is.
      */
     focus?: string;
     /**
