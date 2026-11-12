@@ -100,7 +100,7 @@ Where `fetch` cannot reach the server, the same client runs over a message port:
 
 @include packages/client/test/examples/port.example.test.ts#port
 
-In Electron, the main process creates a `MessageChannelMain`, keeps one port for `servePort`, and posts the other to the renderer, whose preload script forwards it to the page with `window.postMessage`; Electron's `MessagePortMain` and the page's `MessagePort` are both accepted. Problems cross unchanged, a handler that throws answers with a 500 problem, and aborting a call rejects it at once, so the client's error handling is the same on every transport.
+In Electron, the main process creates a `MessageChannelMain`, keeps one port for `servePort`, and posts the other to the renderer, whose preload script forwards it to the page with `window.postMessage`; Electron's `MessagePortMain` and the page's `MessagePort` are both accepted. Problems cross unchanged, except a failed HEAD call's, since the answer to a HEAD request carries no body, a handler that throws answers with a 500 problem, and aborting a call rejects it at once, so the client's error handling is the same on every transport.
 
 > [!WARNING]
 > Requests and responses cross as plain messages with text bodies. JSON and encoded forms travel; binary uploads do not.

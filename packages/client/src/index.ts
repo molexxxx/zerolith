@@ -186,7 +186,7 @@ function buildRequest(route: { method: Method; path: string }, input: LooseInput
             throw new TypeError(`zerolith/client: ${route.method.toUpperCase()} ${route.path} needs the path parameter "${name}"`);
         }
         const segment = encodeURIComponent(String(value));
-        if (segment === "." || segment === "..")
+        if (segment === "" || segment === "." || segment === "..")
         {
             throw new TypeError(`zerolith/client: ${route.method.toUpperCase()} ${route.path} got "${segment}" for the path parameter "${name}", which would move the request to another path`);
         }
@@ -239,20 +239,35 @@ function buildRequest(route: { method: Method; path: string }, input: LooseInput
     return new Request(`${base}${path}${searchOf(route, input.query)}`, init);
 }
 
-/** A successful response's body: JSON parsed, or `undefined` when it is empty or holds only the whitespace JSON allows; text for `text/*` or no type, or `undefined` when it is empty; a `Blob` for any other type, such as an image; and `undefined` for a 204 or a 205. A HEAD response is read without its body, since RFC 9110, section 9.3.2, gives it none: `undefined` for JSON or text, and an empty `Blob` of its type otherwise. */
+/** Cancels the body of a HEAD response unread, which RFC 9110, section 9.3.2, says carries none, so a transport that streams one anyway is released. */
+function release(response: Response): void
+{
+    void Promise.resolve().then(() => response.body?.cancel()).catch(() => undefined);
+}
+
+/** A successful response's body: JSON parsed, or `undefined` when it is empty or holds only the whitespace JSON allows; text for `text/*` or no type, or `undefined` when it is empty; a `Blob` for any other type, such as an image; and `undefined` for a 204 or a 205. A HEAD response is read without its body, since RFC 9110, section 9.3.2, gives it none: `undefined` for JSON or text, and an empty `Blob` of its type, as a GET's would carry it, otherwise. A stand-in for a `Response` with `json()` and no `text()` is read with `json()`. */
 async function readBody(response: Response, method: string): Promise<unknown>
 {
+    if (method === "HEAD")
+    {
+        release(response);
+    }
     if (response.status === 204 || response.status === 205)
     {
         return undefined;
     }
-    const type = (response.headers.get("content-type") ?? "").toLowerCase();
+    const header = response.headers.get("content-type") ?? "";
+    const type = header.toLowerCase();
     if (method === "HEAD")
     {
-        return type.includes("json") || type === "" || type.startsWith("text/") ? undefined : new Blob([], { type });
+        return type.includes("json") || type === "" || type.startsWith("text/") ? undefined : new Response(null, { headers: { "content-type": header } }).blob();
     }
     if (type.includes("json"))
     {
+        if (typeof response.text !== "function")
+        {
+            return response.json();
+        }
         const text = await response.text();
         return /^[\t\n\r ]*$/.test(text) ? undefined : JSON.parse(text);
     }
@@ -264,7 +279,7 @@ async function readBody(response: Response, method: string): Promise<unknown>
     return response.blob();
 }
 
-/** Calls `run` with a signal that aborts when either `own` or `caller` does, with that signal's reason, and stops listening to both once the call settles. */
+/** Calls `run` with a signal that aborts when either `own` or `caller` does, with that signal's reason. It stops listening to `caller` once the call settles and follows `own` until that aborts, so the request's signal lives as long as the resource's request, as it does without a caller's signal. */
 async function withSignals<T>(own: AbortSignal, caller: AbortSignal | undefined, run: (signal: AbortSignal) => Promise<T>): Promise<T>
 {
     if (caller === undefined)
@@ -272,17 +287,12 @@ async function withSignals<T>(own: AbortSignal, caller: AbortSignal | undefined,
         return run(own);
     }
     const combined = new AbortController();
-    const fromOwn = (): void => combined.abort(own.reason);
     const fromCaller = (): void => combined.abort(caller.reason);
-    if (own.aborted)
-    {
-        fromOwn();
-    }
-    else if (caller.aborted)
+    if (caller.aborted)
     {
         fromCaller();
     }
-    own.addEventListener("abort", fromOwn);
+    own.addEventListener("abort", () => combined.abort(own.reason), { once: true });
     caller.addEventListener("abort", fromCaller);
     try
     {
@@ -290,7 +300,6 @@ async function withSignals<T>(own: AbortSignal, caller: AbortSignal | undefined,
     }
     finally
     {
-        own.removeEventListener("abort", fromOwn);
         caller.removeEventListener("abort", fromCaller);
     }
 }
@@ -357,7 +366,11 @@ async function settle(response: Response, method: string): Promise<unknown>
         return readBody(response, method);
     }
     let problem: Problem | undefined;
-    if (method !== "HEAD" && (response.headers.get("content-type") ?? "").toLowerCase().includes("json"))
+    if (method === "HEAD")
+    {
+        release(response);
+    }
+    else if ((response.headers.get("content-type") ?? "").toLowerCase().includes("json"))
     {
         const body: unknown = await response.json().catch(() => undefined);
         if (isProblem(body))

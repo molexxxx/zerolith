@@ -573,6 +573,95 @@ describe("requests and responses at the edges", () =>
         expect(getEventListeners(changing.signal, "abort")).toHaveLength(1);
     });
 
+    it("reads JSON from a stand-in for a Response that has json() and no text(), as a stubbed transport returns", async () =>
+    {
+        const api = createClient<Api>(routes, {
+            baseUrl: "https://api.test",
+            transport: async () => ({ ok: true, status: 200, headers: new Headers({ "content-type": "application/json" }), json: async () => ({ items: [], next: null }) }) as unknown as Response
+        });
+        await expect(api.call("listNotes", {})).resolves.toEqual({ items: [], next: null });
+    });
+
+    it("refuses an empty path parameter, which would send the request to the collection", () =>
+    {
+        const api = createClient<Api>(routes, { baseUrl: "https://api.test" });
+        expect(() => api.request("getNote", { params: { id: "" } })).toThrow(TypeError);
+        expect(api.request("getNote", { params: { id: "0" } }).url).toBe("https://api.test/notes/0");
+    });
+
+    it("resolves undefined for a HEAD answer with no content type, gives a binary one's Blob the type a GET's has, and cancels its body", async () =>
+    {
+        interface Heads
+        {
+            bare: { method: "head"; path: "/bare"; output: undefined };
+            image: { method: "head"; path: "/image"; output: Blob };
+            download: { method: "get"; path: "/image"; output: Blob };
+            gone: { method: "head"; path: "/gone"; output: undefined };
+        }
+        const heads = { bare: { method: "head", path: "/bare" }, image: { method: "head", path: "/image" }, download: { method: "get", path: "/image" }, gone: { method: "head", path: "/gone" } } as const satisfies RouteTable<Heads>;
+        const canceled: string[] = [];
+        const streamed = (path: string): ReadableStream<Uint8Array> => new ReadableStream({
+            cancel()
+            {
+                canceled.push(path);
+            }
+        });
+        const api = createClient<Heads>(heads, {
+            baseUrl: "https://api.test",
+            transport: async (request) =>
+            {
+                const path = new URL(request.url).pathname;
+                if (path === "/bare")
+                {
+                    return new Response(request.method === "HEAD" ? streamed(path) : null);
+                }
+                if (path === "/gone")
+                {
+                    return new Response(streamed(path), { status: 404, headers: { "content-type": "application/problem+json" } });
+                }
+                return new Response(request.method === "HEAD" ? streamed(path) : "png", { headers: { "content-type": "image/png; charset=utf-8" } });
+            }
+        });
+        await expect(api.call("bare")).resolves.toBeUndefined();
+        const [image, download] = await Promise.all([api.call("image"), api.call("download")]);
+        expect([image.type, image.size]).toEqual([download.type, 0]);
+        await expect(api.call("gone")).rejects.toBeInstanceOf(ProblemError);
+        await vi.waitFor(() => expect(canceled.toSorted()).toEqual(["/bare", "/gone", "/image"]));
+    });
+
+    it("keeps the content type the caller set on a string, a Blob, or a URLSearchParams body", async () =>
+    {
+        const files = { download: { method: "get", path: "/files/{id}" }, upload: { method: "post", path: "/files" } } as const satisfies RouteTable<Files>;
+        const { transport, requests } = recorder(() => new Response(null, { status: 204 }));
+        const api = createClient<Files>(files, { baseUrl: "https://api.test", transport });
+        await api.call("upload", { body: "a,b\n1,2" as unknown as ReadableStream<Uint8Array> }, { headers: { "content-type": "text/csv" } });
+        await api.call("upload", { body: new Blob(["{}"]) as unknown as ReadableStream<Uint8Array> }, { headers: { "content-type": "application/vnd.notes+json" } });
+        await api.call("upload", { body: new URLSearchParams("a=1") as unknown as ReadableStream<Uint8Array> }, { headers: { "content-type": "application/x-www-form-urlencoded; charset=latin1" } });
+        expect(requests.map((request) => request.headers.get("content-type"))).toEqual(["text/csv", "application/vnd.notes+json", "application/x-www-form-urlencoded; charset=latin1"]);
+    });
+
+    it("leaves out a problem's detail of the wrong type", async () =>
+    {
+        const api = createClient<Api>(routes, { baseUrl: "https://api.test", transport: async () => problem(409, { title: "Conflict", detail: 5 }) });
+        const failure = await api.call("getNote", { params: { id: "a" } }).catch((error: unknown) => error);
+        expect((failure as ProblemError).problem).toEqual({ title: "Conflict", status: 409 });
+    });
+
+    it("keeps a finished query's request signal live until the request ends, with or without a caller's signal", async () =>
+    {
+        const files = { download: { method: "get", path: "/files/{id}" }, upload: { method: "post", path: "/files" } } as const satisfies RouteTable<Files>;
+        const { transport, requests } = recorder(() => new Response("bytes", { headers: { "content-type": "application/octet-stream" } }));
+        const api = createClient<Files>(files, { baseUrl: "https://api.test", transport });
+        const id = signal("a");
+        const caller = new AbortController();
+        const withCaller = api.query("download", () => ({ params: { id: id.get() } }), { signal: caller.signal });
+        const without = api.query("download", () => ({ params: { id: id.get() } }));
+        await vi.waitFor(() => expect([withCaller.status.get(), without.status.get()]).toEqual(["resolved", "resolved"]));
+        expect(requests.map((request) => request.signal.aborted)).toEqual([false, false]);
+        id.set("b");
+        expect(requests.slice(0, 2).map((request) => request.signal.aborted)).toEqual([true, true]);
+    });
+
     it("reads a problem whatever the casing of its media type", async () =>
     {
         const api = createClient<Api>(routes, { baseUrl: "https://api.test", transport: async () => new Response(JSON.stringify({ title: "No such note" }), { status: 404, headers: { "content-type": "Application/Problem+JSON" } }) });

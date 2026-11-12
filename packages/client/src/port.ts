@@ -70,8 +70,8 @@ function listen(port: PortLike, handler: (data: unknown) => void): void
     port.start?.();
 }
 
-/** The id of the next request any `portTransport` sends, counted across transports so that several can share one port. */
-let next = 1;
+/** The id of the next request any `portTransport` sends, counted across transports so that several can share one port, from a random start so that the transports of two copies of this module on one port do not collide either. */
+let next = Math.floor(Math.random() * 2 ** 30) + 1;
 
 /**
  * A `Transport` that sends each request over the port as a message and
@@ -139,7 +139,16 @@ export function portTransport(port: PortLike): Transport
                 }
             });
             request.signal.addEventListener("abort", abort, { once: true });
-            port.postMessage(message);
+            try
+            {
+                port.postMessage(message);
+            }
+            catch (error)
+            {
+                pending.delete(id);
+                request.signal.removeEventListener("abort", abort);
+                reject(error);
+            }
         });
     };
 }
@@ -165,7 +174,7 @@ export function servePort(port: PortLike, handler: (request: Request) => Respons
         const id = message.id;
         const answer = async (): Promise<void> =>
         {
-            const head = message.method === "HEAD";
+            const head = String(message.method).toUpperCase() === "HEAD";
             let reply: PortResponse;
             try
             {

@@ -201,6 +201,84 @@ describe("portTransport and servePort", () =>
         }
     });
 
+    it("keeps the calls of transports from two copies of the module on one port apart", async () =>
+    {
+        vi.resetModules();
+        const one = await import("@zerolith/client/port");
+        vi.resetModules();
+        const other = await import("@zerolith/client/port");
+        const { client, server, close } = pair();
+        try
+        {
+            const held: { id: number; path: string }[] = [];
+            server.addEventListener("message", (event: MessageEvent<{ id: number; url: string }>) =>
+            {
+                held.push({ id: event.data.id, path: new URL(event.data.url).pathname });
+                if (held.length === 2)
+                {
+                    for (const { id, path } of held.toReversed())
+                    {
+                        server.postMessage({ kind: "zerolith:response", id, status: 200, statusText: "", headers: [["content-type", "text/plain"]], body: path }, []);
+                    }
+                }
+            });
+            server.start();
+            const first = one.portTransport(client);
+            const second = other.portTransport(client);
+            const answers = await Promise.all([first(new Request("https://app.local/first")), second(new Request("https://app.local/second"))]);
+            expect(await Promise.all(answers.map((answer) => answer.text()))).toEqual(["/first", "/second"]);
+        }
+        finally
+        {
+            close();
+        }
+    });
+
+    it("rejects a call whose message the port refuses, and lets go of its abort listener", async () =>
+    {
+        const refused = new DOMException("The object could not be cloned.", "DataCloneError");
+        const port: PortLike = {
+            postMessage: () =>
+            {
+                throw refused;
+            },
+            addEventListener: () => undefined
+        };
+        const request = new Request("https://app.local/notes", { signal: new AbortController().signal });
+        await expect(portTransport(port)(request)).rejects.toBe(refused);
+        expect(getEventListeners(request.signal, "abort")).toHaveLength(0);
+    });
+
+    it("cancels the handler's body unread for a HEAD request, whatever the casing of its method", async () =>
+    {
+        const { client, server, close } = pair();
+        try
+        {
+            const canceled: string[] = [];
+            servePort(server, (request) => new Response(new ReadableStream({
+                start(controller)
+                {
+                    controller.enqueue(new TextEncoder().encode("unread"));
+                },
+                cancel()
+                {
+                    canceled.push(request.method);
+                }
+            })));
+            const answers: unknown[] = [];
+            client.addEventListener("message", (event: MessageEvent) => answers.push(event.data));
+            client.start();
+            client.postMessage({ kind: "zerolith:request", id: 1, url: "https://app.local/notes", method: "head", headers: [], body: null }, []);
+            await vi.waitFor(() => expect(answers).toHaveLength(1));
+            expect((answers[0] as { body: unknown }).body).toBeNull();
+            await vi.waitFor(() => expect(canceled).toEqual(["HEAD"]));
+        }
+        finally
+        {
+            close();
+        }
+    });
+
     it("sends no body in the answer to a HEAD request, a failure's included, and leaves the handler's body unread", async () =>
     {
         const reported = vi.fn();

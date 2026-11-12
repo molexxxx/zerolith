@@ -346,6 +346,24 @@ describe("createForm", () =>
         expect(onError).not.toHaveBeenCalled();
     });
 
+    it("reads JSON from a stand-in for a Response that has json() and no text(), as a stubbed fetch returns", async () =>
+    {
+        const { form, element } = harness([
+            () => Promise.resolve({ ok: true, status: 200, redirected: false, headers: new Headers({ "content-type": "application/json" }), json: async () => ({ id: 1 }) } as unknown as Response)
+        ]);
+        submit(element);
+        await settled(form);
+        expect([form.status.get(), form.result.get()]).toEqual(["success", { id: 1 }]);
+    });
+
+    it("leaves out a problem's type, detail, and instance of the wrong type", async () =>
+    {
+        const { form, element } = harness([problem({ type: 1, title: "Invalid", detail: 2, instance: 3, status: 422 })]);
+        submit(element);
+        await settled(form);
+        expect(form.problem.get()).toEqual({ title: "Invalid", status: 422 });
+    });
+
     it("reads a 2xx JSON body whatever the casing of its media type, and an empty or blank one as no result", async () =>
     {
         const { form, element } = harness([

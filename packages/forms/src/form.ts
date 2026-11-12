@@ -250,7 +250,7 @@ async function defaultSend(submission: Submission, headers: HeadersInit | undefi
     return fetchImpl(action, init);
 }
 
-/** A successful response's body: JSON parsed, whatever the casing of its media type, or `undefined` when it is empty or holds only the whitespace JSON allows; text otherwise, or `undefined` when it is empty; and `undefined` for a 204 or a 205. */
+/** A successful response's body: JSON parsed, whatever the casing of its media type, or `undefined` when it is empty or holds only the whitespace JSON allows; text otherwise, or `undefined` when it is empty; and `undefined` for a 204 or a 205. A stand-in for a `Response` with `json()` and no `text()` is read with `json()`. */
 async function parseBody(response: Response): Promise<unknown>
 {
     if (response.status === 204 || response.status === 205)
@@ -258,6 +258,10 @@ async function parseBody(response: Response): Promise<unknown>
         return undefined;
     }
     const type = (response.headers.get("content-type") ?? "").toLowerCase();
+    if (type.includes("json") && typeof response.text !== "function")
+    {
+        return response.json();
+    }
     const text = await response.text();
     if (type.includes("json"))
     {
