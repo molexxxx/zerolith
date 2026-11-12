@@ -108,4 +108,4 @@ On the server, `renderStyles()` from `zerolith/ssr` returns the markup of one `<
 
 ## Browser support
 
-`@scope` is supported in Chrome 118, Safari 17.4, and Firefox 146, and constructable stylesheets since Safari 16.4.
+`@scope` is supported in Chrome and Edge 118, Safari 17.4, and Firefox 146, and constructable stylesheets since Safari 16.4, so the [support policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md) starts at those versions. Safari 26.0 to 26.3 do not apply scoped rules to `<input>` and `<textarea>`; Safari 26.4 does.

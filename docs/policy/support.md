@@ -25,7 +25,7 @@ While the project has one maintainer with release rights, the newest major line 
 
 ## Platforms
 
-- Browsers: the current and previous major version of Chrome, Edge, Firefox, and Safari, plus any version that supports import maps, `adoptedStyleSheets`, and `<template>`. The runtime does not polyfill.
+- Browsers: the current and previous major version of Chrome, Edge, Firefox, and Safari, and every version since Chrome and Edge 118, Firefox 146, and Safari 17.4, the first with `@scope`, which scoped styles are built on, as well as import maps, `adoptedStyleSheets`, and `<template>`. The runtime does not polyfill, and the command line lowers CSS for those versions.
 - Node: every release line in active or maintenance LTS at the time of a zerolith release, for server rendering and tooling.
 - Electron: the current stable major and the one before it, for the dev tools and the transport adapters.
 
