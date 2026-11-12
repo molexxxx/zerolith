@@ -3,7 +3,7 @@
 // the checks around it run in a real browser, so the docs cannot drift.
 /// <reference types="zerolith/imports" />
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type ReadableSignal, computed, css, each, html, render, signal, when } from "zerolith";
+import { type ReadableSignal, type Signal, batch, computed, css, each, html, render, signal, when } from "zerolith";
 import summary from "./summary.css?scoped";
 
 let host: HTMLElement;
@@ -171,6 +171,53 @@ describe("templates guide", () =>
         // #endregion lists
         expect(host.querySelectorAll("li")[1]).toBe(write);
         expect(write?.textContent).toBe("write, edited");
+    });
+
+    it("lists edited a row at a time", () =>
+    {
+        // #region lists-edited
+        interface Task
+        {
+            id: number;
+            text: Signal<string>;
+            done: Signal<boolean>;
+        }
+        const tasks = signal<Task[]>([
+            { id: 1, text: signal("write"), done: signal(false) },
+            { id: 2, text: signal("test"), done: signal(false) }
+        ]);
+
+        render(html`
+            <ul>
+                ${each(tasks, (task) => task.id, (task) =>
+                {
+                    const { text, done } = task.get();
+                    const state = computed(() => (done.get() ? "done" : ""));
+                    return html`<li class=${state}>${text}</li>`;
+                })}
+            </ul>`, "#app");
+
+        function finish(id: number, text: string): void
+        {
+            const task = tasks.get().find((candidate) => candidate.id === id);
+            batch(() =>
+            {
+                task?.text.set(text);
+                task?.done.set(true);
+            });
+        }
+        // #endregion lists-edited
+        const list = tasks.get();
+        const write = host.querySelector("li");
+        // #region lists-edited
+
+        // Row 1 updates its text and class; the array stays as it is:
+        finish(1, "write, edited");
+        // #endregion lists-edited
+        expect(tasks.get()).toBe(list);
+        expect(host.querySelector("li")).toBe(write);
+        expect([write?.textContent, write?.className]).toEqual(["write, edited", "done"]);
+        expect(host.querySelectorAll("li")[1]?.className).toBe("");
     });
 
     it("conditions", () =>

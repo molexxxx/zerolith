@@ -6,6 +6,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Changed
 
+- Docs: the templates guide shows a list edited a row at a time, each changing field a signal of its own set in one `batch`, which in js-framework-benchmark's own runner takes less than half the script time of setting a new array to update every 10th row of 1,000, and the signals guide says which to use, a signal, a computed value, an array with `each`, per-row signals, or `selector`, with what each costs on an update.
 - The oldest supported browsers are Chrome and Edge 118, Firefox 146, and Safari 17.4, the first with `@scope`, as 1.7.0 announced. `zerolith build` lowers CSS for them, so its output keeps `oklch()` and the other color functions they support and stops adding fallbacks only older browsers needed; nesting is still flattened.
 - `@zerolith/cli` and the `zerolith` crate: `zerolith new` pins Vite 8.3.8, Vitest and `@vitest/browser-playwright` 5.1.0, oxlint 1.93.0, and Playwright 1.65.0 in a new project, the versions this repository tests with.
 

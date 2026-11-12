@@ -228,6 +228,16 @@ const user = resource({
 console.log(user.attempt.get());        // 1: the first run is in flight
 ```
 
+## Which to use
+
+| You hold | Use | An update costs |
+| --- | --- | --- |
+| One value | `signal` | The bindings that read it |
+| A value derived from others | `computed` | A run when an input changed and something reads it, and nothing otherwise |
+| A list replaced whole, as from a fetch | A signal of an array with [`each`](templates.md#lists) | One key comparison per row, with nodes touched only where rows changed |
+| A list whose rows change one at a time | [A signal per changing field](templates.md#a-list-edited-a-row-at-a-time) in each row, set in one `batch` | Only the edited fields' bindings |
+| Which row of a list is selected | [`selector`](state.md#a-selection-among-many) from `@zerolith/state` | Two rows, whatever the list's length |
+
 ## The functions at a glance
 
 | Function | Takes | Returns |

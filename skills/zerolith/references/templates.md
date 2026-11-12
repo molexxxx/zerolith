@@ -178,6 +178,52 @@ The row function receives the item as a signal, and, when it declares a second p
 > [!WARNING]
 > Keys must be unique and defined. A repeated key fails the render with `each_key_duplicate` and a missing one with `each_key_undefined`, rather than quietly showing the wrong row. An update that fails this way changes no row, so the list shows the last list it accepted until a valid one arrives.
 
+### A list edited a row at a time
+
+Setting a new array suits a list that arrives whole, as from a fetch: matching the keys costs one comparison per row. When rows change one at a time, as tasks checked off, a row can hold the fields that change in signals of its own. An edit writes them, the list keeps its array, and only that row's bindings update:
+
+```ts
+import {
+    type Signal, batch, computed, each, html, render, signal
+} from "zerolith";
+
+interface Task
+{
+    id: number;
+    text: Signal<string>;
+    done: Signal<boolean>;
+}
+const tasks = signal<Task[]>([
+    { id: 1, text: signal("write"), done: signal(false) },
+    { id: 2, text: signal("test"), done: signal(false) }
+]);
+
+render(html`
+    <ul>
+        ${each(tasks, (task) => task.id, (task) =>
+        {
+            const { text, done } = task.get();
+            const state = computed(() => (done.get() ? "done" : ""));
+            return html`<li class=${state}>${text}</li>`;
+        })}
+    </ul>`, "#app");
+
+function finish(id: number, text: string): void
+{
+    const task = tasks.get().find((candidate) => candidate.id === id);
+    batch(() =>
+    {
+        task?.text.set(text);
+        task?.done.set(true);
+    });
+}
+
+// Row 1 updates its text and class; the array stays as it is:
+finish(1, "write, edited");
+```
+
+In js-framework-benchmark's own runner, updating every 10th row of 1,000 this way takes less than half the script time of setting a new array, 0.6 ms against 1.4, and creating the rows costs no more. The signals are made where the data arrives, as `{ id, text: signal(text) }`, and writes to several of them go in one `batch`, so the page updates once.
+
 ## Conditions
 
 `when` shows one branch or another, depending on a condition that can be a signal:
