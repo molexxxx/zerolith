@@ -39,6 +39,16 @@ A component is a plain function that takes one object of props and returns a vie
 - **A component is called, not mounted.** `Badge({ count: unread })` returns the view to put in the template. Passing `Badge` itself, uncalled, fails with `unrenderable_value`.
 - **State belongs where it is created.** A signal created inside a component lives as long as the component's view; one created in a module, as `count` in the counter above, is shared by everything that imports it. The [signals guide](signals.md) covers ownership and cleanup.
 
+## Values a subtree shares
+
+A value that many components need, such as the signed-in user or the theme, can skip the props of every level in between. `context` makes a place for it with a value to start from, `provide` gives it another value for everything a function creates, and `read` takes the nearest one back out.
+
+@include packages/zerolith/test/examples/guide.example.browser.test.ts#context
+
+- **Read it while the component runs**, as `SaveButton` does, the way props are read. What the component creates keeps the value it was created under: the rows `each` adds later, the branches `when` shows later, effects, computed values, and the pages the router's outlet shows. An event handler, a timer, or the code after an `await` runs outside the component, so read the value first and keep it.
+- **A provided value is fixed.** To give a subtree something that changes, provide a signal and bind it.
+- **Outside every `provide`, `read` returns the value the context started with.** On the server, each `renderToString` call can provide its own request's values, which a signal in a module, shared by every request, cannot.
+
 ## Bindings
 
 Where an expression sits in the markup decides what it binds to:
@@ -167,6 +177,7 @@ Lists and conditions are `each` and `when`, called as functions, exactly as in a
 | `each(items, key, row)` | An array or a signal of one; `key(item, index)`; and `row(item, index)`, which receives both as signals | A view of the rows, matched by key |
 | `when(condition, then, otherwise)` | A signal or a value, and one or two functions that return views | A view of the branch the condition picks |
 | `unsafeHtml(markup)` | A string of markup you trust | A view of that markup, unescaped |
+| `context(initial)` | The value to read where nothing is provided | A context, with `provide(value, fn)`, which returns what `fn` returns, and `read()` |
 
 ## What the renderer refuses
 

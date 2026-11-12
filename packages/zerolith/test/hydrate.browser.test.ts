@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Diagnostic, type HydrateResult, type Renderable, type Signal, computed, each, html, hydrate, onDiagnostic, signal, unsafeHtml, when } from "zerolith";
+import { type Diagnostic, type HydrateResult, type Renderable, type Signal, computed, context, each, html, hydrate, onDiagnostic, signal, unsafeHtml, when } from "zerolith";
 import { renderToString } from "zerolith/ssr";
 import { withoutComments } from "./markup.js";
 
@@ -59,6 +59,15 @@ describe("hydrate", () =>
         expect(el.querySelector("button")?.tabIndex).toBe(3);
         el.querySelector("button")?.click();
         expect(clicks).toEqual([1]);
+    });
+
+    it("gives adopted rows and branches the value provided around the view", () =>
+    {
+        const user = context("guest");
+        const page = (): Renderable => html`<ul>${each([1], (row) => row, () => html`<li>${user.read()}</li>`)}</ul>${when(true, () => html`<p>${user.read()}</p>`)}`;
+        const el = serverThenClient(() => user.provide("ada", page));
+        expect(result?.mismatches).toEqual([]);
+        expect([el.querySelector("li")?.textContent, el.querySelector("p")?.textContent]).toEqual(["ada", "ada"]);
     });
 
     it("adopts keyed rows and conditional branches and keeps updating them", () =>

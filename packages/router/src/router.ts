@@ -568,7 +568,7 @@ export function createRouter<const T extends RouteTable>(routes: T | (() => T), 
         shown++;
         return [{ id: shown, matched, view: matchedView }];
     });
-    const outlet = each(pages, (page) => page.id, (page) => untracked(() =>
+    const outlet = (): unknown => each(pages, (page) => page.id, (page) => untracked(() =>
     {
         const { matched, view } = page.get();
         if (matched === undefined || view === undefined)
@@ -643,7 +643,7 @@ export function createRouter<const T extends RouteTable>(routes: T | (() => T), 
         },
         outlet()
         {
-            return outlet as unknown as View;
+            return outlet() as View;
         },
         dispose()
         {

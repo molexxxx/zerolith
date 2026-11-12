@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { type EffectFunction, ZerolithError, batch, computed, effect, hasOwner, onDiagnostic, onDispose, scope, signal, untracked } from "zerolith";
+import { type EffectFunction, ZerolithError, batch, computed, context, effect, hasOwner, onDiagnostic, onDispose, scope, signal, untracked } from "zerolith";
 import { diagnostic as buildRecord } from "../src/diagnostics.ts";
 import { jsx } from "../src/jsx-runtime.ts";
 
@@ -695,6 +695,88 @@ describe("scope", () =>
         })).toThrow("setup failed");
         a.set(2);
         expect(runs).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe("context", () =>
+{
+    it("reads the initial value outside every provide, and the nearest provided value inside", () =>
+    {
+        const theme = context("light");
+        const size = context(1);
+        const seen: unknown[] = [theme.read()];
+        theme.provide("dark", () =>
+        {
+            seen.push(theme.read(), size.read());
+            size.provide(2, () =>
+            {
+                seen.push(theme.read(), size.read());
+                theme.provide("contrast", () => seen.push(theme.read(), size.read()));
+                seen.push(theme.read());
+            });
+        });
+        seen.push(theme.read(), size.read());
+        expect(seen).toEqual(["light", "dark", 1, "dark", 2, "contrast", 2, "dark", "light", 1]);
+    });
+
+    it("returns what the function returns, and gives the value back when it throws", () =>
+    {
+        const theme = context("light");
+        expect(theme.provide("dark", () => 42)).toBe(42);
+        expect(() => theme.provide("dark", () =>
+        {
+            throw new Error("inside");
+        })).toThrow("inside");
+        expect(theme.read()).toBe("light");
+    });
+
+    it("gives an effect the value provided where it was created each time it runs, wherever the change comes from", () =>
+    {
+        const theme = context("light");
+        const count = signal(0);
+        const seen: string[] = [];
+        const stop = theme.provide("dark", () => effect(() =>
+        {
+            count.get();
+            seen.push(theme.read());
+        }));
+        count.set(1);
+        theme.provide("contrast", () => count.set(2));
+        expect(seen).toEqual(["dark", "dark", "dark"]);
+        stop();
+    });
+
+    it("gives an effect created outside every provide the initial value, even when a write inside one runs it", () =>
+    {
+        const theme = context("light");
+        const count = signal(0);
+        const seen: string[] = [];
+        theme.provide("dark", () => undefined);
+        const stop = effect(() =>
+        {
+            count.get();
+            seen.push(theme.read());
+        });
+        theme.provide("dark", () => count.set(1));
+        expect(seen).toEqual(["light", "light"]);
+        stop();
+    });
+
+    it("gives a computed value the value provided where it was created, whoever reads it", () =>
+    {
+        const theme = context("light");
+        const count = signal(0);
+        const label = theme.provide("dark", () => computed(() => `${theme.read()} ${count.get()}`));
+        expect(label.get()).toBe("dark 0");
+        count.set(1);
+        expect(theme.provide("contrast", () => label.get())).toBe("dark 1");
+    });
+
+    it("keeps one context's values apart from another's", () =>
+    {
+        const first = context("a");
+        const second = context("a");
+        expect(first.provide("b", () => second.read())).toBe("a");
     });
 });
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Diagnostic, type Renderable, type Root, type View, ZerolithError, computed, each, effect, html, onDiagnostic, onDispose, render, signal, unsafeHtml, when } from "zerolith";
+import { type Diagnostic, type Renderable, type Root, type View, ZerolithError, computed, context, each, effect, html, onDiagnostic, onDispose, render, signal, unsafeHtml, when } from "zerolith";
 import { type DevtoolsHook, devtoolsInternal, prepared, scan } from "zerolith/internal";
 
 let root: Root | undefined;
@@ -579,6 +579,33 @@ describe("a binding that is its element's only child", () =>
         expect(comments(body).length).toBe(1);
         items.set([]);
         expect(body.childNodes.length).toBe(1);
+    });
+});
+
+describe("context", () =>
+{
+    it("reaches components that each and when create after provide returns, as rows are added and branches open", () =>
+    {
+        const theme = context("light");
+        const rows = signal([1]);
+        const open = signal(false);
+        const Label = (): View => html`<i>${theme.read()}</i>`;
+        const el = mount(theme.provide("dark", () => html`
+            <ul>${each(rows, (row) => row, () => html`<li>${Label()}</li>`)}</ul>
+            <p>${when(open, () => Label(), () => html`<b>closed</b>`)}</p>`));
+        expect(el.querySelector("li")?.textContent).toBe("dark");
+        rows.set([1, 2]);
+        open.set(true);
+        expect([...el.querySelectorAll("li")].map((li) => li.textContent)).toEqual(["dark", "dark"]);
+        expect(el.querySelector("p")?.textContent).toBe("dark");
+    });
+
+    it("gives the initial value to a list made outside every provide, though it is shown inside one", () =>
+    {
+        const theme = context("light");
+        const outside = each([1], (row) => row, () => html`<li>${theme.read()}</li>`);
+        const el = mount(theme.provide("dark", () => html`<ul>${outside}</ul>`));
+        expect(el.querySelector("li")?.textContent).toBe("light");
     });
 });
 

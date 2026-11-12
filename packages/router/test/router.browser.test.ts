@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Renderable, type Root, type View, ZerolithError, effect, html, onDispose, render, signal } from "zerolith";
+import { type Renderable, type Root, type View, ZerolithError, context, effect, html, onDispose, render, signal } from "zerolith";
 import { type RouteTable, type Router, createRouter, defineRoutes, lazy, route } from "@zerolith/router";
 
 let root: Root | undefined;
@@ -158,6 +158,22 @@ describe("a route table given as a function", () =>
 
 describe("router", () =>
 {
+    it("gives each page the values provided around the outlet, on the first page and after a navigation", async () =>
+    {
+        const user = context("guest");
+        const current = createRouter(defineRoutes({
+            home: route({ path: "/", view: () => html`<h1>${user.read()}</h1>` }),
+            other: route({ path: "/other", view: () => html`<h2>${user.read()}</h2>` })
+        }), { window });
+        router = current as unknown as Router<RouteTable>;
+        const el = mount(() => user.provide("ada", () => html`<main>${current.outlet()}</main>`));
+        await settled(router);
+        expect(el.querySelector("h1")?.textContent).toBe("ada");
+        await current.navigate("/other");
+        await settled(router);
+        expect(el.querySelector("h2")?.textContent).toBe("ada");
+    });
+
     it("types hrefs from the route table", () =>
     {
         router = createRouter(table(), { window });

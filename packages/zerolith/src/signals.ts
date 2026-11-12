@@ -138,6 +138,45 @@ let rounds = 0;
 let computing = 0;
 let globalVersion = 0;
 
+/** A value given to one context by `provide`, and the values provided around that call. */
+interface Frame
+{
+    readonly context: object;
+    readonly value: unknown;
+    readonly parent: Frame | undefined;
+}
+
+/** The values provided around the code running now. */
+let frame: Frame | undefined;
+/** The values provided around each effect, computed value, and view when it was created; made on the first `provide`, so an application that provides nothing pays one check per creation and run. */
+let frames: WeakMap<object, Frame> | undefined;
+
+/** Records the values provided around `target` as it is created, for `recall` to give back each time it runs. Internal to the runtime packages. */
+export function remember(target: object): void
+{
+    if (frame !== undefined)
+    {
+        (frames as WeakMap<object, Frame>).set(target, frame);
+    }
+}
+
+/** Makes the values provided around `target` when it was created the current ones, and returns the ones they replace, for `restore`. Internal to the runtime packages. */
+export function recall(target: object): unknown
+{
+    const previous = frame;
+    if (frames !== undefined)
+    {
+        frame = frames.get(target);
+    }
+    return previous;
+}
+
+/** Puts back the provided values `recall` replaced. Internal to the runtime packages. */
+export function restore(previous: unknown): void
+{
+    frame = previous as Frame | undefined;
+}
+
 /** Makes `node` the running consumer and returns the one it replaces. */
 function enter(node: Consumer): Consumer | undefined
 {
@@ -483,6 +522,7 @@ class Computed<T> implements ReadableSignal<T>, Source, Consumer
     {
         this.fn = fn;
         this.equals = equals;
+        remember(this);
     }
 
     get(): T
@@ -534,6 +574,7 @@ class Computed<T> implements ReadableSignal<T>, Source, Consumer
             return true;
         }
         const previous = enter(this);
+        const provided = recall(this);
         computing++;
         try
         {
@@ -554,6 +595,7 @@ class Computed<T> implements ReadableSignal<T>, Source, Consumer
         }
         computing--;
         consumer = previous;
+        restore(provided);
         cleanupSources(this);
         this.flags &= ~RUNNING;
         return true;
@@ -769,6 +811,7 @@ class Effect extends Reaction
     {
         super();
         this.fn = fn;
+        remember(this);
     }
 
     protected execute(): unknown
@@ -778,7 +821,15 @@ class Effect extends Reaction
         {
             return undefined;
         }
-        return this.flags & INTERNAL ? internal(fn) : fn();
+        const provided = recall(this);
+        try
+        {
+            return this.flags & INTERNAL ? internal(fn) : fn();
+        }
+        finally
+        {
+            restore(provided);
+        }
     }
 
     protected forget(): void
@@ -1114,6 +1165,53 @@ export function scope<T>(fn: () => T): Scope<T>
         throw error;
     }
     return { value, dispose: () => handle.dispose() };
+}
+
+/** A value a part of the application provides to everything created inside it, read with no prop passed through each level. */
+export interface Context<T>
+{
+    /** Runs `fn` with `value` provided, and returns what it returns: the components it calls, and the effects, rows, and branches they create, read `value`, then and whenever they run later. */
+    provide<R>(value: T, fn: () => R): R;
+    /** The value the nearest `provide` around the running code gives, or the context's initial value when none does. */
+    read(): T;
+}
+
+/**
+ * Creates a context whose `read()` returns `initial` until a `provide`
+ * around the running code gives another value. Read it while a component
+ * runs, as its props are: an event handler, a timer, or the code after an
+ * `await` runs outside the component and reads the initial value.
+ */
+export function context<T>(initial: T): Context<T>
+{
+    const created: Context<T> = {
+        provide<R>(value: T, fn: () => R): R
+        {
+            frames ??= new WeakMap();
+            const previous = frame;
+            frame = { context: created, value, parent: previous };
+            try
+            {
+                return fn();
+            }
+            finally
+            {
+                frame = previous;
+            }
+        },
+        read(): T
+        {
+            for (let at = frame; at !== undefined; at = at.parent)
+            {
+                if (at.context === created)
+                {
+                    return at.value as T;
+                }
+            }
+            return initial;
+        }
+    };
+    return created;
 }
 
 /** True for values created by `signal()` or `computed()`. */

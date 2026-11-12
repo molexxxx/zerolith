@@ -6,7 +6,7 @@
  */
 import { describe, isNothing, isText } from "../binding.js";
 import { fail } from "../diagnostics.js";
-import { type Disposable, type Sink, createOwner, isSignal, startBinding, startEffect } from "../signals.js";
+import { type Disposable, type Sink, createOwner, isSignal, recall, restore, startBinding, startEffect } from "../signals.js";
 import { CHILD, type PartSpec, type Prepared, prepare, trusted, walker } from "../template.js";
 import { elementPart } from "./attributes.js";
 import { anchorBefore, isStart, matchingEnd, mismatch, removeUntil } from "./markers.js";
@@ -467,7 +467,15 @@ export class ChildPart implements BoundPart, Sink
         }
         if (value instanceof Directive)
         {
-            this.controller = value.mount(this, cursor);
+            const provided = recall(value);
+            try
+            {
+                this.controller = value.mount(this, cursor);
+            }
+            finally
+            {
+                restore(provided);
+            }
             return;
         }
         if (value instanceof RawHtml)
@@ -588,7 +596,15 @@ export class ChildPart implements BoundPart, Sink
         {
             this.marker();
             this.clear();
-            this.controller = value.mount(this);
+            const provided = recall(value);
+            try
+            {
+                this.controller = value.mount(this);
+            }
+            finally
+            {
+                restore(provided);
+            }
             return;
         }
         if (value instanceof RawHtml)

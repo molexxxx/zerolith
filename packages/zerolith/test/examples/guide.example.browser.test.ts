@@ -3,7 +3,7 @@
 // the checks around it run in a real browser, so the docs cannot drift.
 /// <reference types="zerolith/imports" />
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type ReadableSignal, type Signal, batch, computed, css, each, html, render, signal, when } from "zerolith";
+import { type ReadableSignal, type Signal, batch, computed, context, css, each, html, render, signal, when } from "zerolith";
 import summary from "./summary.css?scoped";
 
 let host: HTMLElement;
@@ -56,6 +56,27 @@ describe("templates guide", () =>
         // #endregion frozen
         expect(host.querySelector(".live")?.textContent).toBe("2");
         expect(host.querySelector(".frozen")?.textContent).toBe("1");
+    });
+
+    it("context", () =>
+    {
+        // #region context
+        const Theme = context<"light" | "dark">("light");
+
+        function SaveButton()
+        {
+            return html`<button class=${Theme.read()}>Save</button>`;
+        }
+
+        function Toolbar()
+        {
+            return html`<nav>${SaveButton()}</nav>`;
+        }
+
+        render(() => Theme.provide("dark", () => Toolbar()), "#app");
+        // #endregion context
+        expect(host.querySelector("button")?.className).toBe("dark");
+        expect(Theme.read()).toBe("light");
     });
 
     it("components", () =>

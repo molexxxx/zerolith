@@ -4,7 +4,7 @@
  * directives `each` and `when` build, with the predicates the server
  * renderer tells them apart by.
  */
-import { type ReadableSignal, isSignal } from "../signals.js";
+import { type ReadableSignal, isSignal, recall, remember, restore } from "../signals.js";
 import type { ChildPart } from "./instance.js";
 
 /** Brand carried by every value the renderer accepts as a description of UI. */
@@ -66,6 +66,11 @@ brand(TemplateResult);
 /** A view that controls its own part. `resolve` gives the server renderer the view to draw for the current state. */
 export abstract class Directive implements View
 {
+    constructor()
+    {
+        remember(this);
+    }
+
     abstract mount(part: ChildPart, cursor?: ChildNode): Controller;
     abstract resolve(): unknown;
     /** True when the server wraps the resolved view in its own part markers (a branch), false when it renders rows directly. */
@@ -128,7 +133,15 @@ export function isDirective(value: unknown): value is View
 /** The view a directive would show for the current state, for renderers without a DOM. */
 export function resolveDirective(view: View): unknown
 {
-    return (view as Directive).resolve();
+    const provided = recall(view);
+    try
+    {
+        return (view as Directive).resolve();
+    }
+    finally
+    {
+        restore(provided);
+    }
 }
 
 /** True when the server must wrap a directive's resolved view in its own part markers. */

@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { type Diagnostic, type Renderable, type View, computed, css, each, effect, html, onDiagnostic, onDispose, signal, unsafeHtml, when } from "zerolith";
+import { type Diagnostic, type Renderable, type View, computed, context, css, each, effect, html, onDiagnostic, onDispose, signal, unsafeHtml, when } from "zerolith";
 import { renderStyles, renderToString } from "zerolith/ssr";
+
+/** The bold elements in server markup, with its part markers left out. */
+function names(markup: string): string[] | null
+{
+    return markup.replace(/<!--[^>]*-->/g, "").match(/<b>[a-z]+<\/b>/g);
+}
 
 /** A component that takes props, for the check that one passed uncalled is refused. */
 function Greeting({ name }: { name: string }): View
@@ -16,6 +22,18 @@ function plain(view: Renderable | (() => Renderable)): string
 
 describe("renderToString", () =>
 {
+    it("renders each request's provided value in rows and branches, and leaves no value behind for the next", () =>
+    {
+        const user = context("guest");
+        const Name = (): View => html`<b>${user.read()}</b>`;
+        const page = (): Renderable => html`<ul>${each([1, 2], (row) => row, () => html`<li>${Name()}</li>`)}</ul>${when(true, () => Name())}`;
+        const first = renderToString(() => user.provide("ada", page));
+        const second = renderToString(() => user.provide("grace", page));
+        expect(names(first)).toEqual(["<b>ada</b>", "<b>ada</b>", "<b>ada</b>"]);
+        expect(names(second)).toEqual(["<b>grace</b>", "<b>grace</b>", "<b>grace</b>"]);
+        expect(names(renderToString(page))).toEqual(["<b>guest</b>", "<b>guest</b>", "<b>guest</b>"]);
+    });
+
     it("renders text, nested templates, iterables, and nothing for booleans and null", () =>
     {
         const out = plain(html`<p>${"text"} ${1} ${html`<em>nested</em>`} ${[html`<i>a</i>`, "b"]}${true}${null}</p>`);

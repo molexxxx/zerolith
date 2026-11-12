@@ -4,6 +4,10 @@ Every package in this repository is released together and carries the same versi
 
 ## Unreleased
 
+### Added
+
+- `context(initial)`: a value a part of the application provides to everything it creates, with `provide(value, fn)` and `read()`, so components read the signed-in user or the theme with no prop passed through each level, and each server render can provide its own request's values. Rows `each` adds later, branches `when` shows later, effects, computed values, and the router's pages read the value provided where they were created.
+
 ### Fixed
 
 - Release workflow: a nightly canary's `@zerolith/cli` waits again for its platform packages to download before it publishes, so `npx @zerolith/cli@canary` never installs it without its binary; holding it under a staging tag had skipped the wait for canaries.

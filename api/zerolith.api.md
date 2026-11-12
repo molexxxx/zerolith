@@ -5,6 +5,7 @@ Every export of `zerolith` with its signature, generated from the source by `npm
 ```ts
 function batch<T>(fn: () => T): T
 function computed<T>(fn: () => T, options?: SignalOptions<T>): ReadableSignal<T>
+function context<T>(initial: T): Context<T>
 function css(strings: TemplateStringsArray, ...values: ReadonlyArray<number | Styles>): Styles
 function diagnostic(code: DiagnosticCode, severity: DiagnosticSeverity, args?: DiagnosticArgs): Diagnostic
 function each<T>(items: ReadableSignal<readonly T[]> | readonly T[], key: KeyOf<T>, row: RowOf<T>): View
@@ -28,6 +29,12 @@ class ZerolithError extends Error
 {
     constructor(record: Diagnostic)
     readonly diagnostic: Diagnostic
+}
+
+interface Context<T>
+{
+    provide<R>(value: T, fn: () => R): R
+    read(): T
 }
 
 interface Diagnostic
