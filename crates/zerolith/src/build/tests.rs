@@ -548,7 +548,9 @@ async fn writes_a_plain_script_on_request() {
         "the lazy view stays in the file"
     );
     assert!(
-        !script.contains("import(") && !script.contains("import.meta"),
+        !script.contains("import(")
+            && !script.contains("import.meta")
+            && !script.contains("currentScript"),
         "{script}"
     );
     assert!(
@@ -556,6 +558,58 @@ async fn writes_a_plain_script_on_request() {
             && !script.contains("export{")
             && !script.contains("export {"),
         "{script}"
+    );
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[tokio::test]
+async fn gives_a_plain_script_its_own_address_as_import_meta_url() {
+    let main =
+        "export const data = new URL(\"./data.json\", import.meta.url).href;\nconsole.log(data);\n";
+    let root = project("script-classic-url", main);
+    let mut settings = options(&root, "/", "production");
+    settings.script = Some(Script {
+        classic: true,
+        ..Script::new(PathBuf::from("src/main.ts"), Some("widget".to_string())).unwrap()
+    });
+    let built = build(&settings).await.unwrap();
+    let script = fs::read_to_string(root.join("dist/widget.js")).unwrap();
+    assert!(
+        script.contains("document.currentScript")
+            && !script.contains("{}.url")
+            && !script.contains("import.meta"),
+        "{script}"
+    );
+    assert!(
+        built
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("out of reach in a plain script"))
+            && !built
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("output.name")),
+        "{:?}",
+        built.warnings
+    );
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[tokio::test]
+async fn says_a_plain_script_cannot_wait_at_its_top_level() {
+    let root = project(
+        "script-classic-await",
+        "const value = await Promise.resolve(1);\nconsole.log(value);\n",
+    );
+    let mut settings = options(&root, "/", "production");
+    settings.script = Some(Script {
+        classic: true,
+        ..Script::new(PathBuf::from("src/main.ts"), None).unwrap()
+    });
+    let error = build(&settings).await.unwrap_err().to_string();
+    assert!(
+        error.contains("--classic") && error.contains("move the await into a function"),
+        "{error}"
     );
     let _ = fs::remove_dir_all(&root);
 }

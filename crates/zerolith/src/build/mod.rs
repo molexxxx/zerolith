@@ -16,8 +16,9 @@ use std::time::Instant;
 
 use rolldown::plugin::Plugin;
 use rolldown::{
-    Bundler, BundlerOptions, BundlerTransformOptions, Either, InputItem, OutputFormat, Platform,
-    PreserveEntrySignatures, RawMinifyOptions, ResolveOptions, SourceMapType, TsConfig,
+    AddonOutputOption, Bundler, BundlerOptions, BundlerTransformOptions, Either, InputItem,
+    OutputFormat, Platform, PreserveEntrySignatures, RawMinifyOptions, ResolveOptions,
+    SourceMapType, TsConfig,
 };
 use rolldown_common::{CodeSplittingMode, Output, OutputChunk};
 
@@ -137,6 +138,12 @@ pub fn check_core_version(root: &Path) -> io::Result<()> {
     }
 }
 
+/// What `import.meta.url` reads in a classic script: the script's own address, which the intro captures while the script runs, since a plain script has no `import.meta`.
+const SCRIPT_URL: &str = "__zerolith_script_url";
+
+/// Captures a classic script's address for `import.meta.url` before its code runs, as `document.currentScript` is set only then; a worker has no document and reads its own location. Marked pure, so a script that never reads it carries none of it.
+const SCRIPT_URL_INTRO: &str = "var __zerolith_script_url = /* @__PURE__ */ (() => typeof document !== \"undefined\" && document.currentScript !== null ? document.currentScript.src : self.location.href)();";
+
 /// Bundles the project into its output folder.
 pub async fn build(options: &Options) -> io::Result<Built> {
     let root = css::canonical(&options.root)?;
@@ -255,10 +262,14 @@ pub async fn build(options: &Options) -> io::Result<Built> {
         &options.base,
         &env::variables(&root, &options.mode),
     );
+    let classic = options.script.as_ref().is_some_and(|script| script.classic);
     let mut define: Vec<(String, String)> = vec![
         ("import.meta.env".to_string(), env.to_string()),
         ("process.env.NODE_ENV".to_string(), quoted(node_env)),
     ];
+    if classic {
+        define.push(("import.meta.url".to_string(), SCRIPT_URL.to_string()));
+    }
     if let Some(values) = env.as_object() {
         define.extend(
             values
@@ -289,13 +300,11 @@ pub async fn build(options: &Options) -> io::Result<Built> {
             input: Some(inputs),
             cwd: Some(root.clone()),
             dir: Some(out_dir.to_string_lossy().into_owned()),
-            format: Some(
-                if options.script.as_ref().is_some_and(|script| script.classic) {
-                    OutputFormat::Iife
-                } else {
-                    OutputFormat::Esm
-                },
-            ),
+            format: Some(if classic {
+                OutputFormat::Iife
+            } else {
+                OutputFormat::Esm
+            }),
             platform: Some(Platform::Browser),
             minify: Some(if options.minify {
                 RawMinifyOptions::Bool(true)
@@ -329,6 +338,7 @@ pub async fn build(options: &Options) -> io::Result<Built> {
             } else {
                 PreserveEntrySignatures::False
             }),
+            intro: classic.then(|| AddonOutputOption::String(Some(SCRIPT_URL_INTRO.to_string()))),
             tsconfig: Some(TsConfig::Auto(false)),
             transform: Some(BundlerTransformOptions {
                 target: Some(Either::Left(SCRIPT_TARGET.to_string())),
@@ -344,15 +354,24 @@ pub async fn build(options: &Options) -> io::Result<Built> {
             .lock()
             .map(|state| state.failures.join("\n"))
             .unwrap_or_default();
-        failure(if failures.is_empty() {
-            errors.to_string()
-        } else {
+        let text = errors.to_string();
+        failure(if !failures.is_empty() {
             failures
+        } else if classic && text.contains("top-level await") {
+            format!("{text}\n--classic writes a plain script, which cannot wait at its top level; move the await into a function, or drop --classic to write an ES module")
+        } else {
+            text
         })
     });
     let _ = bundler.close().await;
     let output = output?;
-    warnings.extend(output.warnings.iter().map(ToString::to_string));
+    warnings.extend(output.warnings.iter().map(|warning| {
+        if classic && warning.kind().to_string() == "MISSING_NAME_OPTION_FOR_IIFE_EXPORT" {
+            "the entry's exports are out of reach in a plain script, which keeps none; drop --classic to write an ES module whose exports a page can import".to_string()
+        } else {
+            warning.to_string()
+        }
+    }));
 
     let chunks: Vec<Arc<OutputChunk>> = output
         .assets
