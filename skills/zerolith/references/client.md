@@ -101,6 +101,7 @@ catch (error)
 | --- | --- |
 | `problem` | The RFC 9457 document the server sent, with the response's status filled in when it left it out, a standard member of the wrong type left out, and `fields` read as lists of messages, as forms read them; or a problem built from the status line when the body was something else |
 | `response` | The `Response` itself |
+| `body` | The JSON body as the server sent it, before `problem` was read from it, for a member `problem` leaves out, such as a `fields` of another shape; undefined when the body was not JSON |
 | `message` | The problem's title, or `HTTP` and the status |
 
 The same `Problem` type is what forms show and what the core exports, so one error shape runs through the whole application.

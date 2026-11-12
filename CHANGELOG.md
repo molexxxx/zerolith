@@ -2,7 +2,9 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
-## Unreleased
+## 1.7.0 (2026-11-12)
+
+A minor release from `main` with the fixes a review of the 1.x releases found, in the router, custom elements, `resource`, `@zerolith/state`, `@zerolith/client`, the command line, and the Vite plugin. `ProblemError` keeps the parsed body, the support policy names the browsers scoped styles need, and the release workflow publishes from jobs that run no dependency's code and holds `@zerolith/cli` until it downloads.
 
 ### Added
 

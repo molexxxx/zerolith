@@ -76,12 +76,12 @@ define("note-card", {
 <note-card heading="Drafts">Two notes <b>waiting</b></note-card>
 ```
 
-A view that does not bind `children` shows none of it, so text in the tag also serves as a fallback: a visitor sees it until the script loads, and a view that throws leaves it in place. The nodes stay the same ones through a move, so listeners on them keep working.
+A view that does not bind `children` shows none of it, so text in the tag also serves as a fallback: a visitor sees it until the script loads, and a view that throws, or returns content that fails to render, leaves it in place. The nodes stay the same ones through a move, so listeners on them keep working.
 
 | Case | What `children` holds |
 | --- | --- |
 | The element connects | What the tag holds, and what the parser adds after, when the script ran before the page finished parsing |
-| It moves, holding nothing new | The same nodes |
+| It moves, holding nothing new | The same nodes, with what another zerolith view added among them since, such as the rows of a list bound in the tag |
 | It connects holding something new | The new nodes, in place of the old |
 | It hydrates server markup | Nothing, since the markup is the view's own |
 | A script appends to the element later | No change: pass later content as a prop, whose signal follows it |
