@@ -576,3 +576,98 @@ describe("resource abort signal", () =>
         expect([signals[0]?.aborted, signals[1]?.aborted]).toEqual([true, false]);
     });
 });
+
+describe("resource request replaced as a run fails", () =>
+{
+    it("retries nothing for a request a retryIf replaced by changing the params", async () =>
+    {
+        const id = signal(1);
+        const seen: number[] = [];
+        const handle = scope(() => resource({
+            params: () => id.get(),
+            loader: ({ params }) =>
+            {
+                seen.push(params);
+                return params === 1 ? Promise.reject(new Error("one")) : new Promise<string>(() => undefined);
+            },
+            retry: 2,
+            backoff: 100,
+            retryIf: () =>
+            {
+                id.set(2);
+                return true;
+            }
+        }));
+        await settle();
+        await vi.advanceTimersByTimeAsync(1000);
+        await settle();
+        expect([seen, handle.value.attempt.get(), handle.value.status.get()]).toEqual([[1, 2], 1, "pending"]);
+        handle.dispose();
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("reports no error for a request a retryIf replaced before ending the retries", async () =>
+    {
+        const id = signal(1);
+        const handle = scope(() => resource({
+            params: () => id.get(),
+            loader: ({ params }) => params === 1 ? Promise.reject(new Error("one")) : new Promise<string>(() => undefined),
+            retry: 2,
+            retryIf: () =>
+            {
+                id.set(2);
+                return false;
+            }
+        }));
+        await settle();
+        expect([handle.value.status.get(), handle.value.error.get()]).toEqual(["pending", undefined]);
+        handle.dispose();
+    });
+
+    it("retries nothing for a request the failed run's abort listener replaced, by new params or a reload", async () =>
+    {
+        for (const replace of ["params", "reload"] as const)
+        {
+            const id = signal(1);
+            const seen: number[] = [];
+            let runs = 0;
+            let value: ReturnType<typeof resource<number, string>> | undefined;
+            const handle = scope(() =>
+            {
+                value = resource({
+                    params: () => id.get(),
+                    loader: ({ abort }) =>
+                    {
+                        runs += 1;
+                        const run = runs;
+                        seen.push(run);
+                        abort.addEventListener("abort", () =>
+                        {
+                            if (run === 1)
+                            {
+                                if (replace === "params")
+                                {
+                                    id.set(2);
+                                }
+                                else
+                                {
+                                    value?.reload();
+                                }
+                            }
+                        });
+                        return run === 1 ? Promise.reject(new Error("first")) : new Promise<string>(() => undefined);
+                    },
+                    retry: 3,
+                    backoff: 50
+                });
+                return value;
+            });
+            await settle();
+            await vi.advanceTimersByTimeAsync(500);
+            await settle();
+            expect([replace, seen, handle.value.attempt.get()]).toEqual([replace, [1, 2], 1]);
+            handle.dispose();
+            expect(vi.getTimerCount()).toBe(0);
+        }
+    });
+});

@@ -148,6 +148,13 @@ export function resource<P, T>(options: ResourceOptions<P, T>): Resource<T>
                 if (again)
                 {
                     own?.abort(outcome);
+                }
+                if (run !== generation)
+                {
+                    return;
+                }
+                if (again)
+                {
                     timer = setTimeout(() => batch(() => start(n + 1)), Math.min(backoff * 2 ** (n - 1), Math.max(backoff, LONGEST_BACKOFF), LONGEST_TIMER));
                     return;
                 }
