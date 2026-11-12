@@ -139,7 +139,7 @@ fn source_type_of(path: &Path) -> SourceType {
     }
 }
 
-/// The module file a relative specifier names from the module at `from`: the path as written, with one of the module extensions, or the index module of a folder. A package specifier names none.
+/// The module file a relative specifier names from the module at `from`: the path as written, the TypeScript module a `.js`, `.jsx`, or `.mjs` specifier stands for, as TypeScript and the dev server read it, the path with one of the module extensions, or the index module of a folder. A package specifier names none.
 fn resolve(from: &Path, specifier: &str) -> Option<PathBuf> {
     if !specifier.starts_with('.') {
         return None;
@@ -147,6 +147,19 @@ fn resolve(from: &Path, specifier: &str) -> Option<PathBuf> {
     let base = from.parent()?.join(specifier);
     if base.is_file() {
         return Some(base);
+    }
+    let sources: &[&str] = match base.extension().and_then(|extension| extension.to_str()) {
+        Some("js") => &["ts", "tsx"],
+        Some("jsx") => &["tsx"],
+        Some("mjs") => &["mts"],
+        _ => &[],
+    };
+    if let Some(source) = sources
+        .iter()
+        .map(|extension| base.with_extension(extension))
+        .find(|candidate| candidate.is_file())
+    {
+        return Some(source);
     }
     MODULE_EXTENSIONS
         .iter()
@@ -581,7 +594,7 @@ export const view = html`<p>${count.get()}</p>`;
         .unwrap();
         fs::write(
             root.join("src/parts/index.ts"),
-            "export { Footer as Bottom, Logo as Mark } from \"../config.ts\";\nexport * from \"./more.ts\";\n",
+            "export { Footer as Bottom, Logo as Mark } from \"../config.ts\";\nexport * from \"./more.js\";\n",
         )
         .unwrap();
         fs::write(
@@ -598,7 +611,7 @@ export const view = html`<p>${count.get()}</p>`;
         fs::write(
             root.join("src/page.ts"),
             format!(
-                "import {{ html }} from \"zerolith\";\nimport {{ APP_NAME, Footer, Logo }} from \"./config.ts\";\nimport {{ Bottom, Mark, Side }} from \"./parts\";\nimport Card from \"./card.ts\";\nimport {{ Widget }} from \"some-package\";\nfunction Local() {{ return html``; }}\n{line}\n"
+                "import {{ html }} from \"zerolith\";\nimport {{ APP_NAME, Footer, Logo }} from \"./config.ts\";\nimport {{ Bottom, Mark, Side }} from \"./parts\";\nimport Card from \"./card.js\";\nimport {{ Widget }} from \"some-package\";\nfunction Local() {{ return html``; }}\n{line}\n"
             ),
         )
         .unwrap();
