@@ -239,6 +239,20 @@ function compareIdentifiers(a: string, b: string): number
     return a < b ? -1 : 1;
 }
 
+/** The newest of `versions` that comes before `version`, which a benchmark run measures beside it, or undefined when none does; an entry that is not a version, such as the empty line a listing ends with, is skipped. */
+export function previousRelease(version: string, versions: readonly string[]): string | undefined
+{
+    let before: string | undefined;
+    for (const candidate of versions)
+    {
+        if (/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(candidate) && compareVersions(candidate, version) < 0 && (before === undefined || compareVersions(candidate, before) > 0))
+        {
+            before = candidate;
+        }
+    }
+    return before;
+}
+
 /** Two versions in semver precedence: negative when `a` is the earlier release, zero when they are one. */
 export function compareVersions(a: string, b: string): number
 {

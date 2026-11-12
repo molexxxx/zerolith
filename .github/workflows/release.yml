@@ -53,9 +53,9 @@ on:
         required: true
         default: all
       tag:
-        description: npm dist-tag
-        required: true
-        default: alpha
+        description: npm dist-tag; empty takes latest for a stable version and the pre-release's own word, such as beta, for a pre-release
+        required: false
+        default: ""
       crate:
         description: Publish the Rust command line to crates.io too
         type: boolean
@@ -273,8 +273,23 @@ jobs:
             else
               selection="${REF_NAME%@*}"
             fi
-            tag="${INPUT_TAG:-alpha}"
+            tag="${INPUT_TAG:-}"
           fi
+          version="$(node -p "require('./package.json').version")"
+          case "$version" in
+            *-*)
+              prerelease="${version#*-}"
+              if [ -z "$tag" ]; then
+                tag="${prerelease%%.*}"
+              elif [ "$tag" = "latest" ]; then
+                echo "::error::$version is a pre-release, which goes under a tag of its own such as ${prerelease%%.*}, not latest, so nothing was published"
+                exit 1
+              fi
+              ;;
+            *)
+              tag="${tag:-latest}"
+              ;;
+          esac
           flags="--access public --provenance --tag $tag"
           if [ "$DRY_RUN" = "true" ]; then
             flags="$flags --dry-run"
@@ -286,7 +301,6 @@ jobs:
             @zerolith/cli) packages="$platforms @zerolith/cli" ;;
             *) packages="$selection" ;;
           esac
-          version="$(node -p "require('./package.json').version")"
           # The registry's HTTP status for a package: 200 when npm has it, 404 when npm has never published it, and 000 when no registry answered within 30 seconds.
           registry_status()
           {
@@ -396,16 +410,22 @@ jobs:
           path: sbom.cdx.json
           retention-days: 90
 
-  # After the GitHub release, which makes the tag the docs build reads the shown releases from.
+  # After the GitHub release, which makes the tag the docs build reads the
+  # shown releases from. The docs deploy runs on main, which the Pages
+  # environment accepts whichever branch the release ran from.
   docs:
     name: Docs
     needs: [npm, github-release]
     if: ${{ !cancelled() && needs.npm.result == 'success' && (needs.github-release.result == 'success' || needs.github-release.result == 'skipped') && github.event.inputs.dry_run != 'true' && github.event.inputs.canary != 'true' && github.event_name != 'schedule' && (github.event.inputs.package == 'all' || github.event.inputs.package == 'zerolith' || startsWith(github.ref_name, 'zerolith@')) }}
+    runs-on: ubuntu-24.04
     permissions:
-      contents: read
-      pages: write
-      id-token: write
-    uses: ./.github/workflows/docs.yml
+      actions: write
+    steps:
+      - name: Deploy the site from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run docs.yml --ref main
 
   github-release:
     name: GitHub release

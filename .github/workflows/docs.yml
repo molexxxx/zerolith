@@ -4,9 +4,11 @@ name: Docs
 # stable release at the root and, when a newer pre-release exists, that
 # pre-release under /next/, each built from its own release tag, so a 2.0
 # alpha's docs are published without replacing the docs the stable
-# release's users read. The release workflow calls it after publishing,
-# a push to main deploys it, and a manual run deploys the same two
-# whatever ref it is dispatched on; the scripts come from that ref. While
+# release's users read. The release and benchmark workflows run it on main
+# after they finish, a push to main deploys it, and a manual run deploys the
+# same two whatever ref it is dispatched on; the scripts come from that ref.
+# One run goes at a time and only the newest waits, so an older build never
+# deploys over a newer one. While
 # main carries the stable line, main stands in for the stable tag, so a
 # change to the site goes live with its push; otherwise a line branch
 # such as 1.x, when it exists, stands in for it; the header's switch to /next/ appears on the
@@ -17,13 +19,16 @@ name: Docs
 # /zerolith/ and a custom domain at its root.
 
 on:
-  workflow_call:
   workflow_dispatch:
   push:
     branches: [main]
 
 permissions:
   contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -108,9 +113,6 @@ jobs:
     permissions:
       pages: write
       id-token: write
-    concurrency:
-      group: pages
-      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

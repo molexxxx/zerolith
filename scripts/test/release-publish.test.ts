@@ -21,6 +21,7 @@ npm()
       ;;
     whoami) [ "\${WHOAMI:-no}" = "yes" ] && return 0; return 1 ;;
     publish)
+      echo "FLAGS $*"
       if [ "$2" = "--workspace" ]; then
         case "$3" in
           @zerolith/state|@zerolith/browser) [ "\${CREATE:-yes}" = "no" ] && { echo "npm error code E403" >&2; return 1; } ;;
@@ -47,7 +48,7 @@ curl()
 }
 node()
 {
-  if [ "$1" = "-p" ]; then echo 2.0.0-alpha.1; fi
+  if [ "$1" = "-p" ]; then echo "\${VERSION:-2.0.0-alpha.1}"; fi
 }
 sleep()
 {
@@ -168,6 +169,26 @@ describe("the release workflow's publish step with names npm has never published
         const run = publish({ INPUT_PACKAGE: "all", INPUT_TAG: "alpha", WHOAMI: "yes", CREATE: "no" });
         expect(run.code).not.toBe(0);
         expect(run.published).toEqual([]);
+    });
+
+    it("publishes a stable version under latest when no tag is given, moving no other tag", () =>
+    {
+        const run = publish({ INPUT_PACKAGE: "all", WHOAMI: "yes", VERSION: "1.7.0" });
+        expect(run.code).toBe(0);
+        expect(run.published).toEqual(releaseOrder());
+        expect(run.output.split("\n").filter((line) => line.startsWith("FLAGS ")).every((line) => line.includes("--tag latest"))).toBe(true);
+        expect(run.tagged).toEqual([]);
+    });
+
+    it("publishes a pre-release under its own word when no tag is given, and refuses latest for it", () =>
+    {
+        const own = publish({ INPUT_PACKAGE: "all", WHOAMI: "yes", VERSION: "2.0.0-beta.3" });
+        expect(own.code).toBe(0);
+        expect(own.output.split("\n").filter((line) => line.startsWith("FLAGS ")).every((line) => line.includes("--tag beta"))).toBe(true);
+        const refused = publish({ INPUT_PACKAGE: "all", INPUT_TAG: "latest", WHOAMI: "yes", VERSION: "2.0.0-beta.3" });
+        expect(refused.code).toBe(1);
+        expect(refused.published).toEqual([]);
+        expect(refused.output).toContain("2.0.0-beta.3 is a pre-release, which goes under a tag of its own such as beta, not latest");
     });
 
     it("publishes nothing when the registry cannot say whether a package exists", () =>

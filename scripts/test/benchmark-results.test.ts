@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { type FrameworkResult, OPERATIONS, type Run, checkRun, compareVersions, measuresNote, pinRelease, previousScore, readRuns, referenceTimes, renderResults, replaceSection, scores } from "../../benchmarks/results.ts";
+import { type FrameworkResult, OPERATIONS, type Run, checkRun, compareVersions, measuresNote, pinRelease, previousRelease, previousScore, readRuns, referenceTimes, renderResults, replaceSection, scores } from "../../benchmarks/results.ts";
 
 const folder = new URL("../../benchmarks/", import.meta.url);
 
@@ -88,6 +88,19 @@ describe("compareVersions", () =>
         expect(precedence.toReversed().toSorted(compareVersions)).toEqual(precedence);
         expect(precedence.toSorted((a, b) => -compareVersions(a, b))).toEqual(precedence.toReversed());
         expect(compareVersions("0.1.0-alpha.8", "0.1.0-alpha.8")).toBe(0);
+    });
+});
+
+describe("previousRelease", () =>
+{
+    it("takes the newest tag below the version measured, whichever release the entry pinned last", () =>
+    {
+        const tags = ["0.1.0-alpha.10", "1.0.0", "1.0.1", "1.2.0", "1.3.0", "1.4.0", "1.5.0", "1.6.0", "not-a-version", ""];
+        expect(previousRelease("1.0.1", tags)).toBe("1.0.0");
+        expect(previousRelease("1.5.0", tags)).toBe("1.4.0");
+        expect(previousRelease("1.7.0", tags)).toBe("1.6.0");
+        expect(previousRelease("2.0.0-alpha.1", [...tags, "2.0.0-alpha.1"])).toBe("1.6.0");
+        expect(previousRelease("0.1.0-alpha.10", tags)).toBeUndefined();
     });
 });
 
