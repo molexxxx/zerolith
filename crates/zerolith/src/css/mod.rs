@@ -35,15 +35,15 @@ pub use paths::{
 use paths::{find_import, is_remote};
 use scoped::Scoped;
 
-/// The oldest browsers the support policy names: the first versions with both import maps and constructable stylesheets.
+/// The oldest browsers the support policy names: the first versions with `@scope`, which scoped styles are built on, as well as import maps and constructable stylesheets.
 pub fn targets() -> Targets {
     let version = |major: u32, minor: u32| Some((major << 16) | (minor << 8));
     Targets::from(Browsers {
-        chrome: version(89, 0),
-        edge: version(89, 0),
-        firefox: version(108, 0),
-        safari: version(16, 4),
-        ios_saf: version(16, 4),
+        chrome: version(118, 0),
+        edge: version(118, 0),
+        firefox: version(146, 0),
+        safari: version(17, 4),
+        ios_saf: version(17, 4),
         ..Browsers::default()
     })
 }

@@ -195,7 +195,7 @@ fn rewrites_references_to_public_files_and_hashed_copies() {
         &[
             (
                 "src/app.css",
-                "@font-face { font-family: Brand; src: url(\"./fonts/brand.woff2?v=2#x\") format(\"woff2\"); }\n.b { background: url(/logo.svg); }\n.c { background: url(/src/grain.png); }\n.d { background: url(data:image/png;base64,AAAA); }\n.e { background: url(missing.png); }\n.f { color: oklch(70% 0.1 200); }\n",
+                "@font-face { font-family: Brand; src: url(\"./fonts/brand.woff2?v=2#x\") format(\"woff2\"); }\n.b { background: url(/logo.svg); }\n.c { background: url(/src/grain.png); }\n.d { background: url(data:image/png;base64,AAAA); }\n.e { background: url(missing.png); }\n.f { color: oklch(70% 0.1 200); }\n.g { & .h { color: light-dark(white, black); } }\n",
             ),
             ("src/fonts/brand.woff2", "WOFF"),
             ("src/grain.png", "PNG"),
@@ -211,8 +211,9 @@ fn rewrites_references_to_public_files_and_hashed_copies() {
     assert!(code.contains("url(grain-"), "{code}");
     assert!(code.contains("data:image/png;base64,AAAA"), "{code}");
     assert!(code.contains("url(missing.png)"), "{code}");
+    assert!(code.contains(".f{color:oklch(70% .1 200)}"), "{code}");
     assert!(
-        code.contains(".f{color:#") && code.contains("color:lab("),
+        code.contains(".g .h{") && !code.contains("&") && !code.contains("light-dark("),
         "{code}"
     );
     assert!(!code.contains('\n'), "{code}");
