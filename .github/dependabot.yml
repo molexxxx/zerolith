@@ -6,6 +6,11 @@ updates:
       interval: weekly
     commit-message:
       prefix: "ci"
+    # init and analyze run in one workflow and fail on different versions, so the action's parts move together.
+    groups:
+      codeql-action:
+        patterns:
+          - "github/codeql-action/*"
   - package-ecosystem: npm
     directory: /
     schedule:
@@ -13,11 +18,16 @@ updates:
     versioning-strategy: increase
     commit-message:
       prefix: "deps"
+    # A tool a new project pins, in crates/zerolith/versions.json, needs that file moved in the same pull request, or the starter drift test fails.
     groups:
       vitest:
         patterns:
           - "vitest"
           - "@vitest/*"
+      vite:
+        patterns:
+          - "vite"
+          - "rolldown"
   - package-ecosystem: npm
     directory: /.github/npm
     schedule:
