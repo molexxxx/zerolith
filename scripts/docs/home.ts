@@ -10,7 +10,7 @@
 import { type View, html, unsafeHtml } from "zerolith";
 import { Figure } from "./demo.js";
 import { diagnosticIcon, icon } from "./layout.ts";
-import { countWord, fastestWord, listed } from "./text.ts";
+import { countWord, listed } from "./text.ts";
 
 export interface Characteristic
 {
@@ -541,13 +541,15 @@ function printed(score: number): number
 /**
  * The sentence under the speed heading. It names the release the run
  * measured, which trails the site's own version until the benchmarks
- * workflow measures a new release.
+ * workflow measures a new release. It claims no place among the
+ * frameworks: one run's places can change in the next, since two runs of
+ * the same code differ by a few hundredths.
  */
 export function speedLine(scores: HomeData["scores"]): string
 {
     const ours = scores.rows.find((row) => row.name === "zerolith");
     const others = scores.rows.filter((row) => row.name !== "vanilla" && row.name !== "zerolith");
-    const close = " Lower is faster. These are this project's runs, not the official results.";
+    const close = " These are this project's runs, not the official results.";
     if (ours === undefined)
     {
         return `zerolith on js-framework-benchmark, next to hand-written JavaScript and ${countWord(others.length)} other frameworks, measured on ${scores.date}.${close}`;
@@ -560,26 +562,6 @@ export function speedLine(scores: HomeData["scores"]): string
     return `zerolith ${ours.version} scores ${score.toFixed(2)} on js-framework-benchmark, where hand-written JavaScript scores 1.00, so ${pace}. It ran next to ${countWord(others.length)} other frameworks on ${scores.date}${tie}.${close}`;
 }
 
-/**
- * The speed heading: zerolith's place among the frameworks other than
- * hand-written JavaScript, counted by the scores as the bars print them, so
- * a framework that prints the same score is a tie.
- */
-export function speedHeading(scores: HomeData["scores"]): string
-{
-    const ours = scores.rows.find((row) => row.name === "zerolith");
-    if (ours === undefined)
-    {
-        return "Benchmark scores";
-    }
-    const field = scores.rows.filter((row) => row.name !== "vanilla");
-    const score = printed(ours.score);
-    const place = field.filter((row) => printed(row.score) < score).length + 1;
-    const tied = field.some((row) => row !== ours && printed(row.score) === score);
-    const standing = `${fastestWord(place)} of ${countWord(field.length)} frameworks`;
-    return tied ? `Tied for ${standing}` : `The ${standing}`;
-}
-
 /** The benchmark scores as ranked bars, each the extra time over hand-written JavaScript. */
 function Speed(scores: HomeData["scores"])
 {
@@ -588,7 +570,7 @@ function Speed(scores: HomeData["scores"])
         <section class="band speed">
             <div class="split">
                 <div class="copy-column">
-                    <h2>${speedHeading(scores)}</h2>
+                    <h2>Benchmark scores, lower is faster</h2>
                     <p>${speedLine(scores)}</p>
                     <a class="more" href="/benchmarks/">See every operation and the method${unsafeHtml(icon("arrow-right"))}</a>
                 </div>

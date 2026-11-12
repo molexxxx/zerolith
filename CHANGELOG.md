@@ -7,6 +7,7 @@ Every package in this repository is released together and carries the same versi
 ### Changed
 
 - The support policy names the browsers zerolith has needed since 0.1.0: Chrome and Edge 118, Firefox 146, and Safari 17.4, the first versions with `@scope`, which scoped styles are built on. It named the import-map versions, Chrome 89, Firefox 108, and Safari 16.4, where scoped styles were dropped. `zerolith build` lowers CSS for the new versions, so its output keeps `oklch()` and other color functions they support and stops adding the fallbacks they do not need; nesting is still flattened.
+- Docs: the home page's speed heading reads Benchmark scores, lower is faster, in place of a place among the frameworks, since one run's places can change in the next.
 
 ### Fixed
 
