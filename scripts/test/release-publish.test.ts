@@ -14,7 +14,7 @@ npm()
   case "$1" in
     view)
       case "$3" in
-        dist.tarball) echo "https://registry.example/tarball.tgz"; return 0 ;;
+        dist.tarball) echo "https://registry.example/$2.tgz"; return 0 ;;
         dist-tags.latest) echo "0.1.0-alpha.10"; return 0 ;;
         dist-tags.zerolith-staged) [ "\${CLI_STAGED:-no}" = "yes" ] && { echo "\${VERSION:-2.0.0-alpha.1}"; return 0; } ;;
         version) [ "\${CLI_STAGED:-no}" = "yes" ] && [ "\${2%@*}" = "@zerolith/cli" ] && { echo "\${2##*@}"; return 0; } ;;
@@ -41,6 +41,7 @@ curl()
   case "$last" in
     *%2Fstate|*%2Fbrowser) printf 404 ;;
     *%2Fforms) printf '%s' "\${FORMS_STATUS:-200}"; [ "\${FORMS_STATUS:-200}" = "000" ] && return 7 ;;
+    https://registry.example/*) echo "DOWNLOADED $last" >&2 ;;
     *) printf 200 ;;
   esac
 }
@@ -217,6 +218,8 @@ describe("the release workflow's publish step with names npm has never published
         const canary = publish({ CANARY: "true" });
         expect(canary.flags.find((line) => line.includes("zerolith-cli-2.0.0-alpha.1.tgz"))).toContain("--tag canary");
         expect(canary.untagged).toEqual([]);
+        expect(canary.output).toContain("DOWNLOADED https://registry.example/@zerolith/cli-win32-arm64@2.0.0-alpha.1.tgz");
+        expect(canary.published).toContain("@zerolith/cli");
     });
 
     it("publishes nothing when the pack job made no tarball of a package it would publish", () =>

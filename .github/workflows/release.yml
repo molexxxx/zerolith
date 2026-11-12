@@ -497,13 +497,15 @@ jobs:
             fi
             echo "publishing $package"
             file="$(tarball "$package")"
-            if [ "$package" = "@zerolith/cli" ] && [ "$DRY_RUN" != "true" ] && [ "$CANARY" != "true" ]; then
+            if [ "$package" = "@zerolith/cli" ] && [ "$DRY_RUN" != "true" ]; then
               for platform in $platforms; do
                 if ! downloadable "$platform"; then
                   echo "::error::$platform@$version did not download from the registry within 30 minutes, so @zerolith/cli was not published; an install of it now would lack that binary"
                   exit 1
                 fi
               done
+            fi
+            if [ "$package" = "@zerolith/cli" ] && [ "$DRY_RUN" != "true" ] && [ "$CANARY" != "true" ]; then
               # shellcheck disable=SC2086
               npm publish "$file" ${flags/--tag $tag/--tag $staged}
               release_cli
