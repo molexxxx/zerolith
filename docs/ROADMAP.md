@@ -86,6 +86,7 @@ Alongside, as they are ready: the per-row work, which changes no signature: the 
 - [x] `@zerolith/client`: types and a route table generated from OpenAPI 3.x, checked calls, problems as errors, and a message port transport.
 - [x] `@zerolith/forms`: native forms enhanced with `fetch`, RFC 9457 problems with a `fields` map, and Standard Schema validation shared with the server.
 - [ ] An in-process transport that calls a handler directly, for tests.
+- [ ] Before 2.0 freezes the message port shapes again: whether the port carries HTTP semantics, as it has since 1.0.1, when a HEAD answer lost its body; a tag per transport in each message in place of a counter per module; a `close()` that removes the transport's listener; pending calls rejected when the port closes; one problem reader shared by `@zerolith/client` and `@zerolith/forms`; and one predicate for JSON media types shared by the generator and the client.
 - [ ] Signals the server pushes over Server-Sent Events, resuming from `Last-Event-ID` after a reconnect.
 - [ ] WebSocket for two-way and binary traffic, and WebTransport behind feature detection.
 
