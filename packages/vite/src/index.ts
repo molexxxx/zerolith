@@ -5,11 +5,14 @@
  * checks on build output.
  */
 import { existsSync, readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { type Plugin, parseSync, perEnvironmentState } from "vite";
 import { DIAGNOSTIC_URL } from "zerolith";
 import { scan } from "zerolith/internal";
 import { JsxError, type JsxOutput, lowerJsx } from "./jsx.js";
+import type { AstNode } from "./ast.js";
+import { type ModuleReader, namesAFunction } from "./exports.js";
 import { lintModule, position } from "./lint.js";
 import { PrepareError, prepareModule } from "./prepare.js";
 import { type SplitImport, splitImports } from "./split.js";
@@ -97,6 +100,29 @@ function developmentModuleOf(id: string, names: Map<string, string | undefined>)
 }
 
 const parse: ModuleParser = (filename, code) => parseSync(filename, code, { sourceType: "module", lang: "js" });
+
+/** The modules the component lint follows an import into: what Vite resolves the specifier to, when that is a file of the project rather than a package's or a virtual module. */
+function readerOf(context: { resolve: (source: string, importer?: string) => Promise<{ id: string; external?: boolean | "absolute" | "relative" } | null> }): ModuleReader
+{
+    return {
+        resolve: async (specifier, importer) =>
+        {
+            const found = await context.resolve(specifier, importer);
+            const file = found?.id.replace(/[?#].*$/, "");
+            if (found === null || file === undefined || (found.external !== undefined && found.external !== false) || file.startsWith("\0") || file.includes("/node_modules/") || !existsSync(file))
+            {
+                return undefined;
+            }
+            return file;
+        },
+        read: (id) => readFile(id, "utf8").catch(() => undefined),
+        parse: (id, code, lang) =>
+        {
+            const parsed = parseSync(id, code, { sourceType: "module", lang });
+            return parsed.errors.length > 0 ? undefined : parsed.program.body as AstNode[];
+        }
+    };
+}
 
 /** Parses a JSX file as the extension says, so the lowering sees the tree before any other transform. */
 const parseJsx: ModuleParser = (filename, code) => parseSync(filename, code, { sourceType: "module", lang: filename.endsWith(".tsx") ? "tsx" : "jsx" });
@@ -352,7 +378,7 @@ export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
         },
         transform: {
             filter: { id: { include, exclude } },
-            handler(code, id, meta)
+            async handler(code, id, meta)
             {
                 if (meta?.ssr === true || id.startsWith("\0"))
                 {
@@ -360,7 +386,11 @@ export function zerolith(options: ZerolithPluginOptions = {}): Plugin[]
                 }
                 if (options.lint !== false)
                 {
-                    for (const finding of lintModule(code, id, parse))
+                    const findings = lintModule(code, id, parse);
+                    const body = findings.some((finding) => finding.code === "template_component_uncalled") ? parse(id, code).program.body as AstNode[] : [];
+                    const reader = readerOf(this);
+                    const kept = await Promise.all(findings.map((finding) => finding.code !== "template_component_uncalled" || namesAFunction(reader, id, code, body, finding.offset)));
+                    for (const finding of findings.filter((_finding, index) => kept[index]))
                     {
                         const { line, column } = position(code, finding.offset);
                         this.warn({ message: `${finding.code}: ${finding.message} ${DIAGNOSTIC_URL}${finding.code}`, pos: finding.offset, loc: { file: id, line, column } });
