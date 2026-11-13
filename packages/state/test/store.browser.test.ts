@@ -158,6 +158,21 @@ describe("store", () =>
         expect(board.fixed).toBe(fixed);
     });
 
+    it("keeps data from reaching Object.prototype through a path, reconciled data, or a snapshot", () =>
+    {
+        const [board, setBoard] = store({ settings: { theme: "light" } as Record<string, unknown> });
+        expect(() => setBoard("settings", "__proto__" as string, { polluted: true })).toThrow(TypeError);
+        expect(() => setBoard("settings", "constructor" as string, "x")).toThrow(TypeError);
+        const sent = JSON.parse('{"theme": "dark", "__proto__": {"polluted": true}, "constructor": {"prototype": {"polluted": true}}}') as Record<string, unknown>;
+        setBoard("settings", reconcile(sent));
+        setBoard("settings", "nested", JSON.parse('{"__proto__": {"polluted": true}}'));
+        const copy = snapshot(board) as { settings: Record<string, unknown> };
+        expect(({} as Record<string, unknown>)["polluted"]).toBeUndefined();
+        expect(board.settings["theme"]).toBe("dark");
+        expect(Object.getPrototypeOf(copy.settings)).toBe(Object.prototype);
+        expect(Object.hasOwn(copy.settings, "__proto__")).toBe(false);
+    });
+
     it("refuses a write that skips the setter, a path through nothing, and a setter call without a path", () =>
     {
         const [board, setBoard] = store({ rows: [{ id: 1, label: "one" }] as Row[], owner: undefined as { name: string } | undefined });

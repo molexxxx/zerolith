@@ -61,10 +61,16 @@ const raws: WeakMap<object, object> = new WeakMap();
 const fields: WeakMap<object, Map<PropertyKey, Signal<unknown>>> = new WeakMap();
 const KEYS: unique symbol = Symbol("keys");
 
-/** Whether a value is held in the store as fields: a plain object or array that is not frozen. Maps, Sets, class instances, and frozen objects are values. */
+/** Whether a key names an object's prototype or its constructor, which a store never reads through, writes, or copies, so data cannot reach `Object.prototype`. */
+function unsafe(key: PropertyKey): boolean
+{
+    return key === "__proto__" || key === "constructor" || key === "prototype";
+}
+
+/** Whether a value is held in the store as fields: a plain object or array that is not frozen. Maps, Sets, class instances, frozen objects, and `Object.prototype` itself are values. */
 function plain(value: unknown): value is object
 {
-    if (typeof value !== "object" || value === null || Object.isFrozen(value))
+    if (typeof value !== "object" || value === null || value === Object.prototype || Object.isFrozen(value))
     {
         return false;
     }
@@ -139,6 +145,10 @@ const handler: ProxyHandler<object> = {
 /** Writes `value` to the field `key` of the object `raw` and wakes what reads it, and what reads its keys when the field is new. */
 function assign(raw: object, key: PropertyKey, value: unknown): void
 {
+    if (key === "__proto__" || key === "constructor" || key === "prototype")
+    {
+        return;
+    }
     const added = !Object.hasOwn(raw, key);
     (raw as Record<PropertyKey, unknown>)[key] = value;
     const map = fields.get(raw);
@@ -152,6 +162,10 @@ function assign(raw: object, key: PropertyKey, value: unknown): void
 /** Removes the field `key` of the object `raw` and wakes what reads it and its keys. */
 function remove(raw: object, key: PropertyKey): void
 {
+    if (key === "__proto__" || key === "constructor" || key === "prototype")
+    {
+        return;
+    }
     delete (raw as Record<PropertyKey, unknown>)[key];
     const map = fields.get(raw);
     map?.get(key)?.set(undefined);
@@ -174,6 +188,10 @@ function unwrap(value: unknown, seen: Set<object> = new Set()): unknown
     const record = value as Record<string, unknown>;
     for (const name of Object.keys(record))
     {
+        if (unsafe(name))
+        {
+            continue;
+        }
         const inner = record[name];
         const unwrapped = unwrap(inner, seen);
         if (unwrapped !== inner)
@@ -206,6 +224,10 @@ function merge(current: unknown, next: unknown, key: string | undefined): unknow
     const source = next as Record<string, unknown>;
     for (const name of Object.keys(source))
     {
+        if (unsafe(name))
+        {
+            continue;
+        }
         const value = merge(target[name], source[name], key);
         if (!Object.is(value, target[name]) || !Object.hasOwn(target, name))
         {
@@ -241,6 +263,10 @@ function resolve(next: unknown, current: unknown): unknown
 function write(raw: object, path: readonly PropertyKey[], index: number, next: unknown): object
 {
     const key = path[index] as PropertyKey;
+    if (unsafe(key))
+    {
+        throw new TypeError(`a store path cannot go through ${String(key)}, which names a prototype rather than a field`);
+    }
     const current = (raw as Record<PropertyKey, unknown>)[key];
     let value: unknown;
     if (index === path.length - 1)
@@ -343,7 +369,10 @@ function copy(value: unknown, seen: Map<object, unknown>): unknown
     seen.set(value, record);
     for (const [name, inner] of Object.entries(value))
     {
-        record[name] = copy(inner, seen);
+        if (!unsafe(name))
+        {
+            record[name] = copy(inner, seen);
+        }
     }
     return record;
 }
