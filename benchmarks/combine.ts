@@ -78,7 +78,7 @@ const run: Run = {
     zerolith: first.zerolith,
     commit: first.commit,
     statistic: "median",
-    method: `the median of ${runs.length} sessions on separate GitHub-hosted runners, each with ${first.method.replace(/ on a GitHub-hosted runner$/, "")}`,
+    method: `the median of ${runs.length} sessions on separate GitHub-hosted runners, each with ${first.method.replace(/,? on a GitHub-hosted runner$/, "")}`,
     machine: `${cpus.join("; ")}, ${rest}`,
     ...(first.note === undefined ? {} : { note: first.note }),
     ...(first.passes === undefined ? {} : { passes: first.passes }),

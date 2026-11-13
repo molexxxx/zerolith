@@ -511,7 +511,7 @@ describe("npm run bench:combine", () =>
             for (const [index, time, cpu] of [[1, 30, "AMD EPYC 9V45 96-Core Processor"], [2, 10, "AMD EPYC 7763 64-Core Processor"], [3, 20, "AMD EPYC 9V45 96-Core Processor"]] as const)
             {
                 const file = join(scratch, `run-${index}.json`);
-                const session: Run = { ...run(["vanilla", "zerolith"], (name) => (name === "vanilla" ? 10 : time)), date: `2026-11-1${index}`, machine: `${cpu}, 4 vCPUs, Ubuntu 24.04.5 LTS` };
+                const session: Run = { ...run(["vanilla", "zerolith"], (name) => (name === "vanilla" ? 10 : time)), date: `2026-11-1${index}`, machine: `${cpu}, 4 vCPUs, Ubuntu 24.04.5 LTS`, method: "medians of 15 runs, 30 for vanilla and zerolith, on a GitHub-hosted runner" };
                 await writeFile(file, JSON.stringify(session));
                 files.push(file);
             }
@@ -522,7 +522,7 @@ describe("npm run bench:combine", () =>
             expect(Object.values(combined.frameworks.find((one) => one.name === "zerolith")?.operations ?? {})).toEqual(OPERATIONS.map(() => 20));
             expect(combined.date).toBe("2026-11-13");
             expect(combined.machine).toBe("AMD EPYC 9V45 96-Core; AMD EPYC 7763 64-Core, 4 vCPUs, Ubuntu 24.04.5 LTS");
-            expect(combined.method).toBe("the median of 3 sessions on separate GitHub-hosted runners, each with a test");
+            expect(combined.method).toBe("the median of 3 sessions on separate GitHub-hosted runners, each with medians of 15 runs, 30 for vanilla and zerolith");
         }
         finally
         {

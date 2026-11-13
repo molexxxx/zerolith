@@ -3,7 +3,7 @@
     "zerolith": "1.10.0",
     "commit": "ca8715d",
     "statistic": "median",
-    "method": "the median of 3 sessions on separate GitHub-hosted runners, each with medians of 15 runs, 30 for vanilla, Solid, Svelte, and zerolith,",
+    "method": "the median of 3 sessions on separate GitHub-hosted runners, each with medians of 15 runs, 30 for vanilla, Solid, Svelte, and zerolith",
     "machine": "AMD EPYC 7763 64-Core, 4 vCPUs, Ubuntu 24.04.5 LTS, Google Chrome 156.0.8078.79 headless, Node v24.22.2",
     "passes": 5,
     "frameworks": [

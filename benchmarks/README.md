@@ -5,7 +5,7 @@ zerolith is measured on [js-framework-benchmark](https://github.com/krausest/js-
 <!-- results: written by `npm run bench:report` from benchmarks/results/ -->
 ## Results
 
-The newest release, zerolith 1.10.0, measured on 2026-11-13 with the median of 3 sessions on separate GitHub-hosted runners, each with medians of 15 runs, 30 for vanilla, Solid, Svelte, and zerolith,, next to hand-written JavaScript and seven popular frameworks. The score is each framework's weighted geometric mean: every operation's time over hand-written JavaScript's, combined with the weights of the official results page, so hand-written JavaScript is 1.00, a score of 1.10 takes 10% longer than it over the nine operations, and lower is faster. The release before, zerolith 1.9.0, ran in the same session on the same machine, so its row compares with the newest like for like.
+The newest release, zerolith 1.10.0, measured on 2026-11-13 with the median of 3 sessions on separate GitHub-hosted runners, each with medians of 15 runs, 30 for vanilla, Solid, Svelte, and zerolith, next to hand-written JavaScript and seven popular frameworks. The score is each framework's weighted geometric mean: every operation's time over hand-written JavaScript's, combined with the weights of the official results page, so hand-written JavaScript is 1.00, a score of 1.10 takes 10% longer than it over the nine operations, and lower is faster. The release before, zerolith 1.9.0, ran in the same session on the same machine, so its row compares with the newest like for like.
 
 | Framework | Entry | Version | Score |
 | --- | --- | --- | --- |
@@ -55,7 +55,7 @@ Each run's scores, the newest release first. A score compares frameworks within 
 
 | Run | vanilla | zerolith | Solid | Svelte | Vue | Lit | Preact | Angular | React | Measured |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1.10.0, 2026-11-13 | 1.00 | 1.11 | 1.12 | 1.17 | 1.26 | 1.28 | 1.37 | 1.42 | 1.46 | the median of 3 sessions on separate GitHub-hosted runners, each with medians of 15 runs, 30 for vanilla, Solid, Svelte, and zerolith, |
+| 1.10.0, 2026-11-13 | 1.00 | 1.11 | 1.12 | 1.17 | 1.26 | 1.28 | 1.37 | 1.42 | 1.46 | the median of 3 sessions on separate GitHub-hosted runners, each with medians of 15 runs, 30 for vanilla, Solid, Svelte, and zerolith |
 | 1.9.0, 2026-11-13 | 1.00 | 1.19 | 1.09 | 1.15 | 1.25 | 1.23 | 1.33 | 1.47 | 1.48 | medians of 15 runs, 30 for vanilla, Solid, Svelte, and zerolith, on a GitHub-hosted runner |
 | 1.8.0, 2026-11-12 | 1.00 | 1.15 | 1.09 | 1.12 | 1.27 | 1.22 | 1.33 | 1.41 | 1.44 | medians of 15 runs on a GitHub-hosted runner |
 | 1.7.0, 2026-11-12 | 1.00 | 1.13 | 1.11 | 1.15 | 1.25 | 1.26 | 1.32 | 1.44 | 1.47 | medians of 15 runs on a GitHub-hosted runner |
