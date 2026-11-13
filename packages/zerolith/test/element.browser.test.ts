@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { type Diagnostic, computed, each, effect, html, onDiagnostic, onDispose, render, signal } from "zerolith";
+import { type Diagnostic, computed, context, each, effect, html, onDiagnostic, onDispose, render, signal } from "zerolith";
 import { define } from "zerolith/element";
 import { renderToString } from "zerolith/ssr";
 
@@ -15,8 +15,27 @@ define("zl-greeting", {
     view: ({ name, count }, element) => html`<p>Hello ${computed(() => name.get() ?? "stranger")}, ${computed(() => (count.get() as number | undefined) ?? 0)}</p><button @click=${() => element.dispatchEvent(new CustomEvent("wave"))}>Wave</button>`
 });
 
+const theme = context("light");
+
+define("zl-themed", { props: [], view: () => html`<b>${theme.read()}</b>` });
+
 describe("define", () =>
 {
+    it("gives an element the values provided around the template that creates it, now and in rows added later", () =>
+    {
+        const rows = signal([1]);
+        host = document.createElement("div");
+        document.body.append(host);
+        const root = render(() => theme.provide("dark", () => html`<zl-themed></zl-themed><ul>${each(rows, (row) => row, () => html`<li><zl-themed></zl-themed></li>`)}</ul>`), host);
+        rows.set([1, 2]);
+        expect([...host.querySelectorAll("zl-themed")].map((element) => element.textContent)).toEqual(["dark", "dark", "dark"]);
+        const parsed = document.createElement("div");
+        parsed.innerHTML = "<zl-themed></zl-themed>";
+        host.append(parsed);
+        expect(parsed.textContent).toBe("light");
+        root.dispose();
+    });
+
     it("renders a view inside a custom element and feeds attributes and properties into its signals", () =>
     {
         host = document.createElement("div");

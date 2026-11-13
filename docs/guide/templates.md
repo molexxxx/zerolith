@@ -45,7 +45,7 @@ A value that many components need, such as the signed-in user or the theme, can 
 
 @include packages/zerolith/test/examples/guide.example.browser.test.ts#context
 
-- **Read it while the component runs**, as `SaveButton` does, the way props are read. What the component creates keeps the value it was created under: the rows `each` adds later, the branches `when` shows later, effects, computed values, and the pages the router's outlet shows. An event handler, a timer, or the code after an `await` runs outside the component, so read the value first and keep it.
+- **Read it while the component runs**, as `SaveButton` does, the way props are read. What the component creates keeps the value it was created under: the rows `each` adds later, the branches `when` shows later, effects, computed values, the pages the router's outlet shows, and the custom elements its templates create. An event handler, a timer, or the code after an `await` runs outside the component, so read the value first and keep it, and an element the browser makes from the page's own HTML, outside every template, reads the value the context started with.
 - **A provided value is fixed.** To give a subtree something that changes, provide a signal and bind it.
 - **Outside every `provide`, `read` returns the value the context started with.** On the server, each `renderToString` call can provide its own request's values, which a signal in a module, shared by every request, cannot.
 

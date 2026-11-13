@@ -56,6 +56,7 @@ export class TemplateResult implements TemplateView
     {
         this.strings = strings;
         this.values = values;
+        remember(this);
     }
 }
 

@@ -583,8 +583,17 @@ export class ChildPart implements BoundPart, Sink
             }
             const anchor = this.marker();
             this.clear();
-            const instance = Instance.create(value.strings, prepare(value.strings));
-            instance.update(value.values);
+            const provided = recall(value);
+            let instance: Instance;
+            try
+            {
+                instance = Instance.create(value.strings, prepare(value.strings));
+                instance.update(value.values);
+            }
+            finally
+            {
+                restore(provided);
+            }
             if (instance.content !== undefined)
             {
                 anchor.parentNode?.insertBefore(instance.content, anchor);

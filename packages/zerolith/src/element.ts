@@ -6,7 +6,7 @@
  * zerolith view, so scoped styles and design tokens apply unchanged.
  */
 import { type Renderable, type Root, hasServerMarkup, hydrate, render } from "./render.js";
-import { type ReadableSignal, type Signal, signal, untracked } from "./signals.js";
+import { type ReadableSignal, type Signal, recall, remember, restore, signal, untracked } from "./signals.js";
 
 /** The signals an element's view receives: one per declared prop, and `children`, what the tag held, unless a prop takes that name. */
 export type ElementProps<Props extends readonly string[]> = { readonly [K in Props[number]]: ReadableSignal<unknown> } & { readonly children: ReadableSignal<readonly Node[]> };
@@ -97,6 +97,7 @@ export function define<const Props extends readonly string[]>(name: string, opti
         constructor()
         {
             super();
+            remember(this);
             const signals = store(this, props);
             for (const prop of props)
             {
@@ -122,11 +123,26 @@ export function define<const Props extends readonly string[]>(name: string, opti
             }
             const signals = store(this, props);
             const view = (): Renderable => options.view(signals as unknown as ElementProps<Props>, this);
-            if (hasServerMarkup(this))
+            const provided = recall(this);
+            try
             {
-                roots.set(this, hydrate(view, this));
-                return;
+                if (hasServerMarkup(this))
+                {
+                    roots.set(this, hydrate(view, this));
+                    return;
+                }
+                this.show(view);
             }
+            finally
+            {
+                restore(provided);
+            }
+        }
+
+        /** Renders the view in place of what the tag holds, which arrives as `children`, and puts that back when rendering fails. */
+        private show(view: () => Renderable): void
+        {
+            const signals = store(this, props);
             const children = props.includes("children") ? undefined : signals["children"];
             const held = [...this.childNodes];
             if (held.length > 0)
