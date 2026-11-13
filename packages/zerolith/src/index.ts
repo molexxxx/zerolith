@@ -8,7 +8,7 @@ export { DIAGNOSTIC_URL, ZerolithError, diagnostic, onDiagnostic, report } from 
 export { diagnosticCatalog } from "./catalog.js";
 
 export type { Context, EffectFunction, Equals, ReadableSignal, Scope, Signal, SignalOptions } from "./signals.js";
-export { batch, computed, context, effect, hasOwner, onDispose, scope, signal, untracked } from "./signals.js";
+export { batch, computed, context, effect, hasOwner, isTracking, onDispose, scope, signal, untracked } from "./signals.js";
 
 export type { LoaderContext, Resource, ResourceOptions, ResourceStatus } from "./resource.js";
 export { resource } from "./resource.js";

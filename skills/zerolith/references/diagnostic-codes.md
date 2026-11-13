@@ -208,6 +208,18 @@ Cause: The value kept in storage under the key does not parse as JSON, or the st
 
 Fix: Clear the key, or write it as JSON that validate accepts; a value written by other code under the same key is read as this signal's.
 
+## state_store_assigned
+
+Cause: A field of a store, or of an object or array inside it, was assigned, deleted, or defined directly, which a store refuses so every change is made through its setter.
+
+Fix: Call the store's setter with the path and the value, for example setBoard("rows", 3, "label", "renamed").
+
+## state_store_path_missing
+
+Cause: A store's setter was given a path through a value that is not an object or an array, so the field to change does not exist.
+
+Fix: Set the object or array at that point of the path first, or shorten the path to a field that holds one.
+
 ## state_value_not_json
 
 Cause: The stored signal's value does not serialize as JSON, so it is kept in memory alone and storage still holds the value before it.

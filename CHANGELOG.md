@@ -2,6 +2,13 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
+## Unreleased
+
+### Added
+
+- `store` in `@zerolith/state`: nested objects and arrays read through views whose fields become signals the first time a binding, an effect, or a computed value reads them, changed only through a setter that takes a path of keys and a value or a function of it, as `setBoard("tasks", 1, "done", true)`. An object changes in place and an array is replaced, so `each(computed(() => board.tasks), ...)` sees new, removed, and moved rows while an edit inside a row reaches only what reads that field. `reconcile(data, key)` merges data sent again whole, `snapshot` gives a plain copy, and assigning to the store throws `state_store_assigned`, a path through nothing `state_store_path_missing`, both new diagnostics.
+- `isTracking()` in the core: true while a computed value, an effect, or a binding runs, for a library that makes signals only for reads that subscribe.
+
 ## 1.9.0 (2026-11-13)
 
 A minor release from `main`: `context` for values a part of the application shares with everything it creates, `boundary` for any part of a view that fails, and support for Node 22.18 and later. The js-framework-benchmark entry replaces its rows again, and the benchmarks workflow measures the frameworks nearest zerolith in a second pass.

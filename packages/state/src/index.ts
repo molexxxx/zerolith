@@ -14,3 +14,6 @@ export { history } from "./history.js";
 export { debounced, throttled } from "./timing.js";
 
 export { selector } from "./selector.js";
+
+export type { Next, SetStore, Snapshot, Store } from "./store.js";
+export { Reconciled, reconcile, snapshot, store } from "./store.js";

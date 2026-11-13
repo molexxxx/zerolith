@@ -68,7 +68,7 @@ Each code has a page at `https://zerolith.dev/e/<code>/` with its cause and its 
 | Accessibility | `image_without_alt`, `button_without_name`, `frame_without_title` |
 | Async data | `resource_timed_out` |
 | Routing | `route_name_unknown`, `route_path_invalid` |
-| State | `state_storage_unreadable`, `state_storage_unavailable`, `state_value_not_json`, `state_key_duplicate` |
+| State | `state_storage_unreadable`, `state_storage_unavailable`, `state_value_not_json`, `state_key_duplicate`, `state_store_assigned`, `state_store_path_missing` |
 | Browser | `in_view_options_invalid` |
 | Builds and versions | `lazy_module_not_split`, `package_version_mismatch` |
 

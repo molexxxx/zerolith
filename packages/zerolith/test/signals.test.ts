@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { type EffectFunction, ZerolithError, batch, computed, context, effect, hasOwner, onDiagnostic, onDispose, scope, signal, untracked } from "zerolith";
+import { type EffectFunction, ZerolithError, batch, computed, context, effect, hasOwner, isTracking, onDiagnostic, onDispose, scope, signal, untracked } from "zerolith";
 import { diagnostic as buildRecord } from "../src/diagnostics.ts";
 import { jsx } from "../src/jsx-runtime.ts";
 
@@ -695,6 +695,23 @@ describe("scope", () =>
         })).toThrow("setup failed");
         a.set(2);
         expect(runs).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe("isTracking", () =>
+{
+    it("is true in a computed value and an effect, and false in plain code, a scope, and untracked", () =>
+    {
+        const seen: boolean[] = [isTracking()];
+        const value = computed(() => isTracking());
+        seen.push(value.get());
+        const stop = effect(() =>
+        {
+            seen.push(isTracking(), untracked(() => isTracking()));
+        });
+        scope(() => seen.push(isTracking()));
+        expect(seen).toEqual([false, true, true, false, false]);
+        stop();
     });
 });
 

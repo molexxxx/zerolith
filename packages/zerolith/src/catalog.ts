@@ -214,6 +214,16 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
         cause: "The stored signal's value does not serialize as JSON, so it is kept in memory alone and storage still holds the value before it.",
         fix: "Keep JSON values in a stored signal: objects, arrays, strings, numbers, booleans, and null; convert a BigInt or a cyclic object first."
     },
+    state_store_assigned:
+    {
+        cause: "A field of a store, or of an object or array inside it, was assigned, deleted, or defined directly, which a store refuses so every change is made through its setter.",
+        fix: "Call the store's setter with the path and the value, for example setBoard(\"rows\", 3, \"label\", \"renamed\")."
+    },
+    state_store_path_missing:
+    {
+        cause: "A store's setter was given a path through a value that is not an object or an array, so the field to change does not exist.",
+        fix: "Set the object or array at that point of the path first, or shorten the path to a field that holds one."
+    },
     state_key_duplicate:
     {
         cause: "A second stored signal was created for the key while the first is live; each writes its own value and neither hears the other, since the storage event tells other tabs alone.",

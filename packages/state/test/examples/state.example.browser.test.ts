@@ -1,8 +1,8 @@
 // Executed examples for the state guide.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { computed, html, render, signal } from "zerolith";
+import { computed, each, html, render, signal } from "zerolith";
 import { settle } from "@zerolith/test";
-import { debounced, history, selector, stored, throttled } from "@zerolith/state";
+import { debounced, history, reconcile, selector, store, stored, throttled } from "@zerolith/state";
 
 let host: HTMLElement;
 
@@ -171,4 +171,56 @@ describe("state guide", () =>
         await settle();
         expect([...items].map((item) => item.className)).toEqual(["", "", "selected"]);
     });
+
+    it("store", async () =>
+    {
+        // #region store
+        interface Task
+        {
+            id: number;
+            title: string;
+            done: boolean;
+        }
+
+        const [board, setBoard] = store({
+            name: "Launch",
+            tasks: [
+                { id: 1, title: "Write the notes", done: false },
+                { id: 2, title: "Tag the release", done: false }
+            ] as Task[]
+        });
+
+        render(html`
+            <h2>${computed(() => board.name)}</h2>
+            <ul>${each(computed(() => board.tasks), (task) => task.id, (task) => html`
+                <li class=${computed(() => (task.get().done ? "done" : ""))}>
+                    ${computed(() => task.get().title)}
+                </li>`)}
+            </ul>`, "#app");
+
+        // One field changes, and only the bindings that read it update.
+        setBoard("tasks", 1, "done", true);
+
+        // A new array for a list of a different length or order.
+        const next = { id: 3, title: "Announce it", done: false };
+        setBoard("tasks", (tasks) => [...tasks, next]);
+
+        // The server's copy merged in by id: only the fields that differ change.
+        setBoard("tasks", reconcile(await fetchTasks(), "id"));
+        // #endregion store
+        const items = host.querySelectorAll("li");
+        expect([...items].map((item) => item.className)).toEqual(["", "done", ""]);
+        expect([...items].map((item) => item.textContent?.trim())).toEqual(["Write the notes", "Tag the release", "Announce it!"]);
+        expect(host.querySelector("h2")?.textContent).toBe("Launch");
+    });
 });
+
+/** The tasks as the server holds them, with the third one's title changed. */
+function fetchTasks(): Promise<{ id: number; title: string; done: boolean }[]>
+{
+    return Promise.resolve([
+        { id: 1, title: "Write the notes", done: false },
+        { id: 2, title: "Tag the release", done: true },
+        { id: 3, title: "Announce it!", done: false }
+    ]);
+}

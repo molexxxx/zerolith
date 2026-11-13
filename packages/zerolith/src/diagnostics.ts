@@ -86,6 +86,8 @@ export type DiagnosticCode =
     | "state_storage_unavailable"
     | "state_value_not_json"
     | "state_key_duplicate"
+    | "state_store_assigned"
+    | "state_store_path_missing"
     | "in_view_options_invalid"
     | "resource_timed_out";
 

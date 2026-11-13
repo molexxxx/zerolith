@@ -51,6 +51,19 @@ When another tab writes a stored signal's key, the history over it forgets every
 
 Both start at the source's current value, and a change still pending when the enclosing owner is disposed is dropped.
 
+## Nested data edited in place
+
+A store holds nested objects and arrays whose fields are signals, so a change to one field updates only what reads it. `store` takes a plain object and returns it read-only with its setter, which takes the path of keys to change and the value:
+
+@include packages/state/test/examples/state.example.browser.test.ts#store
+
+- **A field becomes a signal the first time a binding, an effect, or a computed value reads it**, so data rendered once costs no signal per field, and a read anywhere else, such as in an event handler, is a property lookup.
+- **An object changes in place, and an array is replaced.** `setBoard("tasks", 1, "done", true)` changes one field of the task, and the list keeps its rows; writing an item of an array, or the array itself, gives the list a new array, so `each(computed(() => board.tasks), ...)` adds, removes, and moves rows by key.
+- **The last argument can be a function** of the value there now, which returns the next, and `reconcile(data, "id")` merges data sent again whole: items with the same id keep their identity and change only in the fields that differ.
+- **Writes go through the setter.** Assigning to the store, deleting a field, or calling `push` throws `state_store_assigned`, so every change is made where it can be seen; `snapshot(board)` gives a plain copy for code that wants ordinary objects. Maps, Sets, class instances, and frozen objects are kept as values, never wrapped.
+
+Measured with a `computed` per row label: editing one row of 10,000 takes under 0.05 ms of script against 0.1 to 0.2 ms for replacing the array, since the list compares no keys; editing every 10th row costs the same either way, about 1 ms per 1,000 edits, and a signal written by hand for each label, bound directly, takes half that.
+
 ## A selection among many
 
 A list that binds `selectedId.get() === row.id` in every row runs every row's comparison on each selection. `selector` turns the selected value into one signal per key, true for the selected key, and a change of the selection updates the two keys concerned alone:

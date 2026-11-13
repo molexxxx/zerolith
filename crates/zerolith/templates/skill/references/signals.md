@@ -236,6 +236,7 @@ console.log(user.attempt.get());        // 1: the first run is in flight
 | A value derived from others | `computed` | A run when an input changed and something reads it, and nothing otherwise |
 | A list replaced whole, as from a fetch | A signal of an array with [`each`](templates.md#lists) | One key comparison per row, with nodes touched only where rows changed |
 | A list whose rows change one at a time | [A signal per changing field](templates.md#a-list-edited-a-row-at-a-time) in each row, set in one `batch` | Only the edited fields' bindings |
+| Nested data edited a field at a time | A [store](state.md#nested-data-edited-in-place) from `@zerolith/state` | Only what reads the edited field, with no key comparison for an edit inside a row |
 | Which row of a list is selected | [`selector`](state.md#a-selection-among-many) from `@zerolith/state` | Two rows, whatever the list's length |
 
 ## The functions at a glance
@@ -250,4 +251,5 @@ console.log(user.attempt.get());        // 1: the first run is in flight
 | `scope(fn)` | A function whose effects belong to a new owner | The owner, with `value`, what `fn` returned, and `dispose()` |
 | `onDispose(fn)` | A cleanup | Nothing; the running owner calls `fn` when it is disposed |
 | `hasOwner()` | Nothing | True while an owner is running, so `onDispose` has one to register with; false in plain code |
+| `isTracking()` | Nothing | True while a computed value, an effect, or a binding runs, where a signal read subscribes it; false in plain code, a component's setup, and `untracked` |
 | `resource({ params, loader, timeout, retry, backoff, retryIf })` | A tracked `params` function, a `loader` that receives `{ params, abort }`, and how patient to be: a `timeout` per run, how many times to `retry`, the `backoff` before the first retry, and `retryIf`, which says whether a failure is worth another run | A resource, as the table above describes |

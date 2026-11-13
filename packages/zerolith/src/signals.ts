@@ -1126,6 +1126,17 @@ export function untracked<T>(fn: () => T): T
 }
 
 /**
+ * True while a computed value, an effect, or a binding runs, where reading
+ * a signal subscribes it; false in plain code, in a component's setup, and
+ * inside `untracked`. A library that makes signals on demand reads it to
+ * make one only for a read that would subscribe.
+ */
+export function isTracking(): boolean
+{
+    return consumer !== undefined;
+}
+
+/**
  * Creates an owner, itself owned by the current effect or scope. A
  * `detached` owner is not: whoever creates it disposes it, as a keyed list
  * does for its rows, so an owner disposed on its own leaves nothing behind
