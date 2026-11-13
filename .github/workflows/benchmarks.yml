@@ -222,6 +222,27 @@ jobs:
             cp -R webdriver-ts/results "$RUNNER_TEMP/pass-$pass"
           done
 
+      # The frameworks within a few percent of zerolith decide where it
+      # ranks, so their timed operations run a second time, after a cleared
+      # results folder, and each of their medians is taken over both passes.
+      - name: Measure the close frameworks' operations again
+        working-directory: jfb
+        env:
+          ENTRIES: ${{ steps.previous.outputs.entries }}
+        run: |
+          set -eu
+          close=""
+          for entry in $ENTRIES; do
+            case "$entry" in
+              keyed/vanillajs | keyed/solid | keyed/svelte | keyed/zerolith | keyed/zerolith-previous) close="$close $entry" ;;
+            esac
+          done
+          rm -rf webdriver-ts/results
+          mkdir webdriver-ts/results
+          # shellcheck disable=SC2086
+          npm run bench -- --headless --chromeBinary "$(command -v google-chrome)" --benchmark 01_ 02_ 03_ 04_ 05_ 06_ 07_ 08_ 09_ --framework $close
+          cp -R webdriver-ts/results "$RUNNER_TEMP/timed-2"
+
       # A run's text may hold only what checkRun in benchmarks/results.ts
       # takes, so the CPU's name loses characters such as the @ before its
       # clock speed.
@@ -236,7 +257,7 @@ jobs:
           if [ -n "$PREVIOUS" ]; then
             before=(--previous "$PREVIOUS")
           fi
-          node benchmarks/collect.ts "$RUNNER_TEMP/pass-1" --again "$RUNNER_TEMP/pass-2" --again "$RUNNER_TEMP/pass-3" --again "$RUNNER_TEMP/pass-4" --again "$RUNNER_TEMP/pass-5" --date "$(date -u +%F)" --zerolith "$VERSION" --method "medians of 15 runs on a GitHub-hosted runner" --machine "$machine" "${before[@]}" --out "$RUNNER_TEMP/run.json"
+          node benchmarks/collect.ts "$RUNNER_TEMP/pass-1" --again "$RUNNER_TEMP/pass-2" --again "$RUNNER_TEMP/pass-3" --again "$RUNNER_TEMP/pass-4" --again "$RUNNER_TEMP/pass-5" --timed "$RUNNER_TEMP/timed-2" --date "$(date -u +%F)" --zerolith "$VERSION" --method "medians of 15 runs, 30 for vanilla, Solid, Svelte, and zerolith, on a GitHub-hosted runner" --machine "$machine" "${before[@]}" --out "$RUNNER_TEMP/run.json"
           cat "$RUNNER_TEMP/run.json"
 
       - name: Keep the run

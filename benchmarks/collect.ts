@@ -3,7 +3,7 @@
  * benchmark's own result files, for every framework `frameworks.json`
  * lists: each timed operation's median duration and each memory, size, and
  * first paint result.
- *   node benchmarks/collect.ts <webdriver-ts/results> --date <YYYY-MM-DD> --zerolith <version> --method <text> --machine <text> [--note <text>] [--previous <version>] [--again <results>]... [--out <file>]
+ *   node benchmarks/collect.ts <webdriver-ts/results> --date <YYYY-MM-DD> --zerolith <version> --method <text> --machine <text> [--note <text>] [--previous <version>] [--again <results>]... [--timed <results>]... [--out <file>]
  * An entry's files are named for its folder and the version it ran; an
  * entry with files of several versions is refused, except zerolith, whose
  * version `--zerolith` names. `--previous` names zerolith's release before,
@@ -11,10 +11,14 @@
  * run keeps as `previous`. Each `--again` names the results folder of one
  * more pass of the memory, size, and first paint benchmarks, which the
  * benchmark samples once a pass, and each of those results is the median
- * over every pass. `--out` writes the run to that file instead, as
+ * over every pass. Each `--timed` names the results folder of one more pass
+ * of the timed operations, for the entries whose files it holds, and each
+ * of their operations is the median over the runs of every pass. `--out`
+ * writes the run to that file instead, as
  * the benchmarks workflow does before `npm run bench:report -- --add` takes
  * it into the folder.
  */
+import { existsSync } from "node:fs";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -42,6 +46,7 @@ const { positionals, values: flags } = parseArgs({
         note: { type: "string" },
         previous: { type: "string" },
         again: { type: "string", multiple: true },
+        timed: { type: "string", multiple: true },
         out: { type: "string" }
     },
     strict: true
@@ -49,9 +54,10 @@ const { positionals, values: flags } = parseArgs({
 const [folder] = positionals;
 const { date, zerolith, method, machine, note, previous, out } = flags;
 const passes = flags.again ?? [];
+const timedPasses = flags.timed ?? [];
 if (folder === undefined || date === undefined || zerolith === undefined || method === undefined || machine === undefined || !/^\d{4}-\d{2}-\d{2}$/.test(date))
 {
-    throw new Error("usage: node benchmarks/collect.ts <webdriver-ts/results> --date <YYYY-MM-DD> --zerolith <version> --method <text> --machine <text> [--note <text>] [--previous <version>] [--again <results>]... [--out <file>]");
+    throw new Error("usage: node benchmarks/collect.ts <webdriver-ts/results> --date <YYYY-MM-DD> --zerolith <version> --method <text> --machine <text> [--note <text>] [--previous <version>] [--again <results>]... [--timed <results>]... [--out <file>]");
 }
 
 const here = fileURLToPath(new URL("./", import.meta.url));
@@ -95,7 +101,15 @@ async function measured(name: string, entry: string, folderName: string, version
         {
             throw new Error(`${result.name}: ${operation.id} holds no total durations`);
         }
-        operations[operation.id] = median(total.values);
+        const samples = [...total.values];
+        for (const from of timedPasses)
+        {
+            if (existsSync(join(from, `${result.name}_${operation.id}.json`)))
+            {
+                samples.push(...((await read(result.name, operation.id, from)).values["total"]?.values ?? []));
+            }
+        }
+        operations[operation.id] = median(samples);
     }
     const measures: Record<string, number> = {};
     for (const measure of MEASURES)

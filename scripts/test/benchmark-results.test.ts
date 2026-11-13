@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { type FrameworkResult, OPERATIONS, type Run, checkRun, compareVersions, measuresNote, pinRelease, previousRelease, previousScore, readRuns, referenceTimes, renderResults, replaceSection, scores } from "../../benchmarks/results.ts";
+import { type FrameworkResult, MEASURES, OPERATIONS, type Run, checkRun, compareVersions, measuresNote, pinRelease, previousRelease, previousScore, readRuns, referenceTimes, renderResults, replaceSection, scores } from "../../benchmarks/results.ts";
 
 const folder = new URL("../../benchmarks/", import.meta.url);
 
@@ -490,5 +490,56 @@ describe("checkRun", () =>
         delete (framework(missing)["operations"] as Record<string, unknown>)["09_clear1k_x8"];
         expect(() => checkRun(missing, "run.json")).toThrow("has no 09_clear1k_x8");
         expect(() => checkRun({ ...valid(), frameworks: [] }, "run.json")).toThrow("is not a list of frameworks");
+    });
+});
+
+/** Writes one result file of the benchmark's into `into`, holding `values` under `key`. */
+async function writeResult(into: string, name: string, benchmark: string, key: string, values: number[]): Promise<void>
+{
+    const sorted = values.toSorted((a, b) => a - b);
+    await writeFile(join(into, `${name}_${benchmark}.json`), JSON.stringify({ values: { [key]: { values, median: sorted[Math.floor(sorted.length / 2)] } } }));
+}
+
+describe("npm run bench:collect", () =>
+{
+    it("takes each timed median over the passes --timed names, for the entries whose files they hold", async () =>
+    {
+        const scratch = await mkdtemp(join(tmpdir(), "zerolith-collect-"));
+        try
+        {
+            const first = join(scratch, "pass-1");
+            const again = join(scratch, "timed-2");
+            await mkdir(first);
+            await mkdir(again);
+            const listed = JSON.parse(await readFile(new URL("frameworks.json", folder), "utf8")) as { frameworks: { entry: string }[] };
+            for (const { entry } of listed.frameworks)
+            {
+                const name = entry === "zerolith" ? "zerolith-v9.9.9-keyed" : `${entry}-keyed`;
+                for (const operation of OPERATIONS)
+                {
+                    await writeResult(first, name, operation.id, "total", [10, 20, 30]);
+                }
+                for (const measure of MEASURES)
+                {
+                    await writeResult(first, name, measure.id, "DEFAULT", [1]);
+                }
+            }
+            for (const operation of OPERATIONS)
+            {
+                await writeResult(again, "vanillajs-keyed", operation.id, "total", [40, 50, 60]);
+            }
+            const out = join(scratch, "run.json");
+            const result = spawnSync(process.execPath, [join(fileURLToPath(folder), "collect.ts"), first, "--timed", again, "--date", "2026-11-13", "--zerolith", "9.9.9", "--method", "two passes", "--machine", "a test", "--out", out], { encoding: "utf8" });
+            expect(result.stderr).toBe("");
+            const collected = JSON.parse(await readFile(out, "utf8")) as Run;
+            const operations = (entry: string): number[] => Object.values(collected.frameworks.find((one) => one.entry === entry)?.operations ?? {});
+            expect(operations("vanillajs")).toEqual(OPERATIONS.map(() => 35));
+            expect(operations("solid")).toEqual(OPERATIONS.map(() => 20));
+            expect(operations("zerolith")).toEqual(OPERATIONS.map(() => 20));
+        }
+        finally
+        {
+            await rm(scratch, { recursive: true, force: true });
+        }
     });
 });
