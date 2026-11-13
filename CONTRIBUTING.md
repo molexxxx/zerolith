@@ -11,7 +11,7 @@ Thank you for considering a contribution. This page covers the mechanics; [GOVER
 
 ## Setup
 
-1. Install Node 24 or newer (Node 26 is the active LTS line) and npm 11, and Rust through rustup for the command line.
+1. Install Node 22.18 or newer (Node 26 is the active LTS line) and npm 10 or 11, and Rust through rustup for the command line.
 2. `npm ci` installs the dev toolchain. The runtime itself has no dependencies.
 3. `npx playwright install chromium` once, for the browser test projects.
 4. `npm run build` compiles every package from TypeScript into its `dist/` folder, the readable build the examples and the tests load, and writes each browser package's production build, minified one module at a time with source maps, into `dist/production/`. A module with a folder of the same name beside it, such as `render.ts` and `render/`, is one module to the production build: the folder holds its private parts, which only it imports, and they are bundled into it. It bundles no application.
