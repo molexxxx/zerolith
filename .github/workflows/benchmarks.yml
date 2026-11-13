@@ -2,7 +2,8 @@ name: Benchmarks
 
 # Measures a published release on js-framework-benchmark next to every
 # framework benchmarks/frameworks.json lists, and next to the release before
-# it in the same session, on a GitHub-hosted runner, and commits the run with the results section of benchmarks/README.md, the
+# it in the same session, in three sessions on three GitHub-hosted runners,
+# and commits their median with the results section of benchmarks/README.md, the
 # baseline, and the entry's pin, then deploys the docs site again so its
 # benchmarks page shows the run. The release workflow starts it on the
 # release's tag once the release is out; a manual run measures any published
@@ -35,10 +36,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # A hosted runner is a shared virtual machine, and the same code moved
+  # 0.04 in score from one machine to the next, so each release is measured
+  # in three sessions on three runners, and the commit job takes each
+  # result's median over them.
   measure:
-    name: Measure ${{ inputs.version }}
+    name: Measure ${{ inputs.version }}, session ${{ matrix.session }}
     runs-on: ubuntu-24.04
     timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        session: [1, 2, 3]
     permissions:
       contents: read
     env:
@@ -263,7 +272,7 @@ jobs:
       - name: Keep the run
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: benchmark-run
+          name: benchmark-run-${{ matrix.session }}
           path: ${{ runner.temp }}/run.json
           if-no-files-found: error
           retention-days: 90
@@ -271,6 +280,7 @@ jobs:
   commit:
     name: Check and commit the run
     needs: measure
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -302,16 +312,29 @@ jobs:
         with:
           node-version: 24
 
-      - name: Take the run
+      - name: Take the sessions
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: benchmark-run
-          path: ${{ runner.temp }}/run
+          pattern: benchmark-run-*
+          path: ${{ runner.temp }}/sessions
+
+      # Two sessions are enough to combine when one runner failed; with
+      # fewer, the run is not committed.
+      - name: Combine the sessions
+        run: |
+          set -eu
+          shopt -s nullglob
+          sessions=("$RUNNER_TEMP"/sessions/*/run.json)
+          if [ "${#sessions[@]}" -lt 2 ]; then
+            echo "::error::only ${#sessions[@]} session finished, so the run is not committed"
+            exit 1
+          fi
+          node benchmarks/combine.ts "${sessions[@]}" --out "$RUNNER_TEMP/run.json"
 
       - name: Add the run and pin the release
         run: |
           set -eu
-          node benchmarks/report.ts --pin "$VERSION" --add "$RUNNER_TEMP/run/run.json"
+          node benchmarks/report.ts --pin "$VERSION" --add "$RUNNER_TEMP/run.json"
           git status --short
           git diff -- benchmarks/README.md
 
@@ -322,7 +345,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add benchmarks/baseline benchmarks/README.md benchmarks/results benchmarks/js-framework-benchmark/package.json benchmarks/js-framework-benchmark/README.md docs/ROADMAP.md
-          git commit -m "Add the $VERSION js-framework-benchmark run" -m "The benchmarks workflow measured $VERSION on a GitHub-hosted runner, next to the frameworks benchmarks/frameworks.json lists. The entry's pin follows the newest release measured, and the baseline with it unless it names a commit the release does not hold."
+          git commit -m "Add the $VERSION js-framework-benchmark run" -m "The benchmarks workflow measured $VERSION in three sessions on GitHub-hosted runners, combined by median, next to the frameworks benchmarks/frameworks.json lists. The entry's pin follows the newest release measured, and the baseline with it unless it names a commit the release does not hold."
           for _ in 1 2 3; do
             if git push origin HEAD:main; then
               exit 0

@@ -36,6 +36,7 @@
         "size": "node scripts/size.ts",
         "bench": "node benchmarks/run.ts",
         "bench:collect": "node benchmarks/collect.ts",
+        "bench:combine": "node benchmarks/combine.ts",
         "bench:compare": "node benchmarks/compare.ts",
         "bench:report": "node benchmarks/report.ts",
         "notes": "node scripts/zerolith.ts dev examples/notes",

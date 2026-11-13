@@ -500,6 +500,54 @@ async function writeResult(into: string, name: string, benchmark: string, key: s
     await writeFile(join(into, `${name}_${benchmark}.json`), JSON.stringify({ values: { [key]: { values, median: sorted[Math.floor(sorted.length / 2)] } } }));
 }
 
+describe("npm run bench:combine", () =>
+{
+    it("takes each operation's median over the sessions and names every machine", async () =>
+    {
+        const scratch = await mkdtemp(join(tmpdir(), "zerolith-combine-"));
+        try
+        {
+            const files: string[] = [];
+            for (const [index, time, cpu] of [[1, 30, "AMD EPYC 9V45 96-Core Processor"], [2, 10, "AMD EPYC 7763 64-Core Processor"], [3, 20, "AMD EPYC 9V45 96-Core Processor"]] as const)
+            {
+                const file = join(scratch, `run-${index}.json`);
+                const session: Run = { ...run(["vanilla", "zerolith"], (name) => (name === "vanilla" ? 10 : time)), date: `2026-11-1${index}`, machine: `${cpu}, 4 vCPUs, Ubuntu 24.04.5 LTS` };
+                await writeFile(file, JSON.stringify(session));
+                files.push(file);
+            }
+            const out = join(scratch, "run.json");
+            const result = spawnSync(process.execPath, [join(fileURLToPath(folder), "combine.ts"), ...files, "--out", out], { encoding: "utf8" });
+            expect(result.stderr).toBe("");
+            const combined = checkRun(JSON.parse(await readFile(out, "utf8")), out);
+            expect(Object.values(combined.frameworks.find((one) => one.name === "zerolith")?.operations ?? {})).toEqual(OPERATIONS.map(() => 20));
+            expect(combined.date).toBe("2026-11-13");
+            expect(combined.machine).toBe("AMD EPYC 9V45 96-Core; AMD EPYC 7763 64-Core, 4 vCPUs, Ubuntu 24.04.5 LTS");
+            expect(combined.method).toBe("the median of 3 sessions on separate GitHub-hosted runners, each with a test");
+        }
+        finally
+        {
+            await rm(scratch, { recursive: true, force: true });
+        }
+    });
+
+    it("refuses sessions of different releases", async () =>
+    {
+        const scratch = await mkdtemp(join(tmpdir(), "zerolith-combine-"));
+        try
+        {
+            await writeFile(join(scratch, "a.json"), JSON.stringify(taken({})));
+            await writeFile(join(scratch, "b.json"), JSON.stringify(taken({ zerolith: "0.0.1" })));
+            const result = spawnSync(process.execPath, [join(fileURLToPath(folder), "combine.ts"), join(scratch, "a.json"), join(scratch, "b.json"), "--out", join(scratch, "run.json")], { encoding: "utf8" });
+            expect(result.status).not.toBe(0);
+            expect(result.stderr).toContain("the sessions measured different releases");
+        }
+        finally
+        {
+            await rm(scratch, { recursive: true, force: true });
+        }
+    });
+});
+
 describe("npm run bench:collect", () =>
 {
     it("takes each timed median over the passes --timed names, for the entries whose files they hold", async () =>
