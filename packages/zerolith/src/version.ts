@@ -1,2 +1,2 @@
 /** The version of this zerolith, which the packages released with it compare with their own. */
-export const version: string = "1.9.0";
+export const version: string = "1.10.0";
