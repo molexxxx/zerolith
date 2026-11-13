@@ -13,8 +13,8 @@ export { batch, computed, context, effect, hasOwner, onDispose, scope, signal, u
 export type { LoaderContext, Resource, ResourceOptions, ResourceStatus } from "./resource.js";
 export { resource } from "./resource.js";
 
-export type { HydrateResult, HydrationMismatch, KeyOf, MountTarget, Renderable, Root, RowOf, View } from "./render.js";
-export { each, html, hydrate, render, unsafeHtml, when } from "./render.js";
+export type { Fallback, HydrateResult, HydrationMismatch, KeyOf, MountTarget, Renderable, Root, RowOf, View } from "./render.js";
+export { boundary, each, html, hydrate, render, unsafeHtml, when } from "./render.js";
 
 export type { Styles } from "./css.js";
 export { css } from "./css.js";

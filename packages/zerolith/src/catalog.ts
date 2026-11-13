@@ -104,6 +104,11 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
         cause: "each() received a function as its items. It reads a signal or an array, so a function would render no rows.",
         fix: "Pass a signal or a computed value, for example each(computed(() => items.get().filter(open)), (item) => item.id, Row)."
     },
+    boundary_caught:
+    {
+        cause: "A boundary's content threw as it rendered, or an effect, binding, row, or branch inside it threw as it ran, and the boundary shows its fallback in the content's place.",
+        fix: "Fix what the message names; until then the boundary keeps the rest of the page running, and its fallback's retry renders the content again."
+    },
     when_condition_function:
     {
         cause: "when() received a function as its condition. A function is always truthy, so the first branch would always show.",

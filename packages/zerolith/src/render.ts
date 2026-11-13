@@ -28,6 +28,8 @@ export { PART_END, PART_START, hasServerMarkup } from "./render/markers.js";
 export type { RawView, Renderable, TemplateView, View } from "./render/view.js";
 export { VIEW, directiveWrapsBranch, html, isDirective, isRawHtml, isTemplate, resolveDirective, unsafeHtml } from "./render/view.js";
 export { when } from "./render/when.js";
+export type { Fallback } from "./render/boundary.js";
+export { boundary } from "./render/boundary.js";
 
 /** The handle returned by `render()`. */
 export interface Root

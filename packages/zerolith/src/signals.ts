@@ -144,11 +144,13 @@ interface Frame
     readonly context: object;
     readonly value: unknown;
     readonly parent: Frame | undefined;
+    /** The nearest boundary around the call, which takes what an effect or a binding created inside it throws. */
+    readonly guard: ((error: unknown) => void) | undefined;
 }
 
 /** The values provided around the code running now. */
 let frame: Frame | undefined;
-/** The values provided around each effect, computed value, and view when it was created; made on the first `provide`, so an application that provides nothing pays one check per creation and run. */
+/** The values provided around each effect, computed value, and view when it was created, and around each binding created inside a boundary; made on the first `provide` or boundary, so an application with neither pays one check per creation and run. */
 let frames: WeakMap<object, Frame> | undefined;
 
 /** Records the values provided around `target` as it is created, for `recall` to give back each time it runs. Internal to the runtime packages. */
@@ -175,6 +177,22 @@ export function recall(target: object): unknown
 export function restore(previous: unknown): void
 {
     frame = previous as Frame | undefined;
+}
+
+/** Runs `fn` with `handler` as the boundary of the effects and bindings it creates: when one of them throws as it runs, `handler` takes the error in place of the code that caused the run. Internal to the runtime packages. */
+export function guard<T>(handler: (error: unknown) => void, fn: () => T): T
+{
+    frames ??= new WeakMap();
+    const previous = frame;
+    frame = { context: handler, value: undefined, parent: previous, guard: handler };
+    try
+    {
+        return fn();
+    }
+    finally
+    {
+        frame = previous;
+    }
 }
 
 /** Makes `node` the running consumer and returns the one it replaces. */
@@ -707,6 +725,22 @@ abstract class Reaction implements Consumer, OwnerNode, Child
         consumer = previousConsumer;
         owner = previousOwner;
         cleanupSources(this);
+        if (failed && frames !== undefined)
+        {
+            const handler = frames.get(this)?.guard;
+            if (handler !== undefined)
+            {
+                try
+                {
+                    handler(failure);
+                    failed = false;
+                }
+                catch (error)
+                {
+                    failure = error;
+                }
+            }
+        }
         this.flags &= ~RUNNING;
         this.failed = failed;
         if (failed && failure instanceof ZerolithError && failure.diagnostic.code === "effect_loop")
@@ -861,6 +895,10 @@ class Binding extends Reaction
         super();
         this.source = source;
         this.sink = sink;
+        if (frame?.guard !== undefined)
+        {
+            (frames as WeakMap<object, Frame>).set(this, frame);
+        }
     }
 
     protected execute(): unknown
@@ -1189,7 +1227,7 @@ export function context<T>(initial: T): Context<T>
         {
             frames ??= new WeakMap();
             const previous = frame;
-            frame = { context: created, value, parent: previous };
+            frame = { context: created, value, parent: previous, guard: previous?.guard };
             try
             {
                 return fn();

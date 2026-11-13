@@ -34,6 +34,12 @@ Cause: A boolean attribute, property, or event binding has more than one express
 
 Fix: Bind exactly one expression with nothing around it, for example ?disabled=${flag}.
 
+## boundary_caught
+
+Cause: A boundary's content threw as it rendered, or an effect, binding, row, or branch inside it threw as it ran, and the boundary shows its fallback in the content's place.
+
+Fix: Fix what the message names; until then the boundary keeps the rest of the page running, and its fallback's retry renders the content again.
+
 ## button_without_name
 
 Cause: A <button> has no content and no aria-label, so it has no accessible name.

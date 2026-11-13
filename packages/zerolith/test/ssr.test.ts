@@ -1,11 +1,35 @@
 import { describe, expect, it, vi } from "vitest";
-import { type Diagnostic, type Renderable, type View, computed, context, css, each, effect, html, onDiagnostic, onDispose, signal, unsafeHtml, when } from "zerolith";
+import { type Diagnostic, type Renderable, type View, boundary, computed, context, css, each, effect, html, onDiagnostic, onDispose, signal, unsafeHtml, when } from "zerolith";
 import { renderStyles, renderToString } from "zerolith/ssr";
+
+/** Server markup with its part markers, which are comments, left out. */
+function withoutMarkers(markup: string): string
+{
+    let kept = "";
+    let at = 0;
+    for (let open = markup.indexOf("<!--"); open !== -1; open = markup.indexOf("<!--", at))
+    {
+        const close = markup.indexOf("-->", open);
+        if (close === -1)
+        {
+            break;
+        }
+        kept += markup.slice(at, open);
+        at = close + 3;
+    }
+    return kept + markup.slice(at);
+}
+
+/** The server markup of `view` inside a boundary whose fallback shows the error's message, with its part markers left out. */
+function insideBoundary(view: Renderable): string
+{
+    return withoutMarkers(renderToString(html`<div>${boundary(() => view, (error) => html`<p>${(error as Error).message}</p>`)}</div>`));
+}
 
 /** The bold elements in server markup, with its part markers left out. */
 function names(markup: string): string[] | null
 {
-    return markup.replace(/<!--[^>]*-->/g, "").match(/<b>[a-z]+<\/b>/g);
+    return withoutMarkers(markup).match(/<b>[a-z]+<\/b>/g);
 }
 
 /** A component that takes props, for the check that one passed uncalled is refused. */
@@ -22,6 +46,16 @@ function plain(view: Renderable | (() => Renderable)): string
 
 describe("renderToString", () =>
 {
+    it("renders a boundary's fallback when its content throws, however deep in the content", () =>
+    {
+        const broken = computed((): string =>
+        {
+            throw new Error("down");
+        });
+        expect(insideBoundary(html`<section><i>${broken}</i></section>`)).toBe("<div><p>down</p></div>");
+        expect(insideBoundary(html`<i>fine</i>`)).toBe("<div><i>fine</i></div>");
+    });
+
     it("renders each request's provided value in rows and branches, and leaves no value behind for the next", () =>
     {
         const user = context("guest");

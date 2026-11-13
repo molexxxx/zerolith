@@ -166,7 +166,7 @@ function renderValue(value: unknown): string
     }
     if (isDirective(resolved))
     {
-        const inner = renderValue(resolveDirective(resolved));
+        const inner = renderValue(resolveDirective(resolved, renderValue));
         return directiveWrapsBranch(resolved) ? part(inner) : inner;
     }
     if (isRawHtml(resolved))

@@ -3,7 +3,7 @@
 // the checks around it run in a real browser, so the docs cannot drift.
 /// <reference types="zerolith/imports" />
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type ReadableSignal, type Signal, batch, computed, context, css, each, html, render, signal, when } from "zerolith";
+import { type ReadableSignal, type Signal, batch, boundary, computed, context, css, each, html, render, signal, when } from "zerolith";
 import summary from "./summary.css?scoped";
 
 let host: HTMLElement;
@@ -56,6 +56,46 @@ describe("templates guide", () =>
         // #endregion frozen
         expect(host.querySelector(".live")?.textContent).toBe("2");
         expect(host.querySelector(".frozen")?.textContent).toBe("1");
+    });
+
+    it("error boundary", () =>
+    {
+        // #region error-boundary
+        const prices = signal<number[] | undefined>([12, 30, 8]);
+
+        function Highest()
+        {
+            const highest = computed(() =>
+            {
+                const list = prices.get();
+                if (list === undefined)
+                {
+                    throw new Error("The prices did not load.");
+                }
+                return Math.max(...list);
+            });
+            return html`<p>Highest price: ${highest}</p>`;
+        }
+
+        function showProblem(error: unknown, retry: () => void)
+        {
+            const text = error instanceof Error ? error.message : "Something failed.";
+            return html`
+                <p role="alert">${text}</p>
+                <button type="button" @click=${retry}>Try again</button>`;
+        }
+
+        render(html`
+            <h1>Prices</h1>
+            ${boundary(() => Highest(), showProblem)}`, "#app");
+        // #endregion error-boundary
+        expect(host.querySelector("p")?.textContent).toBe("Highest price: 30");
+        prices.set(undefined);
+        expect(host.querySelector("[role=alert]")?.textContent).toBe("The prices did not load.");
+        expect(host.querySelector("h1")?.textContent).toBe("Prices");
+        prices.set([5]);
+        host.querySelector("button")?.click();
+        expect(host.querySelector("p")?.textContent).toBe("Highest price: 5");
     });
 
     it("context", () =>

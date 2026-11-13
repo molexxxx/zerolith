@@ -62,7 +62,7 @@ Each code has a page at `https://zerolith.dev/e/<code>/` with its cause and its 
 | Area | Codes |
 | --- | --- |
 | Signals and effects | `signal_written_inside_computed`, `computed_cycle`, `effect_loop`, `effect_async`, `on_dispose_outside_scope` |
-| Templates and JSX | `binding_in_tag_position`, `binding_in_comment`, `binding_in_raw_text`, `binding_in_template_element`, `binding_not_single`, `script_in_template`, `template_unclosed_tag`, `unrenderable_value`, `event_handler_not_function`, `when_condition_function`, `each_items_function`, `each_key_undefined`, `each_key_duplicate`, `ref_not_assignable`, `template_component_uncalled`, `template_frozen_read`, `template_not_prepared`, `jsx_not_lowered` |
+| Templates and JSX | `binding_in_tag_position`, `binding_in_comment`, `binding_in_raw_text`, `binding_in_template_element`, `binding_not_single`, `script_in_template`, `template_unclosed_tag`, `unrenderable_value`, `event_handler_not_function`, `when_condition_function`, `boundary_caught`, `each_items_function`, `each_key_undefined`, `each_key_duplicate`, `ref_not_assignable`, `template_component_uncalled`, `template_frozen_read`, `template_not_prepared`, `jsx_not_lowered` |
 | Unsafe values | `unsafe_property_binding`, `unsafe_attribute_binding`, `unsafe_url_blocked`, `css_value_not_allowed` |
 | Mounting and hydration | `mount_target_missing`, `mount_component_uncalled`, `hydration_mismatch` |
 | Accessibility | `image_without_alt`, `button_without_name`, `frame_without_title` |

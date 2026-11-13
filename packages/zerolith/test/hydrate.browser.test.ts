@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Diagnostic, type HydrateResult, type Renderable, type Signal, computed, context, each, html, hydrate, onDiagnostic, signal, unsafeHtml, when } from "zerolith";
+import { type Diagnostic, type HydrateResult, type Renderable, type Signal, boundary, computed, context, each, html, hydrate, onDiagnostic, signal, unsafeHtml, when } from "zerolith";
 import { renderToString } from "zerolith/ssr";
 import { withoutComments } from "./markup.js";
 
@@ -59,6 +59,45 @@ describe("hydrate", () =>
         expect(el.querySelector("button")?.tabIndex).toBe(3);
         el.querySelector("button")?.click();
         expect(clicks).toEqual([1]);
+    });
+
+    it("replaces the server's content with the fallback when the content throws as the client adopts it", () =>
+    {
+        let client = false;
+        const Panel = (): Renderable =>
+        {
+            if (client)
+            {
+                throw new Error("client");
+            }
+            return html`<i>server</i><b>more</b>`;
+        };
+        const view = (): Renderable => html`<div>${boundary(() => Panel(), (error) => html`<p>${(error as Error).message}</p>`)}</div>`;
+        host = document.createElement("div");
+        host.innerHTML = renderToString(view);
+        document.body.append(host);
+        client = true;
+        result = hydrate(view, host);
+        expect(withoutComments(host.querySelector("div")?.innerHTML ?? "")).toBe("<p>client</p>");
+    });
+
+    it("adopts a boundary's content, and replaces every adopted node with the fallback when the content throws later", () =>
+    {
+        const count = signal(1);
+        const shown = computed(() =>
+        {
+            if (count.get() > 1)
+            {
+                throw new Error("later");
+            }
+            return count.get();
+        });
+        const view = (): Renderable => html`<div>${boundary(() => html`<i>${shown}</i><b>kept</b>`, (error) => html`<p>${(error as Error).message}</p>`)}</div>`;
+        const el = serverThenClient(view);
+        expect(result?.mismatches).toEqual([]);
+        expect(el.querySelector("i")?.textContent).toBe("1");
+        count.set(2);
+        expect(withoutComments(el.querySelector("div")?.innerHTML ?? "")).toBe("<p>later</p>");
     });
 
     it("gives adopted rows and branches the value provided around the view", () =>

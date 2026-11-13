@@ -72,7 +72,8 @@ export abstract class Directive implements View
     }
 
     abstract mount(part: ChildPart, cursor?: ChildNode): Controller;
-    abstract resolve(): unknown;
+    /** The view to draw for the current state on the server; `render` renders a value to markup, for a directive that renders its view itself. */
+    abstract resolve(render: (value: unknown) => string): unknown;
     /** True when the server wraps the resolved view in its own part markers (a branch), false when it renders rows directly. */
     abstract readonly wrapsBranch: boolean;
 }
@@ -130,13 +131,13 @@ export function isDirective(value: unknown): value is View
     return value instanceof Directive;
 }
 
-/** The view a directive would show for the current state, for renderers without a DOM. */
-export function resolveDirective(view: View): unknown
+/** The view a directive would show for the current state, for renderers without a DOM, which pass `render` to turn a value into markup. */
+export function resolveDirective(view: View, render: (value: unknown) => string): unknown
 {
     const provided = recall(view);
     try
     {
-        return (view as Directive).resolve();
+        return (view as Directive).resolve(render);
     }
     finally
     {

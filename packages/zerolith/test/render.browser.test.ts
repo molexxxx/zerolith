@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Diagnostic, type Renderable, type Root, type View, ZerolithError, computed, context, each, effect, html, onDiagnostic, onDispose, render, signal, unsafeHtml, when } from "zerolith";
+import { type Diagnostic, type ReadableSignal, type Renderable, type Root, type View, ZerolithError, boundary, computed, context, each, effect, html, onDiagnostic, onDispose, render, signal, unsafeHtml, when } from "zerolith";
 import { type DevtoolsHook, devtoolsInternal, prepared, scan } from "zerolith/internal";
 
 let root: Root | undefined;
@@ -579,6 +579,151 @@ describe("a binding that is its element's only child", () =>
         expect(comments(body).length).toBe(1);
         items.set([]);
         expect(body.childNodes.length).toBe(1);
+    });
+});
+
+/** A value read through a computed value that throws once `count` passes `limit`. */
+function failingAbove(count: ReadableSignal<number>, limit: number, message: string): ReadableSignal<number>
+{
+    return computed(() =>
+    {
+        if (count.get() > limit)
+        {
+            throw new Error(message);
+        }
+        return count.get();
+    });
+}
+
+/** A branch that throws as it is created. */
+function badBranch(): View
+{
+    throw new Error("bad branch");
+}
+
+/** A fallback that shows the error's message in a paragraph. */
+function showMessage(error: unknown): View
+{
+    return html`<p>${(error as Error).message}</p>`;
+}
+
+describe("boundary", () =>
+{
+    it("shows the fallback when the content throws as it renders, and the content again on retry", () =>
+    {
+        let broken = true;
+        let again: (() => void) | undefined;
+        const Chart = (): View =>
+        {
+            if (broken)
+            {
+                throw new Error("no data");
+            }
+            return html`<b>chart</b>`;
+        };
+        const el = mount(html`<section>${boundary(() => Chart(), (error, retry) =>
+        {
+            again = retry;
+            return showMessage(error);
+        })}</section>`);
+        expect(el.querySelector("p")?.textContent).toBe("no data");
+        broken = false;
+        again?.();
+        expect(el.querySelector("b")?.textContent).toBe("chart");
+        expect(el.querySelector("p")).toBeNull();
+    });
+
+    it("takes what a binding inside throws on an update in place of the code that changed the signal, and reports it", () =>
+    {
+        const count = signal(1);
+        const shown = failingAbove(count, 1, "too many");
+        const codes: string[] = [];
+        const stop = onDiagnostic((found) => codes.push(found.code));
+        const el = mount(html`<div>${boundary(() => html`<i>${shown}</i>`, showMessage)}</div><span>${count}</span>`);
+        expect(el.querySelector("i")?.textContent).toBe("1");
+        expect(() => count.set(2)).not.toThrow();
+        expect(el.querySelector("p")?.textContent).toBe("too many");
+        expect(el.querySelector("i")).toBeNull();
+        expect(el.querySelector("span")?.textContent).toBe("2");
+        expect(codes).toContain("boundary_caught");
+        stop();
+    });
+
+    it("catches a binding that throws as the content first renders, and renders the fallback once", () =>
+    {
+        const shown = failingAbove(signal(2), 1, "at once");
+        let fallbacks = 0;
+        const el = mount(html`<div>${boundary(() => html`<i>${shown}</i>`, (error) =>
+        {
+            fallbacks++;
+            return showMessage(error);
+        })}</div>`);
+        expect(el.querySelector("div")?.textContent).toBe("at once");
+        expect(el.querySelector("i")).toBeNull();
+        expect(fallbacks).toBe(1);
+    });
+
+    it("catches what throws inside a context provided within it", () =>
+    {
+        const theme = context("light");
+        const count = signal(1);
+        const shown = failingAbove(count, 1, "inside provide");
+        const el = mount(html`<div>${boundary(() => theme.provide("dark", () => html`${when(true, () => html`<i>${shown}</i>`)}`), showMessage)}</div>`);
+        expect(() => count.set(2)).not.toThrow();
+        expect(el.querySelector("p")?.textContent).toBe("inside provide");
+    });
+
+    it("catches a branch or a row the content creates later, and an effect that throws as it runs again", () =>
+    {
+        const open = signal(false);
+        const rows = signal([1]);
+        const runs = signal(0);
+        const el = mount(html`<div>${boundary(() => html`${when(open, () => badBranch())}`, showMessage)}</div>`);
+        open.set(true);
+        expect(el.querySelector("p")?.textContent).toBe("bad branch");
+        const list = mount(html`<ul>${boundary(() => html`${each(rows, (row) => row, (row) =>
+        {
+            if (row.get() > 1)
+            {
+                throw new Error("bad row");
+            }
+            return html`<li>${row}</li>`;
+        })}`, showMessage)}</ul>`);
+        rows.set([1, 2]);
+        expect(list.querySelector("p")?.textContent).toBe("bad row");
+        const watched = mount(html`<div>${boundary(() =>
+        {
+            effect(() =>
+            {
+                if (runs.get() > 0)
+                {
+                    throw new Error("bad effect");
+                }
+            });
+            return html`<b>fine</b>`;
+        }, showMessage)}</div>`);
+        expect(() => runs.set(1)).not.toThrow();
+        expect(watched.querySelector("p")?.textContent).toBe("bad effect");
+    });
+
+    it("lets an error outside every boundary reach the code that caused the run", () =>
+    {
+        const count = signal(1);
+        const shown = failingAbove(count, 1, "uncaught");
+        mount(html`<i>${shown}</i>`);
+        expect(() => count.set(2)).toThrow("uncaught");
+    });
+
+    it("hands a fallback that throws to the boundary around it", () =>
+    {
+        const el = mount(html`<div>${boundary(() => boundary(() =>
+        {
+            throw new Error("inner");
+        }, () =>
+        {
+            throw new Error("fallback");
+        }), showMessage)}</div>`);
+        expect(el.querySelector("p")?.textContent).toBe("fallback");
     });
 });
 

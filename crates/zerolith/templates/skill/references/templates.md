@@ -276,6 +276,46 @@ A branch is built only when it first shows, and taken down when it hides, which 
 > [!WARNING]
 > A function is not a condition. `when(() => count.get() > 0, ...)` fails to compile in TypeScript and fails at run time with `when_condition_function`, since a function would always count as true. Derive the condition as a signal instead: `when(computed(() => count.get() > 0), ...)`.
 
+## When part of a view fails
+
+`boundary` keeps one part of a page from taking the rest down with it. It shows its content, and once the content throws, its fallback in the content's place, given the error and a `retry` that renders the content again.
+
+```ts
+import { boundary, computed, html, render, signal } from "zerolith";
+
+const prices = signal<number[] | undefined>([12, 30, 8]);
+
+function Highest()
+{
+    const highest = computed(() =>
+    {
+        const list = prices.get();
+        if (list === undefined)
+        {
+            throw new Error("The prices did not load.");
+        }
+        return Math.max(...list);
+    });
+    return html`<p>Highest price: ${highest}</p>`;
+}
+
+function showProblem(error: unknown, retry: () => void)
+{
+    const text = error instanceof Error ? error.message : "Something failed.";
+    return html`
+        <p role="alert">${text}</p>
+        <button type="button" @click=${retry}>Try again</button>`;
+}
+
+render(html`
+    <h1>Prices</h1>
+    ${boundary(() => Highest(), showProblem)}`, "#app");
+```
+
+- **What it catches.** A throw while the content renders, and later a throw from anything the content created, as it runs: a binding whose computed value throws, as `highest` does here, a branch `when` opens, a row `each` adds, or an effect. The error goes to the fallback in place of the code that changed the signal, and the rest of the page keeps running.
+- **What it leaves alone.** An event handler that throws throws to the browser, as any listener does, and an error outside every boundary reaches the code that caused it. A fallback that throws goes to the boundary around it.
+- **Every caught error is reported** as `boundary_caught`, so a fallback never hides one while you develop. On the server, a boundary whose content throws renders its fallback.
+
 ## Coming from React or Angular
 
 Loops and conditions are functions called in a template rather than syntax, and the rest maps closely:
@@ -361,6 +401,7 @@ Lists and conditions are `each` and `when`, called as functions, exactly as in a
 | `each(items, key, row)` | An array or a signal of one; `key(item, index)`; and `row(item, index)`, which receives both as signals | A view of the rows, matched by key |
 | `when(condition, then, otherwise)` | A signal or a value, and one or two functions that return views | A view of the branch the condition picks |
 | `unsafeHtml(markup)` | A string of markup you trust | A view of that markup, unescaped |
+| `boundary(content, fallback)` | A function that returns the content, and one that takes the error and `retry` and returns what to show in its place | A view of the content, or of the fallback once the content throws |
 | `context(initial)` | The value to read where nothing is provided | A context, with `provide(value, fn)`, which returns what `fn` returns, and `read()` |
 
 ## What the renderer refuses

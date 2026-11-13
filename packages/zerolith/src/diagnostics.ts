@@ -63,6 +63,7 @@ export type DiagnosticCode =
     | "each_items_function"
     | "event_handler_not_function"
     | "when_condition_function"
+    | "boundary_caught"
     | "mount_component_uncalled"
     | "each_key_undefined"
     | "each_key_duplicate"
