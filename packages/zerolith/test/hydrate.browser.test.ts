@@ -18,6 +18,7 @@ function serverThenClient(view: Renderable | (() => Renderable), clientView: Ren
 
 afterEach(() =>
 {
+    vi.restoreAllMocks();
     result?.dispose();
     result = undefined;
     host?.remove();
@@ -63,6 +64,7 @@ describe("hydrate", () =>
 
     it("replaces the server's content with the fallback when the content throws as the client adopts it", () =>
     {
+        vi.spyOn(console, "error").mockImplementation(() => undefined);
         let client = false;
         const Panel = (): Renderable =>
         {
@@ -83,6 +85,7 @@ describe("hydrate", () =>
 
     it("adopts a boundary's content, and replaces every adopted node with the fallback when the content throws later", () =>
     {
+        vi.spyOn(console, "error").mockImplementation(() => undefined);
         const count = signal(1);
         const shown = computed(() =>
         {

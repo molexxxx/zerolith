@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Diagnostic, type ReadableSignal, type Renderable, type Root, type View, ZerolithError, boundary, computed, context, each, effect, html, onDiagnostic, onDispose, render, signal, unsafeHtml, when } from "zerolith";
 import { type DevtoolsHook, devtoolsInternal, prepared, scan } from "zerolith/internal";
 
@@ -609,6 +609,22 @@ function showMessage(error: unknown): View
 
 describe("boundary", () =>
 {
+    const logged: unknown[] = [];
+
+    beforeEach(() =>
+    {
+        logged.length = 0;
+        vi.spyOn(console, "error").mockImplementation((error: unknown) =>
+        {
+            logged.push(error);
+        });
+    });
+
+    afterEach(() =>
+    {
+        vi.restoreAllMocks();
+    });
+
     it("shows the fallback when the content throws as it renders, and the content again on retry", () =>
     {
         let broken = true;
@@ -646,6 +662,8 @@ describe("boundary", () =>
         expect(el.querySelector("i")).toBeNull();
         expect(el.querySelector("span")?.textContent).toBe("2");
         expect(codes).toContain("boundary_caught");
+        expect(logged).toHaveLength(1);
+        expect((logged[0] as Error).message).toBe("too many");
         stop();
     });
 

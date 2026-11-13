@@ -128,7 +128,7 @@ A branch is built only when it first shows, and taken down when it hides, which 
 
 - **What it catches.** A throw while the content renders, and later a throw from anything the content created, as it runs: a binding whose computed value throws, as `highest` does here, a branch `when` opens, a row `each` adds, or an effect. The error goes to the fallback in place of the code that changed the signal, and the rest of the page keeps running.
 - **What it leaves alone.** An event handler that throws throws to the browser, as any listener does, and an error outside every boundary reaches the code that caused it. A fallback that throws goes to the boundary around it.
-- **Every caught error is reported** as `boundary_caught`, so a fallback never hides one while you develop. On the server, a boundary whose content throws renders its fallback.
+- **Every caught error still reaches you.** The boundary logs it with `console.error`, stack and all, in production too, and reports it as `boundary_caught` with what it means. It counts as handled, not as a crash: to send it to your error monitoring, call it in the fallback, which gets the error. On the server, a boundary whose content throws renders its fallback and logs the error the same way.
 
 ## Coming from React or Angular
 

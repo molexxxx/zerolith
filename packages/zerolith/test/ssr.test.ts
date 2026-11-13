@@ -52,8 +52,12 @@ describe("renderToString", () =>
         {
             throw new Error("down");
         });
+        const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
         expect(insideBoundary(html`<section><i>${broken}</i></section>`)).toBe("<div><p>down</p></div>");
         expect(insideBoundary(html`<i>fine</i>`)).toBe("<div><i>fine</i></div>");
+        expect(logged).toHaveBeenCalledTimes(1);
+        expect(logged.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ message: "down" }));
+        logged.mockRestore();
     });
 
     it("renders each request's provided value in rows and branches, and leaves no value behind for the next", () =>

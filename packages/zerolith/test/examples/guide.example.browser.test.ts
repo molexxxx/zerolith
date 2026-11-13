@@ -2,7 +2,7 @@
 // Each region is application code the documentation shows with its imports;
 // the checks around it run in a real browser, so the docs cannot drift.
 /// <reference types="zerolith/imports" />
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type ReadableSignal, type Signal, batch, boundary, computed, context, css, each, html, render, signal, when } from "zerolith";
 import summary from "./summary.css?scoped";
 
@@ -60,6 +60,7 @@ describe("templates guide", () =>
 
     it("error boundary", () =>
     {
+        const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
         // #region error-boundary
         const prices = signal<number[] | undefined>([12, 30, 8]);
 
@@ -93,9 +94,11 @@ describe("templates guide", () =>
         prices.set(undefined);
         expect(host.querySelector("[role=alert]")?.textContent).toBe("The prices did not load.");
         expect(host.querySelector("h1")?.textContent).toBe("Prices");
+        expect(logged.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ message: "The prices did not load." }));
         prices.set([5]);
         host.querySelector("button")?.click();
         expect(host.querySelector("p")?.textContent).toBe("Highest price: 5");
+        logged.mockRestore();
     });
 
     it("context", () =>

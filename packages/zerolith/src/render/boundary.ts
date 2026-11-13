@@ -11,10 +11,16 @@ import { type Controller, Directive, RawHtml, type Renderable, type View } from 
 /** What `boundary()` shows in place of its content: given what the content threw, and a function that renders the content again. */
 export type Fallback = (error: unknown, retry: () => void) => Renderable;
 
-/** Reports an error a boundary caught, so a fallback never hides one while the application is developed. */
+/**
+ * Reports an error a boundary caught as `boundary_caught`, and logs the
+ * error itself, with its stack, through `console.error`, in production
+ * too, as a handled error rather than a crash: the fallback, which gets
+ * the error, is where an application sends it to its error monitoring.
+ */
 function reportCaught(error: unknown): void
 {
     report(diagnostic("boundary_caught", "warning", { message: error instanceof Error ? error.message : String(error) }));
+    console.error(error);
 }
 
 class Boundary extends Directive
@@ -155,8 +161,8 @@ class Boundary extends Directive
  * Shows `content()`, and in its place `fallback(error, retry)` once the
  * content throws as it renders, or once an effect, a binding, a row, or a
  * branch it created throws as it runs; the error reaches the fallback in
- * place of the code that caused the run, and is reported as
- * `boundary_caught`. `retry` renders the content again. An event handler
+ * place of the code that caused the run, is logged with `console.error`,
+ * and is reported as `boundary_caught`. `retry` renders the content again. An event handler
  * that throws is not caught: it throws to the browser, as any listener does.
  * On the server, the fallback is rendered when the content throws.
  */

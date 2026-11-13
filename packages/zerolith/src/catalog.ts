@@ -107,7 +107,7 @@ export const diagnosticCatalog: Readonly<Partial<Record<DiagnosticCode, Diagnost
     boundary_caught:
     {
         cause: "A boundary's content threw as it rendered, or an effect, binding, row, or branch inside it threw as it ran, and the boundary shows its fallback in the content's place.",
-        fix: "Fix what the message names; until then the boundary keeps the rest of the page running, and its fallback's retry renders the content again."
+        fix: "Fix the error, which the boundary also logs with console.error, stack and all, in production too; until then the boundary keeps the rest of the page running, and its fallback's retry renders the content again."
     },
     when_condition_function:
     {

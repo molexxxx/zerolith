@@ -38,7 +38,7 @@ Fix: Bind exactly one expression with nothing around it, for example ?disabled=$
 
 Cause: A boundary's content threw as it rendered, or an effect, binding, row, or branch inside it threw as it ran, and the boundary shows its fallback in the content's place.
 
-Fix: Fix what the message names; until then the boundary keeps the rest of the page running, and its fallback's retry renders the content again.
+Fix: Fix the error, which the boundary also logs with console.error, stack and all, in production too; until then the boundary keeps the rest of the page running, and its fallback's retry renders the content again.
 
 ## button_without_name
 
