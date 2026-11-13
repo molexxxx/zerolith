@@ -2,7 +2,9 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
-## Unreleased
+## 1.9.0 (2026-11-13)
+
+A minor release from `main`: `context` for values a part of the application shares with everything it creates, `boundary` for any part of a view that fails, and support for Node 22.18 and later. The js-framework-benchmark entry replaces its rows again, and the benchmarks workflow measures the frameworks nearest zerolith in a second pass.
 
 ### Added
 
