@@ -1,4 +1,4 @@
-import { batch, computed, each, html, render, signal } from "zerolith";
+import { computed, each, html, render, signal } from "zerolith";
 
 const adjectives = ["pretty", "large", "big", "small", "tall", "short", "long", "handsome", "plain", "quaint", "clean", "elegant", "easy", "angry", "crazy", "helpful", "mushy", "odd", "unsightly", "adorable", "important", "inexpensive", "cheap", "expensive", "fancy"];
 const colors = ["red", "yellow", "blue", "green", "pink", "brown", "purple", "brown", "white", "black", "orange"];
@@ -13,7 +13,7 @@ function pick(list)
 
 function buildData(count)
 {
-    return Array.from({ length: count }, () => ({ id: nextId++, label: signal(`${pick(adjectives)} ${pick(colors)} ${pick(nouns)}`) }));
+    return Array.from({ length: count }, () => ({ id: nextId++, label: `${pick(adjectives)} ${pick(colors)} ${pick(nouns)}` }));
 }
 
 const rows = signal([]);
@@ -36,14 +36,7 @@ function add()
 
 function update()
 {
-    batch(() =>
-    {
-        const list = rows.get();
-        for (let index = 0; index < list.length; index += 10)
-        {
-            list[index].label.set(list[index].label.get() + " !!!");
-        }
-    });
+    rows.set(rows.get().map((row, index) => (index % 10 === 0 ? { id: row.id, label: row.label + " !!!" } : row)));
 }
 
 function clear()
@@ -68,10 +61,11 @@ function remove(id)
     rows.set(rows.get().filter((row) => row.id !== id));
 }
 
-/** One table row. The id and the label's signal are read once, since `each` keys the rows by the id and an edit writes the label's own signal, as the templates guide teaches for a list edited a row at a time; the label and the selection stay live. The markup stays on one line so no whitespace text nodes sit between the cells, matching the reference markup. */
+/** One table row. The id is read once, since `each` keys the rows by it; the label and the selection stay live. The markup stays on one line so no whitespace text nodes sit between the cells, matching the reference markup. */
 function Row(row)
 {
-    const { id, label } = row.get();
+    const { id } = row.get();
+    const label = computed(() => row.get().label);
     const className = computed(() => (selected.get() === id ? "danger" : ""));
     return html`<tr class=${className}><td class="col-md-1">${id}</td><td class="col-md-4"><a @click=${() => selected.set(id)}>${label}</a></td><td class="col-md-1"><a @click=${() => remove(id)}><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td><td class="col-md-6"></td></tr>`;
 }

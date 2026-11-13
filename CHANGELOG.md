@@ -9,6 +9,10 @@ Every package in this repository is released together and carries the same versi
 - `context(initial)`: a value a part of the application provides to everything it creates, with `provide(value, fn)` and `read()`, so components read the signed-in user or the theme with no prop passed through each level, and each server render can provide its own request's values. Rows `each` adds later, branches `when` shows later, effects, computed values, and the router's pages read the value provided where they were created.
 - `boundary(content, fallback)`: shows `fallback(error, retry)` in place of its content once the content throws as it renders, or once a binding, effect, row, or branch the content created throws as it runs; the error reaches the fallback in place of the code that changed the signal, the rest of the page keeps running, and each caught error is reported as `boundary_caught`, a new diagnostic. The server renders the fallback when the content throws.
 
+### Changed
+
+- The js-framework-benchmark entry replaces the row array again on an update, as before 1.8.0. Its signal per row label scored 1.15 on the GitHub-hosted runner of the 1.8.0 run against 1.09 for the array-replacing entry in the same session, and the same 1.092 on a desktop, so it gained nothing in the benchmark's own score, which counts paint. The templates guide still teaches a signal per changing field for a list edited a row at a time, which saves script time on such edits.
+
 ### Fixed
 
 - Release workflow: a nightly canary's `@zerolith/cli` waits again for its platform packages to download before it publishes, so `npx @zerolith/cli@canary` never installs it without its binary; holding it under a staging tag had skipped the wait for canaries.
