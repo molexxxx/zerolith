@@ -14,7 +14,7 @@ You'll build the sign-up page for a small notes service. It has a name, an email
 
 ## What you need
 
-- Node 24 or newer.
+- Node 22.18 or newer.
 - The [packing list](../packing-list/index.md) tutorial, or the same ideas: signals, `computed`, `html` templates, events, and components.
 
 You don't need a backend. The tutorial gives you a small Node server and a written description of what it accepts and answers, so you could swap in a server written in any language.

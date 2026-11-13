@@ -8,6 +8,7 @@ Every package in this repository is released together and carries the same versi
 
 - `context(initial)`: a value a part of the application provides to everything it creates, with `provide(value, fn)` and `read()`, so components read the signed-in user or the theme with no prop passed through each level, and each server render can provide its own request's values. Rows `each` adds later, branches `when` shows later, effects, computed values, and the router's pages read the value provided where they were created.
 - `boundary(content, fallback)`: shows `fallback(error, retry)` in place of its content once the content throws as it renders, or once a binding, effect, row, or branch the content created throws as it runs; the error reaches the fallback in place of the code that changed the signal, the rest of the page keeps running, and each caught error is logged with `console.error`, stack and all, in production too, and reported as `boundary_caught`, a new diagnostic; the fallback, which gets the error, is where an application sends it to error monitoring. The server renders the fallback when the content throws.
+- Node 22: every package accepts Node 22.18 and later, CI tests Node 22 beside 24 and 26, and the support policy covers every LTS line that has not reached end of life, Node 22 until 2027-04-30, as it promised. 22.18 is the first Node 22 release that runs TypeScript files without a flag, which the fullstack starter's server and the tutorials' servers need.
 
 ### Changed
 
@@ -16,7 +17,6 @@ Every package in this repository is released together and carries the same versi
 ### Fixed
 
 - Release workflow: a nightly canary's `@zerolith/cli` waits again for its platform packages to download before it publishes, so `npx @zerolith/cli@canary` never installs it without its binary; holding it under a staging tag had skipped the wait for canaries.
-- Support policy: the Node line names the versions the packages require and CI tests, the LTS lines from Node 24 on. It had promised every line in active or maintenance LTS, which included Node 22, a version no release has supported.
 
 ## 1.8.0 (2026-11-12)
 

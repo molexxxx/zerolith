@@ -680,7 +680,7 @@ function Start()
         <section class="band start stage">
             <div class="start-copy">
                 <h2>Start a zerolith project</h2>
-                <p>Node 24 or newer is required. The create command writes a starter that asks for the language, the build tool, and the inspector; <code>--yes</code> takes every default. To skip the build step, <a href="/guide/command-line/#importmap">serve it with an import map</a>.</p>
+                <p>Node 22.18 or newer is required. The create command writes a starter that asks for the language, the build tool, and the inspector; <code>--yes</code> takes every default. To skip the build step, <a href="/guide/command-line/#importmap">serve it with an import map</a>.</p>
             </div>
             <div class="shell">
                 <div class="bar">Terminal</div>

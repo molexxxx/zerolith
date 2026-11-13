@@ -12,7 +12,7 @@ In this tutorial you'll ask an agent to add a page to a new zerolith app, check 
 
 ## What you need
 
-- Node 24 or newer. Run `node --version` to check.
+- Node 22.18 or newer. Run `node --version` to check.
 - A coding agent that can edit files and run commands in a folder on your computer.
 - The [packing list](../packing-list/index.md) tutorial helps you read what the agent writes, but you don't need it.
 

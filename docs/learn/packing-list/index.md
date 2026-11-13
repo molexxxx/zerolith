@@ -12,7 +12,7 @@ Each step adds one idea. By the end you'll have used every part of zerolith that
 
 ## What you need
 
-- Node 24 or newer. Run `node --version` to check.
+- Node 22.18 or newer. Run `node --version` to check.
 - Some HTML and JavaScript. You don't need to know zerolith, or TypeScript beyond the basics.
 - If you know React, Vue, Svelte, or Solid, the steps point out where zerolith works differently.
 

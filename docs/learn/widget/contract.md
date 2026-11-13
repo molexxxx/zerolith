@@ -89,7 +89,7 @@ Node's own HTTP server doesn't take a function like this directly, so `server/ma
 
 @include packages/zerolith/test/fixtures/widget/app/server/main.ts
 
-It turns each request Node receives into a `Request`, passes it to the handler, sends the `Response` back, and prints each piece of feedback it saves. Node 24 runs TypeScript files directly, so `node server/main.ts` starts it with no build step.
+It turns each request Node receives into a `Request`, passes it to the handler, sends the `Response` back, and prints each piece of feedback it saves. Node 22.18 and later run TypeScript files directly, so `node server/main.ts` starts it with no build step.
 
 `npx tsc` checks `src`, `test`, and the Vitest config. To check the server too, install the types for Node's own modules:
 

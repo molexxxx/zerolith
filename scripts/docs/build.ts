@@ -870,7 +870,7 @@ function bytes(count: number): string
 }
 
 /** The facts the home page lists under its measures, each a characteristic with no number to set large. */
-const homeFacts = ["Optional build step: an import map, or `zerolith build`", "`script-src 'self'` with Trusted Types", "Node 24 or newer for the tools", "Apache-2.0"];
+const homeFacts = ["Optional build step: an import map, or `zerolith build`", "`script-src 'self'` with Trusted Types", "Node 22.18 or newer for the tools", "Apache-2.0"];
 
 /** Whether an import is the core or another zerolith package, which a package's own size leaves out. */
 function sharedPackage(id: string): boolean

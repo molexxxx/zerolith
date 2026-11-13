@@ -2,7 +2,7 @@
 
 Harbor, where a small team keeps its projects and tasks: a zerolith app under `/app/` with its own backend, a JSON API under `/api`. A member signs in, sees the day's numbers and the team's activity live on the dashboard, starts projects, and moves tasks across a project's board. It is the example to read for how a larger zerolith application is put together, from the files it keeps to the way the app and the backend share their types.
 
-The backend is plain Node with no dependencies, in [server/](server/), which Node 24 or newer runs as TypeScript with no build step. Any backend works the same way, and the [building and serving guide](../../docs/guide/deploying.md) has the setup for others, from Express and ASP.NET Core to nginx.
+The backend is plain Node with no dependencies, in [server/](server/), which Node 22.18 or newer runs as TypeScript with no build step. Any backend works the same way, and the [building and serving guide](../../docs/guide/deploying.md) has the setup for others, from Express and ASP.NET Core to nginx.
 
 To start a project of your own from this example, without a clone of the repository, run `zerolith new my-app --example fullstack`. It writes these files with a `package.json`, a README, and an `AGENTS.md` of their own, and its `npm run api`, `npm run dev`, `npm run build`, and `npm start` do what the `fullstack` scripts below do here.
 

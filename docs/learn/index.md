@@ -14,4 +14,4 @@ Each tutorial builds a small app from a fresh project, one step at a time. Every
 - [Widget for any backend](widget/index.md): a custom element any site adds with one script tag.
 - [Coding agent](coding-agent/index.md): ask an agent for a page, check what it wrote, and fix a mistake.
 
-You need Node 24 or newer. The [guide](../guide/index.md) explains each idea on its own.
+You need Node 22.18 or newer. The [guide](../guide/index.md) explains each idea on its own.

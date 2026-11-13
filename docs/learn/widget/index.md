@@ -10,7 +10,7 @@ You'll build a feedback widget: a `<feedback-widget>` tag that asks whether a pa
 
 ## What you need
 
-- Node 24 or newer.
+- Node 22.18 or newer.
 - The [packing list](../packing-list/index.md) tutorial, or the same ideas: signals, `html` templates, `computed`, `when`, and events.
 
 ## Start a project

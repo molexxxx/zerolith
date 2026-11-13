@@ -39,7 +39,7 @@ Bind the signal, not its value: `${count}` stays live, while `${count.get()}` re
 
 ## Getting started
 
-Node 24 or newer is required. Install the command line once; npm puts the prebuilt binary for your platform on your PATH:
+Node 22.18 or newer is required. Install the command line once; npm puts the prebuilt binary for your platform on your PATH:
 
 ```sh
 npm install --global @zerolith/cli

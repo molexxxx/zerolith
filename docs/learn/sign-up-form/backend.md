@@ -75,7 +75,7 @@ That's the whole contract. A server in another language reads the form, checks t
 
 ## The server
 
-Node 24 can run TypeScript files directly, with no build step. Install Node's types, so your editor and the type checker know about `node:http`:
+Node 22.18 and later run TypeScript files directly, with no build step. Install Node's types, so your editor and the type checker know about `node:http`:
 
 ```sh
 npm install --save-dev @types/node

@@ -157,7 +157,7 @@ pub(super) fn readme(name: &str, choice: Choice) -> String {
 
 pub(super) const FULLSTACK_README: &str = r##"# __NAME__
 
-A zerolith application with its own backend, written from the fullstack example: Harbor, where a small team keeps its projects and tasks. A member signs in, sees the day's numbers and the team's activity live on the dashboard, starts projects, and moves tasks across a project's board. The app is served under `/app/` and talks to a JSON API under `/api`; the backend, in `server/`, is plain Node with no dependencies, which Node 24 or newer runs as TypeScript with no build step.
+A zerolith application with its own backend, written from the fullstack example: Harbor, where a small team keeps its projects and tasks. A member signs in, sees the day's numbers and the team's activity live on the dashboard, starts projects, and moves tasks across a project's board. The app is served under `/app/` and talks to a JSON API under `/api`; the backend, in `server/`, is plain Node with no dependencies, which Node 22.18 or newer runs as TypeScript with no build step.
 
 The commands below are the project's npm scripts: `dev` and `build` run the zerolith command line that `npm install` put in `node_modules`, and `api` and `start` run the backend.
 
@@ -215,7 +215,7 @@ To check the build without the backend serving it, `npx zerolith preview` serves
 
 ## Deploy
 
-The project deploys as one Node application on Node 24 or newer: install the dependencies, run `npm run build`, and start it with `npm start`, with `PORT` set to the port it should listen on. The server listens on 127.0.0.1, so put a reverse proxy such as Caddy or nginx in front of it to serve HTTPS. When the proxy sends `X-Forwarded-Proto: https`, as Caddy does and nginx does with `proxy_set_header X-Forwarded-Proto $scheme;`, the session cookie is marked `Secure`.
+The project deploys as one Node application on Node 22.18 or newer: install the dependencies, run `npm run build`, and start it with `npm start`, with `PORT` set to the port it should listen on. The server listens on 127.0.0.1, so put a reverse proxy such as Caddy or nginx in front of it to serve HTTPS. When the proxy sends `X-Forwarded-Proto: https`, as Caddy does and nginx does with `proxy_set_header X-Forwarded-Proto $scheme;`, the session cookie is marked `Secure`.
 
 The data lives in memory and starts over when the server restarts, and the members and their passwords are written in `server/data.ts`; move both to a database, with password hashes, before relying on it.
 

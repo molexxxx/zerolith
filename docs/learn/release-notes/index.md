@@ -17,7 +17,7 @@ The releases come from a JSON file. So several steps cover loading data: what th
 
 ## What you need
 
-- Node 24 or newer.
+- Node 22.18 or newer.
 - The [packing list](../packing-list/index.md) tutorial, or the same ideas: signals, `html` templates, `each`, and `when`.
 
 ## Start a project

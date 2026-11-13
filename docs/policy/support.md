@@ -26,7 +26,7 @@ While the project has one maintainer with release rights, the newest major line 
 ## Platforms
 
 - Browsers: the current and previous major version of Chrome, Edge, Firefox, and Safari, and every version since Chrome and Edge 118, Firefox 146, and Safari 17.4, the first with `@scope`, which scoped styles are built on, as well as import maps, `adoptedStyleSheets`, and `<template>`. The runtime does not polyfill, and the command line lowers CSS for those versions.
-- Node: every LTS line from 24 on that has not reached end of life, for server rendering and tooling, each tested in CI; a new line joins when it enters LTS. Node 22 is not supported: the packages require Node 24 or newer.
+- Node: every LTS line that has not reached end of life, from Node 22.18 on, for server rendering and tooling, each tested in CI; a new line joins when it enters LTS. 22.18 is the first Node 22 release that runs TypeScript files without a flag, as the servers of the fullstack starter and the tutorials need, and the packages declare `>=22.18.0`.
 - Electron: the current stable major and the one before it, for the dev tools and the transport adapters.
 
 A platform leaving this list is announced one minor release ahead and is a minor change, not a major one, because the runtime emits standard JavaScript and the loss is of testing coverage, not of code paths.
