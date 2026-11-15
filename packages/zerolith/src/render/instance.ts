@@ -257,6 +257,29 @@ function edgesOf(parts: readonly BoundPart[], parent: ParentNode | null): ChildP
     return parts.filter((part): part is ChildPart => part instanceof ChildPart && part.anchor !== null && part.anchor.parentNode === parent);
 }
 
+/** Where a part rendered a watched array whole: the comment it put before the first item, the comment that ends it, and its items, the first an empty one that holds the opening comment, each ending in a comment of its own. */
+export interface Slot
+{
+    readonly start: Comment;
+    readonly end: Comment;
+    readonly items: readonly ChildPart[];
+}
+
+/** Where the part that last rendered each watched array put it; made by the first `watchSlot`, so rendering an array costs one check until then. */
+let slots: WeakMap<object, Slot | null> | undefined;
+
+/** Has the part that next renders `nodes` whole, as `${children}` does in a custom element's view, mark where it puts them. Internal to the runtime packages. */
+export function watchSlot(nodes: object): void
+{
+    (slots ??= new WeakMap()).set(nodes, null);
+}
+
+/** Where a part last rendered `nodes` whole, when one did. A part that has rendered again since took its comments out, so `start` no longer leads to `end`. Internal to the runtime packages. */
+export function slotOf(nodes: object): Slot | undefined
+{
+    return slots?.get(nodes) ?? undefined;
+}
+
 /**
  * A position that displays one value, before its marker comment. A part
  * that is its element's only child has no marker while it shows text or
@@ -655,6 +678,11 @@ export class ChildPart implements BoundPart, Sink
             const anchor = this.marker();
             this.clear();
             const items: ChildPart[] = [];
+            const start = slots?.has(value) === true ? anchorBefore(anchor) : undefined;
+            if (start !== undefined)
+            {
+                items.push(new ChildPart(start));
+            }
             for (const item of value as Iterable<unknown>)
             {
                 const part = new ChildPart(anchorBefore(anchor));
@@ -662,6 +690,10 @@ export class ChildPart implements BoundPart, Sink
                 part.set(item);
             }
             this.items = items;
+            if (start !== undefined)
+            {
+                (slots as WeakMap<object, Slot | null>).set(value, { start, end: anchor, items });
+            }
             return;
         }
         throw fail("unrenderable_value", { type: describe(value) });

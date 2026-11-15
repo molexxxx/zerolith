@@ -5,7 +5,7 @@
  * another framework owns. The content lives in light DOM, like every other
  * zerolith view, so scoped styles and design tokens apply unchanged.
  */
-import { type Renderable, type Root, hasServerMarkup, hydrate, render } from "./render.js";
+import { type Renderable, type Root, hasServerMarkup, hydrate, render, slotOf, watchSlot } from "./render.js";
 import { type ReadableSignal, type Signal, recall, remember, restore, signal, untracked } from "./signals.js";
 
 /** The signals an element's view receives: one per declared prop, and `children`, what the tag held, unless a prop takes that name. */
@@ -37,30 +37,75 @@ function store(host: HTMLElement, props: readonly string[]): Record<string, Sign
     return signals;
 }
 
-/**
- * The nodes from the first of `nodes` to the last as they stand now, which
- * takes in what another view inserted among them, such as a list's new rows,
- * or the nodes as given when the first and the last are no longer in order
- * under one parent.
- */
-function standing(nodes: readonly Node[]): readonly Node[]
+/** Takes out of `host` those of `nodes` that are still its children. */
+function release(host: Node, nodes: readonly Node[]): void
 {
-    const first = nodes[0];
-    const last = nodes[nodes.length - 1];
-    if (first === undefined || last === undefined || first.parentNode === null || first.parentNode !== last.parentNode)
+    for (const node of nodes)
+    {
+        if (node.parentNode === host)
+        {
+            (node as ChildNode).remove();
+        }
+    }
+}
+
+/** Whether `node` is no longer laid out by `host`'s view: it is out of `host`, as a part of the view that is not shown is, or an element between them took it as one of its own children, as the element a view forwards `children` to takes the comments of the part that renders them. */
+function apart(node: Node, host: Node): boolean
+{
+    let at = node.parentNode;
+    while (at !== null && at !== host)
+    {
+        const held = stores.get(at as HTMLElement)?.["children"];
+        const inner: unknown = held === undefined ? undefined : untracked(() => held.get());
+        if (Array.isArray(inner) && inner.includes(node))
+        {
+            return true;
+        }
+        at = at.parentNode;
+    }
+    return at === null;
+}
+
+/**
+ * `nodes` as they stand now in the part of `host`'s view that renders them
+ * whole, as `${children}` does: what lies between the part's opening and
+ * closing comments, less the comment after each item. That leaves out a
+ * node taken out of the page since, as a list takes out a row, takes in
+ * what another view inserted among them, such as a list's new rows, and
+ * keeps the order they are in. The nodes as given when no part renders
+ * them whole, as in a view that shows some of them or binds them in several
+ * places; when one of them sits anywhere else, where the view or a script
+ * still shows it; when the view forwards them to another element, which
+ * then lays out what lies between the comments; when the part is in a piece
+ * of the view that is not shown; or when the part has rendered again since,
+ * so its opening comment no longer leads to its closing one.
+ */
+function standing(nodes: readonly Node[], host: Node): readonly Node[]
+{
+    const slot = slotOf(nodes);
+    if (slot === undefined || apart(slot.start, host))
     {
         return nodes;
     }
-    const range: Node[] = [];
-    for (let node: Node | null = first; node !== null; node = node.nextSibling)
+    const own: Set<Node> = new Set();
+    for (const item of slot.items)
     {
-        range.push(node);
-        if (node === last)
+        if (item.anchor !== null)
         {
-            return range;
+            own.add(item.anchor);
         }
     }
-    return nodes;
+    const range: Set<Node> = new Set();
+    let node = slot.start.nextSibling;
+    while (node !== null && node !== slot.end)
+    {
+        if (!own.has(node))
+        {
+            range.add(node);
+        }
+        node = node.nextSibling;
+    }
+    return node === null || nodes.some((given) => given.parentNode !== null && !range.has(given)) ? nodes : [...range];
 }
 
 /**
@@ -71,7 +116,9 @@ function standing(nodes: readonly Node[]): readonly Node[]
  * holds server-rendered markup, and disposed when the element disconnects.
  * What the tag holds is not shown on its own: it arrives as `children`, a
  * signal the view binds where it belongs, as a slot does, and it stays
- * through a move. A view that does not bind it shows none of it, so text in
+ * through a move, following the rows a list in the tag adds or removes
+ * where the view binds it whole. A view that does not bind it shows none
+ * of it, so text in
  * the tag serves as a fallback until the script loads, and a view that throws,
  * or returns content that fails to render, leaves it in place. A view inside
  * another component's shadow root gets the scoped styles there too.
@@ -90,6 +137,60 @@ export function define<const Props extends readonly string[]>(name: string, opti
     const props = options.props;
     const roots: WeakMap<HTMLElement, Root> = new WeakMap();
     const parsing: WeakMap<HTMLElement, () => void> = new WeakMap();
+    /** Renders the view in `host` in place of what the tag holds, which arrives as `children`, and puts that back when rendering fails. A function rather than a method, which a prop named `show` would replace. */
+    const show = (host: HTMLElement, view: () => Renderable): void =>
+    {
+        const children = props.includes("children") ? undefined : store(host, props)["children"];
+        const held = [...host.childNodes];
+        if (held.length > 0)
+        {
+            children?.set(held);
+        }
+        const given = children === undefined ? undefined : untracked(() => children.get()) as readonly Node[];
+        if (given !== undefined && given.length > 0)
+        {
+            watchSlot(given);
+        }
+        try
+        {
+            roots.set(host, render(held.length === 0 ? view : () =>
+            {
+                const content = view();
+                release(host, held);
+                return content;
+            }, host));
+        }
+        catch (error)
+        {
+            host.replaceChildren(...held);
+            throw error;
+        }
+        if (document.readyState === "loading")
+        {
+            const end = host.lastChild as ChildNode;
+            const loaded = (): void =>
+            {
+                parsing.delete(host);
+                const added: Node[] = [];
+                let next = end.nextSibling;
+                while (next !== null)
+                {
+                    added.push(next);
+                    next.remove();
+                    next = end.nextSibling;
+                }
+                if (added.length > 0 && children !== undefined)
+                {
+                    const all = [...standing(children.get() as readonly Node[], host), ...added];
+                    watchSlot(all);
+                    children.set(all);
+                }
+            };
+            parsing.set(host, loaded);
+            document.addEventListener("DOMContentLoaded", loaded, { once: true });
+        }
+    };
+
     class ZerolithElement extends HTMLElement
     {
         static observedAttributes: readonly string[] = props;
@@ -131,61 +232,11 @@ export function define<const Props extends readonly string[]>(name: string, opti
                     roots.set(this, hydrate(view, this));
                     return;
                 }
-                this.show(view);
+                show(this, view);
             }
             finally
             {
                 restore(provided);
-            }
-        }
-
-        /** Renders the view in place of what the tag holds, which arrives as `children`, and puts that back when rendering fails. */
-        private show(view: () => Renderable): void
-        {
-            const signals = store(this, props);
-            const children = props.includes("children") ? undefined : signals["children"];
-            const held = [...this.childNodes];
-            if (held.length > 0)
-            {
-                children?.set(held);
-            }
-            try
-            {
-                roots.set(this, render(view, this));
-            }
-            catch (error)
-            {
-                this.replaceChildren(...held);
-                throw error;
-            }
-            for (const node of held)
-            {
-                if (node.parentNode === this)
-                {
-                    node.remove();
-                }
-            }
-            if (document.readyState === "loading")
-            {
-                const end = this.lastChild as ChildNode;
-                const loaded = (): void =>
-                {
-                    parsing.delete(this);
-                    const added: Node[] = [];
-                    let next = end.nextSibling;
-                    while (next !== null)
-                    {
-                        added.push(next);
-                        next.remove();
-                        next = end.nextSibling;
-                    }
-                    if (added.length > 0)
-                    {
-                        children?.set([...children.get() as Node[], ...added]);
-                    }
-                };
-                parsing.set(this, loaded);
-                document.addEventListener("DOMContentLoaded", loaded, { once: true });
             }
         }
 
@@ -197,14 +248,22 @@ export function define<const Props extends readonly string[]>(name: string, opti
                 parsing.delete(this);
                 document.removeEventListener("DOMContentLoaded", loaded);
             }
-            const children = props.includes("children") ? undefined : store(this, props)["children"];
-            const held = children === undefined ? undefined : standing(untracked(() => children.get()) as readonly Node[]);
-            roots.get(this)?.dispose();
-            roots.delete(this);
-            if (held !== undefined)
+            const root = roots.get(this);
+            if (root === undefined)
             {
-                children?.set(held);
+                return;
             }
+            roots.delete(this);
+            const children = props.includes("children") ? undefined : store(this, props)["children"];
+            if (children === undefined)
+            {
+                root.dispose();
+                return;
+            }
+            const held = standing(untracked(() => children.get()) as readonly Node[], this);
+            root.dispose();
+            release(this, held);
+            children.set(held);
         }
     }
     for (const prop of props)

@@ -8,6 +8,13 @@ Every package in this repository is released together and carries the same versi
 
 - The benchmarks workflow measures each release in three sessions on three GitHub-hosted runners at once and publishes each result's median over them, through a new `npm run bench:combine`. The same code had scored 1.13 and then 1.09 on two runners, and on a third the order of two entries reversed, so one session decided the ranking as much as the code did.
 
+### Fixed
+
+- `zerolith/element`: a view that binds `children` directly under the element, as ``html`<h2>Title</h2>${children}` `` does, shows what the tag held again. Since 1.7.0 the element removed those nodes once the view had rendered, so only a view that bound them inside an element of its own showed them.
+- `zerolith/element`: an element that moves no longer takes the view's own nodes into `children`, and a view that binds only some of `children` keeps the ones it does not bind. Since 1.7.0 each move added the comment a binding leaves after each item, so `children` about doubled in length with every move; a view that bound the first and the last child in two places under one parent rendered its own content between them once more each time; and a view that showed the first and the last child and hid one between them lost the hidden one. The part that renders `children` whole now marks where it puts them, and the element reads what stands between its marks, in place of the nodes between the first child and the last.
+- `zerolith/element`: an element that moves follows a list bound in its tag in the cases it missed: a row put before the first, the first row removed, a row added to a list that started empty, and a list the view binds directly under the element as `${children}`, where the rows added since stayed in the element and replaced everything else it held. It follows the list where the view binds `children` whole in one place and every child is there or out of the page when it moves; any other view, and one that forwards `children` to another element, behaves as before 1.7.0, and does not follow the list.
+- `zerolith/element`: a prop named `show` works as any other name. Since 1.9.0 it replaced the method the element rendered with, so the element threw as it connected and showed nothing.
+
 ## 1.10.0 (2026-11-13)
 
 A minor release from `main`: a `store` in `@zerolith/state` for nested data edited a field at a time, and `isTracking()` in the core.

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { type Diagnostic, computed, context, each, effect, html, onDiagnostic, onDispose, render, signal } from "zerolith";
+import { type Diagnostic, computed, context, each, effect, html, onDiagnostic, onDispose, render, signal, when } from "zerolith";
 import { define } from "zerolith/element";
 import { renderToString } from "zerolith/ssr";
 
@@ -315,6 +315,449 @@ describe("define", () =>
         items.set(["c"]);
         expect(element.querySelector("ul")?.textContent).toBe("c");
         root.dispose();
+    });
+
+    it("shows the children a view binds directly under the element", () =>
+    {
+        define("zl-headed", { props: [], view: ({ children }) => html`<h2>Title</h2>${children}` });
+        define("zl-passed", { props: [], view: ({ children }) => html`${children}` });
+        host = document.createElement("div");
+        document.body.append(host);
+        host.innerHTML = "<zl-headed><p>body</p></zl-headed><zl-passed><p>whole</p></zl-passed>";
+        const [headed, passed] = [...host.children] as HTMLElement[];
+        expect(headed?.textContent).toBe("Titlebody");
+        expect(passed?.textContent).toBe("whole");
+        const moved = document.createElement("section");
+        host.append(moved);
+        moved.append(headed as HTMLElement);
+        expect(headed?.textContent).toBe("Titlebody");
+    });
+
+    it("keeps the rows of a list bound directly under the element when it moves", () =>
+    {
+        const items = signal(["a"]);
+        define("zl-headed-rows", { props: [], view: ({ children }) => html`<h2>Title</h2>${children}` });
+        host = document.createElement("div");
+        document.body.append(host);
+        const root = render(html`<zl-headed-rows>${each(items, (item) => item, (item) => html`<li>${item}</li>`)}</zl-headed-rows>`, host);
+        const element = host.querySelector("zl-headed-rows") as HTMLElement;
+        items.set(["a", "b"]);
+        const moved = document.createElement("section");
+        host.append(moved);
+        moved.append(element);
+        expect(element.textContent).toBe("Titleab");
+        expect(element.querySelectorAll("h2")).toHaveLength(1);
+        items.set(["a", "b", "c"]);
+        expect(element.textContent).toBe("Titleabc");
+        host.append(element);
+        items.set(["c"]);
+        expect(element.textContent).toBe("Titlec");
+        root.dispose();
+    });
+
+    it("follows rows another view put first, removed, or added to an empty list before it moves", () =>
+    {
+        const items = signal(["a", "b"]);
+        const late = signal<string[]>([]);
+        define("zl-edited-rows", { props: [], view: ({ children }) => html`<ul>${children}</ul>` });
+        host = document.createElement("div");
+        document.body.append(host);
+        const root = render(html`<zl-edited-rows>${each(items, (item) => item, (item) => html`<li>${item}</li>`)}</zl-edited-rows><zl-edited-rows>${each(late, (item) => item, (item) => html`<li>${item}</li>`)}</zl-edited-rows>`, host);
+        const [edited, filled] = [...host.querySelectorAll("zl-edited-rows")] as HTMLElement[];
+        items.set(["z", "b", "c"]);
+        late.set(["first"]);
+        const moved = document.createElement("section");
+        host.append(moved);
+        moved.append(edited as HTMLElement, filled as HTMLElement);
+        expect(edited?.querySelector("ul")?.textContent).toBe("zbc");
+        expect(filled?.querySelector("ul")?.textContent).toBe("first");
+        items.set(["c", "z", "b"]);
+        items.set(["c", "b"]);
+        late.set(["first", "second"]);
+        host.append(edited as HTMLElement, filled as HTMLElement);
+        expect(edited?.querySelector("ul")?.textContent).toBe("cb");
+        expect(filled?.querySelector("ul")?.textContent).toBe("firstsecond");
+        items.set(["b"]);
+        expect(edited?.querySelector("ul")?.textContent).toBe("b");
+        root.dispose();
+    });
+
+    it("keeps the rows a list added while the page was still parsing, and after, when it moves", () =>
+    {
+        const items = signal(["a"]);
+        define("zl-parsed-rows", { props: [], view: ({ children }) => html`<ul>${children}</ul>` });
+        host = document.createElement("div");
+        document.body.append(host);
+        let root: { dispose(): void } | undefined;
+        Object.defineProperty(document, "readyState", { configurable: true, get: () => "loading" });
+        try
+        {
+            root = render(html`<zl-parsed-rows>${each(items, (item) => item, (item) => html`<li>${item}</li>`)}</zl-parsed-rows>`, host);
+        }
+        finally
+        {
+            delete (document as unknown as { readyState?: string }).readyState;
+        }
+        const element = host.querySelector("zl-parsed-rows") as HTMLElement;
+        items.set(["a", "b"]);
+        const tail = document.createElement("li");
+        tail.textContent = "tail";
+        element.append(tail);
+        document.dispatchEvent(new Event("DOMContentLoaded"));
+        expect(element.querySelector("ul")?.textContent).toBe("abtail");
+        items.set(["a", "b", "c"]);
+        const moved = document.createElement("section");
+        host.append(moved);
+        moved.append(element);
+        expect(element.querySelector("ul")?.textContent).toBe("abctail");
+        expect(element.querySelectorAll("li")).toHaveLength(4);
+        root?.dispose();
+    });
+
+    it("keeps the view's own nodes out of children through every move", () =>
+    {
+        const seen: (readonly Node[])[] = [];
+        define("zl-listed", {
+            props: [],
+            view: ({ children }) =>
+            {
+                seen.push(children.get());
+                return html`<ul>${children}</ul>`;
+            }
+        });
+        define("zl-split", {
+            props: [],
+            view: ({ children }) => html`<div>${computed(() => children.get().slice(0, 1))}<hr>${computed(() => children.get().slice(1))}</div>`
+        });
+        define("zl-framed-body", {
+            props: [],
+            view: ({ children }) => html`<article>${computed(() => children.get().slice(0, 1))}<div class="body">${computed(() => children.get().slice(1, -1))}</div>${computed(() => children.get().slice(-1))}</article>`
+        });
+        host = document.createElement("div");
+        document.body.append(host);
+        host.innerHTML = "<zl-listed><li>a</li><li>b</li><li>c</li></zl-listed><zl-split><b>one</b><i>two</i><u>three</u></zl-split><zl-framed-body><b>one</b><i>two</i><u>three</u></zl-framed-body>";
+        const [listed, split, framed] = [...host.children] as HTMLElement[];
+        const held = seen[0] as readonly Node[];
+        const nodes = listed?.querySelector("ul")?.childNodes.length;
+        const moved = document.createElement("section");
+        host.append(moved);
+        for (let move = 0; move < 4; move++)
+        {
+            (move % 2 === 0 ? moved : host).append(listed as HTMLElement, split as HTMLElement, framed as HTMLElement);
+        }
+        expect(seen).toHaveLength(5);
+        expect(seen[4]).toHaveLength(3);
+        expect(seen[4]?.every((node, index) => node === held[index])).toBe(true);
+        expect(listed?.querySelector("ul")?.childNodes.length).toBe(nodes);
+        expect(split?.textContent).toBe("onetwothree");
+        expect(split?.querySelectorAll("hr")).toHaveLength(1);
+        expect(framed?.querySelector(".body")?.textContent).toBe("two");
+        expect(framed?.textContent).toBe("onetwothree");
+        expect(framed?.querySelectorAll(".body")).toHaveLength(1);
+    });
+
+    it("keeps every child through a move after the view rendered them again", () =>
+    {
+        const open = signal(true);
+        const plain = signal(false);
+        const seen: (readonly Node[])[] = [];
+        define("zl-folding", {
+            props: [],
+            view: ({ children }) =>
+            {
+                seen.push(children.get());
+                return html`${when(open, () => html`<ul>${children}</ul>`)}`;
+            }
+        });
+        define("zl-filtered", {
+            props: [],
+            view: ({ children }) => html`<div>${computed(() => plain.get() ? children.get().filter((node) => node.nodeName !== "I") : children.get())}</div>`
+        });
+        host = document.createElement("div");
+        document.body.append(host);
+        host.innerHTML = "<zl-folding><li>a</li><li>b</li></zl-folding><zl-filtered><b>one</b><i>two</i><u>three</u></zl-filtered>";
+        const [folding, filtered] = [...host.children] as HTMLElement[];
+        const held = seen[0] as readonly Node[];
+        const moved = document.createElement("section");
+        host.append(moved);
+        for (let move = 0; move < 3; move++)
+        {
+            open.set(false);
+            open.set(true);
+            plain.set(move % 2 === 0);
+            (move % 2 === 0 ? moved : host).append(folding as HTMLElement, filtered as HTMLElement);
+        }
+        expect(seen[3]).toHaveLength(2);
+        expect(seen[3]?.every((node, index) => node === held[index])).toBe(true);
+        expect(folding?.textContent).toBe("ab");
+        expect(filtered?.textContent).toBe("onethree");
+        plain.set(false);
+        expect(filtered?.textContent).toBe("onetwothree");
+        open.set(false);
+        moved.append(folding as HTMLElement);
+        open.set(true);
+        expect(folding?.textContent).toBe("ab");
+    });
+
+    it("keeps what the parser added, and nothing of the view's, through a later move", () =>
+    {
+        const seen: (readonly Node[])[] = [];
+        define("zl-parsed-list", {
+            props: [],
+            view: ({ children }) =>
+            {
+                seen.push(children.get());
+                return html`<div>${children}</div>`;
+            }
+        });
+        host = document.createElement("div");
+        document.body.append(host);
+        const element = document.createElement("zl-parsed-list");
+        const first = document.createElement("b");
+        element.append(first);
+        Object.defineProperty(document, "readyState", { configurable: true, get: () => "loading" });
+        try
+        {
+            host.append(element);
+        }
+        finally
+        {
+            delete (document as unknown as { readyState?: string }).readyState;
+        }
+        const second = document.createElement("i");
+        const third = document.createElement("u");
+        element.append(second, third);
+        document.dispatchEvent(new Event("DOMContentLoaded"));
+        const moved = document.createElement("section");
+        host.append(moved);
+        moved.append(element);
+        host.append(element);
+        expect(seen).toHaveLength(3);
+        expect(seen[2]).toHaveLength(3);
+        expect(seen[2]?.[0]).toBe(first);
+        expect(seen[2]?.[1]).toBe(second);
+        expect(seen[2]?.[2]).toBe(third);
+        expect(element.querySelector("div")?.childElementCount).toBe(3);
+    });
+
+    it("keeps what the tag held through a move when its view throws", () =>
+    {
+        define("zl-failing", {
+            props: [],
+            view: () =>
+            {
+                throw new Error("the view failed");
+            }
+        });
+        host = document.createElement("div");
+        document.body.append(host);
+        const element = document.createElement("zl-failing");
+        element.textContent = "Still here";
+        const moved = document.createElement("section");
+        host.append(moved);
+        const failures: unknown[] = [];
+        const onError = (event: ErrorEvent): void =>
+        {
+            failures.push(event.message);
+            event.preventDefault();
+        };
+        window.addEventListener("error", onError);
+        host.append(element);
+        moved.append(element);
+        host.append(element);
+        window.removeEventListener("error", onError);
+        expect(failures).toHaveLength(3);
+        expect(element.textContent).toBe("Still here");
+    });
+
+    it("takes a prop named show, or place, as any other name", () =>
+    {
+        define("zl-shown", { props: ["show", "place"], view: ({ show, place, children }) => html`<p>${show} ${place} ${children}</p>` });
+        host = document.createElement("div");
+        document.body.append(host);
+        host.innerHTML = "<zl-shown show=\"yes\" place=\"top\">body</zl-shown>";
+        const element = host.firstElementChild as HTMLElement & { show: unknown; place: unknown };
+        expect(element.querySelector("p")?.textContent).toBe("yes top body");
+        element.show = "no";
+        element.place = "left";
+        expect(element.querySelector("p")?.textContent).toBe("no left body");
+        const moved = document.createElement("section");
+        host.append(moved);
+        moved.append(element);
+        expect(element.querySelector("p")?.textContent).toBe("no left body");
+    });
+
+    it("keeps a child its view shows on its own through a move made while it shows something else", () =>
+    {
+        const open = signal(true);
+        define("zl-single", { props: [], view: ({ children }) => html`<div>${computed(() => open.get() ? children.get()[0] : "closed")}</div>` });
+        host = document.createElement("div");
+        document.body.append(host);
+        host.innerHTML = "<zl-single><span>x</span></zl-single>";
+        const element = host.firstElementChild as HTMLElement;
+        const span = element.querySelector("span");
+        open.set(false);
+        const moved = document.createElement("section");
+        host.append(moved);
+        moved.append(element);
+        expect(element.textContent).toBe("closed");
+        open.set(true);
+        expect(element.querySelector("span")).toBe(span);
+        expect(element.textContent).toBe("x");
+    });
+
+    it("lets go of a child taken out of the page, and keeps them all while one sits somewhere else", () =>
+    {
+        define("zl-kept-rows", { props: [], view: ({ children }) => html`<ul>${children}</ul>` });
+        host = document.createElement("div");
+        document.body.append(host);
+        host.innerHTML = "<zl-kept-rows><li>a</li><li>b</li><li>c</li></zl-kept-rows><zl-kept-rows><li>a</li><li>b</li><li>c</li></zl-kept-rows>";
+        const [taken, parked] = [...host.children] as HTMLElement[];
+        taken?.querySelectorAll("li")[2]?.remove();
+        const second = parked?.querySelectorAll("li")[1] as HTMLElement;
+        const elsewhere = document.createElement("ol");
+        host.append(elsewhere);
+        elsewhere.append(second);
+        parked?.querySelectorAll("li")[1]?.remove();
+        const moved = document.createElement("section");
+        host.append(moved);
+        moved.append(taken as HTMLElement, parked as HTMLElement);
+        expect(taken?.querySelector("ul")?.textContent).toBe("ab");
+        expect(parked?.querySelector("ul")?.textContent).toBe("abc");
+        expect(parked?.querySelectorAll("li")[1]).toBe(second);
+    });
+
+    it("keeps a child its view shows in a second place through every move", () =>
+    {
+        const open = signal(true);
+        const seen: (readonly Node[])[] = [];
+        define("zl-footed", {
+            props: [],
+            view: ({ children }) =>
+            {
+                seen.push(children.get());
+                return html`<main>${children}</main><footer>${computed(() => children.get().slice(-1))}</footer>`;
+            }
+        });
+        define("zl-collapsing", {
+            props: [],
+            view: ({ children }) => html`${when(open, () => html`<ul>${children}</ul>`, () => html`<p>${computed(() => children.get().slice(0, 1))}</p>`)}`
+        });
+        define("zl-ruled", {
+            props: [],
+            view: ({ children }) => html`<div>${children}<hr>${computed(() => children.get().slice(-1))}</div>`
+        });
+        define("zl-sorted", { props: [], view: ({ children }) => html`<ul>${children}</ul>` });
+        host = document.createElement("div");
+        document.body.append(host);
+        host.innerHTML = "<zl-footed><b>one</b><i>two</i><u>three</u></zl-footed><zl-collapsing><li>a</li><li>b</li></zl-collapsing><zl-ruled><b>one</b><i>two</i><u>three</u></zl-ruled><zl-sorted><li>a</li><li>b</li></zl-sorted>";
+        const [footed, collapsing, ruled, sorted] = [...host.children] as HTMLElement[];
+        const held = seen[0] as readonly Node[];
+        open.set(false);
+        const list = sorted?.querySelector("ul") as HTMLElement;
+        list.appendChild(list.firstElementChild as HTMLElement);
+        const moved = document.createElement("section");
+        host.append(moved);
+        moved.append(footed as HTMLElement, collapsing as HTMLElement, ruled as HTMLElement, sorted as HTMLElement);
+        host.append(footed as HTMLElement, collapsing as HTMLElement, ruled as HTMLElement, sorted as HTMLElement);
+        expect(ruled?.textContent).toBe("onetwothree");
+        expect(ruled?.querySelectorAll("hr")).toHaveLength(1);
+        expect(sorted?.querySelectorAll("li")).toHaveLength(2);
+        expect(seen[2]).toHaveLength(3);
+        expect(seen[2]?.every((node, index) => node === held[index])).toBe(true);
+        expect(footed?.querySelector("main")?.textContent).toBe("onetwo");
+        expect(footed?.querySelector("footer")?.textContent).toBe("three");
+        expect(collapsing?.textContent).toBe("a");
+        open.set(true);
+        expect(collapsing?.querySelector("ul")?.textContent).toBe("ab");
+    });
+
+    it("keeps every child when the place its view bound them whole is no longer shown", () =>
+    {
+        const wide = signal(true);
+        const expanded = signal(false);
+        const seen: (readonly Node[])[] = [];
+        define("zl-narrowing", {
+            props: [],
+            view: ({ children }) =>
+            {
+                seen.push(children.get());
+                return html`${when(wide, () => html`<ul>${children}</ul>`, () => html`<nav>${when(expanded, () => computed(() => children.get().filter((node) => node.nodeType === 1)))}</nav>`)}`;
+            }
+        });
+        host = document.createElement("div");
+        document.body.append(host);
+        host.innerHTML = "<zl-narrowing><li>a</li><li>b</li></zl-narrowing>";
+        const element = host.firstElementChild as HTMLElement;
+        const held = seen[0] as readonly Node[];
+        wide.set(false);
+        expanded.set(true);
+        expanded.set(false);
+        const moved = document.createElement("section");
+        host.append(moved);
+        moved.append(element);
+        expect(seen[1]).toHaveLength(2);
+        expect(seen[1]?.every((node, index) => node === held[index])).toBe(true);
+        expanded.set(true);
+        expect(element.querySelector("nav")?.textContent).toBe("ab");
+    });
+
+    it("keeps the same children through every move when its view forwards them to another element", () =>
+    {
+        const seen: (readonly Node[])[] = [];
+        define("zl-forwarded-to", { props: [], view: ({ children }) => html`<section>${children}</section>` });
+        define("zl-forwarding", {
+            props: [],
+            view: ({ children }) =>
+            {
+                seen.push(children.get());
+                return html`<zl-forwarded-to>${children}</zl-forwarded-to>`;
+            }
+        });
+        host = document.createElement("div");
+        document.body.append(host);
+        host.innerHTML = "<zl-forwarding><b>1</b><i>2</i></zl-forwarding>";
+        const element = host.firstElementChild as HTMLElement;
+        const held = seen[0] as readonly Node[];
+        const nodes = element.querySelector("section")?.childNodes.length;
+        const moved = document.createElement("section");
+        host.append(moved);
+        for (let move = 0; move < 3; move++)
+        {
+            (move % 2 === 0 ? moved : host).append(element);
+        }
+        expect(seen[3]).toHaveLength(2);
+        expect(seen[3]?.every((node, index) => node === held[index])).toBe(true);
+        expect(element.querySelector("zl-forwarded-to section")?.textContent).toBe("12");
+        expect(element.querySelector("section")?.childNodes.length).toBe(nodes);
+    });
+
+    it("keeps the view's own nodes out of children bound first in a template of their own", () =>
+    {
+        const open = signal(true);
+        const seen: (readonly Node[])[] = [];
+        define("zl-nested-first", {
+            props: [],
+            view: ({ children }) =>
+            {
+                seen.push(children.get());
+                return html`<h2>Title</h2>${when(open, () => html`${children}<hr>`)}`;
+            }
+        });
+        host = document.createElement("div");
+        document.body.append(host);
+        host.innerHTML = "<zl-nested-first><b>one</b><i>two</i></zl-nested-first>";
+        const element = host.firstElementChild as HTMLElement;
+        const held = seen[0] as readonly Node[];
+        const moved = document.createElement("section");
+        host.append(moved);
+        moved.append(element);
+        host.append(element);
+        expect(seen[2]).toHaveLength(2);
+        expect(seen[2]?.every((node, index) => node === held[index])).toBe(true);
+        expect(element.textContent).toBe("Titleonetwo");
+        expect(element.querySelectorAll("h2")).toHaveLength(1);
+        expect(element.querySelectorAll("hr")).toHaveLength(1);
     });
 
     it("leaves an effect that moves it unsubscribed from what it holds", () =>

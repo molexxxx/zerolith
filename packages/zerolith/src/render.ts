@@ -24,6 +24,7 @@ import { createOwner } from "./signals.js";
 export type { KeyOf, RowOf } from "./render/each.js";
 export { each } from "./render/each.js";
 export type { HydrationMismatch } from "./render/markers.js";
+export { slotOf, watchSlot } from "./render/instance.js";
 export { PART_END, PART_START, hasServerMarkup } from "./render/markers.js";
 export type { RawView, Renderable, TemplateView, View } from "./render/view.js";
 export { VIEW, directiveWrapsBranch, html, isDirective, isRawHtml, isTemplate, resolveDirective, unsafeHtml } from "./render/view.js";
