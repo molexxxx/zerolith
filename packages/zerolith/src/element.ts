@@ -108,6 +108,42 @@ function standing(nodes: readonly Node[], host: Node): readonly Node[]
     return node === null || nodes.some((given) => given.parentNode !== null && !range.has(given)) ? nodes : [...range];
 }
 
+/** The members of `Element` the renderer works through on an element in a view, beside those every node has, as recorded from what the runtime reads and calls on an element across the browser tests. */
+const WORKED: readonly string[] = ["append", "attributes", "hasAttribute", "localName", "querySelector", "remove", "removeAttribute", "replaceChildren", "setAttribute", "tagName"];
+
+/**
+ * What reading a prop's property gives where the renderer works through
+ * the element's own member of that name, which such a prop does not
+ * replace: one of the callbacks `define` gives the element, a method or a
+ * read-only member every node has, such as `insertBefore` or `childNodes`,
+ * or a member of `Element` in `WORKED`. It is read from its prototype as it
+ * is then, so a method patched after `define` is the one called. Undefined
+ * for every other name, which the prop takes over: a writable property such
+ * as `title` or `textContent`, and a method the page alone calls, such as
+ * `focus`.
+ */
+function kept(prototype: object, name: string): ((this: HTMLElement) => unknown) | undefined
+{
+    if (name === "constructor")
+    {
+        return undefined;
+    }
+    const callback: unknown = Object.getOwnPropertyDescriptor(prototype, name)?.value;
+    if (typeof callback === "function")
+    {
+        return (): unknown => callback;
+    }
+    const owner = [Node.prototype, EventTarget.prototype].find((one) => Object.hasOwn(one, name)) ?? (WORKED.includes(name) ? Element.prototype : undefined);
+    if (owner === undefined || Object.getOwnPropertyDescriptor(owner, name)?.set !== undefined)
+    {
+        return undefined;
+    }
+    return function own(this: HTMLElement): unknown
+    {
+        return Reflect.get(owner, name, this);
+    };
+}
+
 /**
  * Registers a custom element for the view. Declared props are observed as
  * attributes and exposed as properties, both feeding the same signals, and
@@ -120,7 +156,11 @@ function standing(nodes: readonly Node[], host: Node): readonly Node[]
  * where the view binds it whole. A view that does not bind it shows none
  * of it, so text in
  * the tag serves as a fallback until the script loads, and a view that throws,
- * or returns content that fails to render, leaves it in place. A view inside
+ * or returns content that fails to render, leaves it in place, or puts it
+ * back when the element had rendered before. A prop named after a member
+ * the renderer works through, such as `append` or `childNodes`, does not
+ * replace it: assigning the property sets the prop, and reading it gives
+ * the element's own member. A view inside
  * another component's shadow root gets the scoped styles there too.
  * The view runs inside the root's owner, so the effects and `onDispose`
  * cleanups it registers end when the element disconnects. Without a
@@ -137,7 +177,7 @@ export function define<const Props extends readonly string[]>(name: string, opti
     const props = options.props;
     const roots: WeakMap<HTMLElement, Root> = new WeakMap();
     const parsing: WeakMap<HTMLElement, () => void> = new WeakMap();
-    /** Renders the view in `host` in place of what the tag holds, which arrives as `children`, and puts that back when rendering fails. A function rather than a method, which a prop named `show` would replace. */
+    /** Renders the view in `host` in place of what the tag holds, which arrives as `children`, and puts that back when rendering fails: what the tag holds now, or on a later connect the children kept from the last one, less any a script has since put elsewhere in the page, where it still shows. A function rather than a method, which a prop named `show` would replace. */
     const show = (host: HTMLElement, view: () => Renderable): void =>
     {
         const children = props.includes("children") ? undefined : store(host, props)["children"];
@@ -162,7 +202,7 @@ export function define<const Props extends readonly string[]>(name: string, opti
         }
         catch (error)
         {
-            host.replaceChildren(...held);
+            host.replaceChildren(...(held.length > 0 || given === undefined ? held : given.filter((node) => !node.isConnected || host.contains(node))));
             throw error;
         }
         if (document.readyState === "loading")
@@ -266,12 +306,12 @@ export function define<const Props extends readonly string[]>(name: string, opti
             children.set(held);
         }
     }
-    for (const prop of props)
+    for (const prop of new Set(props))
     {
         Object.defineProperty(ZerolithElement.prototype, prop, {
             configurable: true,
             enumerable: true,
-            get(this: HTMLElement): unknown
+            get: kept(ZerolithElement.prototype, prop) ?? function read(this: HTMLElement): unknown
             {
                 return store(this, props)[prop]?.get();
             },

@@ -39,6 +39,15 @@ export interface SubmissionOutcome
     readonly element: HTMLFormElement;
 }
 
+/** What the server answered a failed submission with. */
+export interface SubmissionFailure
+{
+    /** The response, with its body still unread, so `text()` gives what the server sent even where it is not the JSON its content type promised; a stand-in for a `Response` with no `clone()` has been read. */
+    readonly response: Response;
+    /** The response's JSON body as the server sent it, before the problem was read from it, so a member the problem leaves out, such as a `fields` of another shape or an API's own error list, stays reachable; undefined when the body is not JSON or does not parse. */
+    readonly body: unknown;
+}
+
 /** Options for `createForm`. */
 export interface FormOptions
 {
@@ -56,8 +65,8 @@ export interface FormOptions
     reset?: boolean;
     /** Called after a successful response. */
     onSuccess?: (outcome: SubmissionOutcome) => void;
-    /** Called with the problem from client-side validation or from the server. */
-    onFailure?: (problem: Problem, element: HTMLFormElement) => void;
+    /** Called with the problem from client-side validation or from the server, and for a problem from the server, with the response and the body it was read from. */
+    onFailure?: (problem: Problem, element: HTMLFormElement, failure?: SubmissionFailure) => void;
     /** Called when the request itself fails. */
     onError?: (error: unknown, element: HTMLFormElement) => void;
 }
@@ -285,14 +294,14 @@ export function createForm(options: FormOptions = {}): Form
     const fields = new Map<string, Field>();
     let controller: AbortController | undefined;
 
-    const fail = (found: Problem, element: HTMLFormElement): void =>
+    const fail = (found: Problem, element: HTMLFormElement, failure?: SubmissionFailure): void =>
     {
         batch(() =>
         {
             problem.set(found);
             status.set("failure");
         });
-        guarded(() => options.onFailure?.(found, element));
+        guarded(() => (failure === undefined ? options.onFailure?.(found, element) : options.onFailure?.(found, element, failure)));
     };
 
     const run = async (element: HTMLFormElement, submitter: HTMLElement | null, method: string, action: URL, current: AbortController): Promise<void> =>
@@ -326,12 +335,23 @@ export function createForm(options: FormOptions = {}): Form
         const type = (response.headers.get("content-type") ?? "").toLowerCase();
         if (type.includes(PROBLEM_MEDIA_TYPE) || !response.ok)
         {
-            const body: unknown = type.includes("json") ? await response.json().catch(() => undefined) : undefined;
+            let body: unknown;
+            if (type.includes("json"))
+            {
+                try
+                {
+                    body = await (options.onFailure !== undefined && typeof response.clone === "function" ? response.clone() : response).json();
+                }
+                catch
+                {
+                    body = undefined;
+                }
+            }
             if (current.signal.aborted)
             {
                 return;
             }
-            fail(problemOf(body, response), element);
+            fail(problemOf(body, response), element, { response, body });
             return;
         }
         const parsed = response.redirected ? undefined : await parseBody(response);

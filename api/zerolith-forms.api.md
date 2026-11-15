@@ -37,7 +37,7 @@ interface FormOptions
     navigate?: (url: string) => void
     reset?: boolean
     onSuccess?: (outcome: SubmissionOutcome) => void
-    onFailure?: (problem: Problem, element: HTMLFormElement) => void
+    onFailure?: (problem: Problem, element: HTMLFormElement, failure?: SubmissionFailure) => void
     onError?: (error: unknown, element: HTMLFormElement) => void
 }
 
@@ -65,6 +65,12 @@ interface Submission
     readonly method: string
     readonly action: URL
     readonly signal: AbortSignal
+}
+
+interface SubmissionFailure
+{
+    readonly response: Response
+    readonly body: unknown
 }
 
 interface SubmissionOutcome

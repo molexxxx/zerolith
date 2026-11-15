@@ -153,7 +153,7 @@ It is the same document the enhancer builds when the schema fails in the browser
 | `navigate` | Where a redirected response takes the page, `location.assign` unless given; pass `(url) => router.navigate(url, { reload: true })` to stay in the application, with `reload` so a redirect back to the page shown loads it again |
 | `reset` | Resets the form element after a successful response |
 | `onSuccess` | Runs after a successful response, with its result; an error it throws is reported as an uncaught error is, with `reportError`, and leaves `status` as it is |
-| `onFailure` | Runs with the problem, from the schema or the server; an error it throws is reported the same way |
+| `onFailure` | Runs with the problem, from the schema or the server, and the form; for a problem from the server, a third argument holds the `response` and its JSON `body` as the server sent it, for an API whose errors are not a problem document. An error it throws is reported the same way |
 | `onError` | Runs when the request itself fails |
 
 ## The request

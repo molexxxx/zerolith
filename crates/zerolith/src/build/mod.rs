@@ -141,8 +141,8 @@ pub fn check_core_version(root: &Path) -> io::Result<()> {
 /// What `import.meta.url` reads in a classic script: the script's own address, which the intro captures while the script runs, since a plain script has no `import.meta`.
 const SCRIPT_URL: &str = "__zerolith_script_url";
 
-/// Captures a classic script's address for `import.meta.url` before its code runs, as `document.currentScript` is set only then; a worker has no document and reads its own location. Marked pure, so a script that never reads it carries none of it.
-const SCRIPT_URL_INTRO: &str = "var __zerolith_script_url = /* @__PURE__ */ (() => typeof document !== \"undefined\" && document.currentScript !== null ? document.currentScript.src : self.location.href)();";
+/// Captures a classic script's address for `import.meta.url` before its code runs, as `document.currentScript` is set only then. A script written into the page has no address of its own, so it reads the page's base address, as an inline module does; a worker has no document and reads its own location. Both members are read through the getters `Document` and `Node` define: an element named `currentScript` or `baseURI` in the page takes the place of the document's own member when it is read as a property, so markup a page lets in could choose the address. A document with no such getter, as a stand-in for one in a test has, is read as a property. Marked pure, so a script that never reads it carries none of it.
+const SCRIPT_URL_INTRO: &str = "var __zerolith_script_url = /* @__PURE__ */ (() => { if (typeof document === \"undefined\") return self.location.href; const read = (owner, name) => { const found = owner && Object.getOwnPropertyDescriptor(owner.prototype, name); return found && found.get ? found.get.call(document) : document[name]; }; const script = read(typeof Document === \"function\" && Document, \"currentScript\"); return script && script.src || read(typeof Node === \"function\" && Node, \"baseURI\"); })();";
 
 /// Bundles the project into its output folder.
 pub async fn build(options: &Options) -> io::Result<Built> {

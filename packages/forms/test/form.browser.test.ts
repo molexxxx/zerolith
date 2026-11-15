@@ -108,7 +108,7 @@ describe("createForm", () =>
         expect(form.field("title").errors.get()).toEqual(["Too short", "Pick another"]);
         expect(host.querySelector("[data-testid=\"error\"]")?.textContent).toBe("Too short");
         expect(host.querySelector("input")?.getAttribute("aria-invalid")).toBe("true");
-        expect(onFailure).toHaveBeenCalledWith(expect.objectContaining({ title: "Invalid note" }), element);
+        expect(onFailure).toHaveBeenCalledWith(expect.objectContaining({ title: "Invalid note" }), element, expect.objectContaining({ body: { title: "Invalid note", status: 400, fields: { title: ["Too short", "Pick another"] } } }));
 
         submit(element);
         await settled(form);
@@ -116,6 +116,52 @@ describe("createForm", () =>
         expect(form.result.get()).toBeUndefined();
         expect(host.querySelector("[data-testid=\"error\"]")?.textContent).toBe("");
         expect(host.querySelector("input")?.getAttribute("aria-invalid")).toBe("false");
+    });
+
+    it("gives onFailure the response and the body the server sent, whatever its shape, and neither when nothing was sent", async () =>
+    {
+        const seen: unknown[][] = [];
+        const schema: StandardSchema<unknown, { title: string }> = {
+            "~standard": {
+                version: 1,
+                vendor: "test",
+                validate(value)
+                {
+                    const title = (value as { title?: unknown }).title;
+                    return title === "Hello" ? { value: { title } } : { issues: [{ message: "Say hello", path: ["title"] }] };
+                }
+            }
+        };
+        const { form, element } = harness([
+            () => Promise.resolve(new Response(JSON.stringify({ errors: [{ code: "taken", on: "title" }] }), { status: 409, headers: { "content-type": "application/json", "x-request": "r1" } })),
+            () => Promise.resolve(new Response("gateway down", { status: 502, headers: { "content-type": "text/plain" } })),
+            () => Promise.resolve(new Response("{not json", { status: 500, headers: { "content-type": "application/json" } }))
+        ], { schema, onFailure: (...args: unknown[]) => seen.push(args) });
+        submit(element);
+        await settled(form);
+        expect(seen).toHaveLength(1);
+        const first = seen[0]?.[2] as { response: Response; body: unknown };
+        expect(seen[0]?.[0]).toEqual({ status: 409, title: "HTTP 409" });
+        expect(first.body).toEqual({ errors: [{ code: "taken", on: "title" }] });
+        expect([first.response.status, first.response.headers.get("x-request")]).toEqual([409, "r1"]);
+        expect(await first.response.json()).toEqual(first.body);
+
+        submit(element);
+        await settled(form);
+        const second = seen[1]?.[2] as { response: Response; body: unknown };
+        expect([second.response.status, second.body]).toEqual([502, undefined]);
+
+        submit(element);
+        await settled(form);
+        const third = seen[2]?.[2] as { response: Response; body: unknown };
+        expect([third.response.status, third.body, await third.response.text()]).toEqual([500, undefined, "{not json"]);
+
+        (element.querySelector("input") as HTMLInputElement).value = "Other";
+        submit(element);
+        await settled(form);
+        expect(seen).toHaveLength(4);
+        expect(seen[3]).toHaveLength(2);
+        expect(seen[3]?.[1]).toBe(element);
     });
 
     it("reads the server's problem document defensively", async () =>
@@ -354,6 +400,33 @@ describe("createForm", () =>
         submit(element);
         await settled(form);
         expect([form.status.get(), form.result.get()]).toEqual(["success", { id: 1 }]);
+    });
+
+    it("copies a failed response only for an onFailure to read", async () =>
+    {
+        const responses = [0, 1].map(() => new Response(JSON.stringify({ title: "Invalid" }), { status: 422, headers: { "content-type": "application/problem+json" } }));
+        const copies = responses.map((response) => vi.spyOn(response, "clone"));
+        const plain = harness([() => Promise.resolve(responses[0] as Response)]);
+        submit(plain.element);
+        await settled(plain.form);
+        root?.dispose();
+        const watched = harness([() => Promise.resolve(responses[1] as Response)], { onFailure: () => undefined });
+        submit(watched.element);
+        await settled(watched.form);
+        expect([plain.form.problem.get()?.title, watched.form.problem.get()?.title]).toEqual(["Invalid", "Invalid"]);
+        expect(copies.map((copy) => copy.mock.calls.length)).toEqual([0, 1]);
+    });
+
+    it("reads a failed stand-in's JSON too, though it has no clone()", async () =>
+    {
+        const seen: unknown[] = [];
+        const { form, element } = harness([
+            () => Promise.resolve({ ok: false, status: 422, redirected: false, headers: new Headers({ "content-type": "application/problem+json" }), json: async () => ({ title: "Invalid", fields: { title: "Too short" } }) } as unknown as Response)
+        ], { onFailure: (_problem, _element, failure) => seen.push(failure?.body) });
+        submit(element);
+        await settled(form);
+        expect([form.status.get(), form.field("title").error.get()]).toEqual(["failure", "Too short"]);
+        expect(seen).toEqual([{ title: "Invalid", fields: { title: "Too short" } }]);
     });
 
     it("leaves out a problem's type, detail, and instance of the wrong type", async () =>

@@ -37,7 +37,7 @@ The view's second argument is the host element, for what a boundary needs, such 
 > [!TIP]
 > Name props in lowercase. HTML lowercases attribute names, so a camelCase prop such as `maxCount` is reachable as a property but never as an attribute.
 
-A prop named like a property every element has, such as `title`, `hidden`, or `id`, replaces that property on the element: the attribute still feeds the signal, and assigning the property writes the signal instead of the native value, so the browser no longer reflects it to the attribute. Choose another name where the native behavior matters.
+A prop named after a member the renderer itself works through does not replace it: the element's own callbacks, such as `connectedCallback`, a method or a read-only member every node has, such as `insertBefore` or `childNodes`, and `append`, `remove`, `replaceChildren`, `setAttribute`, `removeAttribute`, `hasAttribute`, `attributes`, `querySelector`, `localName`, and `tagName`. Assigning such a property sets the prop, and reading it gives the element's own. A prop named like any other property or method every element has, such as `title`, `hidden`, `id`, or `focus`, replaces it on the element: the attribute still feeds the signal, and assigning the property writes the signal instead of the native value, so the browser no longer reflects it to the attribute. Choose another name where the native behavior matters.
 
 ## Its life on the page
 
@@ -76,7 +76,7 @@ define("note-card", {
 <note-card heading="Drafts">Two notes <b>waiting</b></note-card>
 ```
 
-A view that does not bind `children` shows none of it, so text in the tag also serves as a fallback: a visitor sees it until the script loads, and a view that throws, or returns content that fails to render, leaves it in place. The nodes stay the same ones through a move, so listeners on them keep working. Where the view binds `children` whole in one place, one taken out of the page in the meantime, as a list takes out a row, is no longer among them.
+A view that does not bind `children` shows none of it, so text in the tag also serves as a fallback: a visitor sees it until the script loads, and a view that throws, or returns content that fails to render, leaves it in place, or puts it back when the element had rendered before and fails as it connects again. The nodes stay the same ones through a move, so listeners on them keep working. Where the view binds `children` whole in one place, one taken out of the page in the meantime, as a list takes out a row, is no longer among them.
 
 | Case | What `children` holds |
 | --- | --- |

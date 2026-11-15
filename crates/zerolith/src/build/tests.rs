@@ -575,7 +575,7 @@ async fn gives_a_plain_script_its_own_address_as_import_meta_url() {
     let built = build(&settings).await.unwrap();
     let script = fs::read_to_string(root.join("dist/widget.js")).unwrap();
     assert!(
-        script.contains("document.currentScript")
+        script.contains("currentScript")
             && !script.contains("{}.url")
             && !script.contains("import.meta"),
         "{script}"

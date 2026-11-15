@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type LoaderContext, type ResourceStatus, ZerolithError, effect, resource, scope, signal } from "zerolith";
+import { type LoaderContext, type ResourceStatus, ZerolithError, context, effect, resource, scope, signal } from "zerolith";
 
 /** Lets the promise reactions of a settled run happen. */
 async function settle(): Promise<void>
@@ -669,5 +669,74 @@ describe("resource request replaced as a run fails", () =>
             handle.dispose();
             expect(vi.getTimerCount()).toBe(0);
         }
+    });
+});
+
+describe("resource and the values provided around it", () =>
+{
+    it("runs the loader with the values provided where the resource was created, on the first run, a retry, and a reload", async () =>
+    {
+        const tenant = context("none");
+        const seen: string[] = [];
+        const handle = tenant.provide("acme", () => scope(() => resource({
+            params: () => 1,
+            loader: () =>
+            {
+                seen.push(tenant.read());
+                return seen.length === 1 ? Promise.reject(new Error("first")) : Promise.resolve("done");
+            },
+            retry: 1,
+            backoff: 50
+        })));
+        await settle();
+        await vi.advanceTimersByTimeAsync(50);
+        await settle();
+        expect(seen).toEqual(["acme", "acme"]);
+        tenant.provide("other", () => handle.value.reload());
+        await settle();
+        expect(seen).toEqual(["acme", "acme", "acme"]);
+        expect(tenant.read()).toBe("none");
+        handle.dispose();
+    });
+
+    it("asks retryIf with the values provided where the resource was created", async () =>
+    {
+        const tenant = context("none");
+        const seen: string[] = [];
+        const handle = tenant.provide("acme", () => scope(() => resource({
+            params: () => 1,
+            loader: () => Promise.reject(new Error("always")),
+            retry: 1,
+            retryIf: () =>
+            {
+                seen.push(tenant.read());
+                return false;
+            }
+        })));
+        await settle();
+        expect(seen).toEqual(["acme"]);
+        expect(handle.value.status.get()).toBe("error");
+        handle.dispose();
+    });
+
+    it("leaves the values around a reload's caller as they were when the loader throws", async () =>
+    {
+        const tenant = context("none");
+        const handle = tenant.provide("acme", () => scope(() => resource({
+            params: () => 1,
+            loader: (): Promise<string> =>
+            {
+                throw new Error("at once");
+            }
+        })));
+        await settle();
+        tenant.provide("caller", () =>
+        {
+            handle.value.reload();
+            expect(tenant.read()).toBe("caller");
+        });
+        await settle();
+        expect(handle.value.status.get()).toBe("error");
+        handle.dispose();
     });
 });

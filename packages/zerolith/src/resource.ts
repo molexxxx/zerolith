@@ -5,7 +5,7 @@
  * outcome as signals.
  */
 import { ZerolithError, diagnostic } from "./diagnostics.js";
-import { type ReadableSignal, batch, computed, effect, signal, untracked } from "./signals.js";
+import { type ReadableSignal, batch, computed, effect, recall, restore, signal, untracked } from "./signals.js";
 
 /** The longest delay a timer holds; browsers and Node fire a longer one at once. */
 const LONGEST_TIMER = 2_147_483_647;
@@ -30,7 +30,7 @@ export interface ResourceOptions<P, T>
 {
     /** Tracked: the signals it reads decide when the loader re-runs. Returning undefined puts the resource in the idle state. */
     params: () => P | undefined;
-    /** Untracked: fetches the value for the given params. A retry or a reload runs it outside any owner, so it ties cleanup to `abort`, not `onDispose`. */
+    /** Untracked: fetches the value for the given params. A retry or a reload runs it outside any owner, so it ties cleanup to `abort`, not `onDispose`. Every run, and `retryIf`, reads the context values provided where the resource was created. */
     loader: (context: LoaderContext<P>) => Promise<T>;
     /** How many milliseconds one run of the loader may take: when it passes, the run fails with `resource_timed_out` and its abort signal fires with that error. No limit by default, nor for a value that is not positive or that a timer cannot hold, about 24.8 days. */
     timeout?: number;
@@ -77,6 +77,8 @@ export function resource<P, T>(options: ResourceOptions<P, T>): Resource<T>
     let controller: AbortController | undefined;
     let generation = 0;
     let current: P | undefined;
+    /** The resource's value, made first: it records the context values provided where the resource is created, which a retry and a reload restore around the loader and `retryIf`, since they run outside the effect that carries them. */
+    const read = computed(() => value.get());
 
     const load = (params: P | undefined): void =>
     {
@@ -135,6 +137,7 @@ export function resource<P, T>(options: ResourceOptions<P, T>): Resource<T>
                 let again = n <= retries;
                 if (again && retryIf !== undefined)
                 {
+                    const provided = recall(read);
                     try
                     {
                         again = retryIf(outcome, n);
@@ -144,6 +147,7 @@ export function resource<P, T>(options: ResourceOptions<P, T>): Resource<T>
                         again = false;
                         outcome = thrown;
                     }
+                    restore(provided);
                 }
                 if (again)
                 {
@@ -181,6 +185,7 @@ export function resource<P, T>(options: ResourceOptions<P, T>): Resource<T>
                 }
             }
             let running: Promise<T>;
+            const provided = recall(read);
             try
             {
                 running = Promise.resolve(options.loader({ params, abort }));
@@ -189,6 +194,7 @@ export function resource<P, T>(options: ResourceOptions<P, T>): Resource<T>
             {
                 running = Promise.reject(thrown);
             }
+            restore(provided);
             running.then((result) => settle(true, result), (reason: unknown) => settle(false, reason));
         };
         batch(() =>
@@ -239,7 +245,7 @@ export function resource<P, T>(options: ResourceOptions<P, T>): Resource<T>
         return stop;
     });
 
-    return Object.assign(computed(() => value.get()), {
+    return Object.assign(read, {
         status,
         pending: computed(() => status.get() === "pending"),
         error,

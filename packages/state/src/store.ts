@@ -61,12 +61,6 @@ const raws: WeakMap<object, object> = new WeakMap();
 const fields: WeakMap<object, Map<PropertyKey, Signal<unknown>>> = new WeakMap();
 const KEYS: unique symbol = Symbol("keys");
 
-/** Whether a key names an object's prototype or its constructor, which a store never reads through, writes, or copies, so data cannot reach `Object.prototype`. */
-function unsafe(key: PropertyKey): boolean
-{
-    return key === "__proto__" || key === "constructor" || key === "prototype";
-}
-
 /** Whether a value is held in the store as fields: a plain object or array that is not frozen. Maps, Sets, class instances, frozen objects, and `Object.prototype` itself are values. */
 function plain(value: unknown): value is object
 {
@@ -122,7 +116,7 @@ const handler: ProxyHandler<object> = {
     get(raw, key)
     {
         const value: unknown = Reflect.get(raw, key);
-        if (Array.isArray(raw) || typeof key === "symbol" || !isTracking() || (!Object.hasOwn(raw, key) && key in raw))
+        if (Array.isArray(raw) || typeof key === "symbol" || key === "__proto__" || !isTracking())
         {
             return wrap(value);
         }
@@ -142,15 +136,40 @@ const handler: ProxyHandler<object> = {
     setPrototypeOf: refuse
 };
 
-/** Writes `value` to the field `key` of the object `raw` and wakes what reads it, and what reads its keys when the field is new. */
+/**
+ * Sets `key` of `target` as a field of its own; `own` says whether it
+ * holds one already. A name `target` only inherits is defined rather than
+ * assigned: an assignment would go to an inherited setter, and throws
+ * where the inherited member is read-only, as each is on a page that
+ * froze `Object.prototype`.
+ */
+function put(target: object, key: PropertyKey, value: unknown, own: boolean): void
+{
+    if (!own && key in target)
+    {
+        Object.defineProperty(target, key, { value, writable: true, enumerable: true, configurable: true });
+    }
+    else
+    {
+        (target as Record<PropertyKey, unknown>)[key] = value;
+    }
+}
+
+/**
+ * Writes `value` to the field `key` of the object `raw` and wakes what
+ * reads it, and what reads its keys when the field is new. `__proto__`
+ * names an object's prototype and never a field, so a store does not
+ * write, merge, or copy it; every other name is data, `constructor` and
+ * `prototype` included, since a write makes it the object's own field.
+ */
 function assign(raw: object, key: PropertyKey, value: unknown): void
 {
-    if (key === "__proto__" || key === "constructor" || key === "prototype")
+    if (key === "__proto__")
     {
         return;
     }
     const added = !Object.hasOwn(raw, key);
-    (raw as Record<PropertyKey, unknown>)[key] = value;
+    put(raw, key, value, !added);
     const map = fields.get(raw);
     map?.get(key)?.set(value);
     if (added)
@@ -159,16 +178,16 @@ function assign(raw: object, key: PropertyKey, value: unknown): void
     }
 }
 
-/** Removes the field `key` of the object `raw` and wakes what reads it and its keys. */
+/** Removes the field `key` of the object `raw` and wakes what reads it and its keys with what a read gives now: nothing, or what the object inherits under that name. */
 function remove(raw: object, key: PropertyKey): void
 {
-    if (key === "__proto__" || key === "constructor" || key === "prototype")
+    if (key === "__proto__")
     {
         return;
     }
     delete (raw as Record<PropertyKey, unknown>)[key];
     const map = fields.get(raw);
-    map?.get(key)?.set(undefined);
+    map?.get(key)?.set((raw as Record<PropertyKey, unknown>)[key]);
     map?.get(KEYS)?.set({});
 }
 
@@ -188,7 +207,7 @@ function unwrap(value: unknown, seen: Set<object> = new Set()): unknown
     const record = value as Record<string, unknown>;
     for (const name of Object.keys(record))
     {
-        if (unsafe(name))
+        if (name === "__proto__")
         {
             continue;
         }
@@ -224,12 +243,14 @@ function merge(current: unknown, next: unknown, key: string | undefined): unknow
     const source = next as Record<string, unknown>;
     for (const name of Object.keys(source))
     {
-        if (unsafe(name))
+        if (name === "__proto__")
         {
             continue;
         }
-        const value = merge(target[name], source[name], key);
-        if (!Object.is(value, target[name]) || !Object.hasOwn(target, name))
+        const own = Object.hasOwn(target, name);
+        const held = own ? target[name] : undefined;
+        const value = merge(held, source[name], key);
+        if (!own || !Object.is(value, held))
         {
             assign(target, name, value);
         }
@@ -242,6 +263,36 @@ function merge(current: unknown, next: unknown, key: string | undefined): unknow
         }
     }
     return current;
+}
+
+/**
+ * The key a path gives for a field of `raw`. An item of an array is named
+ * by its index alone, a whole number from 0 an array can hold, or the same
+ * as a string, since any other key would become a property of the array
+ * that no list shows, and `constructor` one that breaks every later copy
+ * of it. A field of an
+ * object is named by the property name the key stands for, so `5` names
+ * the field a view reads as `"5"`, and no value that turns into
+ * `__proto__`, which names a prototype rather than a field, passes for
+ * another name.
+ */
+function keyOf(raw: object, given: unknown): PropertyKey
+{
+    if (Array.isArray(raw))
+    {
+        const index = typeof given === "number" ? given : typeof given === "string" ? Number(given) : NaN;
+        if (!Number.isInteger(index) || index < 0 || index >= 2 ** 32 - 1 || (typeof given === "string" && String(index) !== given))
+        {
+            throw new TypeError(`a store path names an item of an array by its index, a whole number from 0, and was given ${String(given)}`);
+        }
+        return index;
+    }
+    const key = typeof given === "symbol" ? given : String(given);
+    if (key === "__proto__")
+    {
+        throw new TypeError("a store path cannot go through __proto__, which names a prototype rather than a field");
+    }
+    return key;
 }
 
 /** What the setter writes for `next` where the path holds `current`. */
@@ -258,16 +309,15 @@ function resolve(next: unknown, current: unknown): unknown
  * Writes `next` at `path` below `raw`, from the key at `index` on, and
  * returns `raw`, or a copy of it when `raw` is an array whose item
  * changed: an object changes in place, field by field, and an array is
- * replaced, so whatever reads the list sees a new one.
+ * replaced, so whatever reads the list sees a new one. A path goes only
+ * through fields an object holds itself, never through what it inherits,
+ * so no path reaches a built-in object.
  */
 function write(raw: object, path: readonly PropertyKey[], index: number, next: unknown): object
 {
-    const key = path[index] as PropertyKey;
-    if (unsafe(key))
-    {
-        throw new TypeError(`a store path cannot go through ${String(key)}, which names a prototype rather than a field`);
-    }
-    const current = (raw as Record<PropertyKey, unknown>)[key];
+    const key = keyOf(raw, path[index]);
+    const own = Object.hasOwn(raw, key);
+    const current = own ? (raw as Record<PropertyKey, unknown>)[key] : undefined;
     let value: unknown;
     if (index === path.length - 1)
     {
@@ -281,14 +331,14 @@ function write(raw: object, path: readonly PropertyKey[], index: number, next: u
         }
         value = write(current, path, index + 1, next);
     }
-    if (Object.is(value, current) && (Array.isArray(raw) || Object.hasOwn(raw, key)))
+    if (Object.is(value, current) && (own || Array.isArray(raw)))
     {
         return raw;
     }
     if (Array.isArray(raw))
     {
         const replaced = raw.slice();
-        replaced[key as number] = value;
+        put(replaced, key, value, own);
         return replaced;
     }
     assign(raw, key, value);
@@ -369,9 +419,9 @@ function copy(value: unknown, seen: Map<object, unknown>): unknown
     seen.set(value, record);
     for (const [name, inner] of Object.entries(value))
     {
-        if (!unsafe(name))
+        if (name !== "__proto__")
         {
-            record[name] = copy(inner, seen);
+            put(record, name, copy(inner, seen), false);
         }
     }
     return record;

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { type Diagnostic, computed, context, each, effect, html, onDiagnostic, onDispose, render, signal, when } from "zerolith";
+import { type Diagnostic, type View, computed, context, each, effect, html, onDiagnostic, onDispose, render, signal, when } from "zerolith";
 import { define } from "zerolith/element";
 import { renderToString } from "zerolith/ssr";
 
@@ -204,8 +204,9 @@ describe("define", () =>
         });
         define("zl-broken", {
             props: [],
-            view: () =>
+            view: (_props, element) =>
             {
+                document.body.append(element.firstChild as Node);
                 throw new Error("the view failed");
             }
         });
@@ -231,6 +232,7 @@ describe("define", () =>
         window.removeEventListener("error", onError);
         expect(failures).toHaveLength(1);
         expect(broken.textContent).toBe("Still here");
+        expect(broken.firstChild?.parentNode).toBe(broken);
     });
 
     it("drops what the parser adds after a script ran before the page finished parsing, and leaves the view's own updates", () =>
@@ -895,6 +897,145 @@ describe("define", () =>
         expect(seen).toEqual([]);
     });
 
+    it("puts back what the tag held when its view throws on a later connect, and renders again once it does not", () =>
+    {
+        let fail = false;
+        define("zl-failing-later", {
+            props: [],
+            view: ({ children }) =>
+            {
+                if (fail)
+                {
+                    throw new Error("the view failed later");
+                }
+                return html`<p>${children}</p>`;
+            }
+        });
+        host = document.createElement("div");
+        document.body.append(host);
+        const element = document.createElement("zl-failing-later");
+        element.textContent = "Fallback";
+        const moved = document.createElement("section");
+        host.append(moved, element);
+        expect(element.querySelector("p")?.textContent).toBe("Fallback");
+        const failures: unknown[] = [];
+        const onError = (event: ErrorEvent): void =>
+        {
+            failures.push(event.message);
+            event.preventDefault();
+        };
+        window.addEventListener("error", onError);
+        fail = true;
+        moved.append(element);
+        window.removeEventListener("error", onError);
+        expect(failures).toHaveLength(1);
+        expect(element.querySelector("p")).toBeNull();
+        expect(element.textContent).toBe("Fallback");
+        fail = false;
+        host.append(element);
+        expect(element.querySelector("p")?.textContent).toBe("Fallback");
+        expect(element.textContent).toBe("Fallback");
+    });
+
+    it("keeps the members the renderer works through under a prop of their name, which assigning still sets, and replaces any other as before", () =>
+    {
+        const seen: Diagnostic[] = [];
+        const off = onDiagnostic((d) => seen.push(d));
+        define("zl-shadowing", {
+            props: ["append", "childNodes", "connectedCallback", "ELEMENT_NODE", "before", "dataset", "nodeValue", "constructor", "label", "label", "append", "connectedCallback"],
+            view: ({ append, childNodes, connectedCallback, label }) => html`<span>${computed(() => [append.get(), childNodes.get(), connectedCallback.get(), label.get()].map(String).join(" "))}</span>`
+        });
+        host = document.createElement("div");
+        document.body.append(host);
+        const element = document.createElement("zl-shadowing");
+        const assigned = element as unknown as Record<string, unknown>;
+        element.setAttribute("append", "fed");
+        host.append(element);
+        off();
+        assigned["childNodes"] = "set";
+        assigned["connectedCallback"] = "called";
+        assigned["label"] = "named";
+        const span = element.querySelector("span");
+        expect(span?.textContent).toBe("fed set called named");
+        assigned["append"] = "assigned";
+        expect(span?.textContent).toBe("assigned set called named");
+        expect(element.childNodes).toBeInstanceOf(NodeList);
+        expect(element.firstChild).toBe(span);
+        expect(element.ELEMENT_NODE).toBe(1);
+        expect(Object.keys(element)).toEqual([]);
+        assigned["before"] = "first";
+        assigned["dataset"] = "data";
+        assigned["nodeValue"] = "value";
+        assigned["constructor"] = "made";
+        expect([assigned["label"], assigned["before"], assigned["dataset"], assigned["nodeValue"], assigned["constructor"]]).toEqual(["named", "first", "data", "value", "made"]);
+        const count = element.childNodes.length;
+        element.append("more");
+        expect(element.childNodes).toHaveLength(count + 1);
+        const native = Object.getOwnPropertyDescriptor(Element.prototype, "append") as PropertyDescriptor;
+        const patched = function patched(this: Element, ...nodes: (Node | string)[]): void
+        {
+            (native.value as (...nodes: (Node | string)[]) => void).apply(this, nodes);
+        };
+        Object.defineProperty(Element.prototype, "append", { ...native, value: patched });
+        try
+        {
+            expect(element.append).toBe(patched);
+        }
+        finally
+        {
+            Object.defineProperty(Element.prototype, "append", native);
+        }
+        const other = document.createElement("section");
+        host.append(other);
+        other.append(element);
+        expect(element.querySelector("span")?.textContent).toBe("assigned set called named");
+        element.remove();
+        expect(element.querySelector("span")).toBeNull();
+        expect(seen).toEqual([]);
+    });
+
+    it("leaves a child a script moved elsewhere in the page where it shows, and takes back one out of the page, when its view throws on a later connect", () =>
+    {
+        let fail = false;
+        define("zl-failing-moved", {
+            props: [],
+            view: ({ children }) =>
+            {
+                if (fail)
+                {
+                    throw new Error("the view failed after a child moved");
+                }
+                return html`<p>${children}</p>`;
+            }
+        });
+        host = document.createElement("div");
+        document.body.append(host);
+        const element = document.createElement("zl-failing-moved");
+        const first = document.createElement("b");
+        const second = document.createElement("i");
+        const third = document.createElement("u");
+        element.append(first, second, third);
+        const elsewhere = document.createElement("section");
+        const aside = document.createElement("div");
+        host.append(elsewhere, element);
+        element.remove();
+        elsewhere.append(first);
+        aside.append(third);
+        const failures: unknown[] = [];
+        const onError = (event: ErrorEvent): void =>
+        {
+            failures.push(event.message);
+            event.preventDefault();
+        };
+        window.addEventListener("error", onError);
+        fail = true;
+        host.append(element);
+        window.removeEventListener("error", onError);
+        expect(failures).toHaveLength(1);
+        expect(first.parentNode).toBe(elsewhere);
+        expect([...element.childNodes]).toEqual([second, third]);
+    });
+
     it("feeds a prop named like a native property into its signal, replacing the native one", () =>
     {
         define("zl-titled", {
@@ -907,6 +1048,7 @@ describe("define", () =>
         expect(element.querySelector("span")?.textContent).toBe("from attribute");
         (element as HTMLElement & { title: unknown }).title = "from property";
         expect(element.querySelector("span")?.textContent).toBe("from property");
+        expect(element.title).toBe("from property");
         expect(element.getAttribute("title")).toBe("from attribute");
         element.remove();
     });
@@ -918,5 +1060,121 @@ describe("define", () =>
         host.innerHTML = "<zl-greeting></zl-greeting>";
         document.body.append(host);
         expect(host.querySelector("p")?.textContent).toBe("Hello stranger, 0");
+    });
+});
+
+const append = Node.prototype.appendChild;
+const removeChild = Node.prototype.removeChild;
+const text = Object.getOwnPropertyDescriptor(Node.prototype, "textContent")?.get as (this: Node) => string;
+const query = Element.prototype.querySelectorAll;
+const attribute = Element.prototype.getAttribute;
+const dispatch = EventTarget.prototype.dispatchEvent;
+
+/** Every member name an HTML element has, own or inherited, and the callbacks `define` gives it, less `children`, which a prop takes over by design. */
+function members(): string[]
+{
+    const names: Set<string> = new Set();
+    for (let at: object | null = HTMLElement.prototype; at !== null; at = Object.getPrototypeOf(at) as object | null)
+    {
+        for (const name of Object.getOwnPropertyNames(at))
+        {
+            names.add(name);
+        }
+    }
+    for (const name of ["connectedCallback", "disconnectedCallback", "attributeChangedCallback"])
+    {
+        names.add(name);
+    }
+    names.delete("children");
+    return [...names];
+}
+
+/** A template built from strings made at run time, as `html` takes them from a literal. */
+function built(strings: string[], ...values: unknown[]): View
+{
+    return html(Object.assign([...strings], { raw: [...strings] }) as unknown as TemplateStringsArray, ...values);
+}
+
+describe("define with a prop named after a member of the element", () =>
+{
+    it("renders, moves, and updates alone and as a row of another view, whatever member the prop is named after", () =>
+    {
+        const failed: Record<string, string> = {};
+        const errors: string[] = [];
+        const onError = (event: ErrorEvent): void =>
+        {
+            errors.push(event.message);
+            event.preventDefault();
+        };
+        window.addEventListener("error", onError);
+        const page = document.createElement("div");
+        append.call(document.body, page);
+        members().forEach((name, index) =>
+        {
+            const tag = `zl-member-${index}`;
+            errors.length = 0;
+            try
+            {
+                define(tag, { props: [name], view: ({ children }) => html`<p>${children}</p>` });
+                const alone = document.createElement(tag);
+                append.call(alone, document.createTextNode("held"));
+                const first = document.createElement("div");
+                const second = document.createElement("div");
+                append.call(page, first);
+                append.call(page, second);
+                append.call(first, alone);
+                const shown = (): string => `${query.call(alone, "p").length}:${text.call(alone)}`;
+                const steps = [shown()];
+                append.call(second, alone);
+                steps.push(shown());
+                removeChild.call(second, alone);
+                append.call(first, alone);
+                steps.push(shown());
+                if (steps.join() !== "1:held,1:held,1:held")
+                {
+                    throw new Error(`alone ${steps.join()}`);
+                }
+                const rows = signal([1, 2, 3]);
+                const label = signal("a");
+                let clicks = 0;
+                const outer = document.createElement("div");
+                append.call(page, outer);
+                const root = render(html`<ul>${each(rows, (row) => row, () => built([`<${tag} title=`, " @click=", `>row</${tag}>`], label, () =>
+                {
+                    clicks += 1;
+                }))}</ul>`, outer);
+                const inside = (): string => [...query.call(outer, tag)].map((element) => `${attribute.call(element, "title") ?? ""}/${text.call(element)}`).join();
+                const seen = [inside()];
+                rows.set([1, 2, 3, 4]);
+                rows.set([4, 3, 2, 1]);
+                label.set("b");
+                seen.push(inside());
+                const target = query.call(outer, tag)[0] as Element;
+                dispatch.call(target, new MouseEvent("click", { bubbles: true }));
+                rows.set([2]);
+                seen.push(inside());
+                label.set(undefined as unknown as string);
+                seen.push(inside());
+                rows.set([]);
+                seen.push(inside());
+                root.dispose();
+                const wanted = ["a/row,a/row,a/row", "b/row,b/row,b/row,b/row", "b/row", "/row", ""];
+                if (seen.join("|") !== wanted.join("|") || clicks !== 1)
+                {
+                    throw new Error(`inside ${seen.join("|")} clicks ${clicks}`);
+                }
+                if (errors.length > 0)
+                {
+                    throw new Error(`reported ${errors[0] ?? ""}`);
+                }
+            }
+            catch (error)
+            {
+                failed[name] = `${error instanceof Error ? error.message : String(error)}${errors.length > 0 ? ` [${errors[0] ?? ""}]` : ""}`.slice(0, 160);
+            }
+        });
+        window.removeEventListener("error", onError);
+        removeChild.call(document.body, page);
+        expect(failed).toEqual({});
     });
 });
