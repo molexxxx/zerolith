@@ -10,6 +10,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Changed
 
+- Docs: the building and serving guide teaches the unbundled output in full, right after the bundled one: what an import map is, what `zerolith build --unbundled` writes and why, the page it produces, how its addresses cache, the policy header it needs, packages from elsewhere, a page with no build command through `zerolith importmap`, and a table for choosing between the two outputs. First paint has a section of its own, and the introduction and the command line guide link to the section.
 - The budget for the core's modules served unbundled grows by 128 B, to 15,744 B after gzip, for the resource fix under Fixed; the bundled core stays inside its 12,032 B.
 - The benchmarks workflow measures each release in three sessions on three GitHub-hosted runners at once and publishes each result's median over them, through a new `npm run bench:combine`. The same code had scored 1.13 and then 1.09 on two runners, and on a third the order of two entries reversed, so one session decided the ranking as much as the code did.
 

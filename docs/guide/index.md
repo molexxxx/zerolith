@@ -59,7 +59,7 @@ zerolith dev
 | Starting point | The starter | `--example fullstack` for an app with its own Node backend |
 | Language | TSX: TypeScript with JSX | `--template ts` for TypeScript with `html` templates, `--template jsx`, or `--template js` for JavaScript with `html` templates |
 | Dev server and build | The zerolith command line | `--vite` for Vite with `@zerolith/vite` |
-| Production output | One minified bundle | `--buildless` for the modules behind an import map |
+| Production output | One minified bundle | `--buildless` for [the modules behind an import map](deploying.md#unbundled-output) |
 | Inspector | Included | `--no-devtools` |
 | Skill for coding agents | Included | `--no-skill` |
 | Dependencies | Installed | `--no-install` |

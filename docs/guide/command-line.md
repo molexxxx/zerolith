@@ -264,7 +264,7 @@ The output folder is emptied first when it is inside the project. One outside th
 
 ### Unbundled output
 
-`--unbundled` writes the buildless output instead, for a project served with an import map in production. No bundler runs: the output is the project's modules, served as they are.
+`--unbundled` writes the buildless output instead, for a project served with an import map in production. No bundler runs: the output is the project's modules, served as they are. The [deploying guide](deploying.md#unbundled-output) walks through the output, its caching, and the policy header it needs; the rules the build follows are these:
 
 - Every file under the project is copied into the output folder, except `node_modules`, `dist`, `target`, `test`, hidden folders and files, declaration files (`*.d.ts`), and the development files: `package.json`, `tsconfig.json`, `zerolith.json`, `AGENTS.md`, `README.md`, and `*.config.*`. Two sources that would write one output file, such as `utils.ts` beside a stale `utils.js`, fail the build with both names. A folder `zerolith importmap` wrote, which its `importmap.json` marks, is copied as it is, so a package vendored by hand next to the zerolith ones keeps the integrity hash the page's map gives it; under the project's own `vendor/`, the zerolith packages and `importmap.json` are not copied, since the build writes them anew.
 - `.ts`, `.tsx`, `.jsx`, and `.mts` sources are transformed to JavaScript the same way `dev` serves them and renamed to `.js`, and the relative imports that named them, static and dynamic, are rewritten to `.js`, as are the module scripts in HTML pages.

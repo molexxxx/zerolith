@@ -1,6 +1,6 @@
 ---
 title: Building and serving
-description: "What zerolith build writes and how to serve it: static hosts, web servers, a backend's own static files, a path under a domain, caching, and a backend next to the dev server."
+description: "What zerolith build writes and how to serve it: a bundle or the modules behind an import map, static hosts, web servers, a backend's own static files, a path under a domain, caching, and a backend next to the dev server."
 order: 13
 group: Tooling
 ---
@@ -34,9 +34,193 @@ Every file under `assets/` has a content hash in its name, so a changed file get
 | `assets/<name>-<hash>.<ext>` | Images, fonts, and other files the code or the stylesheets reference |
 | Everything from `public/` | Copied as it is, at the same paths |
 
-A widget for other sites' pages is one script with a name that stays the same, which [`zerolith build --entry`](command-line.md#one-script) writes instead of all of this.
+A widget for other sites' pages is one script with a name that stays the same, which [`zerolith build --entry`](command-line.md#one-script) writes instead of all of this. An application can also ship with no bundle at all, as its own modules behind an import map, which [Unbundled output](#unbundled-output) covers next.
 
 The [command line guide](command-line.md) describes the build's options; `zerolith preview` serves `dist/` as a host would, which is the quickest check before deploying.
+
+## Unbundled output
+
+`zerolith build --unbundled` writes the application without bundling it. Every module in the project becomes one JavaScript file that the browser loads as it is, the zerolith packages are copied in beside them, and each page gets an import map that tells the browser where everything lives. One command sets all of it up, with no map to write by hand and nothing to configure:
+
+```sh
+zerolith build --unbundled
+zerolith preview
+```
+
+A project started with `zerolith new my-app --buildless` runs the first as `npm run build`. Any project on the zerolith command line can build either way from the same source: `zerolith dev` is the same for both, and only the production output differs.
+
+There are three reasons to choose it. The browser runs the files you wrote, one for one, so what you read in its developer tools is your own module and not a chunk. A deployment makes the browser download only the modules that changed. And the output stays correct on a host whose cache time you cannot set.
+
+### What an import map is
+
+A browser can load `import { Layout } from "./components/layout.js"` on its own, because that name is an address. It cannot load `import { html } from "zerolith"`, because `zerolith` is the name of a package, and resolving such names is the first thing a bundler does. An import map does the same job in the browser: it is a block of JSON in the page that gives each name its address.
+
+```html
+<script type="importmap">
+{
+    "imports": {
+        "zerolith": "/vendor/zerolith@1.10.0/dist/production/index.js"
+    }
+}
+</script>
+```
+
+With that in the page, `import { html } from "zerolith"` loads the file the map names, and the source runs as written. Import maps work in every [browser zerolith supports](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md). You do not write this map: the build writes it into every page.
+
+### What it writes
+
+This is the starter that `zerolith new my-app --buildless` writes, built:
+
+```tree
+dist/
+    index.html                      the page, with the import map and preloads
+    favicon.svg                     from public/
+    data/packages.json              from public/
+    src/
+        main.js                     main.ts as JavaScript
+        router.js
+        routes.js
+        styles.css
+        components/
+            counter.js              counter.tsx as JavaScript
+            home.js
+            layout.js
+            not-found.js
+            packages.js
+    vendor/
+        zerolith@1.10.0/            the core, each module minified on its own
+        @zerolith/router@1.10.0/
+        @zerolith/devtools@1.10.0/  the inspector's empty production entry
+        importmap.json              the packages' entries of the import map
+```
+
+Each row below is something the build does so that the source needs no bundler:
+
+| The build | So that |
+| --- | --- |
+| Turns each `.ts`, `.tsx`, `.jsx`, and `.mts` source into a `.js` file and points the imports and the page's script at it | TypeScript and JSX work unbundled, with one readable output file for each source file |
+| Copies the zerolith packages the pages import into `vendor/`, each in a folder named for its version, minified one module at a time | The site serves its own copy of every package and depends on no CDN |
+| Writes the import map into every page, nested ones such as `about/index.html` included | The browser finds every package and every module |
+| Adds a `modulepreload` link for each module a page loads when it starts | The browser fetches them in parallel instead of finding them one import at a time |
+| Prepares every `html` template, as the bundled build does | The browser binds templates without scanning them |
+| Turns an import of a stylesheet, a JSON file, an image, or a file with `?scoped`, `?url`, or `?raw` into a small module beside the file | Those imports work as they do under `zerolith dev` |
+| Replaces the `import.meta.env` values, and copies `public/` and the project's other files | The output is complete, and any static host serves it |
+
+The package modules keep their source maps, except the few the template pass rewrites, so the browser's developer tools still show their source. The [command line guide](command-line.md#unbundled-output) lists every rule the build follows, such as the files it leaves out.
+
+### The page it writes
+
+The output's `index.html` is the project's page with an import map, preload links, and hashed addresses added. This is the starter's, shortened to a few entries and laid out for reading:
+
+```html wide
+<link rel="stylesheet" href="/src/styles.css?v=2d282cd7">
+<script type="importmap">
+{
+    "imports": {
+        "/src/main.js": "/src/main.js?v=53f57b50",
+        "/src/router.js": "/src/router.js?v=bf67ff3b",
+        "zerolith": "/vendor/zerolith@1.10.0/dist/production/index.js",
+        "@zerolith/router": "/vendor/@zerolith/router@1.10.0/dist/production/index.js"
+    },
+    "integrity": {
+        "/vendor/zerolith@1.10.0/dist/production/index.js": "sha256-IoFFNwGB7IgswZO1Md9q2lyir3nmFCIUv/VDYz3A7To="
+    }
+}
+</script>
+<link rel="modulepreload" href="/src/router.js?v=bf67ff3b" data-zerolith-preload>
+<script type="module" src="/src/main.js?v=53f57b50"></script>
+```
+
+| Entry | What it does |
+| --- | --- |
+| `"zerolith"` | Gives a package name its address. The folder names the version, so a version's files never change |
+| `"/src/router.js"` | Gives one of the project's own modules an address that carries a hash of its content. The modules still import each other as `./router.js`, and the map adds the hash when the browser resolves the import, so no file is rewritten |
+| `"integrity"` | Holds the hash of each package module. The browser refuses to run a file that does not match, and each preload link of a package module carries the same hash |
+
+`data-zerolith-preload` marks the links the command line wrote, so the next run replaces them and leaves the page's own links alone.
+
+### Caching
+
+Those addresses make the output safe to cache anywhere. A module that changes gets a new address, and a module that does not change keeps its address and stays in the browser's cache:
+
+| File | Address | When it changes |
+| --- | --- | --- |
+| A package module | `/vendor/zerolith@1.10.0/...` | Never; a new version of the package gets a new folder |
+| A module of the project, or a stylesheet the page links | `/src/main.js?v=53f57b50` | The hash changes, and the address with it |
+| A file a module refers to, such as an image or a stylesheet it imports | `/src/logo.svg` | In place, at the same address; only the bundled build gives these a hash |
+| `index.html` | `/` | With every build |
+
+A browser therefore never runs an old copy of one module beside a new copy of another, and nothing has to be served with `no-cache` for the modules to stay current. That suits a host that sets its own cache time, such as GitHub Pages. On a server you control, `index.html` keeps the rule from the top of this page, `no-cache`, so a new build is picked up at once.
+
+### Content-Security-Policy
+
+The import map is an inline script, and a strict policy such as `default-src 'self'` blocks inline scripts. With the map blocked the browser cannot resolve `zerolith`, and the page loads no module. Allow the map by its hash, which the build prints:
+
+```text wide
+  Policy    'sha256-mzY++jR4h1KDxAS5CJLXwqe2kBDv3avFEn8t3IH0dRE=' in script-src allows the import map; it changes with the modules
+```
+
+The header that allows it:
+
+```http wide
+Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-mzY++jR4h1KDxAS5CJLXwqe2kBDv3avFEn8t3IH0dRE='
+```
+
+A site with several pages gets one line for each map that differs, with the pages it belongs to.
+
+> [!IMPORTANT]
+> The map names each module's address, so its text, and with it the hash, changes with most builds. A policy that names the hash has to take it from each build's output. A server that writes a nonce into the script element and into the policy can allow the map that way instead. The bundled build has no inline script, so its policy never changes.
+
+### Other packages
+
+The build vendors the zerolith packages and no others. A package from elsewhere needs two things: an install with npm, so `zerolith dev`, the editor, and the tests find it in `node_modules`, and an address in an import map of your own in the project's `index.html`, before the module script, so the browser finds it in production:
+
+```html
+<script type="importmap">
+{
+    "imports": {
+        "nanoid": "/lib/nanoid.js"
+    }
+}
+</script>
+<script type="module" src="/src/main.ts"></script>
+```
+
+The address is a copy of the package's ES module kept in the project, as here, or a CDN address that names an exact version. Put the version in a copy's name, as the build does under `vendor/`, so an upgrade gets a new address. The build keeps your entries and adds its own, and it warns of an import that no entry covers:
+
+```text wide
+  warning   src/main.ts imports nanoid, which no import map entry covers, so the browser cannot load it: install it if it is a zerolith package, or map it in the page's <script type="importmap">
+```
+
+`@zerolith/otel` needs the same, since it imports `@opentelemetry/api`: map both. An application with many such packages is simpler bundled, where `zerolith build` resolves all of them from `node_modules`.
+
+### A page with no build command
+
+Some pages have no build to run: a page that a backend's template or a static site generator writes, or a folder of plain JavaScript deployed as it is. `zerolith importmap` does the import map part on its own, in place:
+
+```sh
+zerolith importmap --html index.html
+```
+
+It copies the zerolith packages the page imports into `vendor/` beside the page and writes the import map and the preload links into the page, so any static server runs the folder with nothing else done to it. Commit `vendor/` with the page, and run the command again after upgrading a package. `zerolith doctor` reports a vendored package that is behind the installed one and a file that no longer matches its hash.
+
+The page's modules have to be ones a browser runs as written: JavaScript with `html` templates and relative imports that name their files. What the build would have handled is out: TypeScript, JSX, `import.meta.env`, and imports of stylesheets or JSON. The [command line guide](command-line.md#importmap) covers the command.
+
+### Choosing between the two
+
+Both outputs come from the same source, so the choice is one word in the project's `build` script and can change at any time.
+
+| | `zerolith build` | `zerolith build --unbundled` |
+| --- | --- | --- |
+| What the browser loads | A few minified files; the starter's first load is 4 requests | One file for each module, fetched in parallel; the starter's first load is 30 requests |
+| The project's own code | Minified, tree-shaken, and merged into chunks | Readable, one file for each source file |
+| After a deployment | The browser downloads the chunks that changed | The browser downloads the modules that changed |
+| Caching | By file name: `assets/` for a year, `index.html` checked on every visit | By address: correct under whatever cache time the host sets |
+| Other packages | Resolved from `node_modules` | Each needs an entry in the page's import map |
+| A path under the domain | `base` in `zerolith.json` | The output is served from the root; an application under a path needs the bundled build |
+| Content-Security-Policy | `default-src 'self'`, the same for every build | The import map's hash or a nonce in `script-src`, new with most builds |
+
+Serve the unbundled output over HTTP/2 or HTTP/3, as static hosts and CDNs do. Its many small requests share one connection there, while over HTTP/1.1 a browser opens only a few connections to a server and the modules wait their turn. The routing rule at the top of this page applies to both outputs.
 
 ## A path under the domain
 
@@ -209,17 +393,9 @@ zerolith needs neither `unsafe-eval` nor inline scripts, so a strict policy such
 > [!NOTE]
 > A server-rendered page that writes `renderStyles()` into its head adds `<style>` elements, which need a nonce or `'unsafe-inline'` in `style-src`.
 
-## Unbundled output
+The unbundled output adds one inline script, its import map, which the policy has to allow by a hash or a nonce, as [Content-Security-Policy](#content-security-policy) above describes.
 
-`zerolith build --unbundled` writes the modules as they are, with the zerolith packages in `vendor/` behind an import map with integrity hashes. The packages' production modules are minified one at a time, and each that the build's template pass leaves as published keeps its source map; the application's own modules are served as written. A third-party package needs an entry in the page's own import map, which the build keeps; it warns of a bare import no entry covers. The same routing rule applies.
-
-Nothing has to be served with `no-cache` for the modules to stay current, so this works on a host that sets its own cache time, such as GitHub Pages. Each package's folder names its version, as `vendor/zerolith@1.3.0/`, and a version's files never change, so a browser's old copy never meets a new integrity hash. Each of the application's own modules is at an address carrying its hash, as `/src/app.js?v=x7f2k9`: the import map resolves it, so no module is rewritten, and a module that did not change keeps its address and stays cached. The page's stylesheets get the same. Files the modules refer to, such as images and stylesheets they import, keep their addresses, and only the bundled build gives those a hash.
-
-> [!IMPORTANT]
-> The import map is an inline script, so the policy `default-src 'self'` blocks it and the page loads no module. Allow it in `script-src` by a nonce the server adds to the script element, or by the hash of its text, `'sha256-...'`. The map names each module's address, so `zerolith build --unbundled` changes its text, and so its hash, with most changes to the code. The build prints the hash to allow each time, and a policy that pins one has to take it from each build, or the page loads no module. The bundled build needs no inline script, so its policy never changes.
-
-> [!NOTE]
-> The unbundled output is served from the root; an application under a path needs the bundled build.
+## First paint
 
 A page that renders its application in the browser paints its static shell first, then the application replaces it, which moves the layout, and a page that does this on every load scores a layout shift every time. `blocking="render"` on the entry module script, which must be in the document's head to block anything, holds the first paint until the module ran, so the page paints once, with the application in it:
 
@@ -227,4 +403,4 @@ A page that renders its application in the browser paints its static shell first
 <script type="module" src="/src/main.js" blocking="render"></script>
 ```
 
-Chrome and Edge from 105 and Safari from 18.2 honor the attribute; Firefox did not at the time of writing, and a browser that does not know it ignores it and paints the shell as before, so nothing breaks. The wait is the time the module and its imports take to load and run, which the preload links `zerolith importmap --html` writes keep to one round trip. A page the server renders needs none of this, since its first paint already holds the application.
+Chrome and Edge from 105 and Safari from 18.2 honor the attribute; Firefox did not at the time of writing, and a browser that does not know it ignores it and paints the shell as before, so nothing breaks. The wait is the time the module and its imports take to load and run, which the preload links that `zerolith build`, its `--unbundled` output, and `zerolith importmap --html` write keep to one round trip. A page the server renders needs none of this, since its first paint already holds the application.
