@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Diagnostic, type ReadableSignal, type Renderable, type Root, type View, ZerolithError, boundary, computed, context, each, effect, html, onDiagnostic, onDispose, render, signal, unsafeHtml, when } from "zerolith";
 import { type DevtoolsHook, devtoolsInternal, prepared, scan } from "zerolith/internal";
+import { withoutComments } from "./markup.js";
 
 let root: Root | undefined;
 let host: HTMLElement | undefined;
@@ -1126,7 +1127,7 @@ describe("each", () =>
         const items = signal([7]);
         const list = mount(html`<ul>${each(items, (item) => item, (item) => html`<li class="row ${tone} end" data-id=${item.get()} ?hidden=${hidden} .title=${"tip"} ref=${held} @click=${() => clicks.push("li")}><b>${7n}</b><i>${label}</i><s>${null}</s><em @click=${once} @keydown=${null}>${html`<q>${label}</q>`}</em><span>${[1, "two"]}</span><p>${extra}</p>tail ${"text"}</li>`)}</ul>`);
         const row = list.querySelector("li") as HTMLLIElement;
-        expect(row.outerHTML.replace(/<!--.*?-->/g, "")).toBe("<li class=\"row calm end\" data-id=\"7\" title=\"tip\"><b>7</b><i>first</i><s></s><em><q>first</q></em><span>1two</span><p><u></u></p>tail text</li>");
+        expect(withoutComments(row.outerHTML)).toBe("<li class=\"row calm end\" data-id=\"7\" title=\"tip\"><b>7</b><i>first</i><s></s><em><q>first</q></em><span>1two</span><p><u></u></p>tail text</li>");
         expect(held.get()).toBe(row);
         tone.set("loud");
         label.set("second");
@@ -1184,7 +1185,7 @@ describe("each", () =>
         expect(list.querySelector("b")?.className).toBe("loud");
         expect(list.querySelector("s")?.textContent).toBe("loud");
         const between = mount(html`<ul>${each([1], (item) => item, () => html`<li><i ref=${crowd}></i>${"plain"} and ${tone}</li>`)}</ul>`);
-        expect(between.querySelector("li")?.innerHTML.replace(/<!--.*?-->/g, "")).toBe("<u></u>loose text<i></i><u></u>plain<u></u> and loud");
+        expect(withoutComments(between.querySelector("li")?.innerHTML ?? "")).toBe("<u></u>loose text<i></i><u></u>plain<u></u> and loud");
     });
 
     it("updates the rows kept at either end of an update that swaps two rows", () =>
