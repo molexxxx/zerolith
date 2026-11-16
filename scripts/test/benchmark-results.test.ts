@@ -239,7 +239,12 @@ function framework(value: Record<string, unknown>): Record<string, unknown>
 /** The files the pin lives in. */
 const PIN_FILES = ["benchmarks/baseline", "benchmarks/js-framework-benchmark/package.json", "benchmarks/js-framework-benchmark/README.md", "docs/ROADMAP.md"];
 
-/** A copy of the given repository files under a new temporary root. */
+/**
+ * A copy of the given repository files under a new temporary root. Its
+ * baseline names the release the entry pins, as the repository's does from
+ * a release until a commit makes the core faster: the copy is no git
+ * repository, so nothing there can say whether a release holds a commit.
+ */
 async function copyRoot(paths: readonly string[] = PIN_FILES): Promise<string>
 {
     const root = await mkdtemp(join(tmpdir(), "zerolith-pin-"));
@@ -248,6 +253,8 @@ async function copyRoot(paths: readonly string[] = PIN_FILES): Promise<string>
         await mkdir(dirname(join(root, path)), { recursive: true });
         await copyFile(fileURLToPath(new URL(`../../${path}`, import.meta.url)), join(root, path));
     }
+    const entry = JSON.parse(await readFile(join(root, "benchmarks/js-framework-benchmark/package.json"), "utf8")) as { dependencies: Record<string, string> };
+    await writeFile(join(root, "benchmarks/baseline"), `zerolith@${entry.dependencies["zerolith"] as string}\n`);
     return root;
 }
 
