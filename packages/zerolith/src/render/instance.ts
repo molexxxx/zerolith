@@ -7,7 +7,7 @@
 import { describe, isNothing, isText } from "../binding.js";
 import { fail } from "../diagnostics.js";
 import { type Disposable, type Sink, createOwner, isSignal, recall, restore, startBinding, startEffect } from "../signals.js";
-import { CHILD, type PartSpec, type Prepared, prepare, trusted, walker } from "../template.js";
+import { CHILD, EVENT, PROPERTY, type PartSpec, type Prepared, REF, prepare, trusted, walker } from "../template.js";
 import { elementPart } from "./attributes.js";
 import { anchorBefore, isStart, matchingEnd, mismatch, removeUntil } from "./markers.js";
 import { type BoundPart, type Controller, Directive, RawHtml, TemplateResult } from "./view.js";
@@ -35,8 +35,26 @@ export class Instance
         this.edges = edges;
     }
 
-    /** Clones the template and binds its parts. */
-    static create(strings: TemplateStringsArray, prepared: Prepared): Instance
+    /**
+     * Clones the template and makes a part for each expression, for `update`
+     * to bind. With `values`, it binds them to the copy in place of making
+     * parts, for a view that is shown once and never given other values, as
+     * a row of `each` is, whose template has no part at its top level, and
+     * returns the one top-level node in place of an instance when there is
+     * only one.
+     *
+     * Such values are bound in the order of their expressions, each as the
+     * walk reaches its node. The walk counts child nodes, so nothing may
+     * change the copy before it ends, and only the application's code
+     * could, through one of the copy's nodes: the copy is in no document,
+     * so that code gets a node only from a `ref`, a property's setter, a
+     * custom element's callback, or content a binding puts in the copy.
+     * From the first value that could give it one, a `ref`, a property, or
+     * content that is not plain text, the walk only finds the remaining
+     * nodes, and their values are bound once it ends; so are all the values
+     * of a copy that holds a custom element.
+     */
+    static create(strings: TemplateStringsArray, prepared: Prepared, values?: readonly unknown[]): Instance | ChildNode
     {
         const firstChild = firstChildOf ??= getter("firstChild");
         const nextSibling = nextSiblingOf ??= getter("nextSibling");
@@ -70,8 +88,14 @@ export class Instance
                 content = fragment;
             }
         }
-        const parts = new Array<BoundPart>(specs.length);
+        const parts = values === undefined ? new Array<BoundPart>(specs.length) : NONE;
+        /** For each part from `first` on, whose values are bound after the walk, its node and the node the walk stepped from to reach it. */
+        let found: Node[] | undefined;
+        let first = 0;
+        let offset = 0;
         let node: Node = top;
+        /** The node before `node` among its siblings when the walk stepped from it: the empty text node before a child part's marker. */
+        let prior: Node = top;
         let last: readonly number[] | undefined;
         for (let next = 0; next < specs.length; next++)
         {
@@ -84,23 +108,61 @@ export class Instance
                     node = firstChild.call(node) as Node;
                     for (let step = path[depth] as number; step > 0; step--)
                     {
+                        prior = node;
                         node = nextSibling.call(node) as Node;
                     }
                 }
                 last = path;
             }
             const spec = specs[next] as PartSpec;
-            if (spec.kind !== CHILD)
+            if (values === undefined)
             {
-                parts[next] = elementPart(node as Element, spec);
+                parts[next] = spec.kind !== CHILD
+                    ? elementPart(node as Element, spec)
+                    : unmarked[next] === true ? new ChildPart(null, node as Text) : new ChildPart(node as Comment, prior as Text);
             }
-            else if (unmarked[next] === true)
+            else if (found !== undefined)
             {
-                parts[next] = new ChildPart(null, node as Text);
+                found.push(node, prior);
+            }
+            else if (master === undefined || (spec.kind === CHILD ? !isText(values[offset]) : spec.kind === PROPERTY || spec.kind === REF))
+            {
+                found = [node, prior];
+                first = next;
             }
             else
             {
-                parts[next] = new ChildPart(node as Comment, node.previousSibling as Text);
+                const value = values[offset];
+                if (spec.kind === CHILD)
+                {
+                    ((unmarked[next] === true ? node : prior) as Text).data = String(value);
+                }
+                else if (spec.kind === EVENT && typeof value === "function")
+                {
+                    node.addEventListener(spec.name, value as EventListener);
+                }
+                else
+                {
+                    elementPart(node as Element, spec).bind(values, offset);
+                }
+                offset += spec.count;
+            }
+        }
+        if (values !== undefined)
+        {
+            if (found !== undefined)
+            {
+                for (let next = first; next < specs.length; next++)
+                {
+                    const spec = specs[next] as PartSpec;
+                    const at = (next - first) * 2;
+                    bindOnce(found[at] as Node, found[at + 1] as Node, spec, unmarked[next] === true, values, offset);
+                    offset += spec.count;
+                }
+            }
+            if (nodes === undefined)
+            {
+                return content as ChildNode;
             }
         }
         return new Instance(strings, parts, nodes, content, undefined, prepared.edges && fragment !== undefined ? edgesOf(parts, fragment) : undefined);
@@ -236,6 +298,41 @@ export class Instance
         {
             node.remove();
         }
+    }
+}
+
+/** The parts of an instance whose values were bound as it was created, which keeps none. */
+const NONE: BoundPart[] = [];
+
+/**
+ * Binds one value of a view that is shown once to its node: text and a
+ * function that handles an event are written to the node, and any other
+ * value gets a part that nothing holds once it is bound. `prior` is the
+ * empty text node before a child part's marker; a child part with no marker
+ * has that text node as its `node`.
+ */
+function bindOnce(node: Node, prior: Node, spec: PartSpec, lone: boolean, values: readonly unknown[], offset: number): void
+{
+    const value = values[offset];
+    if (spec.kind === CHILD)
+    {
+        const text = (lone ? node : prior) as Text;
+        if (isText(value))
+        {
+            text.data = String(value);
+        }
+        else
+        {
+            new ChildPart(lone ? null : node as Comment, text).set(value);
+        }
+    }
+    else if (spec.kind === EVENT && typeof value === "function")
+    {
+        node.addEventListener(spec.name, value as EventListener);
+    }
+    else
+    {
+        elementPart(node as Element, spec).bind(values, offset);
     }
 }
 
@@ -610,7 +707,7 @@ export class ChildPart implements BoundPart, Sink
             let instance: Instance;
             try
             {
-                instance = Instance.create(value.strings, prepare(value.strings));
+                instance = Instance.create(value.strings, prepare(value.strings)) as Instance;
                 instance.update(value.values);
             }
             finally

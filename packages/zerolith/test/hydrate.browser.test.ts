@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Diagnostic, type HydrateResult, type Renderable, type Signal, boundary, computed, context, each, html, hydrate, onDiagnostic, signal, unsafeHtml, when } from "zerolith";
+import { type Diagnostic, type HydrateResult, type Renderable, type Signal, boundary, computed, context, each, effect, html, hydrate, onDiagnostic, signal, unsafeHtml, when } from "zerolith";
 import { renderToString } from "zerolith/ssr";
 import { withoutComments } from "./markup.js";
 
@@ -133,6 +133,32 @@ describe("hydrate", () =>
 
         show.set(false);
         expect(el.querySelector("p")?.textContent).toBe("hidden");
+    });
+
+    it("stops the effects of the rows a list had adopted when a later row's view throws, and leaves the server's rows", () =>
+    {
+        const tick = signal(0);
+        let runs = 0;
+        host = document.createElement("div");
+        host.innerHTML = renderToString(html`<ul>${each([1, 2, 3], (item) => item, (item) => html`<li>${item}</li>`)}</ul>`);
+        document.body.append(host);
+        expect(() => hydrate(html`<ul>${each([1, 2, 3], (item) => item, (item) =>
+        {
+            if (item.get() === 3)
+            {
+                throw new Error("bad row");
+            }
+            effect(() =>
+            {
+                tick.get();
+                runs++;
+            });
+            return html`<li>${item}</li>`;
+        })}</ul>`, host as HTMLElement)).toThrow("bad row");
+        expect(runs).toBe(2);
+        tick.set(1);
+        expect(runs).toBe(2);
+        expect([...host.querySelectorAll("li")].map((row) => row.textContent)).toEqual(["1", "2", "3"]);
     });
 
     it("keeps the server's markers around an adopted only child, adds none to rows the client creates, and updates both", () =>

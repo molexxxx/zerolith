@@ -24,6 +24,26 @@ function mount(view: Renderable | (() => Renderable)): HTMLElement
     return host;
 }
 
+/** Mounts a list of one row with `view` as the row's view. */
+function oneRow(view: () => View): HTMLElement
+{
+    return mount(html`<ul>${each([1], (item) => item, view)}</ul>`);
+}
+
+/** A `ref` callback that dispatches a `ping` event on its element as soon as it gets it. */
+function ping(element: Element): void
+{
+    element.dispatchEvent(new Event("ping"));
+}
+
+/** A `ref` callback that puts nodes among those of the template its element belongs to: before the element, after it, and after the node that follows it. */
+function crowd(element: Element): void
+{
+    (element.parentNode as Element).prepend(document.createElement("u"), "loose text");
+    element.after(document.createElement("u"));
+    (element.nextSibling as ChildNode).nextSibling?.after(document.createElement("u"));
+}
+
 /** A row function whose computed value carries `name`, to find it among the development tools' nodes. */
 function namedRow(name: string): (item: { get(): { id: number } }) => Renderable
 {
@@ -991,6 +1011,180 @@ describe("each", () =>
         expect(rows[2]).toBe(first);
         items.set([{ id: 3, name: "C" }]);
         expect(shown()).toEqual(["C"]);
+    });
+
+    it("leaves no row behind when a row's view throws as an update creates it, and takes the next update whole", () =>
+    {
+        const items = signal<Item[]>([{ id: 1, name: "a" }, { id: 9, name: "z" }]);
+        const tick = signal(0);
+        const failing = signal(3);
+        const seen: number[] = [];
+        const list = mount(html`<ul>${each(items, (item) => item.id, (item) =>
+        {
+            const { id } = item.get();
+            if (id === failing.get())
+            {
+                throw new Error("bad row");
+            }
+            effect(() =>
+            {
+                tick.get();
+                seen.push(id);
+            });
+            return id % 2 === 0 ? html`<li>${computed(() => item.get().name)}</li>` : html`${computed(() => item.get().name.length)}<li>${computed(() => item.get().name)}</li>`;
+        })}</ul>`);
+        const shown = (): string[] => [...list.querySelectorAll("li")].map((row) => row.textContent ?? "");
+        const ticked = (): number[] =>
+        {
+            seen.length = 0;
+            tick.set(tick.get() + 1);
+            return seen.toSorted((a, b) => a - b);
+        };
+        const longer: Item[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }, { id: 4, name: "d" }, { id: 9, name: "z" }];
+        expect(() => items.set(longer)).toThrow("bad row");
+        expect(shown()).toEqual(["a", "z"]);
+        expect((list.querySelector("ul") as Element).textContent).toBe("1a1z");
+        expect(ticked()).toEqual([1, 9]);
+        const mixed: Item[] = [{ id: 9, name: "z" }, { id: 2, name: "b" }, { id: 4, name: "d" }, { id: 3, name: "c" }, { id: 1, name: "a" }];
+        expect(() => items.set(mixed)).toThrow("bad row");
+        expect(shown()).toEqual(["a", "z"]);
+        expect(ticked()).toEqual([1, 9]);
+        failing.set(0);
+        items.set(longer);
+        expect(shown()).toEqual(["a", "b", "c", "d", "z"]);
+        expect(ticked()).toEqual([1, 2, 3, 4, 9]);
+        failing.set(5);
+        expect(() => items.set([{ id: 6, name: "f" }, { id: 5, name: "e" }])).toThrow("bad row");
+        expect(shown()).toEqual(["a", "b", "c", "d", "z"]);
+        expect(ticked()).toEqual([1, 2, 3, 4, 9]);
+        items.set([{ id: 6, name: "f" }]);
+        expect(shown()).toEqual(["f"]);
+        expect(ticked()).toEqual([6]);
+    });
+
+    it("leaves nothing in the page when a row's view throws as the list is first shown", () =>
+    {
+        const tick = signal(0);
+        let runs = 0;
+        const target = document.createElement("div");
+        expect(() => render(html`<ul>${each([1, 2, 3], (item) => item, (item) =>
+        {
+            if (item.get() === 3)
+            {
+                throw new Error("bad row");
+            }
+            effect(() =>
+            {
+                tick.get();
+                runs++;
+            });
+            return html`<li>${item}</li>`;
+        })}</ul>`, target)).toThrow("bad row");
+        expect(target.querySelectorAll("li")).toHaveLength(0);
+        runs = 0;
+        tick.set(1);
+        expect(runs).toBe(0);
+    });
+
+    it("names the first item at fault when an update's new keys repeat a kept row's or each other's, or one is undefined", () =>
+    {
+        const items = signal<Item[]>([{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }]);
+        const list = mount(html`<ul>${each(items, (item) => item.id, (item) => html`<li>${computed(() => item.get().name)}</li>`)}</ul>`);
+        const fault = (ids: Array<number | undefined>): unknown =>
+        {
+            try
+            {
+                items.set(ids.map((id) => ({ id: id as number, name: "x" })));
+            }
+            catch (error)
+            {
+                const { code, args } = (error as ZerolithError).diagnostic;
+                return [code, args];
+            }
+            return undefined;
+        };
+        expect(fault([1, 3, 5, 3])).toEqual(["each_key_duplicate", { key: "3", index: 1 }]);
+        expect(fault([1, 5, 1, 3])).toEqual(["each_key_duplicate", { key: "1", index: 2 }]);
+        expect(fault([1, 3, 5, 5, 3])).toEqual(["each_key_duplicate", { key: "3", index: 1 }]);
+        expect(fault([1, 5, 5, undefined, 3])).toEqual(["each_key_duplicate", { key: "5", index: 2 }]);
+        expect(fault([1, undefined, 5, 5, 3])).toEqual(["each_key_undefined", { index: 1 }]);
+        expect(fault([4, 4])).toEqual(["each_key_duplicate", { key: "4", index: 1 }]);
+        expect([...list.querySelectorAll("li")].map((row) => row.textContent)).toEqual(["a", "b", "c"]);
+        expect(fault([3, 4, 1])).toBeUndefined();
+        expect([...list.querySelectorAll("li")].map((row) => row.textContent)).toEqual(["x", "x", "x"]);
+    });
+
+    it("binds every kind of value in a row, and keeps the live ones live", () =>
+    {
+        const tone = signal("calm");
+        const label = signal("first");
+        const hidden = signal(false);
+        const held = signal<Element | undefined>(undefined);
+        const clicks: string[] = [];
+        const once = { handleEvent: (): number => clicks.push("once"), once: true };
+        const extra = document.createElement("u");
+        const items = signal([7]);
+        const list = mount(html`<ul>${each(items, (item) => item, (item) => html`<li class="row ${tone} end" data-id=${item.get()} ?hidden=${hidden} .title=${"tip"} ref=${held} @click=${() => clicks.push("li")}><b>${7n}</b><i>${label}</i><s>${null}</s><em @click=${once} @keydown=${null}>${html`<q>${label}</q>`}</em><span>${[1, "two"]}</span><p>${extra}</p>tail ${"text"}</li>`)}</ul>`);
+        const row = list.querySelector("li") as HTMLLIElement;
+        expect(row.outerHTML.replace(/<!--.*?-->/g, "")).toBe("<li class=\"row calm end\" data-id=\"7\" title=\"tip\"><b>7</b><i>first</i><s></s><em><q>first</q></em><span>1two</span><p><u></u></p>tail text</li>");
+        expect(held.get()).toBe(row);
+        tone.set("loud");
+        label.set("second");
+        hidden.set(true);
+        expect(row.className).toBe("row loud end");
+        expect(row.hidden).toBe(true);
+        expect(row.querySelector("i")?.textContent).toBe("second");
+        expect(row.querySelector("q")?.textContent).toBe("second");
+        (row.querySelector("em") as HTMLElement).click();
+        (row.querySelector("em") as HTMLElement).click();
+        expect(clicks).toEqual(["once", "li", "li"]);
+        items.set([]);
+        expect(held.get()).toBeUndefined();
+        label.set("third");
+        expect(row.querySelector("i")?.textContent).toBe("second");
+    });
+
+    it("binds a row's values in the order they are written", () =>
+    {
+        const saw: Array<string | null> = [];
+        const textOf = (element: Element): void =>
+        {
+            saw.push((element.closest("li") as Element).textContent);
+        };
+        const classOf = (element: Element): void =>
+        {
+            saw.push(element.getAttribute("class"));
+        };
+        let pings = 0;
+        const count = (): void =>
+        {
+            pings++;
+        };
+        oneRow(() => html`<li><i ref=${textOf}></i><b>${"after"}</b></li>`);
+        oneRow(() => html`<li><b>${"before"}</b><i ref=${textOf}></i></li>`);
+        oneRow(() => html`<li ref=${classOf} class=${"after"}></li>`);
+        oneRow(() => html`<li class=${"before"} ref=${classOf}></li>`);
+        expect(saw).toEqual(["", "before", null, "before"]);
+        oneRow(() => html`<li ref=${ping} @ping=${count}></li>`);
+        expect(pings).toBe(0);
+        oneRow(() => html`<li @ping=${count} ref=${ping}></li>`);
+        expect(pings).toBe(1);
+        const inner = signal<Element | undefined>(undefined);
+        const nested = oneRow(() => html`<li><span>${html`<i ref=${inner}></i>`}</span><u class=${computed(() => String(inner.get()?.closest("li")?.querySelector("b")?.textContent))}></u><b>${"after"}</b></li>`);
+        expect(nested.querySelector("u")?.getAttribute("class")).toBe("");
+        expect(nested.querySelector("b")?.textContent).toBe("after");
+    });
+
+    it("binds each value to its own node when a row's ref changes the row before the rest is bound", () =>
+    {
+        const tone = signal("calm");
+        const list = mount(html`<ul>${each([1], (item) => item, () => html`<li><i ref=${crowd}></i><b class=${tone}>${"bold"}</b><s>${tone}</s></li>`)}</ul>`);
+        expect(list.querySelector("li")?.innerHTML).toBe("<u></u>loose text<i></i><u></u><b class=\"calm\">bold</b><u></u><s>calm</s>");
+        tone.set("loud");
+        expect(list.querySelector("b")?.className).toBe("loud");
+        expect(list.querySelector("s")?.textContent).toBe("loud");
+        const between = mount(html`<ul>${each([1], (item) => item, () => html`<li><i ref=${crowd}></i>${"plain"} and ${tone}</li>`)}</ul>`);
+        expect(between.querySelector("li")?.innerHTML.replace(/<!--.*?-->/g, "")).toBe("<u></u>loose text<i></i><u></u>plain<u></u> and loud");
     });
 
     it("updates the rows kept at either end of an update that swaps two rows", () =>

@@ -203,8 +203,12 @@ function enter(node: Consumer): Consumer | undefined
     return previous;
 }
 
-/** Makes `node` the current owner and returns the one it replaces. */
-function own(node: OwnerNode): OwnerNode | undefined
+/**
+ * Makes `node` the current owner, or none, and returns the one it replaces,
+ * which the caller puts back, so the runtime creates under an owner with no
+ * function around the work. Internal to the runtime packages.
+ */
+export function own(node: OwnerNode | undefined): OwnerNode | undefined
 {
     const previous = owner;
     owner = node;

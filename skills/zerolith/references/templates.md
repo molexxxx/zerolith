@@ -204,6 +204,8 @@ The row function receives the item as a signal, and, when it declares a second p
 > [!WARNING]
 > Keys must be unique and defined. A repeated key fails the render with `each_key_duplicate` and a missing one with `each_key_undefined`, rather than quietly showing the wrong row. An update that fails this way changes no row, so the list shows the last list it accepted until a valid one arrives.
 
+A row function that throws fails the update as well, with its own error. The rows that update had already made are taken out again and their effects stop, so the list holds the rows it held before, in the same order, and the next update starts from them. A row the update kept may already show its new item.
+
 ### A list edited a row at a time
 
 Setting a new array suits a list that arrives whole, as from a fetch: matching the keys costs one comparison per row. When rows change one at a time, as tasks checked off, a row can hold the fields that change in signals of its own. An edit writes them, the list keeps its array, and only that row's bindings update:

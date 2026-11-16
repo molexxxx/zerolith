@@ -39,6 +39,8 @@ export interface Prepared
     paths: readonly (readonly number[])[];
     /** Whether a child part sits at the top level, where its content lands among the template's own nodes. */
     edges: boolean;
+    /** Whether the template has a node and no child part at its top level, so a row of `each` holds its nodes with no markers around them. */
+    rooted: boolean;
     /**
      * A copy of `content` owned by the page's document, which instances clone:
      * the one top-level node, or a fragment holding several. Undefined when
@@ -260,9 +262,10 @@ export function prepare(strings: TemplateStringsArray): Prepared
         master = copy.firstChild !== null && copy.firstChild.nextSibling === null ? copy.firstChild : copy;
     }
     const unmarked = parts.map((spec) => targets.get(spec)?.nodeType === 3);
+    const rooted = template.content.firstChild !== null && !edges;
     const result: Prepared = paths === undefined
-        ? { content: template.content, model, parts: [], unmarked: [], paths: [], edges, master }
-        : { content: template.content, model, parts, unmarked, paths, edges, master };
+        ? { content: template.content, model, parts: [], unmarked: [], paths: [], edges, rooted, master }
+        : { content: template.content, model, parts, unmarked, paths, edges, rooted, master };
     templates.set(strings, result);
     return result;
 }
