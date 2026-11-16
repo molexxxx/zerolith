@@ -187,6 +187,9 @@ The address is a copy of the package's ES module kept in the project, as here, o
   warning   src/main.ts imports nanoid, which no import map entry covers, so the browser cannot load it: install it if it is a zerolith package, or map it in the page's <script type="importmap">
 ```
 
+> [!IMPORTANT]
+> `zerolith dev` loads the package from `node_modules` and never reads your entry, so the address in the map is first used by a build. Keep the copy at the version `package.json` installs, and run `zerolith build --unbundled`, then `zerolith preview`, before you deploy: the preview loads the page through the entry itself, where a wrong address shows.
+
 `@zerolith/otel` needs the same, since it imports `@opentelemetry/api`: map both. An application with many such packages is simpler bundled, where `zerolith build` resolves all of them from `node_modules`.
 
 ### A page with no build command
