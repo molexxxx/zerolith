@@ -27,10 +27,13 @@ export const examples: Example[] = [
     { id: "conditions", title: "Conditions", summary: "Showing one view or another with `when`, and a branch that cleans up after itself with `onDispose`." },
     { id: "async", title: "Async data", summary: "A `resource` that fetches a city's record from this site and formats every fact for your locale, with loading, error, and reload, keeping its last value while the next one loads." },
     { id: "retry", title: "Retry and timeout", summary: "A `resource` that gives a flaky service three tries: a `timeout` on each run, a wait that doubles before each retry, the `attempt` it is on, and reload." },
+    { id: "boundary", title: "Context and error boundary", summary: "A value every level reads through `context`, the same component under two provided values, and a `boundary` that shows a fallback in place of a part that throws." },
     { id: "saved", title: "Saved state", summary: "Notes that survive a reload with `@zerolith/state`: `stored`, undo and redo from `history`, a `debounced` search, and a `selector` for the open note." },
+    { id: "board", title: "Task board", summary: "Nested data in a `store` from `@zerolith/state`: one field written by its path, a list that grows, and a server's copy merged in by id with `reconcile`." },
     { id: "browser", title: "Browser signals", summary: "The page as signals from `@zerolith/browser`: online, visible, the window's size, a box's size, and whether its badge is in view." },
     { id: "forms", title: "Forms", summary: "A native form with `@zerolith/forms`: validation in the browser first, then field errors from the server." },
     { id: "styles", title: "Scoped styles", summary: "Component styles with the `css` tag, where they stop, and a value set through a custom property." },
+    { id: "element", title: "Custom elements", summary: "Two tags from `zerolith/element`: props that are attributes and properties at once, an event the page listens to, and what the tag holds as `children`." },
     { id: "dialog", title: "Accessible dialog", summary: "A dialog with a focus trap, Escape to close, and an announcement from `@zerolith/a11y`." },
     { id: "formats", title: "Formatting", summary: "Money, dates, relative times, and lists that follow a locale signal, with the currency chosen apart from the locale." }
 ];

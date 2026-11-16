@@ -2,6 +2,12 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
+## Unreleased
+
+### Changed
+
+- Docs: the playground has three more examples: a task board on a `store` from `@zerolith/state`, `context` with an error `boundary`, and two custom elements from `zerolith/element`.
+
 ## 1.11.0 (2026-11-16)
 
 A minor release from `main`: a third argument for `onFailure` in `@zerolith/forms` with the failed response, less script for every row `each` creates, and fixes to custom element `children`, stores, resources, rows whose view throws, and the plain script build.
