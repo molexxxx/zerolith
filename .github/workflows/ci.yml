@@ -60,14 +60,18 @@ jobs:
       - name: Install
         run: npm ci
 
-      # npm keeps the keys it verifies with in its cache, which this job
-      # restores from an earlier run. Once that cache was three days old, the
-      # npm that comes with Node 22 found no key for a package's attestations,
-      # which it verifies from an empty cache, so the check starts from one.
       - name: Advisories
-        run: |
-          npm audit
-          npm audit signatures --cache "$RUNNER_TEMP/npm-signatures"
+        run: npm audit
+
+      # Every job installs the same tree, so the two whose npm is 11 or later
+      # check its signatures. On these runners the npm that comes with Node
+      # 22, 10.9.9, has failed the check in four runs of six since
+      # 2026-11-15, with a restored cache and with an empty one, finding no
+      # key for a package's attestations; the same npm verifies them on a
+      # desktop, and npm 11 verifies them here.
+      - name: Signatures
+        if: ${{ matrix.node != 22 }}
+        run: npm audit signatures
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
