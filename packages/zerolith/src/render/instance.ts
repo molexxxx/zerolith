@@ -7,9 +7,9 @@
 import { describe, isNothing, isText } from "../binding.js";
 import { fail } from "../diagnostics.js";
 import { type Disposable, type Sink, createOwner, isSignal, recall, restore, startBinding, startEffect } from "../signals.js";
-import { CHILD, EVENT, PROPERTY, type PartSpec, type Prepared, REF, prepare, trusted, walker } from "../template.js";
+import { CHILD, EVENT, PROPERTY, type PartSpec, type Prepared, REF, prepare, trusted } from "../template.js";
 import { elementPart } from "./attributes.js";
-import { anchorBefore, isStart, matchingEnd, mismatch, removeUntil } from "./markers.js";
+import { anchorBefore } from "./markers.js";
 import { type BoundPart, type Controller, Directive, RawHtml, TemplateResult } from "./view.js";
 
 /** A clone of one template with its parts bound, or the server-rendered nodes of one adopted in place. */
@@ -168,98 +168,6 @@ export class Instance
         return new Instance(strings, parts, nodes, content, undefined, prepared.edges && fragment !== undefined ? edgesOf(parts, fragment) : undefined);
     }
 
-    /** Binds the template's parts to server-rendered nodes between `cursor` and `anchor`, or returns undefined when they do not line up. */
-    static adopt(strings: TemplateStringsArray, prepared: Prepared, cursor: ChildNode, anchor: Node): Instance | undefined
-    {
-        const nodes: ChildNode[] = [];
-        for (let node: ChildNode | null = cursor; node !== anchor; node = node.nextSibling)
-        {
-            if (node === null)
-            {
-                return undefined;
-            }
-            nodes.push(node);
-        }
-        const parts: BoundPart[] = [];
-        const cursors = new Map<BoundPart, ChildNode>();
-        const expected = walker(prepared.model);
-        let index = 0;
-        let next = 0;
-        let broken = false;
-
-        /** Advances through the template's own nodes in lockstep and checks the served node has the same shape. */
-        const matches = (node: Node): boolean =>
-        {
-            const model = expected.nextNode();
-            if (model === null || model.nodeType !== node.nodeType)
-            {
-                return false;
-            }
-            if (node.nodeType === 1)
-            {
-                return (model as Element).localName === (node as Element).localName;
-            }
-            const data = (node as Comment).data;
-            return isStart(node) ? (model as Comment).data === "zl$" : (model as Comment).data === data;
-        };
-
-        const visit = (first: ChildNode | null, last: Node | null): void =>
-        {
-            for (let node = first; node !== null && node !== last && !broken; node = node.nextSibling)
-            {
-                if (node.nodeType !== 1 && node.nodeType !== 8)
-                {
-                    continue;
-                }
-                if (!matches(node))
-                {
-                    broken = true;
-                    return;
-                }
-                if (node.nodeType === 8)
-                {
-                    if (isStart(node))
-                    {
-                        const spec = prepared.parts[next];
-                        const end = matchingEnd(node);
-                        if (spec === undefined || spec.kind !== CHILD || spec.index !== index || end === undefined)
-                        {
-                            broken = true;
-                            return;
-                        }
-                        const part = new ChildPart(end);
-                        parts.push(part);
-                        cursors.set(part, node.nextSibling ?? end);
-                        next++;
-                        index++;
-                        node = end;
-                        continue;
-                    }
-                    index++;
-                    continue;
-                }
-                for (let spec = prepared.parts[next]; spec !== undefined && spec.index === index; spec = prepared.parts[next])
-                {
-                    if (spec.kind === CHILD)
-                    {
-                        broken = true;
-                        return;
-                    }
-                    parts.push(elementPart(node as Element, spec));
-                    next++;
-                }
-                index++;
-                visit(node.firstChild, null);
-            }
-        };
-        visit(cursor, anchor);
-        if (broken || next !== prepared.parts.length || expected.nextNode() !== null)
-        {
-            return undefined;
-        }
-        return new Instance(strings, parts, nodes, undefined, cursors, prepared.edges ? edgesOf(parts, cursor.parentNode) : undefined);
-    }
-
     update(values: readonly unknown[]): void
     {
         const cursors = this.cursors;
@@ -349,7 +257,7 @@ function getter(name: "firstChild" | "nextSibling"): Step
 }
 
 /** The child parts whose anchors are direct children of `parent`. */
-function edgesOf(parts: readonly BoundPart[], parent: ParentNode | null): ChildPart[]
+export function edgesOf(parts: readonly BoundPart[], parent: ParentNode | null): ChildPart[]
 {
     return parts.filter((part): part is ChildPart => part instanceof ChildPart && part.anchor !== null && part.anchor.parentNode === parent);
 }
@@ -383,6 +291,18 @@ export function slotOf(nodes: object): Slot | undefined
  * nothing, which it does in the one text node it starts with, and adds the
  * marker after that node when it first shows anything else.
  */
+/** How a part takes over server-rendered nodes for a value: `adoptChild` of adopt.ts. */
+export type Adopt = (part: ChildPart, value: unknown, cursor: ChildNode) => void;
+
+/** Hydration's half of the renderer, once `hydrate` has installed it. A part is given a cursor only under `hydrate`, so a page that only renders never calls it and bundles none of it. */
+let adopt: Adopt | undefined;
+
+/** Installs hydration's half of the renderer, before the first part is given a cursor. */
+export function adoptWith(installed: Adopt): void
+{
+    adopt = installed;
+}
+
 export class ChildPart implements BoundPart, Sink
 {
     readonly count: number = 1;
@@ -391,12 +311,12 @@ export class ChildPart implements BoundPart, Sink
     private owner: Disposable | undefined = undefined;
     /** The server-rendered node a bound signal's first value adopts, until that value is written. */
     private pending: ChildNode | undefined = undefined;
-    private instance: Instance | undefined = undefined;
-    private text: Text | undefined = undefined;
+    instance: Instance | undefined = undefined;
+    text: Text | undefined = undefined;
     private node: ChildNode | undefined = undefined;
-    private raw: ChildNode[] | undefined = undefined;
-    private items: ChildPart[] | undefined = undefined;
-    private controller: Controller | undefined = undefined;
+    raw: ChildNode[] | undefined = undefined;
+    items: ChildPart[] | undefined = undefined;
+    controller: Controller | undefined = undefined;
 
     /** With `text`, the part starts with that empty text node, before the anchor or, without one, as its element's only child, which a text value fills. */
     constructor(anchor: Comment | null, text?: Text)
@@ -440,7 +360,7 @@ export class ChildPart implements BoundPart, Sink
         {
             if (cursor !== undefined)
             {
-                this.adopt(value, cursor);
+                (adopt as Adopt)(this, value, cursor);
             }
             else
             {
@@ -454,7 +374,7 @@ export class ChildPart implements BoundPart, Sink
         {
             if (cursor !== undefined)
             {
-                this.adopt(value, cursor);
+                (adopt as Adopt)(this, value, cursor);
             }
             else
             {
@@ -470,7 +390,7 @@ export class ChildPart implements BoundPart, Sink
         if (start !== undefined)
         {
             this.pending = undefined;
-            this.adopt(value, start);
+            (adopt as Adopt)(this, value, start);
             return;
         }
         this.apply(value);
@@ -534,146 +454,8 @@ export class ChildPart implements BoundPart, Sink
         this.anchor?.remove();
     }
 
-    /** Takes over the server-rendered nodes from `cursor` to the anchor for `value`, repairing any disagreement. */
-    private adopt(value: unknown, cursor: ChildNode): void
-    {
-        const anchor = this.marker();
-        if (isNothing(value))
-        {
-            if (cursor !== anchor)
-            {
-                mismatch("extra", "", cursor.nodeName);
-                removeUntil(cursor, anchor);
-            }
-            return;
-        }
-        if (isText(value))
-        {
-            const text = String(value);
-            if (text === "" && cursor === anchor)
-            {
-                this.apply(value);
-                return;
-            }
-            if (cursor.nodeType === 3 && cursor.nextSibling === anchor)
-            {
-                const node = cursor as Text;
-                if (node.data !== text)
-                {
-                    mismatch("text", text, node.data);
-                    node.data = text;
-                }
-                this.text = node;
-                return;
-            }
-            mismatch("missing", text, cursor === anchor ? "" : cursor.nodeName);
-            removeUntil(cursor, anchor);
-            this.apply(value);
-            return;
-        }
-        if (value instanceof TemplateResult)
-        {
-            const instance = Instance.adopt(value.strings, prepare(value.strings), cursor, anchor);
-            if (instance !== undefined)
-            {
-                this.instance = instance;
-                instance.update(value.values);
-                return;
-            }
-            mismatch("structure", "template", cursor === anchor ? "" : cursor.nodeName);
-            removeUntil(cursor, anchor);
-            this.apply(value);
-            return;
-        }
-        if (value instanceof Directive)
-        {
-            const provided = recall(value);
-            try
-            {
-                this.controller = value.mount(this, cursor);
-            }
-            finally
-            {
-                restore(provided);
-            }
-            return;
-        }
-        if (value instanceof RawHtml)
-        {
-            const nodes: ChildNode[] = [];
-            for (let node: ChildNode | null = cursor; node !== null && node !== anchor; node = node.nextSibling)
-            {
-                nodes.push(node);
-            }
-            this.raw = nodes;
-            return;
-        }
-        if (isSignal(value))
-        {
-            let first = true;
-            startEffect(() =>
-            {
-                const current = value.get();
-                if (first)
-                {
-                    first = false;
-                    this.adopt(current, cursor);
-                }
-                else
-                {
-                    this.apply(current);
-                }
-            });
-            return;
-        }
-        if (typeof value === "object" && Symbol.iterator in value)
-        {
-            const items: ChildPart[] = [];
-            let node: ChildNode = cursor;
-            for (const item of value as Iterable<unknown>)
-            {
-                const end = isStart(node) ? matchingEnd(node) : undefined;
-                if (end === undefined)
-                {
-                    mismatch("missing", "item", node === anchor ? "" : node.nodeName);
-                    if (node !== anchor)
-                    {
-                        mismatch("extra", "", node.nodeName);
-                        removeUntil(node, anchor);
-                        node = anchor;
-                    }
-                    const part = new ChildPart(anchorBefore(anchor));
-                    items.push(part);
-                    part.set(item);
-                    continue;
-                }
-                const part = new ChildPart(end);
-                items.push(part);
-                part.set(item, node.nextSibling ?? end);
-                node = end.nextSibling ?? anchor;
-            }
-            if (node !== anchor)
-            {
-                mismatch("extra", "", node.nodeName);
-                removeUntil(node, anchor);
-            }
-            this.items = items;
-            return;
-        }
-        if (typeof Node !== "undefined" && value instanceof Node)
-        {
-            mismatch("structure", "node", cursor === anchor ? "" : cursor.nodeName);
-            if (cursor !== anchor)
-            {
-                removeUntil(cursor, anchor);
-            }
-            this.apply(value);
-            return;
-        }
-        throw fail("unrenderable_value", { type: describe(value) });
-    }
-
-    private apply(value: unknown): void
+    /** Displays `value` in place of what the part shows, creating the nodes it needs. */
+    apply(value: unknown): void
     {
         if (isNothing(value))
         {

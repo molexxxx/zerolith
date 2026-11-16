@@ -15,6 +15,7 @@ import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseSync } from "rolldown/utils";
 import { describe, expect, it } from "vitest";
+import { measure } from "../measure.ts";
 
 const packages = fileURLToPath(new URL("../../packages/", import.meta.url));
 const PUBLISHED = ["zerolith", "router", "a11y", "state", "browser", "forms", "client", "i18n", "devtools", "otel"];
@@ -486,6 +487,28 @@ describe.each(PUBLISHED)("the production build of %s", (name) =>
             expect(fallback, subpath).toMatch(/^\.\/dist\/production\/[\w./-]+\.js$/);
             expect(existsSync(join(packages, name, development)), development).toBe(true);
             expect(existsSync(join(packages, name, fallback)), fallback).toBe(true);
+        }
+    });
+});
+
+describe("what a bundler keeps of the core's production build", () =>
+{
+    it("leaves the code that adopts server-rendered markup out of a page that only renders", async () =>
+    {
+        const folder = mkdtempSync(join(tmpdir(), "zl-kept-"));
+        try
+        {
+            const core = join(packages, "zerolith", "dist", "production", "index.js").replaceAll("\\", "/");
+            const page = (names: string): string => `import { ${names} } from ${JSON.stringify(core)};\nconsole.log(${names});\n`;
+            writeFileSync(join(folder, "renders.js"), page("each, html, render, when"));
+            writeFileSync(join(folder, "hydrates.js"), page("each, html, hydrate, render, when"));
+            const renders = await measure(join(folder, "renders.js"));
+            const hydrates = await measure(join(folder, "hydrates.js"));
+            expect(hydrates.raw - renders.raw).toBeGreaterThan(2000);
+        }
+        finally
+        {
+            rmSync(folder, { recursive: true, force: true });
         }
     });
 });

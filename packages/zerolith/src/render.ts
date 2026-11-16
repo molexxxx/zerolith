@@ -10,13 +10,15 @@
  *
  * This module mounts a view and gathers the renderer's surface; the parts
  * live under render/: the view types in view.ts, the hydration markers in
- * markers.ts, template instances and child parts in instance.ts, element
- * parts in attributes.ts, and the directives in each.ts and when.ts.
+ * markers.ts, template instances and child parts in instance.ts, what
+ * adopts server-rendered nodes in adopt.ts, element parts in attributes.ts,
+ * and the directives in each.ts and when.ts.
  */
 import { adoptStylesAt } from "./css.js";
 import { measure, trackRoot, untrackRoot } from "./devtools.js";
 import { fail } from "./diagnostics.js";
-import { ChildPart } from "./render/instance.js";
+import { adoptChild } from "./render/adopt.js";
+import { ChildPart, adoptWith } from "./render/instance.js";
 import { type HydrationMismatch, collect, firstStart, matchingEnd, mismatch } from "./render/markers.js";
 import type { Renderable } from "./render/view.js";
 import { createOwner } from "./signals.js";
@@ -146,6 +148,7 @@ export function hydrate(view: Renderable | (() => Renderable), target: MountTarg
 {
     const container = resolveTarget(target);
     adoptStylesAt(container);
+    adoptWith(adoptChild);
     const found: HydrationMismatch[] = [];
     const start = firstStart(container);
     const end = start === undefined ? undefined : matchingEnd(start);

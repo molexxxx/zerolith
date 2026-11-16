@@ -57,6 +57,8 @@ An attribute, a property, or raw markup the server wrote differently is rewritte
 
 Without any server-rendered markup in the target, `hydrate` falls back to `render`.
 
+The code that adopts nodes is reached through `hydrate` alone. A page that only calls `render` never runs it, and a bundler leaves it out of that page's script.
+
 > [!TIP]
 > `hydrationMismatches(() => view)` from `@zerolith/test` renders a view on the server, hydrates a second copy over that markup, and returns every disagreement, so a test can assert that a component hydrates cleanly.
 
