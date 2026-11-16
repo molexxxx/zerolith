@@ -237,17 +237,22 @@ mod tests {
         root
     }
 
-    /// The process id a started script wrote, once it has.
+    /// The process id a started script wrote, once all of it is there: the file exists, empty, a moment before its text does.
     fn recorded(path: &Path) -> u32 {
         let deadline = Instant::now() + Duration::from_secs(20);
-        while !path.is_file() && Instant::now() < deadline {
+        loop {
+            let written = fs::read_to_string(path)
+                .ok()
+                .and_then(|text| text.trim().parse().ok());
+            if let Some(pid) = written {
+                return pid;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "the command ran in the folder and recorded its process id"
+            );
             std::thread::sleep(Duration::from_millis(50));
         }
-        fs::read_to_string(path)
-            .expect("the command ran in the folder")
-            .trim()
-            .parse()
-            .unwrap()
     }
 
     /// Whether a process with `pid` runs: through tasklist on Windows, and `kill -0` elsewhere.
