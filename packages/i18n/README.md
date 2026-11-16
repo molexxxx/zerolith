@@ -18,7 +18,7 @@ format.number(1234.5, { style: "currency", currency: "EUR" });
 
 The guide is on the [docs site](https://zerolith.dev/guide/i18n/).
 
-Install with `npm install @zerolith/i18n`. The API is frozen at 1.0: a breaking change comes only in a major, after a deprecation notice, and the [support policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md) says how long a line gets fixes.
+Install with `npm install @zerolith/i18n`, or with `npx zerolith add i18n` in a project that has the command line, which lists it at the version of `zerolith` the project is on. The API is frozen at 1.0: a breaking change comes only in a major, after a deprecation notice, and the [support policy](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md) says how long a line gets fixes.
 
 ## Documentation
 

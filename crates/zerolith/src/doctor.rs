@@ -385,6 +385,13 @@ pub fn run(root: &Path, json: bool) -> ExitCode {
     report("doctor", root, &check(root), json)
 }
 
+/// Runs the doctor's checks and prints them as `run` does; true when none of them is an error.
+pub(crate) fn passes(root: &Path) -> bool {
+    let findings = check(root);
+    report("doctor", root, &findings, false);
+    !findings.iter().any(|finding| finding.severity == "error")
+}
+
 /// The template findings of `lint_sources`, each an error, since a project's checks fail on them.
 pub(crate) fn template_errors(root: &Path) -> Vec<Finding> {
     lint_sources(root)

@@ -5,8 +5,9 @@
 //! `--unbundled`, writes it file by file with an import map, `preview`
 //! serves the output, `importmap` vendors the installed packages behind an
 //! import map with integrity hashes, `doctor` checks a project for the
-//! mistakes that are easy to make, `lint` fails on the template ones, and
-//! `new` writes the standard application layout.
+//! mistakes that are easy to make, `lint` fails on the template ones,
+//! `new` writes the standard application layout, and `add` and `upgrade`
+//! keep the zerolith packages a project depends on at one version.
 
 mod backend;
 mod build;
@@ -21,6 +22,7 @@ mod lint;
 mod mime;
 mod modules;
 mod new;
+mod packages;
 mod prepare;
 mod problems;
 mod proxy;
@@ -176,6 +178,32 @@ enum Command {
         /// Take the default for everything the flags leave open instead of asking.
         #[arg(long, short)]
         yes: bool,
+    },
+    /// Add zerolith packages to a project at the version it is on, as in `zerolith add forms state`: the project's package manager installs them and writes package.json, and a page that loads its packages through an import map has them vendored again.
+    Add {
+        /// The packages, each by its name after @zerolith/, such as forms, or by its full name.
+        #[arg(required = true)]
+        packages: Vec<String>,
+        /// The project folder; the nearest package.json at it or above it is the project's.
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// Print what would be installed and run, and change nothing.
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Move every zerolith package a project lists to one version together, the newest release unless a version is given, then vendor them again for a page with an import map and run doctor.
+    Upgrade {
+        /// The version to move to, such as 1.12.0; the newest release unless given.
+        version: Option<String>,
+        /// The project folder; the nearest package.json at it or above it is the project's.
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// Move to a new major version, which may change or remove what the project uses.
+        #[arg(long)]
+        major: bool,
+        /// Print what would be installed and run, and change nothing.
+        #[arg(long)]
+        dry_run: bool,
     },
 }
 
@@ -382,6 +410,17 @@ async fn main() -> ExitCode {
             )
             .and_then(|(root, choice, install)| new::run(&root, choice, install))
         }
+        Command::Add {
+            packages,
+            root,
+            dry_run,
+        } => packages::add(&root, &packages, dry_run),
+        Command::Upgrade {
+            version,
+            root,
+            major,
+            dry_run,
+        } => packages::upgrade(&root, version.as_deref(), major, dry_run),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

@@ -11,6 +11,8 @@ The `zerolith` binary is written in Rust and covers the parts of development tha
 | `zerolith build` | Bundles the application for production into `dist/` |
 | `zerolith preview` | Serves a build as a static host would, to check it before deploying |
 | `zerolith new` | Writes a starter application or the fullstack example |
+| `zerolith add` | Adds zerolith packages to a project at the version it is on |
+| `zerolith upgrade` | Moves every zerolith package a project lists to one version together |
 | `zerolith skill` | Writes the zerolith skill for coding agents into a project |
 | `zerolith importmap` | Vendors the packages and writes an import map with integrity hashes |
 | `zerolith doctor` | Checks a project and reports coded findings |
@@ -27,7 +29,7 @@ The `zerolith` binary is written in Rust and covers the parts of development tha
 `@zerolith/cli` is a thin package whose optional dependencies carry the prebuilt binary for each platform, so npm installs only the one it needs.
 
 > [!IMPORTANT]
-> The build prepares templates into calls to the `zerolith/internal` entry of the `zerolith` the project installs, which can change with every version. `zerolith build` therefore requires the `zerolith` of its own version and stops with `package_version_mismatch` when it finds another; the starters pin both to one version, so upgrade them together.
+> The build prepares templates into calls to the `zerolith/internal` entry of the `zerolith` the project installs, which can change with every version. `zerolith build` therefore requires the `zerolith` of its own version and stops with `package_version_mismatch` when it finds another; the starters pin both to one version, so upgrade them together, which [`zerolith upgrade`](#upgrade) does.
 
 Every command opens with the `zerolith` badge and the command's name, and colors what follows by meaning: addresses and finished steps in green, errors in red, warnings in yellow, and labels and details dimmed. The colors are dropped when `NO_COLOR` is set or the output goes to a file or another program, so logs and CI output stay plain text, and `CLICOLOR_FORCE=1` keeps them.
 
@@ -298,6 +300,63 @@ The starter is three pages in the brand style: a home page that shows the workfl
 `zerolith.json` sets the base and forwards `/api` to the backend on port 3001, so development runs two processes, `npm run api` for the backend in watch mode and `npm run dev` for `zerolith dev`, in either order, since the page asks for the session again until the backend answers; `npm run build` writes `dist/` for the base, and `npm start` serves the API and the build from the backend.
 
 The project comes with tests of the backend in Node and of the pages in Chromium, an `AGENTS.md`, and a README on the two processes and on deploying, and pins the same versions as the starter. The example is TypeScript with `html` templates on the command line, with the inspector, so the language, dev server, and inspector questions are not asked for it, and `--template`, `--vite`, or `--buildless` given with `--example` stops the command with a message that names the flag.
+
+## add
+
+```sh
+zerolith add forms state
+zerolith add @zerolith/test --dry-run
+```
+
+Adds zerolith packages to a project. Every zerolith package carries one version, and a project that mixes two stops at its next build with `package_version_mismatch`. So `add` lists each package at the version the project is on, and the project's own package manager installs it.
+
+A package is named by what follows `@zerolith/`, such as `forms`, or by its full name. A name that is not a zerolith package is refused, with the list of the ones that are.
+
+| Step | What happens |
+| --- | --- |
+| Version | The exact version `package.json` lists for `zerolith`; for a range, the version installed; in a project with no zerolith yet, the command line's own. Each package is written the way the project writes `zerolith`: exact, or after `^` or `~` |
+| List | `dependencies`, or `devDependencies` for `@zerolith/cli`, `@zerolith/test`, and `@zerolith/vite`. A package the project already lists stays in its list, and `zerolith` itself is added when `package.json` does not list it |
+| `package.json` | Only the dependency entries change, in place. The file keeps its indentation, its line endings, and everything else in it, and a new entry goes where the names stay in order |
+| Install | One run of the package manager's `install`: the manager whose lockfile the project or a folder above it holds, then the one that ran the command, then npm |
+| Import map | A page that loads its packages through an import map has them vendored again: by the project's `importmap` script when `package.json` has one, or by `zerolith importmap --html index.html` when `vendor/importmap.json` shows an earlier run of it |
+| Report | Each package's import line and its guide, and a warning for a package it needs beside it that is not installed, as `@zerolith/otel` needs `@opentelemetry/api` |
+
+| Flag | Meaning |
+| --- | --- |
+| `--root` | The project folder, the current one unless given; the nearest `package.json` at it or above it is the project's |
+| `--dry-run` | Print the changes to `package.json` and the commands, and change nothing |
+
+> [!NOTE]
+> When the install fails, `package.json` is put back as it was, byte for byte, so a failed run leaves no half-written list.
+
+## upgrade
+
+```sh
+zerolith upgrade
+zerolith upgrade 1.12.0
+zerolith upgrade --dry-run
+```
+
+Moves every zerolith package the project lists to one version together: the newest release, or the version given. No step in between holds a mix of two versions, which a package manager asked to move the packages one at a time would refuse.
+
+| Step | What happens |
+| --- | --- |
+| Target | The version given, or the newest release, which `npm view zerolith version` reads from the registry the project is set up for |
+| `package.json` | Every zerolith package it lists moves to the target in one edit, each written as it was: exact, or after `^` or `~`. An entry that is not a version, such as `workspace:*` or a path, is left as it is and named |
+| Install | One run of the package manager's `install`, as for [`add`](#add); a failed one puts `package.json` back |
+| Import map | The packages are vendored again, as for `add`, and the import map step removes the folders it wrote for the version left behind |
+| Skill | A project that holds the zerolith skill for coding agents has it written again for the new version |
+| Check | `zerolith doctor` runs, from the project's own command line when it has one, which is the new version by then. `upgrade` fails when doctor reports an error |
+| Report | How many packages moved, and where the changelog is |
+
+| Flag | Meaning |
+| --- | --- |
+| `--root` | The project folder, the current one unless given; the nearest `package.json` at it or above it is the project's |
+| `--major` | Move to a new major version |
+| `--dry-run` | Print the changes to `package.json` and the commands, and change nothing |
+
+> [!IMPORTANT]
+> A target in a new major version is refused without `--major`, since a major release may change or remove what the project uses. Read that version's breaking changes in the [changelog](https://github.com/molexxxx/zerolith/blob/main/CHANGELOG.md) first.
 
 ## skill
 

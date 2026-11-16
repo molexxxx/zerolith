@@ -72,10 +72,12 @@ In the project:
 | `zerolith dev` | Serves the app at http://127.0.0.1:8080/ and reloads it as you edit |
 | `zerolith build` | Bundles and minifies it into `dist/`, static files for any host or backend |
 | `zerolith preview` | Serves `dist/` the way a host will, to check the build |
+| `zerolith add forms` | Adds a zerolith package at the version the project is on |
+| `zerolith upgrade` | Moves every zerolith package to the newest release together |
 
 Without a global install, `npx @zerolith/cli new my-app` writes the project, and inside it `npx zerolith dev` and the `dev`, `build`, and `preview` npm scripts run the project's own copy of the command line, which is what CI should use. The starter's README covers deploying, environment variables, and when Vite is worth adding, and the [command line guide](docs/guide/command-line.md) has every option.
 
-To add zerolith to an existing project, install `zerolith` and the `@zerolith/*` packages you need at the same version, with `@zerolith/cli` for the commands. To work against a backend, the [building and serving guide](docs/guide/deploying.md) covers the dev server's proxy, a base path, and serving the build from a static host, a web server, or the backend itself.
+To add zerolith to an existing project, install `@zerolith/cli` as a development dependency and run `npx zerolith add` with the packages you need, as in `npx zerolith add router forms`: it lists `zerolith` and each of them at one version. To work against a backend, the [building and serving guide](docs/guide/deploying.md) covers the dev server's proxy, a base path, and serving the build from a static host, a web server, or the backend itself.
 
 Every night that the code changed, every package is also published under the `canary` tag, built from the main branch: `npx @zerolith/cli@canary new my-app` starts a project on it.
 

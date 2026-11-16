@@ -132,7 +132,7 @@ pub fn check_core_version(root: &Path) -> io::Result<()> {
     let own = env!("CARGO_PKG_VERSION");
     match installed_version(root, "zerolith") {
         Some(installed) if installed != own => Err(failure(format!(
-            "package_version_mismatch: the command line {own} requires zerolith {own}, and zerolith {installed} is installed. Install one version of both, with npm install @zerolith/cli@{installed} or npm install zerolith@{own}, or build with --no-prepare to keep the scanner. {DIAGNOSTIC_URL}package_version_mismatch"
+            "package_version_mismatch: the command line {own} requires zerolith {own}, and zerolith {installed} is installed. Move every zerolith package to one version with zerolith upgrade {own}, or install one version of both by hand, with npm install @zerolith/cli@{installed} or npm install zerolith@{own}, or build with --no-prepare to keep the scanner. {DIAGNOSTIC_URL}package_version_mismatch"
         ))),
         _ => Ok(()),
     }

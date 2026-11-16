@@ -17,7 +17,7 @@ A signal holds one value for one page load. The things an application wants beyo
 | `throttled(signal, ms)` | Work at a steady rate | A signal that follows the source at most once per `ms` |
 | `selector(signal)` | A selection among many rows | A function from a key to a signal that is true for the selected key |
 
-Install it with `npm install @zerolith/state`. It depends on `zerolith` alone.
+Install it with `zerolith add state`, which lists it at the version of `zerolith` the project is on, or with `npm install @zerolith/state`. It depends on `zerolith` alone.
 
 ## Kept in storage
 

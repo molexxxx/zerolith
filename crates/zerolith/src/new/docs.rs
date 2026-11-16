@@ -27,7 +27,7 @@ pub(super) fn steps(tool: Tool) -> (&'static str, &'static str, &'static str) {
 /// Where the project's AGENTS.md sends an agent for zerolith's own rules: the skill in the project, or the command that adds it.
 pub(super) fn skill_pointer(choice: Choice) -> String {
     if choice.skill {
-        "zerolith's own rules and patterns are in the zerolith skill in `.agents/skills/zerolith/`, also at `.claude/skills/zerolith/` for Claude Code; `npx zerolith skill` brings it to the installed version after an upgrade. The guides at https://zerolith.dev/guide/ cover each concept in full.".to_string()
+        "zerolith's own rules and patterns are in the zerolith skill in `.agents/skills/zerolith/`, also at `.claude/skills/zerolith/` for Claude Code; `npx zerolith upgrade` moves every zerolith package to a new version together and writes the skill again for it. The guides at https://zerolith.dev/guide/ cover each concept in full.".to_string()
     } else {
         "zerolith's own rules and patterns are in the zerolith skill, which `npx zerolith skill` adds to the project. The guides at https://zerolith.dev/guide/ cover each concept in full.".to_string()
     }

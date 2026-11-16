@@ -1,6 +1,6 @@
 # zerolith (command line)
 
-The Rust side of zerolith: a production build that bundles and minifies with Rolldown and lightningcss compiled in, a dev server that serves TypeScript and JSX as JavaScript through oxc, import map generation with integrity hashes, project checks, a scaffold for new applications, and the zerolith skill for coding agents.
+The Rust side of zerolith: a production build that bundles and minifies with Rolldown and lightningcss compiled in, a dev server that serves TypeScript and JSX as JavaScript through oxc, import map generation with integrity hashes, project checks, a scaffold for new applications, commands that keep a project's zerolith packages on one version, and the zerolith skill for coding agents.
 
 ```
 zerolith dev [root] [--port 8080] [--base /] [--proxy /api=http://127.0.0.1:3000]   serve with live reload
@@ -12,6 +12,8 @@ zerolith skill [root]                                                           
 zerolith build [root] [--out dist] [--base /] [--mode production] [--sourcemap] [--no-minify] [--no-prepare] [--empty-out-dir]
 zerolith build [root] --unbundled [--out dist] [--no-prepare]
 zerolith build [root] --entry <module> [--name <name>] [--classic] [--out dist] [--base /] [--mode production] [--sourcemap] [--no-minify] [--no-prepare] [--empty-out-dir]
+zerolith add <package>... [--root .] [--dry-run]                                      add zerolith packages at the project's version
+zerolith upgrade [version] [--root .] [--major] [--dry-run]                           move every zerolith package to one version
 zerolith new [name] [--example fullstack] [--template tsx|ts|jsx|js] [--vite] [--buildless] [--no-devtools] [--no-skill] [--no-install] [--yes]
 ```
 

@@ -71,7 +71,9 @@ Every error and warning carries a stable code and a page at `https://zerolith.de
 | `npm test` | Browser tests with Vitest |
 | `npx zerolith doctor` | Check the page, the import map, and template mistakes before running anything |
 | `npx zerolith lint` | Check the templates alone, failing on any finding; the starter's `lint` script runs it |
-| `npx zerolith skill` | Replace this skill with the one for the installed zerolith, after an upgrade |
+| `npx zerolith add forms` | Add a zerolith package at the version the project is on; never list one at another version by hand |
+| `npx zerolith upgrade` | Move every zerolith package to the newest release together, vendor again behind an import map, and write this skill again |
+| `npx zerolith skill` | Replace this skill with the one for the installed zerolith, after an upgrade made another way |
 | `npm run build` | Bundle and minify into `dist/` |
 | `npm run preview` | Serve `dist/` as a static host would |
 

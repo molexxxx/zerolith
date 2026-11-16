@@ -17,7 +17,7 @@ The browser knows whether it is online, whether the tab is shown, how big the wi
 | `size(target)` | An element's content box | One per element, stopped with the owner |
 | `inView(target, options?)` | Whether an element is in the viewport | One per element, stopped with the owner |
 
-Install it with `npm install @zerolith/browser`. It depends on `zerolith` alone. The reader's preferences, forced colors and reduced motion, are signals in [`@zerolith/a11y`](accessibility.md), since every interface should follow them.
+Install it with `zerolith add browser`, which lists it at the version of `zerolith` the project is on, or with `npm install @zerolith/browser`. It depends on `zerolith` alone. The reader's preferences, forced colors and reduced motion, are signals in [`@zerolith/a11y`](accessibility.md), since every interface should follow them.
 
 ## Online and visible
 

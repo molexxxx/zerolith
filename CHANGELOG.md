@@ -4,6 +4,10 @@ Every package in this repository is released together and carries the same versi
 
 ## Unreleased
 
+### Added
+
+- `@zerolith/cli` and the crate: `zerolith add <package>...` adds zerolith packages to a project at the version it is on, and `zerolith upgrade [version]` moves every zerolith package the project lists to one version together, the newest release unless one is given. Each edits the dependency entries of `package.json` in place, keeping the rest of the file byte for byte, has the project's own package manager install once, and puts `package.json` back when the install fails. A page that loads its packages through an import map has them vendored again. `upgrade` also writes the project's zerolith skill again, runs `zerolith doctor`, and refuses a new major version without `--major`, and `--dry-run` prints what either command would do. The fix of `package_version_mismatch` and the build's message for it name `zerolith upgrade`.
+
 ### Changed
 
 - `zerolith`: a page that only calls `render` no longer bundles the code that adopts server-rendered markup. `hydrate` brings it in, so an application that hydrates, or defines custom elements, ships the same code as before. The size rows of the [benchmarks](benchmarks/README.md), written from each release's run, show what the keyed entry saves.

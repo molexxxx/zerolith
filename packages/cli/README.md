@@ -1,6 +1,6 @@
 # @zerolith/cli
 
-The `zerolith` command line from npm: `new`, `dev`, which serves a project with its packages resolved from `node_modules` and forwards its API to a backend, `serve`, `build`, which bundles and minifies an application with Rolldown compiled into the binary, or writes one module as a single script for other sites' pages with `--entry`, `preview`, `skill`, which writes the zerolith skill for coding agents into a project, `importmap`, and `doctor`. The binary is written in Rust; this package carries none itself and depends optionally on one package per platform, so npm installs only the binary that matches the machine.
+The `zerolith` command line from npm: `new`, `dev`, which serves a project with its packages resolved from `node_modules` and forwards its API to a backend, `serve`, `build`, which bundles and minifies an application with Rolldown compiled into the binary, or writes one module as a single script for other sites' pages with `--entry`, `preview`, `skill`, which writes the zerolith skill for coding agents into a project, `importmap`, `doctor`, and `add` and `upgrade`, which keep a project's zerolith packages on one version. The binary is written in Rust; this package carries none itself and depends optionally on one package per platform, so npm installs only the binary that matches the machine.
 
 Install it once and start a project. `new` asks a few questions, each with a default, writes the starter, and installs its dependencies, this package among them:
 
@@ -17,6 +17,7 @@ Or add it to an existing project and call it through `npx`:
 
 ```
 npm install --save-dev @zerolith/cli
+npx zerolith add router forms
 npx zerolith doctor .
 ```
 

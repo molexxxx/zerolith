@@ -22,7 +22,7 @@ Nothing else needs to run: an agent started in the project finds both on its own
 
 ## Keeping the skill current
 
-The skill is a copy, so it stays at the version it was written for. After upgrading zerolith, run
+The skill is a copy, so it stays at the version it was written for. [`zerolith upgrade`](command-line.md#upgrade) writes it again for the version it moves the project to. After an upgrade made another way, run
 
 ```sh
 npx zerolith skill

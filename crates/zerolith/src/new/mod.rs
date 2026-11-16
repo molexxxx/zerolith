@@ -112,7 +112,7 @@ impl Choice {
 }
 
 /// The package manager that ran the command, from the user agent npm, pnpm, Yarn, and Bun set, or npm.
-fn package_manager() -> &'static str {
+pub(crate) fn package_manager() -> &'static str {
     let agent = std::env::var("npm_config_user_agent").unwrap_or_default();
     ["pnpm", "yarn", "bun"]
         .into_iter()
