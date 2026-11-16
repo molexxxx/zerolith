@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { delimiter, join } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { binary } from "./helpers.ts";
@@ -49,10 +49,14 @@ function environment(): NodeJS.ProcessEnv
     return env;
 }
 
-/** Runs the command line in the project and returns its exit code and everything it printed. */
+/** Runs the command line in the project and returns its exit code and everything it printed. The binary's path is made absolute first, since ZEROLITH_BINARY_PATH may name it from the folder the tests run in, which is not the project. */
 function zerolith(args: string[], cwd: string = project): { status: number | null; output: string }
 {
-    const result = spawnSync(binary(), args, { cwd, env: environment(), encoding: "utf8", windowsHide: true });
+    const result = spawnSync(resolve(binary()), args, { cwd, env: environment(), encoding: "utf8", windowsHide: true });
+    if (result.error !== undefined)
+    {
+        throw result.error;
+    }
     return { status: result.status, output: `${result.stdout}${result.stderr}` };
 }
 
