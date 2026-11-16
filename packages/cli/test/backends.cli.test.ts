@@ -104,6 +104,22 @@ afterAll(async () =>
     rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 });
 
+describe("the port a test's backend gets", () =>
+{
+    it("is none a system gives to a process that asks for any free port, and another one on each call", async () =>
+    {
+        const taken = new Set<number>();
+        for (let call = 0; call < 5; call++)
+        {
+            const found = await freePort();
+            expect(found).toBeGreaterThanOrEqual(20000);
+            expect(found).toBeLessThan(30000);
+            taken.add(found);
+        }
+        expect(taken.size).toBe(5);
+    });
+});
+
 describe("a proxy rule's run command", () =>
 {
     it("starts the backend with dev in the project folder, forwards to it, and stops it with the server", async () =>

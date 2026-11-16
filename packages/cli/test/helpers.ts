@@ -49,20 +49,43 @@ export function startServer(args: string[]): Promise<Started>
     });
 }
 
-/** A port nothing listens on right now, found by binding one and letting it go. */
-export function freePort(): Promise<number>
+/** The first of the ports `freePort` gives, and how many there are: all below the ports a system gives to a process that asks for any free one, which start at 32768 on Linux and at 49152 on Windows and macOS. */
+const FIRST_PORT = 20000;
+const PORTS = 10000;
+
+/** Where the next call of `freePort` starts looking, from a place of its own in each test file, so files that run side by side seldom try the same port and no two calls give the same one. */
+let next = Math.floor(Math.random() * PORTS);
+
+/** Whether this process can listen on `port` right now. */
+function listens(port: number): Promise<boolean>
 {
-    return new Promise((resolve, reject) =>
+    return new Promise((resolve) =>
     {
         const server = createServer();
-        server.on("error", reject);
-        server.listen(0, "127.0.0.1", () =>
-        {
-            const address = server.address();
-            const port = typeof address === "object" && address !== null ? address.port : 0;
-            server.close(() => resolve(port));
-        });
+        server.on("error", () => resolve(false));
+        server.listen(port, "127.0.0.1", () => server.close(() => resolve(true)));
     });
+}
+
+/**
+ * A port nothing listens on right now, for a backend a test starts later
+ * or expects to be down. It is none of the ports a system gives to a
+ * process that asks for any free one, as every server these tests start
+ * does: a port found by binding port 0 and letting it go went to another
+ * file's server before this file's backend had it, so a proxy to a backend
+ * that was down answered 200, and the backend then could not listen.
+ */
+export async function freePort(): Promise<number>
+{
+    for (let tries = 0; tries < PORTS; tries++)
+    {
+        const port = FIRST_PORT + next++ % PORTS;
+        if (await listens(port))
+        {
+            return port;
+        }
+    }
+    throw new Error(`no port from ${FIRST_PORT} to ${FIRST_PORT + PORTS - 1} is free`);
 }
 
 /** Whether a process runs, by sending it no signal. */
