@@ -5,73 +5,74 @@ zerolith is measured on [js-framework-benchmark](https://github.com/krausest/js-
 <!-- results: written by `npm run bench:report` from benchmarks/results/ -->
 ## Results
 
-The newest release, zerolith 1.10.0, measured on 2026-11-13 with the median of 3 sessions on separate GitHub-hosted runners, each with medians of 15 runs, 30 for vanilla, Solid, Svelte, and zerolith, next to hand-written JavaScript and seven popular frameworks. The score is each framework's weighted geometric mean: every operation's time over hand-written JavaScript's, combined with the weights of the official results page, so hand-written JavaScript is 1.00, a score of 1.10 takes 10% longer than it over the nine operations, and lower is faster. The release before, zerolith 1.9.0, ran in the same session on the same machine, so its row compares with the newest like for like.
+The newest release, zerolith 1.11.0, measured on 2026-11-16 with the median of 3 sessions on separate GitHub-hosted runners, each with medians of 15 runs, 30 for vanilla, Solid, Svelte, and zerolith, next to hand-written JavaScript and seven popular frameworks. The score is each framework's weighted geometric mean: every operation's time over hand-written JavaScript's, combined with the weights of the official results page, so hand-written JavaScript is 1.00, a score of 1.10 takes 10% longer than it over the nine operations, and lower is faster. The release before, zerolith 1.10.0, ran in the same session on the same machine, so its row compares with the newest like for like.
 
 | Framework | Entry | Version | Score |
 | --- | --- | --- | --- |
 | vanilla | `vanillajs` | hand-written | 1.00 |
-| zerolith | `zerolith` | 1.10.0 | 1.11 |
-| zerolith, the release before | `zerolith` | 1.9.0 | 1.12 |
-| Solid | `solid` | 1.9.3 | 1.12 |
-| Svelte | `svelte` | 5.42.1 | 1.17 |
-| Vue | `vue` | 3.5.39 | 1.26 |
-| Lit | `lit` | 3.2.0 | 1.28 |
-| Preact | `preact-signals` | 11.0.0 + 2.3.1 | 1.37 |
-| Angular | `angular-cf-signals-nozone` | 22.2.2 | 1.42 |
-| React | `react-hooks` | 19.2.0 | 1.46 |
+| Solid | `solid` | 1.9.3 | 1.09 |
+| zerolith | `zerolith` | 1.11.0 | 1.10 |
+| zerolith, the release before | `zerolith` | 1.10.0 | 1.11 |
+| Svelte | `svelte` | 5.42.1 | 1.12 |
+| Lit | `lit` | 3.2.0 | 1.16 |
+| Vue | `vue` | 3.5.39 | 1.24 |
+| Preact | `preact-signals` | 11.0.0 + 2.3.1 | 1.25 |
+| Angular | `angular-cf-signals-nozone` | 22.2.2 | 1.34 |
+| React | `react-hooks` | 19.2.0 | 1.38 |
 
 ### Every operation
 
 Each cell is the median duration in milliseconds, with the factor against hand-written JavaScript for that operation in parentheses; below 1.00 is faster than it.
 
-| Operation | vanilla | zerolith | Solid | Svelte | Vue | Lit | Preact | Angular | React |
+| Operation | vanilla | Solid | zerolith | Svelte | Lit | Vue | Preact | Angular | React |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| create 1,000 rows | 78.0 (1.00) | 92.0 (1.18) | 83.0 (1.06) | 87.3 (1.12) | 91.8 (1.18) | 91.2 (1.17) | 111.9 (1.43) | 109.7 (1.41) | 99.1 (1.27) |
-| replace all 1,000 rows | 79.3 (1.00) | 94.8 (1.20) | 92.3 (1.16) | 99.3 (1.25) | 107.8 (1.36) | 94.5 (1.19) | 124.3 (1.57) | 116.4 (1.47) | 108.4 (1.37) |
-| update every 10th row (4x slowdown) | 49.7 (1.00) | 54.1 (1.09) | 54.8 (1.10) | 56.4 (1.13) | 55.9 (1.12) | 57.1 (1.15) | 50.4 (1.01) | 62.0 (1.25) | 68.3 (1.37) |
-| select a row (4x slowdown) | 8.9 (1.00) | 9.9 (1.12) | 13.1 (1.48) | 18.4 (2.07) | 12.1 (1.37) | 20.6 (2.33) | 15.8 (1.79) | 18.2 (2.06) | 21.2 (2.40) |
-| swap 2 rows (4x slowdown) | 56.5 (1.00) | 62.6 (1.11) | 64.4 (1.14) | 68.0 (1.20) | 61.6 (1.09) | 69.1 (1.22) | 61.9 (1.10) | 58.4 (1.03) | 406.3 (7.20) |
-| remove one row (2x slowdown) | 41.0 (1.00) | 39.9 (0.97) | 42.4 (1.04) | 43.0 (1.05) | 52.3 (1.28) | 55.3 (1.35) | 47.5 (1.16) | 57.1 (1.39) | 42.6 (1.04) |
-| create 10,000 rows | 802.3 (1.00) | 906.5 (1.13) | 870.3 (1.08) | 898.1 (1.12) | 980.2 (1.22) | 936.9 (1.17) | 1107.0 (1.38) | 1072.6 (1.34) | 1133.7 (1.41) |
-| append 1,000 rows to 1,000 | 88.5 (1.00) | 95.5 (1.08) | 96.0 (1.08) | 95.2 (1.08) | 107.5 (1.21) | 109.2 (1.23) | 126.8 (1.43) | 122.8 (1.39) | 114.9 (1.30) |
-| clear 1,000 rows (4x slowdown) | 33.3 (1.00) | 38.1 (1.15) | 42.7 (1.28) | 41.0 (1.23) | 53.7 (1.62) | 52.3 (1.57) | 58.8 (1.77) | 57.0 (1.71) | 66.1 (1.99) |
+| create 1,000 rows | 44.4 (1.00) | 49.5 (1.11) | 52.9 (1.19) | 50.3 (1.13) | 53.1 (1.20) | 54.8 (1.23) | 62.8 (1.41) | 64.6 (1.45) | 55.5 (1.25) |
+| replace all 1,000 rows | 49.3 (1.00) | 53.5 (1.09) | 54.8 (1.11) | 57.5 (1.17) | 57.8 (1.17) | 60.6 (1.23) | 69.8 (1.42) | 69.7 (1.41) | 64.3 (1.30) |
+| update every 10th row (4x slowdown) | 30.1 (1.00) | 32.8 (1.09) | 32.9 (1.09) | 29.9 (0.99) | 28.7 (0.96) | 38.4 (1.28) | 27.7 (0.92) | 37.1 (1.23) | 41.0 (1.36) |
+| select a row (4x slowdown) | 7.0 (1.00) | 8.2 (1.16) | 7.8 (1.11) | 11.7 (1.66) | 11.6 (1.66) | 9.2 (1.31) | 8.9 (1.27) | 11.7 (1.67) | 12.1 (1.73) |
+| swap 2 rows (4x slowdown) | 35.6 (1.00) | 40.3 (1.13) | 35.5 (1.00) | 38.2 (1.07) | 41.8 (1.17) | 41.4 (1.16) | 40.3 (1.13) | 43.6 (1.22) | 225.5 (6.33) |
+| remove one row (2x slowdown) | 25.5 (1.00) | 26.4 (1.04) | 25.4 (1.00) | 26.4 (1.03) | 27.9 (1.09) | 31.2 (1.22) | 27.2 (1.06) | 27.9 (1.09) | 27.2 (1.06) |
+| create 10,000 rows | 511.2 (1.00) | 546.8 (1.07) | 571.6 (1.12) | 554.6 (1.08) | 595.5 (1.16) | 590.4 (1.15) | 707.9 (1.38) | 703.4 (1.38) | 690.5 (1.35) |
+| append 1,000 rows to 1,000 | 51.8 (1.00) | 54.0 (1.04) | 57.8 (1.11) | 56.3 (1.09) | 61.1 (1.18) | 60.8 (1.17) | 70.3 (1.36) | 68.8 (1.33) | 61.4 (1.19) |
+| clear 1,000 rows (4x slowdown) | 20.4 (1.00) | 24.9 (1.22) | 22.6 (1.11) | 24.7 (1.21) | 24.9 (1.22) | 29.3 (1.44) | 27.2 (1.33) | 30.2 (1.48) | 35.4 (1.74) |
 
 ### Memory, size, and first paint
 
 Each value is the median of 5 passes, since the benchmark takes one sample of each a pass.
 
-| Measure | vanilla | zerolith | Solid | Svelte | Vue | Lit | Preact | Angular | React |
+| Measure | vanilla | Solid | zerolith | Svelte | Lit | Vue | Preact | Angular | React |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| ready memory, after load (MB) | 0.56 | 0.73 | 0.59 | 0.64 | 0.81 | 0.67 | 0.69 | 1.10 | 1.17 |
-| run memory, with 1,000 rows (MB) | 1.88 | 2.83 | 2.69 | 2.87 | 3.92 | 2.81 | 4.90 | 3.61 | 4.43 |
-| after creating and clearing 1,000 rows 5 times (MB) | 0.65 | 0.97 | 0.77 | 0.98 | 1.20 | 0.89 | 8.95 | 1.69 | 1.97 |
-| size uncompressed (kB) | 11.3 | 30.2 | 11.5 | 26.6 | 64.3 | 22.1 | 23.3 | 110.6 | 190.3 |
-| size compressed (kB) | 2.5 | 9.0 | 4.5 | 9.7 | 23.3 | 7.3 | 8.3 | 33.8 | 51.4 |
-| first paint (ms) | 99.8 | 126.4 | 99.6 | 122.4 | 186.3 | 127.8 | 115.5 | 262.9 | 438.0 |
+| ready memory, after load (MB) | 0.57 | 0.60 | 0.74 | 0.67 | 0.72 | 0.87 | 0.70 | 1.14 | 1.18 |
+| run memory, with 1,000 rows (MB) | 1.88 | 2.69 | 2.82 | 2.87 | 2.81 | 3.92 | 4.91 | 3.62 | 4.43 |
+| after creating and clearing 1,000 rows 5 times (MB) | 0.65 | 0.78 | 0.99 | 0.98 | 0.89 | 1.20 | 8.96 | 1.69 | 1.98 |
+| size uncompressed (kB) | 11.3 | 11.5 | 31.2 | 26.6 | 22.1 | 64.3 | 23.3 | 110.6 | 190.3 |
+| size compressed (kB) | 2.5 | 4.5 | 9.4 | 9.7 | 7.3 | 23.3 | 8.3 | 33.8 | 51.4 |
+| first paint (ms) | 69.8 | 67.9 | 89.5 | 88.6 | 83.7 | 145.7 | 81.0 | 199.2 | 324.7 |
 
 ### Every run
 
 Each run's scores, the newest release first. A score compares frameworks within its own run, so a change in how the runs were taken moves every framework's score with it.
 
-| Run | vanilla | zerolith | Solid | Svelte | Vue | Lit | Preact | Angular | React | Measured |
+| Run | vanilla | Solid | zerolith | Svelte | Lit | Vue | Preact | Angular | React | Measured |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1.10.0, 2026-11-13 | 1.00 | 1.11 | 1.12 | 1.17 | 1.26 | 1.28 | 1.37 | 1.42 | 1.46 | the median of 3 sessions on separate GitHub-hosted runners, each with medians of 15 runs, 30 for vanilla, Solid, Svelte, and zerolith |
-| 1.9.0, 2026-11-13 | 1.00 | 1.19 | 1.09 | 1.15 | 1.25 | 1.23 | 1.33 | 1.47 | 1.48 | medians of 15 runs, 30 for vanilla, Solid, Svelte, and zerolith, on a GitHub-hosted runner |
-| 1.8.0, 2026-11-12 | 1.00 | 1.15 | 1.09 | 1.12 | 1.27 | 1.22 | 1.33 | 1.41 | 1.44 | medians of 15 runs on a GitHub-hosted runner |
-| 1.7.0, 2026-11-12 | 1.00 | 1.13 | 1.11 | 1.15 | 1.25 | 1.26 | 1.32 | 1.44 | 1.47 | medians of 15 runs on a GitHub-hosted runner |
-| 1.6.0, 2026-11-08 | 1.00 | 1.12 | 1.10 | 1.15 | 1.27 | 1.25 | 1.34 | 1.40 | 1.47 | medians of 15 runs on a GitHub-hosted runner |
-| 1.5.0, 2026-11-08 | 1.00 | 1.12 | 1.10 | 1.15 | 1.27 | 1.22 | 1.36 | 1.35 | 1.48 | medians of 15 runs on a GitHub-hosted runner |
-| 1.3.0, 2026-11-07 | 1.00 | 1.15 | 1.12 | 1.17 | 1.29 | 1.27 | 1.38 | 1.43 | 1.51 | medians of 15 runs on a GitHub-hosted runner |
-| 1.2.0, 2026-11-07 | 1.00 | 1.10 | 1.09 | 1.13 | 1.27 | 1.23 | 1.35 | 1.41 | 1.49 | medians of 15 runs on a GitHub-hosted runner |
-| 1.1.0, 2026-11-06 | 1.00 | 1.10 | 1.10 | 1.14 | 1.27 | 1.24 | 1.35 | 1.45 | 1.49 | medians of 15 runs on a GitHub-hosted runner |
-| 1.0.1, 2026-11-06 | 1.00 | 1.14 | 1.11 | 1.16 | 1.28 | 1.27 | 1.37 | 1.42 | 1.51 | medians of 15 runs on a GitHub-hosted runner |
-| 1.0.0, 2026-11-05 | 1.00 | 1.15 | 1.13 | 1.17 | 1.26 | 1.27 | 1.37 | 1.43 | 1.46 | medians of 15 runs on a GitHub-hosted runner |
-| 0.1.0-alpha.10, 2026-11-04 | 1.00 | 1.13 | 1.13 | 1.16 | 1.26 | 1.27 | 1.40 | 1.41 | 1.53 | medians of 15 runs on a GitHub-hosted runner |
-| 0.1.0-alpha.9, 2026-11-03 | 1.00 | 1.13 | 1.10 | 1.14 | 1.30 | 1.24 | 1.36 | 1.41 | 1.46 | medians of 15 runs on a GitHub-hosted runner |
-| 0.1.0-alpha.8, 2026-11-03 | 1.00 | 1.13 | 1.14 | 1.18 | 1.29 | 1.27 | 1.40 | 1.43 | 1.50 | medians of 15 runs on a GitHub-hosted runner |
-| 0.1.0-alpha.8, 2026-11-02 | 1.00 | 1.08 | 1.07 | 1.10 | 1.19 | 1.18 | 1.27 | 1.29 | 1.40 | medians of 15 runs, held to one group of cores on an idle machine |
+| 1.11.0, 2026-11-16 | 1.00 | 1.09 | 1.10 | 1.12 | 1.16 | 1.24 | 1.25 | 1.34 | 1.38 | the median of 3 sessions on separate GitHub-hosted runners, each with medians of 15 runs, 30 for vanilla, Solid, Svelte, and zerolith |
+| 1.10.0, 2026-11-13 | 1.00 | 1.12 | 1.11 | 1.17 | 1.28 | 1.26 | 1.37 | 1.42 | 1.46 | the median of 3 sessions on separate GitHub-hosted runners, each with medians of 15 runs, 30 for vanilla, Solid, Svelte, and zerolith |
+| 1.9.0, 2026-11-13 | 1.00 | 1.09 | 1.19 | 1.15 | 1.23 | 1.25 | 1.33 | 1.47 | 1.48 | medians of 15 runs, 30 for vanilla, Solid, Svelte, and zerolith, on a GitHub-hosted runner |
+| 1.8.0, 2026-11-12 | 1.00 | 1.09 | 1.15 | 1.12 | 1.22 | 1.27 | 1.33 | 1.41 | 1.44 | medians of 15 runs on a GitHub-hosted runner |
+| 1.7.0, 2026-11-12 | 1.00 | 1.11 | 1.13 | 1.15 | 1.26 | 1.25 | 1.32 | 1.44 | 1.47 | medians of 15 runs on a GitHub-hosted runner |
+| 1.6.0, 2026-11-08 | 1.00 | 1.10 | 1.12 | 1.15 | 1.25 | 1.27 | 1.34 | 1.40 | 1.47 | medians of 15 runs on a GitHub-hosted runner |
+| 1.5.0, 2026-11-08 | 1.00 | 1.10 | 1.12 | 1.15 | 1.22 | 1.27 | 1.36 | 1.35 | 1.48 | medians of 15 runs on a GitHub-hosted runner |
+| 1.3.0, 2026-11-07 | 1.00 | 1.12 | 1.15 | 1.17 | 1.27 | 1.29 | 1.38 | 1.43 | 1.51 | medians of 15 runs on a GitHub-hosted runner |
+| 1.2.0, 2026-11-07 | 1.00 | 1.09 | 1.10 | 1.13 | 1.23 | 1.27 | 1.35 | 1.41 | 1.49 | medians of 15 runs on a GitHub-hosted runner |
+| 1.1.0, 2026-11-06 | 1.00 | 1.10 | 1.10 | 1.14 | 1.24 | 1.27 | 1.35 | 1.45 | 1.49 | medians of 15 runs on a GitHub-hosted runner |
+| 1.0.1, 2026-11-06 | 1.00 | 1.11 | 1.14 | 1.16 | 1.27 | 1.28 | 1.37 | 1.42 | 1.51 | medians of 15 runs on a GitHub-hosted runner |
+| 1.0.0, 2026-11-05 | 1.00 | 1.13 | 1.15 | 1.17 | 1.27 | 1.26 | 1.37 | 1.43 | 1.46 | medians of 15 runs on a GitHub-hosted runner |
+| 0.1.0-alpha.10, 2026-11-04 | 1.00 | 1.13 | 1.13 | 1.16 | 1.27 | 1.26 | 1.40 | 1.41 | 1.53 | medians of 15 runs on a GitHub-hosted runner |
+| 0.1.0-alpha.9, 2026-11-03 | 1.00 | 1.10 | 1.13 | 1.14 | 1.24 | 1.30 | 1.36 | 1.41 | 1.46 | medians of 15 runs on a GitHub-hosted runner |
+| 0.1.0-alpha.8, 2026-11-03 | 1.00 | 1.14 | 1.13 | 1.18 | 1.27 | 1.29 | 1.40 | 1.43 | 1.50 | medians of 15 runs on a GitHub-hosted runner |
+| 0.1.0-alpha.8, 2026-11-02 | 1.00 | 1.07 | 1.08 | 1.10 | 1.18 | 1.19 | 1.27 | 1.29 | 1.40 | medians of 15 runs, held to one group of cores on an idle machine |
 | 0.1.0-alpha.6, 2026-11-01 | 1.00 | 1.13 | 1.13 | 1.14 | 1.23 | 1.23 | 1.33 | 1.37 | 1.47 | means of 10 runs, the cores left to the system |
-| 0.1.0-alpha.5, 2026-10-31 | 1.00 | 1.12 | 1.11 | 1.14 | 1.26 | 1.23 | 1.34 | 1.42 | 1.44 | means of 10 runs, the cores left to the system |
+| 0.1.0-alpha.5, 2026-10-31 | 1.00 | 1.11 | 1.12 | 1.14 | 1.23 | 1.26 | 1.34 | 1.42 | 1.44 | means of 10 runs, the cores left to the system |
 
 0.1.0-alpha.6, 2026-11-01: 0.1.0-alpha.7 builds the same bundle byte for byte, so this run stands for it too.
 <!-- /results -->
