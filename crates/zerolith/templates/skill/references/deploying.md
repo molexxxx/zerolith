@@ -2,24 +2,66 @@
 
 # Building and serving
 
-`zerolith build` writes the application into `dist/` as static files, so it runs on any host and next to any backend. Serving it well comes down to two rules, one for routing and one for caching:
+One command builds a zerolith application into static files, and any static host, web server, or backend can serve them.
 
-| Request | Answer |
+## Building
+
+Run the build in the project folder:
+
+```sh
+zerolith build
+```
+
+In a project from `zerolith new`, `npm run build` runs the same command. It prints every file it wrote, with each text file's size after gzip:
+
+```text
+ zerolith  build  production, minified
+
+  dist/assets/index-520b940b.css   4.90 kB  gzip  1.48 kB
+  dist/assets/index-CjMRCphY.js   47.01 kB  gzip 15.73 kB
+  dist/data/packages.json          1.57 kB  gzip  0.62 kB
+  dist/favicon.svg                 0.44 kB  gzip  0.33 kB
+  dist/index.html                  0.49 kB  gzip  0.30 kB
+
+  built my-app into dist in 62 ms
+```
+
+Check the result before you deploy it:
+
+```sh
+zerolith preview
+```
+
+`preview` serves `dist/` on port 4173 the way a host will: each file as it is, and `index.html` for every route.
+
+The build has two forms. Both start from the same source, and `zerolith dev` is the same for both:
+
+| Command | What it writes |
 | --- | --- |
-| A file that exists in `dist/` | The file, with its media type |
-| Any other path in the application, such as `/notes/7` | `index.html`, so the router renders the route |
+| `zerolith build` | [Bundled output](#bundled-output): the application and its packages in a few minified files |
+| `zerolith build --unbundled` | [Unbundled output](#unbundled-output): one file for each module, behind an import map |
 
-| File | Cache |
-| --- | --- |
-| A file under `assets/` | Cached for a year: `Cache-Control: public, max-age=31536000, immutable` |
-| `index.html` and the other files | `Cache-Control: no-cache`, so a new build is picked up at once |
+[Choosing between the two](#choosing-between-the-two) compares them, and the [command line guide](command-line.md#build) lists every option of the build. A widget for other sites' pages is a third case: [`zerolith build --entry`](command-line.md#one-script) writes it as one script with a name that stays the same, and no page.
 
-Every file under `assets/` has a content hash in its name, so a changed file gets a new name and the old one can be cached forever. `index.html` keeps its name, so it has to be checked on every visit.
+## Bundled output
 
-> [!WARNING]
-> A missing script or stylesheet, such as `/assets/old.js`, should get a 404 rather than `index.html`, so a stale script fails clearly instead of being parsed as HTML. A page the browser loads should get `index.html` whatever its last segment holds, since a route such as `/releases/2.3.0` has a dot in it. `zerolith dev` and `zerolith preview` tell the two apart by the request's `Accept` header, which names HTML when the browser loads a page.
+`zerolith build` bundles the application with [Rolldown](https://rolldown.rs), the bundler Vite is built on. Rolldown is compiled into the `zerolith` binary, so no Node tooling runs and there is nothing else to install.
 
-## What the build writes
+### Files in the bundle
+
+This is the starter that `zerolith new my-app` writes, built:
+
+```tree
+dist/
+    index.html                  the page, pointing at the hashed files
+    favicon.svg                 from public/
+    data/packages.json          from public/
+    assets/
+        index-CjMRCphY.js       the application and its packages, minified
+        index-520b940b.css      every stylesheet, combined and minified
+```
+
+A larger application gets more files of the same kinds:
 
 | Path | What it is |
 | --- | --- |
@@ -29,26 +71,71 @@ Every file under `assets/` has a content hash in its name, so a changed file get
 | `assets/<name>-<hash>.<ext>` | Images, fonts, and other files the code or the stylesheets reference |
 | Everything from `public/` | Copied as it is, at the same paths |
 
-A widget for other sites' pages is one script with a name that stays the same, which [`zerolith build --entry`](command-line.md#one-script) writes instead of all of this. An application can also ship with no bundle at all, as its own modules behind an import map, which [Unbundled output](#unbundled-output) covers next.
+### The page after the build
 
-The [command line guide](command-line.md) describes the build's options; `zerolith preview` serves `dist/` as a host would, which is the quickest check before deploying.
+The build changes two lines of the starter's `index.html`, the stylesheet link and the module script:
+
+```html
+<link rel="stylesheet" href="/src/styles.css">
+<script type="module" src="/src/main.ts"></script>
+```
+
+In `dist/index.html` they point at the built files:
+
+```html
+<link rel="stylesheet" href="/assets/index-520b940b.css">
+<script type="module" src="/assets/index-CjMRCphY.js"></script>
+```
+
+Each name carries a hash of the file's content. A file that changes gets a new name, and a file that stays the same keeps its name. When the script imports other chunks, the page also gets a `modulepreload` link for each one, so the browser fetches them in parallel.
+
+### What the build does
+
+| The build | So that |
+| --- | --- |
+| Bundles the modules the page loads, TypeScript, TSX, JSX, and JavaScript alike, into minified chunks, and removes code nothing uses | The browser downloads a few small files instead of every module |
+| Resolves packages from `node_modules`, with the production build of zerolith | Any installed package works, with no import map to keep |
+| Gives each view loaded with the router's `lazy()`, and each compiled locale, a chunk of its own | A visitor downloads that code only when it is needed |
+| Prepares every `html` template | The browser binds templates without scanning them, and the scanner is not shipped |
+| Combines the stylesheets the page links and the modules import into one file, lowered for the oldest [supported browsers](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md) and minified | One request carries the styles, and newer CSS syntax works in every supported browser |
+| Copies each image, font, and other file the code, the stylesheets, or the page refer to into `assets/`, under a content hash | Everything under `assets/` can be cached for a year |
+| Copies `public/` as it is | A file that needs a fixed name, such as `robots.txt`, keeps it |
+| Replaces each `import.meta.env` value | Modules read the mode, the base path, and the `PUBLIC_` variables |
+
+A deployment usually needs only these options:
+
+| Option | Use it to |
+| --- | --- |
+| `--base /app/` | Serve the application under [a path](#a-path-under-the-domain) |
+| `--out <folder>` | Write somewhere other than `dist/`, such as [a backend's static folder](#served-by-a-backend) |
+| `--sourcemap` | Write a source map next to each chunk |
+
+The bundled output caches by file name, as [Serving rules](#serving-rules) describes. Its page holds no inline script, so the strictest policy, `default-src 'self'`, works for every build.
 
 ## Unbundled output
 
-`zerolith build --unbundled` writes the application without bundling it. Every module in the project becomes one JavaScript file that the browser loads as it is, the zerolith packages are copied in beside them, and each page gets an import map that tells the browser where everything lives. One command sets all of it up, with no map to write by hand and nothing to configure:
+`zerolith build --unbundled` writes the application without bundling it:
 
 ```sh
 zerolith build --unbundled
 zerolith preview
 ```
 
-A project started with `zerolith new my-app --buildless` runs the first as `npm run build`. Any project on the zerolith command line can build either way from the same source: `zerolith dev` is the same for both, and only the production output differs.
+- Every module in the project becomes one JavaScript file, which the browser loads as it is.
+- The zerolith packages are copied in beside them.
+- Each page gets an import map that tells the browser where everything is.
 
-There are three reasons to choose it. The browser runs the files you wrote, one for one, so what you read in its developer tools is your own module and not a chunk. A deployment makes the browser download only the modules that changed. And the output stays correct on a host whose cache time you cannot set.
+That one command sets all of it up. You write no import map and configure nothing. A project started with `zerolith new my-app --buildless` runs it as `npm run build`, and any project on the zerolith command line can build either way from the same source.
+
+There are three reasons to choose it:
+
+- The browser runs the files you wrote, one for one. What you read in its developer tools is your own module, not a chunk.
+- After a deployment, the browser downloads only the modules that changed.
+- The output stays correct on a host whose cache time you cannot set.
 
 ### What an import map is
 
-A browser can load `import { Layout } from "./components/layout.js"` on its own, because that name is an address. It cannot load `import { html } from "zerolith"`, because `zerolith` is the name of a package, and resolving such names is the first thing a bundler does. An import map does the same job in the browser: it is a block of JSON in the page that gives each name its address.
+A browser can load `import { Layout } from "./components/layout.js"` on its own, because that name is an address. It cannot load `import { html } from "zerolith"`, because `zerolith` is the name of a package. Resolving such names is the first thing a bundler does. An import map does the same job in the browser: it is a block of JSON in the page that gives each name its address.
 
 ```html
 <script type="importmap">
@@ -60,7 +147,7 @@ A browser can load `import { Layout } from "./components/layout.js"` on its own,
 </script>
 ```
 
-With that in the page, `import { html } from "zerolith"` loads the file the map names, and the source runs as written. Import maps work in every [browser zerolith supports](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md). You do not write this map: the build writes it into every page.
+With that in the page, `import { html } from "zerolith"` loads the file the map names, and the source runs as written. Import maps work in every [browser zerolith supports](https://github.com/molexxxx/zerolith/blob/main/docs/policy/support.md). You do not write this map. The build writes it into every page.
 
 ### What it writes
 
@@ -145,7 +232,7 @@ Those addresses make the output safe to cache anywhere. A module that changes ge
 | A file a module refers to, such as an image or a stylesheet it imports | `/src/logo.svg` | In place, at the same address; only the bundled build gives these a hash |
 | `index.html` | `/` | With every build |
 
-A browser therefore never runs an old copy of one module beside a new copy of another, and nothing has to be served with `no-cache` for the modules to stay current. That suits a host that sets its own cache time, such as GitHub Pages. On a server you control, `index.html` keeps the rule from the top of this page, `no-cache`, so a new build is picked up at once.
+A browser therefore never runs an old copy of one module beside a new copy of another, and nothing has to be served with `no-cache` for the modules to stay current. That suits a host that sets its own cache time, such as GitHub Pages. On a server you control, `index.html` still takes `no-cache`, as [Serving rules](#serving-rules) says, so a new build is picked up at once.
 
 ### Content-Security-Policy
 
@@ -168,7 +255,10 @@ A site with several pages gets one line for each map that differs, with the page
 
 ### Other packages
 
-The build vendors the zerolith packages and no others. A package from elsewhere needs two things: an install with npm, so `zerolith dev`, the editor, and the tests find it in `node_modules`, and an address in an import map of your own in the project's `index.html`, before the module script, so the browser finds it in production:
+The build vendors the zerolith packages and no others. A package from elsewhere needs two things:
+
+- An install with npm, so `zerolith dev`, the editor, and the tests find it in `node_modules`.
+- An address in an import map of your own in the project's `index.html`, before the module script, so the browser finds it in production.
 
 ```html
 <script type="importmap">
@@ -200,11 +290,14 @@ Some pages have no build to run: a page that a backend's template or a static si
 zerolith importmap --html index.html
 ```
 
-It copies the zerolith packages the page imports into `vendor/` beside the page and writes the import map and the preload links into the page, so any static server runs the folder with nothing else done to it. Commit `vendor/` with the page, and run the command again after upgrading a package. `zerolith doctor` reports a vendored package that is behind the installed one and a file that no longer matches its hash.
+- It copies the zerolith packages the page imports into `vendor/` beside the page.
+- It writes the import map and the preload links into the page.
+
+Any static server then runs the folder with nothing else done to it. Commit `vendor/` with the page, and run the command again after upgrading a package. `zerolith doctor` reports a vendored package that is behind the installed one and a file that no longer matches its hash.
 
 The page's modules have to be ones a browser runs as written: JavaScript with `html` templates and relative imports that name their files. What the build would have handled is out: TypeScript, JSX, `import.meta.env`, and imports of stylesheets or JSON. The [command line guide](command-line.md#importmap) covers the command.
 
-### Choosing between the two
+## Choosing between the two
 
 Both outputs come from the same source, so the choice is one word in the project's `build` script and can change at any time.
 
@@ -218,50 +311,120 @@ Both outputs come from the same source, so the choice is one word in the project
 | A path under the domain | `base` in `zerolith.json` | The output is served from the root; an application under a path needs the bundled build |
 | Content-Security-Policy | `default-src 'self'`, the same for every build | The import map's hash or a nonce in `script-src`, new with most builds |
 
-Serve the unbundled output over HTTP/2 or HTTP/3, as static hosts and CDNs do. Its many small requests share one connection there, while over HTTP/1.1 a browser opens only a few connections to a server and the modules wait their turn. The routing rule at the top of this page applies to both outputs.
+Serve the unbundled output over HTTP/2 or HTTP/3, as static hosts and CDNs do. Its many small requests share one connection there. Over HTTP/1.1 a browser opens only a few connections to a server, and the modules wait their turn.
 
-## A path under the domain
+## Serving rules
 
-An application served under a path, such as `https://example.com/app/`, names the path once, in `zerolith.json` next to `index.html`:
+A server has two things to get right: routing and caching.
 
-```json
-{
-    "base": "/app/"
-}
+Routing decides what each request gets:
+
+| Request | Answer |
+| --- | --- |
+| A file that exists in `dist/` | The file, with its media type |
+| Any other path in the application, such as `/notes/7` | `index.html`, so the router renders the route |
+
+Caching decides how long a browser keeps each file:
+
+| File | Cache |
+| --- | --- |
+| A file under `assets/` | Cached for a year: `Cache-Control: public, max-age=31536000, immutable` |
+| `index.html` and the other files | `Cache-Control: no-cache`, so a new build is picked up at once |
+
+Every file under `assets/` has a content hash in its name, so a changed file gets a new name and the old one can be cached forever. `index.html` keeps its name, so the browser has to check it on every visit.
+
+The routing rule is the same for both outputs. The unbundled output caches by address instead of by file name, as its [Caching](#caching) section describes.
+
+> [!WARNING]
+> A missing script or stylesheet, such as `/assets/old.js`, should get a 404 rather than `index.html`, so a stale script fails clearly instead of being parsed as HTML. A page the browser loads should get `index.html` whatever its last segment holds, since a route such as `/releases/2.3.0` has a dot in it. `zerolith dev` and `zerolith preview` tell the two apart by the request's `Accept` header, which names HTML when the browser loads a page.
+
+`zerolith preview` follows the routing rule and sends `no-cache` with every file, so it shows how a build behaves but not the cache headers a host will send. The sections below apply both rules on each kind of host.
+
+## Static hosts
+
+A static host serves the files and needs one setting for the routes. A file the host reads from the deployed site, such as `_redirects`, goes in `public/`, so the build copies it to the root of `dist/`.
+
+| Host | Routes |
+| --- | --- |
+| Netlify | `public/_redirects` with the line `/*  /index.html  200`; a file that exists is still served as it is |
+| Vercel | `vercel.json` at the project root, not in `public/`, with `{ "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }`; files take precedence over rewrites |
+| Cloudflare Pages | Nothing: without a `404.html`, Pages serves the root for any path that names no file. Headers go in `public/_headers` |
+| GitHub Pages | Copy `index.html` to `404.html` after the build, since Pages shows `404.html` for any page that does not exist. A project site lives under `/<repository>/`, which is its base |
+| A storage bucket behind a CDN | `index.html` as both the index document and the error document |
+
+## Web servers
+
+nginx, with the build in `/srv/my-app/dist`:
+
 ```
+server {
+    listen 80;
+    root /srv/my-app/dist;
 
-`zerolith build` then writes every URL under `/app/`, such as `/app/assets/index-<hash>.js`, and `zerolith dev` and `zerolith preview` serve the application there too, redirecting the site root to it. The router follows the same base when it is given `import.meta.env.BASE_URL`, as every starter does, so its links and its matching agree with the build:
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
 
-```ts
-export const router = createRouter(() => routes, {
-    base: import.meta.env.BASE_URL
-});
-```
-
-`--base /app/` sets the base for one command instead. `--base ./` makes the build's URLs relative to the page, for a page opened from disk or embedded at a path that is not known in advance. The router cannot know that path, so such a page should not rely on client-side routes.
-
-## A backend next to the dev server
-
-While developing, the application and its backend usually run as two servers, such as `zerolith dev` on port 8080 and an API on port 3000. The proxy in `zerolith.json` forwards the backend's paths to it, so the page calls the API on its own origin, with no CORS to configure, and cookies behave as they will in production:
-
-```json
-{
-    "proxy": {
-        "/api": { "target": "http://127.0.0.1:3000", "run": "npm run api" },
-        "/auth": { "target": "http://127.0.0.1:4000", "stripPrefix": true }
+    location / {
+        add_header Cache-Control "no-cache";
+        try_files $uri $uri/ /index.html;
     }
 }
 ```
 
-A request whose path starts with a prefix goes to that backend with its path and query, the longest prefix first; `stripPrefix` removes the prefix, so `/auth/login` reaches the second backend as `/login`. Request and response bodies stream through, server-sent events included, and WebSocket connections are joined end to end. The backend receives its own address as `Host`, with the original request in `X-Forwarded-Host`, `X-Forwarded-Proto`, and `X-Forwarded-For`, and a redirect it sends to its own address comes back as a path on the dev server. When the backend is down, the request answers 502 and the terminal says why. `zerolith preview` forwards the same paths, and `--proxy /api=http://127.0.0.1:3000` adds a path for one run. The proxy forwards to `http://` addresses only for now.
+An API behind the same server is one more block, such as `location /api/ { proxy_pass http://127.0.0.1:3000; }`.
 
-`run` names the command that starts a backend, `npm run api` here: `zerolith dev` runs it in the project folder through the shell when it starts, shows its output in the same terminal, and stops it with every process it started when the server stops, so one command runs an app and its backend; `serve` and `preview` do the same. The same command under several prefixes starts once, and `--no-backends` leaves every backend to you, as when one runs under a debugger. Until the backend listens, a request to its path gets a 502 that says it is out of reach, and a backend that ends on its own is reported under the banner. On Unix a terminal that closes stops the server and its backends as Ctrl+C does.
+IIS, with the URL Rewrite module installed and this `web.config` in `public/`, so the build copies it next to `index.html`:
 
-The [fullstack example](https://github.com/molexxxx/zerolith/tree/main/examples/fullstack) runs this setup end to end: Harbor, an application under `/app/` with a Node backend that answers its API under `/api`, with a session cookie and a live stream of server-sent events, both through the proxy. `zerolith new my-app --example fullstack` starts a project of your own from it.
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <system.webServer>
+    <staticContent>
+      <clientCache cacheControlMode="DisableCache" />
+    </staticContent>
+    <rewrite>
+      <rules>
+        <rule name="Application routes" stopProcessing="true">
+          <match url=".*" />
+          <conditions logicalGrouping="MatchAll">
+            <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
+            <add input="{REQUEST_FILENAME}" matchType="IsDirectory"
+              negate="true" />
+            <add input="{URL}" pattern="^/assets/" negate="true" />
+          </conditions>
+          <action type="Rewrite" url="/index.html" />
+        </rule>
+      </rules>
+    </rewrite>
+  </system.webServer>
+  <location path="assets">
+    <system.webServer>
+      <staticContent>
+        <clientCache cacheControlMode="UseMaxAge"
+          cacheControlMaxAge="365.00:00:00" cacheControlCustom="immutable" />
+      </staticContent>
+    </system.webServer>
+  </location>
+</configuration>
+```
 
 ## Served by a backend
 
-A backend that already runs in production can serve the build from its static file handler, which keeps the application and its API on one origin. Build into the backend's folder with `"build": { "out": "../server/public" }` in `zerolith.json`, or copy `dist/` there as a deploy step, and apply the same rules. With the application under `/app/`, as a function from `Request` to `Response` that Node, Deno, Bun, or a worker can run:
+A backend that already runs in production can serve the build from its static file handler. The application and its API then share one origin.
+
+First get the build into the folder the backend serves. Either set the output folder in `zerolith.json`:
+
+```json
+{
+    "build": { "out": "../server/public" }
+}
+```
+
+or copy `dist/` there as a deploy step. Then apply the [serving rules](#serving-rules). Each example below serves the application under `/app/`.
+
+A function from `Request` to `Response`, which Node, Deno, Bun, or a worker can run:
 
 ```ts
 import { readFile } from "node:fs/promises";
@@ -340,7 +503,7 @@ export async function serveApp(
 }
 ```
 
-The same rules in Express 5, where a wildcard needs a name:
+Express 5, where a wildcard needs a name:
 
 ```js
 import { extname, sep } from "node:path";
@@ -367,7 +530,7 @@ app.get("/app/{*route}", (request, response, next) =>
 });
 ```
 
-And in ASP.NET Core, with the build in `wwwroot/app/`. `MapFallbackToFile` matches only paths that name no file, so a missing asset still answers 404:
+ASP.NET Core, with the build in `wwwroot/app/`. `MapFallbackToFile` matches only paths that name no file, so a missing asset still answers 404:
 
 ```csharp
 const string Forever = "public, max-age=31536000, immutable";
@@ -387,93 +550,132 @@ app.MapFallbackToFile("/app/{*path:nonfile}", "app/index.html", files);
 
 Any other backend applies the same rules with its own static file handler and a catch-all route for the application's paths.
 
-## Web servers
+## A path under the domain
 
-nginx, with the build in `/srv/my-app/dist`:
+An application served under a path, such as `https://example.com/app/`, names the path once, in `zerolith.json` next to `index.html`:
 
-```
-server {
-    listen 80;
-    root /srv/my-app/dist;
-
-    location /assets/ {
-        add_header Cache-Control "public, max-age=31536000, immutable";
-        try_files $uri =404;
-    }
-
-    location / {
-        add_header Cache-Control "no-cache";
-        try_files $uri $uri/ /index.html;
-    }
+```json
+{
+    "base": "/app/"
 }
 ```
 
-An API behind the same server is one more block, such as `location /api/ { proxy_pass http://127.0.0.1:3000; }`.
+| What | What it does with the base |
+| --- | --- |
+| `zerolith build` | Writes every URL under `/app/`, such as `/app/assets/index-<hash>.js` |
+| `zerolith dev` and `zerolith preview` | Serve the application under `/app/` too, and redirect the site root to it |
+| The router | Builds its links and matches its routes under `/app/`, once it is given `import.meta.env.BASE_URL`, so it agrees with the build |
 
-IIS, with the URL Rewrite module installed and this `web.config` in `public/`, so the build copies it next to `index.html`:
+Every starter gives the router the base this way:
 
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <system.webServer>
-    <staticContent>
-      <clientCache cacheControlMode="DisableCache" />
-    </staticContent>
-    <rewrite>
-      <rules>
-        <rule name="Application routes" stopProcessing="true">
-          <match url=".*" />
-          <conditions logicalGrouping="MatchAll">
-            <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
-            <add input="{REQUEST_FILENAME}" matchType="IsDirectory"
-              negate="true" />
-            <add input="{URL}" pattern="^/assets/" negate="true" />
-          </conditions>
-          <action type="Rewrite" url="/index.html" />
-        </rule>
-      </rules>
-    </rewrite>
-  </system.webServer>
-  <location path="assets">
-    <system.webServer>
-      <staticContent>
-        <clientCache cacheControlMode="UseMaxAge"
-          cacheControlMaxAge="365.00:00:00" cacheControlCustom="immutable" />
-      </staticContent>
-    </system.webServer>
-  </location>
-</configuration>
+```ts
+export const router = createRouter(() => routes, {
+    base: import.meta.env.BASE_URL
+});
 ```
 
-## Static hosts
+The `--base` option sets the base without the file:
 
-A static host serves the files and needs one setting for the routes. A file the host reads from the deployed site, such as `_redirects`, goes in `public/`, so the build copies it to the root of `dist/`.
-
-| Host | Routes |
+| Option | Use |
 | --- | --- |
-| Netlify | `public/_redirects` with the line `/*  /index.html  200`; a file that exists is still served as it is |
-| Vercel | `vercel.json` at the project root, not in `public/`, with `{ "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }`; files take precedence over rewrites |
-| Cloudflare Pages | Nothing: without a `404.html`, Pages serves the root for any path that names no file. Headers go in `public/_headers` |
-| GitHub Pages | Copy `index.html` to `404.html` after the build, since Pages shows `404.html` for any page that does not exist. A project site lives under `/<repository>/`, which is its base |
-| A storage bucket behind a CDN | `index.html` as both the index document and the error document |
+| `--base /app/` | The same base, for one command |
+| `--base ./` | URLs relative to the page, for a page opened from disk or embedded at a path that is not known in advance. The router cannot know that path, so such a page should not rely on client-side routes |
+
+The unbundled output does not apply a base. It is served from the root, so an application under a path needs the bundled output.
 
 ## Compression and security headers
 
-Hosts and CDNs compress text on the fly; a server of your own should enable gzip or Brotli for scripts, stylesheets, HTML, JSON, and SVG. The build prints each file's gzip size, which is close to what is sent.
+Hosts and CDNs compress text on the fly. On a server of your own, enable gzip or Brotli for scripts, stylesheets, HTML, JSON, and SVG. The build prints each file's gzip size, which is close to what is sent.
 
-zerolith needs neither `unsafe-eval` nor inline scripts, so a strict policy such as `Content-Security-Policy: default-src 'self'` works with a built application; add the origins of any API on another domain to `connect-src`. Components' scoped styles are constructed stylesheets, which the policy's `style-src` does not restrict, while an inline `<style>` element is blocked.
+zerolith needs neither `unsafe-eval` nor inline scripts, so a built application works under a strict policy:
 
-> [!NOTE]
-> A server-rendered page that writes `renderStyles()` into its head adds `<style>` elements, which need a nonce or `'unsafe-inline'` in `style-src`.
+```http
+Content-Security-Policy: default-src 'self'
+```
 
-The unbundled output adds one inline script, its import map, which the policy has to allow by a hash or a nonce, as [Content-Security-Policy](#content-security-policy) above describes.
+Some pages need one addition:
+
+| The page | Add to the policy |
+| --- | --- |
+| Calls an API on another domain | The API's origin in `connect-src` |
+| Is server-rendered and writes `renderStyles()` into its head, which adds `<style>` elements | A nonce or `'unsafe-inline'` in `style-src` |
+| Is the unbundled output, whose import map is an inline script | The map's hash or a nonce in `script-src`, as [Content-Security-Policy](#content-security-policy) above describes |
+
+Components' scoped styles need nothing added. They are constructed stylesheets, which `style-src` does not restrict. An inline `<style>` element is blocked.
 
 ## First paint
 
-A page that renders its application in the browser paints its static shell first, then the application replaces it, which moves the layout, and a page that does this on every load scores a layout shift every time. `blocking="render"` on the entry module script, which must be in the document's head to block anything, holds the first paint until the module ran, so the page paints once, with the application in it:
+A page that renders its application in the browser paints twice. It paints its static shell first, and then the application replaces the shell, which moves the layout. A page that does this on every load scores a layout shift every time.
+
+`blocking="render"` on the entry module script holds the first paint until the module has run, so the page paints once, with the application in it. The script has to be in the document's head to block anything:
 
 ```html
 <script type="module" src="/src/main.js" blocking="render"></script>
 ```
 
-Chrome and Edge from 105 and Safari from 18.2 honor the attribute; Firefox did not at the time of writing, and a browser that does not know it ignores it and paints the shell as before, so nothing breaks. The wait is the time the module and its imports take to load and run, which the preload links that `zerolith build`, its `--unbundled` output, and `zerolith importmap --html` write keep to one round trip. A page the server renders needs none of this, since its first paint already holds the application.
+| Browser | Honors the attribute |
+| --- | --- |
+| Chrome and Edge | From 105 |
+| Safari | From 18.2 |
+| Firefox | Not at the time of writing. A browser that does not know the attribute ignores it and paints the shell as before, so nothing breaks |
+
+The wait is the time the module and its imports take to load and run. The preload links that `zerolith build`, its `--unbundled` output, and `zerolith importmap --html` write keep that to one round trip. A page the server renders needs none of this, since its first paint already holds the application.
+
+## A backend next to the dev server
+
+While developing, the application and its backend usually run as two servers, such as `zerolith dev` on port 8080 and an API on port 3000. A proxy rule in `zerolith.json` forwards the backend's paths to it. The page then calls the API on its own origin, with no CORS to configure, and cookies behave as they will in production.
+
+```json
+{
+    "proxy": {
+        "/api": { "target": "http://127.0.0.1:3000", "run": "npm run api" },
+        "/auth": { "target": "http://127.0.0.1:4000", "stripPrefix": true }
+    }
+}
+```
+
+### Proxy rules
+
+| Part of a rule | What it does |
+| --- | --- |
+| The key, such as `/api` | A request whose path starts with this prefix goes to the rule's backend, with its path and query. When several prefixes match, the longest one wins |
+| `target` | The backend's address. The proxy forwards to `http://` addresses only for now |
+| `stripPrefix` | Removes the prefix, so `/auth/login` reaches the second backend as `/login` |
+| `run` | The command that starts the backend, which [Starting the backend](#starting-the-backend) covers |
+
+`zerolith preview` forwards the same paths. For one run, `--proxy /api=http://127.0.0.1:3000` adds a rule from the command line.
+
+### What passes through
+
+- Request and response bodies stream through, server-sent events included.
+- WebSocket connections are joined end to end.
+- The backend receives its own address as `Host`, with the original request in `X-Forwarded-Host`, `X-Forwarded-Proto`, and `X-Forwarded-For`.
+- A redirect the backend sends to its own address comes back as a path on the dev server.
+
+### Starting the backend
+
+`run` names the command that starts a backend, `npm run api` in the rule above. With it, one command runs the application and its backend:
+
+- `zerolith dev` runs the command in the project folder, through the shell, when it starts.
+- The backend's output shows in the same terminal.
+- When the server stops, it stops the backend and every process the backend started.
+- `serve` and `preview` do the same.
+- The same command under several prefixes starts once.
+- `--no-backends` leaves every backend to you, as when one runs under a debugger.
+- On Unix, a terminal that closes stops the server and its backends, as Ctrl+C does.
+
+### When the backend does not answer
+
+| The backend | What you see |
+| --- | --- |
+| Has not started listening yet | A request to its path gets a 502 that says the backend is out of reach |
+| Is down | The request answers 502, and the terminal says why |
+| Ends on its own | The terminal reports it under the banner |
+
+### A complete example
+
+The [fullstack example](https://github.com/molexxxx/zerolith/tree/main/examples/fullstack) runs this setup end to end. It is Harbor, an application under `/app/` with a Node backend that answers its API under `/api`, with a session cookie and a live stream of server-sent events, both through the proxy. To start a project of your own from it:
+
+```sh
+zerolith new my-app --example fullstack
+```

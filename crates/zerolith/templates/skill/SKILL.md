@@ -100,7 +100,7 @@ Read only the reference the task needs. Each is a guide from the docs, with test
 - [references/accessibility.md](references/accessibility.md): focus, announcements, and preference signals.
 - [references/testing.md](references/testing.md): mounting, settling, hydration and accessibility checks.
 - [references/command-line.md](references/command-line.md): `new`, `dev`, `build`, `preview`, `skill`, `importmap`, `doctor`, `zerolith.json`.
-- [references/deploying.md](references/deploying.md): serving a build, the unbundled output and its import map, base paths, caching, a backend's proxy.
+- [references/deploying.md](references/deploying.md): building, the bundled output and the unbundled one with its import map, serving a build, base paths, caching, a backend's proxy.
 - [references/vite.md](references/vite.md): projects on Vite.
 - [references/dev-tools.md](references/dev-tools.md): the in-page inspector and Performance tracks.
 - [references/diagnostics.md](references/diagnostics.md): the diagnostic record and production builds.
