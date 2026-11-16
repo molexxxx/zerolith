@@ -250,7 +250,7 @@ function finish(id: number, text: string): void
 finish(1, "write, edited");
 ```
 
-In js-framework-benchmark's own runner, updating every 10th row of 1,000 this way takes less than half the script time of setting a new array, 0.6 ms against 1.4, and creating the rows costs no more. The signals are made where the data arrives, as `{ id, text: signal(text) }`, and writes to several of them go in one `batch`, so the page updates once.
+An edit made this way does no work in the list: no key is compared and no row is visited, so the cost is the bindings of the rows that changed. The signals are made where the data arrives, as `{ id, text: signal(text) }`, and writes to several of them go in one `batch`, so the page updates once.
 
 ## Conditions
 

@@ -63,7 +63,7 @@ A store holds nested objects and arrays whose fields are signals, so a change to
 - **Writes go through the setter.** Assigning to the store, deleting a field, or calling `push` throws `state_store_assigned`, so every change is made where it can be seen; `snapshot(board)` gives a plain copy for code that wants ordinary objects. Maps, Sets, class instances, and frozen objects are kept as values, never wrapped.
 - **Every field name is data except `__proto__`**, which names an object's prototype: a path through it throws, and `reconcile` and `snapshot` leave it out, so data a server sends cannot change what every object inherits. A path goes only through fields an object holds itself, and names an item of an array by its index.
 
-Measured with a `computed` per row label: editing one row of 10,000 takes under 0.05 ms of script against 0.1 to 0.2 ms for replacing the array, since the list compares no keys; editing every 10th row costs the same either way, about 1 ms per 1,000 edits, and a signal written by hand for each label, bound directly, takes half that.
+An edit to one field compares no keys, so what it costs does not grow with the list, where replacing the array costs one comparison per row. The setter reaches a field through its path on every write; a signal written by hand for each field that changes, bound directly, skips that step, and [a list edited a row at a time](templates.md#a-list-edited-a-row-at-a-time) shows that form.
 
 ## A selection among many
 
