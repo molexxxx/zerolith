@@ -11,6 +11,7 @@ Every package in this repository is released together and carries the same versi
 ### Changed
 
 - `@zerolith/cli` and the crate: the build's message for `package_version_mismatch`, and the diagnostic's fix, name the project's own command line without saying that a global install runs its own version, which no longer holds.
+- Docs: the `zerolith.json` table of the command line guide gives each key's default, and its example says that it changes every one.
 
 ## 1.12.0 (2026-11-17)
 

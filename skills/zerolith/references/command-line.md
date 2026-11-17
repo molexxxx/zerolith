@@ -120,7 +120,9 @@ A proxy rule in `zerolith.json` can name the command that starts its backend, as
 
 ## zerolith.json
 
-The settings the commands share live in `zerolith.json` next to `index.html`, so they are written once instead of on every command line. A flag overrides the file, and the starters that `zerolith new` writes on the command line include one that points at the schema `@zerolith/cli` ships, so an editor completes the keys:
+The settings the commands share live in `zerolith.json` next to `index.html`, so they are written once instead of on every command line. Every key is optional: a project without the file takes the defaults in the table below, and a flag overrides the file. The starters that `zerolith new` writes on the command line include one that points at the schema `@zerolith/cli` ships, so an editor completes the keys.
+
+This example changes every default: an application served under `/app/`, two backends behind `/api` and `/auth`, other ports, and a build written into a backend's `public/` folder:
 
 ```json
 {
@@ -136,14 +138,14 @@ The settings the commands share live in `zerolith.json` next to `index.html`, so
 }
 ```
 
-| Key | Used by | What it sets |
-| --- | --- | --- |
-| `base` | `dev`, `build`, `preview` | The path the application is served under |
-| `proxy` | `dev`, `serve`, `preview` | Path prefixes forwarded to backends: an `http://` address, or an object with `target`, `stripPrefix`, and `run`, the command that starts the backend with the server and stops with it |
-| `allowedHosts` | `dev`, `serve`, `preview` | Host names answered besides localhost and IP addresses; one starting with a dot allows every name under it |
-| `dev.port` | `dev`, `serve` | The port, used as it is |
-| `preview.port` | `preview` | The port, used as it is |
-| `build.out` | `build`, `preview` | The output folder, relative to the project unless absolute |
+| Key | Used by | Default | What it sets |
+| --- | --- | --- | --- |
+| `base` | `dev`, `build`, `preview` | `/` | The path the application is served under |
+| `proxy` | `dev`, `serve`, `preview` | None | Path prefixes forwarded to backends: an `http://` address, or an object with `target`, `stripPrefix`, and `run`, the command that starts the backend with the server and stops with it |
+| `allowedHosts` | `dev`, `serve`, `preview` | None | Host names answered besides localhost and IP addresses; one starting with a dot allows every name under it |
+| `dev.port` | `dev`, `serve` | 8080, or the next free port | The port; one set here is used as it is |
+| `preview.port` | `preview` | 4173, or the next free port | The port; one set here is used as it is |
+| `build.out` | `build`, `preview` | `dist` | The output folder, relative to the project unless absolute |
 
 An unknown key fails with the file's name, so a typo does not go unnoticed. `build --unbundled` does not apply `base` and says so.
 
