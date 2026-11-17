@@ -134,7 +134,7 @@ function trusted(project: Project, candidate: string, text: string, command: str
         return undefined;
     }
     const since = command === undefined ? undefined : COMMANDS_SINCE.get(command);
-    if (version === project.own.version || (since !== undefined && before(version, since)))
+    if (version === project.own.version || (since !== undefined && before(version, since)) || (command === "upgrade" && !before(project.own.version, version)))
     {
         return undefined;
     }
@@ -155,7 +155,9 @@ function trusted(project: Project, candidate: string, text: string, command: str
  * folder or above it, when it is another copy, at another version, that has
  * the command. `new` always runs here, since it starts a project rather than
  * working on one, and so does a command another copy handed over, which
- * keeps two copies from handing it back and forth.
+ * keeps two copies from handing it back and forth. `upgrade` runs with the
+ * newer of the two copies, so a fix to it in a later release reaches a
+ * project on an earlier one.
  */
 export function projectCopy(project: Project): Copy | undefined
 {

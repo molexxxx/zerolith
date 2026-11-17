@@ -24,7 +24,7 @@ npx zerolith add state browser
 
 `add` is how a zerolith project gets another zerolith package. Every zerolith package shares one version number, and `add` picks the one your project is already on:
 
-| What it does | Where you can see it |
+| What it does | Where to look |
 | --- | --- |
 | Lists `@zerolith/state` and `@zerolith/browser` at your project's version | `package.json`, under `dependencies` |
 | Installs them with the package manager the project uses | `node_modules/` |

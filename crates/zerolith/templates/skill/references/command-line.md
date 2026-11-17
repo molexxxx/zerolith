@@ -33,11 +33,13 @@ This guide writes each command as it runs with `zerolith` on the PATH. Inside a 
 
 A global `zerolith` hands a command to the copy the project installs, found in `node_modules` from the current folder up, as Angular's `ng` does, so the command runs at the version the project's packages were released with:
 
-| Where it runs | Which copy runs the command |
+| When | Runs with |
 | --- | --- |
 | Outside a project | The global copy |
-| In a project that installs `@zerolith/cli` | The project's copy, for every command but `new`, which starts a project at the global copy's version |
-| In a project whose copy is older than the command | The global copy, as for `add` and `upgrade` in a project from before 1.12.0, so `zerolith upgrade` can move it forward |
+| In a project that installs `@zerolith/cli` | The project's copy |
+| `new` | The global copy, which starts a project at its own version |
+| `upgrade` | The newer of the two, so a fix to `upgrade` in a later release reaches a project on an earlier one |
+| A command the project's copy is older than, as `add` in a project from before 1.12.0 | The global copy |
 
 When it hands a command over, the global copy says so on stderr with both versions. `zerolith --version` prints the version of the copy that runs.
 
@@ -120,7 +122,7 @@ A proxy rule in `zerolith.json` can name the command that starts its backend, as
 
 ## zerolith.json
 
-The settings the commands share live in `zerolith.json` next to `index.html`, so they are written once instead of on every command line. Every key is optional: a project without the file takes the defaults in the table below, and a flag overrides the file. The starters that `zerolith new` writes on the command line include one that points at the schema `@zerolith/cli` ships, so an editor completes the keys.
+The settings the commands share live in `zerolith.json` next to `index.html`, so they are written once instead of on every command line. Every key is optional: a project without the file takes the default each row of the table below ends with, and a flag overrides the file. The starters that `zerolith new` writes on the command line include one that points at the schema `@zerolith/cli` ships, so an editor completes the keys.
 
 This example changes every default: an application served under `/app/`, two backends behind `/api` and `/auth`, other ports, and a build written into a backend's `public/` folder:
 
@@ -138,14 +140,14 @@ This example changes every default: an application served under `/app/`, two bac
 }
 ```
 
-| Key | Used by | Default | What it sets |
-| --- | --- | --- | --- |
-| `base` | `dev`, `build`, `preview` | `/` | The path the application is served under |
-| `proxy` | `dev`, `serve`, `preview` | None | Path prefixes forwarded to backends: an `http://` address, or an object with `target`, `stripPrefix`, and `run`, the command that starts the backend with the server and stops with it |
-| `allowedHosts` | `dev`, `serve`, `preview` | None | Host names answered besides localhost and IP addresses; one starting with a dot allows every name under it |
-| `dev.port` | `dev`, `serve` | 8080, or the next free port | The port; one set here is used as it is |
-| `preview.port` | `preview` | 4173, or the next free port | The port; one set here is used as it is |
-| `build.out` | `build`, `preview` | `dist` | The output folder, relative to the project unless absolute |
+| Key | Used by | What it sets |
+| --- | --- | --- |
+| `base` | `dev`, `build`, `preview` | The path the application is served under. Default: `/` |
+| `proxy` | `dev`, `serve`, `preview` | Path prefixes forwarded to backends: an `http://` address, or an object with `target`, `stripPrefix`, and `run`, the command that starts the backend with the server and stops with it. Default: none |
+| `allowedHosts` | `dev`, `serve`, `preview` | Host names answered besides localhost and IP addresses; one starting with a dot allows every name under it. Default: none |
+| `dev.port` | `dev`, `serve` | The port; one set here is used as it is. Default: 8080, or the next free port |
+| `preview.port` | `preview` | The port; one set here is used as it is. Default: 4173, or the next free port |
+| `build.out` | `build`, `preview` | The output folder, relative to the project unless absolute. Default: `dist` |
 
 An unknown key fails with the file's name, so a typo does not go unnoticed. `build --unbundled` does not apply `base` and says so.
 

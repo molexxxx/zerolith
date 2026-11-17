@@ -98,11 +98,21 @@ describe("projectCopy", () =>
         expect(choose(["lint"], app, at("1.6.0"))?.version).toBe("1.6.0");
         expect(choose(["add", "forms"], app, at("1.12.0"))?.version).toBe("1.12.0");
         expect(choose(["upgrade"], app, at("2.0.0"))?.version).toBe("2.0.0");
-        expect(choose(["upgrade"], app, at("1.12.1"))?.version).toBe("1.12.1");
         for (const command of ["__proto__", "constructor", "toString", "hasOwnProperty"])
         {
             expect(choose([command], app, at("1.12.0"))?.version, command).toBe("1.12.0");
         }
+    });
+
+    it("runs upgrade with the newer of the two copies, so a fix to upgrade reaches a project on an earlier release", () =>
+    {
+        expect(choose(["upgrade"], app, at("1.12.1"))).toBeUndefined();
+        expect(choose(["upgrade", "--dry-run"], app, at("1.12.0"))).toBeUndefined();
+        expect(choose(["upgrade"], app, at("1.13.0-beta.1"))).toBeUndefined();
+        expect(choose(["upgrade"], app, at("1.13.1"))?.version).toBe("1.13.1");
+        expect(choose(["upgrade", "2.0.0", "--major"], app, at("1.14.0"))?.version).toBe("1.14.0");
+        expect(choose(["add", "forms"], app, at("1.12.1"))?.version).toBe("1.12.1");
+        expect(choose(["build"], app, at("1.12.1"))?.version).toBe("1.12.1");
     });
 
     it("takes the nearest copy, so a project inside another runs its own", () =>
@@ -241,6 +251,13 @@ describe("the launcher", () =>
         expect(started.stderr).not.toContain("is running the project's own command line");
         const handed = zerolith(["build"], project, { [HANDED_OFF]: "1" });
         expect(handed.ran).toEqual([{ who: "own", script: "build", args: [], handedOff: null }]);
+    });
+
+    it("hands upgrade only to a project's copy newer than itself", () =>
+    {
+        expect(zerolith(["upgrade", "--dry-run"]).ran).toEqual([{ who: "project", script: "bin.js", args: ["upgrade", "--dry-run"], handedOff: "1" }]);
+        projectAt("1.0.0");
+        expect(zerolith(["upgrade", "--dry-run"]).ran).toEqual([{ who: "own", script: "upgrade", args: ["--dry-run"], handedOff: null }]);
     });
 
     it("runs add and upgrade itself for a project whose copy is older than both", () =>
