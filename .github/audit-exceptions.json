@@ -1,0 +1,10 @@
+{
+    "exceptions": [
+        {
+            "advisory": "GHSA-fc5q-39xc-vjpf",
+            "package": "picomatch",
+            "reason": "A regular expression denial of service when picomatch matches a crafted extglob pattern such as +(*), which only someone who supplies the pattern can cause. picomatch reaches this repository through vite and vitest alone, which match the patterns of its own configuration, and no published package depends on it. Every release through 4.0.7, the newest, is affected, and the fixes proposed to micromatch/picomatch are not merged yet.",
+            "review": "2026-12-01"
+        }
+    ]
+}

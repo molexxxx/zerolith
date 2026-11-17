@@ -60,8 +60,11 @@ jobs:
       - name: Install
         run: npm ci
 
+      # npm audit's report fails the job on every advisory that
+      # .github/audit-exceptions.json does not let through, on an exception
+      # past its review day, and on one for an advisory no longer reported.
       - name: Advisories
-        run: npm audit
+        run: node scripts/audit.ts
 
       # Every job installs the same tree, so the two whose npm is 11 or later
       # check its signatures. On these runners the npm that comes with Node
