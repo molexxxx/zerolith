@@ -2,7 +2,9 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
-## Unreleased
+## 1.12.0 (2026-11-17)
+
+A minor release from `main`: `zerolith add` and `zerolith upgrade`, which keep a project's zerolith packages on one version, `npm create zerolith` through the new `create-zerolith` package, and less code in a page that renders without hydrating.
 
 ### Added
 
