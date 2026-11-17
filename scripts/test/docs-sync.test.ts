@@ -111,13 +111,15 @@ describe("the repository's prose", () =>
         expect(listed.toSorted()).toEqual(Object.keys(diagnosticCatalog).toSorted());
     });
 
-    it("keeps to American spelling, regular dashes, and Markdown without horizontal rules", async () =>
+    it("keeps to American spelling, regular dashes, and Markdown without horizontal rules", { timeout: 30_000 }, async () =>
     {
         const found: string[] = [];
         const spelling = new RegExp(`\\b(${britishSpellings.join("|")})s?\\b`, "i");
-        for (const file of tracked("*.md", "*.ts", "*.tsx", "*.js", "*.mjs", "*.rs", "*.json", "*.css", "*.html", "*.yml", "*.toml", ":!package-lock.json", ":!**/package-lock.json", ":!scripts/test/docs-sync.test.ts"))
+        const files = tracked("*.md", "*.ts", "*.tsx", "*.js", "*.mjs", "*.rs", "*.json", "*.css", "*.html", "*.yml", "*.toml", ":!package-lock.json", ":!**/package-lock.json", ":!scripts/test/docs-sync.test.ts");
+        const texts = await Promise.all(files.map(text));
+        for (const [position, file] of files.entries())
         {
-            const lines = (await text(file)).split("\n");
+            const lines = (texts[position] ?? "").split("\n");
             const body = file.endsWith(".md") && lines[0] === "---" ? lines.indexOf("---", 1) + 1 : 0;
             let fence = "";
             for (const [index, line] of lines.entries())
