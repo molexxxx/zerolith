@@ -152,7 +152,7 @@ Fix: Call onDispose() inside an effect, a scope(), or a component.
 
 Cause: A package released together with zerolith, such as @zerolith/vite, @zerolith/devtools, or the command line, met a zerolith of another version. They share the zerolith/internal entry, which can change with every version, so each requires the zerolith of its own version.
 
-Fix: When the command line reports it, build with the copy the project installs, npx zerolith build or npm run build, since one installed globally runs its own version. Otherwise give zerolith and every @zerolith package the project uses the same version and install again, which zerolith upgrade does for every one package.json lists; the message names both versions, and npm ls zerolith shows what is installed and what requires it.
+Fix: When the command line reports it, build with the copy the project installs, npx zerolith build or npm run build. Otherwise give zerolith and every @zerolith package the project uses the same version and install again, which zerolith upgrade does for every one package.json lists; the message names both versions, and npm ls zerolith shows what is installed and what requires it.
 
 ## ref_not_assignable
 

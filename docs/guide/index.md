@@ -77,7 +77,7 @@ In the project:
 | `npx zerolith upgrade` | Moves every zerolith package to the newest release together |
 
 > [!TIP]
-> The project lists the command line, `@zerolith/cli`, itself, so the npm scripts and `npx zerolith` run the copy that matches its packages, which is also what CI should use.
+> The project lists the command line, `@zerolith/cli`, itself, so the npm scripts and `npx zerolith` run the copy that matches its packages, which is also what CI should use. Installed globally with `npm install --global @zerolith/cli`, `zerolith` works anywhere, and inside a project it hands each command to the project's copy.
 
 The starter's README walks through its files, deploying, and environment variables, and the [command line guide](command-line.md) has every command and option.
 

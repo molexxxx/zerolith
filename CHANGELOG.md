@@ -2,6 +2,16 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
+## Unreleased
+
+### Added
+
+- `@zerolith/cli`: a `zerolith` installed globally hands a command to the copy of the command line the project installs, found in `node_modules` from the current folder up, as Angular's `ng` does, so the command runs at the version the project's packages were released with, and says so on stderr with both versions. `new` runs with the global copy, and so does a command the project's copy is older than, as `add` and `upgrade` in a project from before 1.12.0.
+
+### Changed
+
+- `@zerolith/cli` and the crate: the build's message for `package_version_mismatch`, and the diagnostic's fix, name the project's own command line without saying that a global install runs its own version, which no longer holds.
+
 ## 1.12.0 (2026-11-17)
 
 A minor release from `main`: `zerolith add` and `zerolith upgrade`, which keep a project's zerolith packages on one version, `npm create zerolith` through the new `create-zerolith` package, and less code in a page that renders without hydrating.

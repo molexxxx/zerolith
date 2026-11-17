@@ -77,7 +77,7 @@ In the project:
 | `npx zerolith add forms` | Adds a zerolith package at the version the project is on |
 | `npx zerolith upgrade` | Moves every zerolith package to the newest release together |
 
-The project lists the command line, `@zerolith/cli`, itself, so the npm scripts and `npx zerolith` run the copy that matches its packages, which is also what CI should use. The starter's README covers deploying, environment variables, and when Vite is worth adding, and the [command line guide](docs/guide/command-line.md) has every command and option.
+The project lists the command line, `@zerolith/cli`, itself, so the npm scripts and `npx zerolith` run the copy that matches its packages, which is also what CI should use. Installed globally with `npm install --global @zerolith/cli`, `zerolith` works anywhere, and inside a project it hands each command to the project's copy. The starter's README covers deploying, environment variables, and when Vite is worth adding, and the [command line guide](docs/guide/command-line.md) has every command and option.
 
 To add zerolith to an existing project, install `@zerolith/cli` as a development dependency and run `npx zerolith add` with the packages you need, as in `npx zerolith add router forms`: it lists `zerolith` and each of them at one version. To work against a backend, the [building and serving guide](docs/guide/deploying.md) covers the dev server's proxy, a base path, and serving the build from a static host, a web server, or the backend itself.
 

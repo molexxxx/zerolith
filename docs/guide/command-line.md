@@ -31,13 +31,23 @@ This guide writes each command as it runs with `zerolith` on the PATH. Inside a 
 | --- | --- |
 | A new project | `npm create zerolith my-app` runs [`new`](#new) with nothing installed first, and the project it writes lists `@zerolith/cli` as a development dependency |
 | Inside a project | `npx zerolith <command>` runs the project's own copy, as the npm scripts do, which is what CI should use |
-| Anywhere, as `zerolith` | `npm install --global @zerolith/cli` puts `zerolith` on the PATH, on Linux (glibc), macOS, or Windows, x64 or arm64. It runs the version installed globally, so in a project `npx zerolith` is still the copy that matches the project |
+| Anywhere, as `zerolith` | `npm install --global @zerolith/cli` puts `zerolith` on the PATH, on Linux (glibc), macOS, or Windows, x64 or arm64, and inside a project it hands each command to the project's copy |
 | Elsewhere, and on musl systems such as Alpine | `cargo install zerolith --locked` builds the same crate from crates.io, with the dependencies it was tested with, and `ZEROLITH_BINARY_PATH` tells the npm package where it is |
 
-`@zerolith/cli` is a thin package whose optional dependencies carry the prebuilt binary for each platform, so npm installs only the one it needs. `zerolith --version` prints the version that runs; in a project, `npx zerolith --version` prints the project's.
+`@zerolith/cli` is a thin package whose optional dependencies carry the prebuilt binary for each platform, so npm installs only the one it needs.
+
+A global `zerolith` hands a command to the copy the project installs, found in `node_modules` from the current folder up, as Angular's `ng` does, so the command runs at the version the project's packages were released with:
+
+| Where it runs | Which copy runs the command |
+| --- | --- |
+| Outside a project | The global copy |
+| In a project that installs `@zerolith/cli` | The project's copy, for every command but `new`, which starts a project at the global copy's version |
+| In a project whose copy is older than the command | The global copy, as for `add` and `upgrade` in a project from before 1.12.0, so `zerolith upgrade` can move it forward |
+
+When it hands a command over, the global copy says so on stderr with both versions. `zerolith --version` prints the version of the copy that runs.
 
 > [!IMPORTANT]
-> The build prepares templates into calls to the `zerolith/internal` entry of the `zerolith` the project installs, which can change with every version. `zerolith build` therefore requires the `zerolith` of its own version and stops with `package_version_mismatch` when it finds another; the starters pin both to one version, so upgrade them together, which [`zerolith upgrade`](#upgrade) does. A command line installed globally runs its own version, so build a project with the copy it installs, `npx zerolith build` or `npm run build`.
+> The build prepares templates into calls to the `zerolith/internal` entry of the `zerolith` the project installs, which can change with every version. `zerolith build` therefore requires the `zerolith` of its own version and stops with `package_version_mismatch` when it finds another; the starters pin both to one version, so upgrade them together, which [`zerolith upgrade`](#upgrade) does. A global `zerolith` builds with the project's copy, as the table above says, and so do `npx zerolith build` and `npm run build`.
 
 Every command opens with the `zerolith` badge and the command's name, and colors what follows by meaning: addresses and finished steps in green, errors in red, warnings in yellow, and labels and details dimmed. The colors are dropped when `NO_COLOR` is set or the output goes to a file or another program, so logs and CI output stay plain text, and `CLICOLOR_FORCE=1` keeps them.
 

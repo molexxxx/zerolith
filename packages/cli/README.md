@@ -10,7 +10,7 @@ cd my-app
 npm run dev
 ```
 
-Inside the project, the npm scripts and `npx zerolith`, as in `npx zerolith add forms`, run the copy the project lists, which matches its packages. `npm install --global @zerolith/cli` puts `zerolith` on the PATH as well, for `zerolith new my-app` anywhere; it runs the version installed globally, so a project is still built with its own copy.
+Inside the project, the npm scripts and `npx zerolith`, as in `npx zerolith add forms`, run the copy the project lists, which matches its packages. `npm install --global @zerolith/cli` puts `zerolith` on the PATH as well: `zerolith new my-app` works anywhere, and inside a project the global copy hands each command to the project's own, as Angular's `ng` does, so it runs at the version the project's packages were released with.
 
 Or add it to an existing project and call it through `npx`:
 
