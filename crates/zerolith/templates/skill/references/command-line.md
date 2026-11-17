@@ -18,12 +18,15 @@ The `zerolith` binary is written in Rust and covers the parts of development tha
 | `zerolith doctor` | Checks a project and reports coded findings |
 | `zerolith lint` | Checks the templates in a project's sources and fails on any finding |
 
+This guide writes each command as it runs with `zerolith` on the PATH. Inside a project, put `npx` in front, as in `npx zerolith add forms`, or run the starter's npm scripts, such as `npm run dev`.
+
 ## Installing
 
 | Where | How |
 | --- | --- |
-| Anywhere npm runs, on Linux (glibc), macOS, or Windows, x64 or arm64 | `npm install --global @zerolith/cli` puts `zerolith` on the PATH |
-| Inside a project | `@zerolith/cli` as a development dependency, as every starter has it, runs as `npx zerolith` and through the npm scripts |
+| A new project | `npm create zerolith my-app` runs [`new`](#new) with nothing installed first, and the project it writes lists `@zerolith/cli` as a development dependency |
+| Inside a project | `npx zerolith <command>` runs the project's own copy, as the npm scripts do, which is what CI should use |
+| Anywhere, as `zerolith` | `npm install --global @zerolith/cli` puts `zerolith` on the PATH, on Linux (glibc), macOS, or Windows, x64 or arm64 |
 | Elsewhere, and on musl systems such as Alpine | `cargo install zerolith --locked` builds the same crate from crates.io, with the dependencies it was tested with, and `ZEROLITH_BINARY_PATH` tells the npm package where it is |
 
 `@zerolith/cli` is a thin package whose optional dependencies carry the prebuilt binary for each platform, so npm installs only the one it needs.
