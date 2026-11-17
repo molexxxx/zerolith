@@ -12,7 +12,7 @@ Every package in this repository is released together and carries the same versi
 ### Changed
 
 - `zerolith`: a page that only calls `render` no longer bundles the code that adopts server-rendered markup. `hydrate` brings it in, so an application that hydrates, or defines custom elements, ships the same code as before. The size rows of the [benchmarks](benchmarks/README.md), written from each release's run, show what the keyed entry saves.
-- Docs: the tutorials add a package with `zerolith add` where a step needs one, the packing list's last step shows `zerolith upgrade`, the command line guide says when each command helps, and the introduction lists both.
+- Docs: the tutorials start a project with `npm create zerolith` and add a package with `zerolith add` where a step needs one, the packing list's last step shows `zerolith upgrade`, the command line guide says when `add` and `upgrade` help, and the introduction lists them.
 - Docs: the playground has three more examples: a task board on a `store` from `@zerolith/state`, `context` with an error `boundary`, and two custom elements from `zerolith/element`.
 - Docs: the state and templates guides say what editing one row of a list costs by the work the list does, in place of timings measured by hand, and the roadmap's performance item is a list that records what the entry's first paint consists of. Measured results stay in the [benchmarks](benchmarks/README.md), written from each release's runs.
 

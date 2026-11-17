@@ -16,11 +16,11 @@ You'll build a feedback widget: a `<feedback-widget>` tag that asks whether a pa
 ## Start a project
 
 ```sh
-npx @zerolith/cli new feedback-widget --template ts --yes
+npm create zerolith feedback-widget -- --template ts --yes
 cd feedback-widget
 ```
 
-If `npx` asks to download the command line, answer `y`.
+If npm asks to install `create-zerolith`, answer `y`. The `--` hands the flags after it to zerolith instead of npm.
 
 The starter is an app with several pages, but a widget is a single element. Delete the parts you won't need:
 

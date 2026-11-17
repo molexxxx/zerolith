@@ -52,5 +52,5 @@ You've built a form that checks what you type, sends without leaving the page, s
 - The next tutorial, [a release notes reader](../release-notes/index.md), loads data, gives each release its own page, and keeps a search in the address.
 - The [forms guide](../../guide/forms.md) covers the rest of `@zerolith/forms`, including forms that work before their script loads.
 - The [accessibility guide](../../guide/accessibility.md) covers the rest of `@zerolith/a11y`, such as keeping the focus inside a dialog.
-- The [fullstack example](https://github.com/molexxxx/zerolith/tree/main/examples/fullstack) puts a form like this one in a full app with sign-in and live updates. `npx @zerolith/cli new my-app --example fullstack` starts your own project from it.
+- The [fullstack example](https://github.com/molexxxx/zerolith/tree/main/examples/fullstack) puts a form like this one in a full app with sign-in and live updates. `npm create zerolith my-app -- --example fullstack` starts your own project from it.
 - The [reference](https://zerolith.dev/reference/zerolith-forms/) lists everything `@zerolith/forms` exports.

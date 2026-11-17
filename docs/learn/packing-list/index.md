@@ -21,12 +21,12 @@ Each step adds one idea. By the end you'll have used every part of zerolith that
 Run these three commands:
 
 ```sh
-npx @zerolith/cli new packing-list --template ts --yes
+npm create zerolith packing-list -- --template ts --yes
 cd packing-list
 npm run dev
 ```
 
-If `npx` asks to download the command line, answer `y`. The `--yes` flag picks the default answer for every other question.
+If npm asks to install `create-zerolith`, answer `y`. The `--` hands the flags after it to zerolith instead of npm. The `--yes` flag picks the default answer for every other question.
 
 `npm run dev` prints an address, such as `http://127.0.0.1:8080/`. Open it in your browser. Leave the server running while you work. Each time you save a file, the page reloads with your change.
 

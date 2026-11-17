@@ -22,12 +22,12 @@ You don't need a backend. The tutorial gives you a small Node server and a writt
 ## Start a project
 
 ```sh
-npx @zerolith/cli new sign-up --template ts --yes
+npm create zerolith sign-up -- --template ts --yes
 cd sign-up
 npm run dev
 ```
 
-If `npx` asks to download the command line, answer `y`. Leave the server running. The packing list explains [what the starter wrote](../packing-list/index.md#what-the-starter-wrote).
+If npm asks to install `create-zerolith`, answer `y`. The `--` hands the flags after it to zerolith instead of npm. Leave the server running. The packing list explains [what the starter wrote](../packing-list/index.md#what-the-starter-wrote).
 
 ## The steps
 

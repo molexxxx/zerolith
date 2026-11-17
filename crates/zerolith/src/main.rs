@@ -468,11 +468,12 @@ mod tests {
         files
     }
 
-    /// Each `--flag` written after a `zerolith <command>` on one line, up to the end of the code span or command.
+    /// Each `--flag` written after a `zerolith <command>` on one line, up to the end of the code span or command. A package manager's `create zerolith` runs `new`, so its flags count as `new`'s.
     fn written_flags(line: &str) -> Vec<(&str, &str)> {
         let mut found = Vec::new();
         let mut rest = line;
         while let Some(at) = rest.find("zerolith") {
+            let created = rest[..at].ends_with("create ");
             rest = &rest[at + "zerolith".len()..];
             let mut after = rest.strip_prefix("/cli").unwrap_or(rest);
             if let Some(tagged) = after.strip_prefix('@') {
@@ -486,8 +487,13 @@ mod tests {
                 .next()
                 .unwrap_or("");
             let mut words = command.split_whitespace();
-            let Some(name) = words.next() else {
-                continue;
+            let name = if created {
+                "new"
+            } else {
+                let Some(name) = words.next() else {
+                    continue;
+                };
+                name
             };
             for word in words {
                 if let Some(flag) = word.strip_prefix("--") {
@@ -609,6 +615,18 @@ mod tests {
         assert_eq!(
             written_flags("`zerolith build --out=public` then `zerolith dev`"),
             vec![("build", "out")]
+        );
+        assert_eq!(
+            written_flags("`npm create zerolith my-app -- --template ts --yes`"),
+            vec![("new", "template"), ("new", "yes")]
+        );
+        assert_eq!(
+            written_flags("`pnpm create zerolith@1.12.0 my-app --example fullstack`"),
+            vec![("new", "example")]
+        );
+        assert_eq!(
+            written_flags("create-zerolith --help"),
+            Vec::<(&str, &str)>::new()
         );
         assert_eq!(
             written_flags("zerolith.json and zerolith-client --input"),

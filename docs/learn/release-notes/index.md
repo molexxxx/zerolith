@@ -23,12 +23,12 @@ The releases come from a JSON file. So several steps cover loading data: what th
 ## Start a project
 
 ```sh
-npx @zerolith/cli new release-notes --template ts --yes
+npm create zerolith release-notes -- --template ts --yes
 cd release-notes
 npm run dev
 ```
 
-If `npx` asks to download the command line, answer `y`. Leave the server running. The steps change `src/routes.ts`, `src/components/layout.ts`, and `public/`. The packing list explains [the rest of the starter](../packing-list/index.md#what-the-starter-wrote).
+If npm asks to install `create-zerolith`, answer `y`. The `--` hands the flags after it to zerolith instead of npm. Leave the server running. The steps change `src/routes.ts`, `src/components/layout.ts`, and `public/`. The packing list explains [the rest of the starter](../packing-list/index.md#what-the-starter-wrote).
 
 ## The steps
 

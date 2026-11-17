@@ -21,12 +21,12 @@ In this tutorial you'll ask an agent to add a page to a new zerolith app, check 
 Run these three commands:
 
 ```sh
-npx @zerolith/cli new tip-calculator --template ts --yes
+npm create zerolith tip-calculator -- --template ts --yes
 cd tip-calculator
 npm run dev
 ```
 
-`npm run dev` prints an address. Open it in your browser and leave the server running.
+If npm asks to install `create-zerolith`, answer `y`. The `--` hands the flags after it to zerolith instead of npm. `npm run dev` prints an address. Open it in your browser and leave the server running.
 
 ## Save a starting point
 
