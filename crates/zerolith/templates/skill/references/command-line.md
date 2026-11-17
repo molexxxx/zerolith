@@ -319,7 +319,14 @@ zerolith add @zerolith/test --dry-run
 
 Adds zerolith packages to a project. Every zerolith package carries one version, and a project that mixes two stops at its next build with `package_version_mismatch`. So `add` lists each package at the version the project is on, and the project's own package manager installs it.
 
-A package is named by what follows `@zerolith/`, such as `forms`, or by its full name. A name that is not a zerolith package is refused, with the list of the ones that are.
+| When | Command |
+| --- | --- |
+| The app needs a package it does not have yet, as a form needs `@zerolith/forms` | `zerolith add forms` |
+| It needs several | `zerolith add state browser` |
+| A tool for development, which goes in `devDependencies` | `zerolith add test` |
+| You want to see the change first | `zerolith add forms --dry-run` |
+
+A package is named by what follows `@zerolith/`, such as `forms`, or by its full name; the [introduction](introduction.md#how-it-fits-together) lists them with what each gives. A name that is not a zerolith package is refused, with the list of the ones that are.
 
 | Step | What happens |
 | --- | --- |
@@ -347,6 +354,14 @@ zerolith upgrade --dry-run
 ```
 
 Moves every zerolith package the project lists to one version together: the newest release, or the version given. No step in between holds a mix of two versions, which a package manager asked to move the packages one at a time would refuse.
+
+| When | Command |
+| --- | --- |
+| A new release is out | `zerolith upgrade` |
+| The project should be on one release in particular, such as the one a team agreed on | `zerolith upgrade 1.12.0` |
+| A build stopped with `package_version_mismatch` | `zerolith upgrade` with the version the message names |
+| You want to see the change first | `zerolith upgrade --dry-run` |
+| A new major is out and you have read its breaking changes | `zerolith upgrade --major` |
 
 | Step | What happens |
 | --- | --- |

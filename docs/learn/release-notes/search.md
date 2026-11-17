@@ -8,10 +8,10 @@ order: 5
 
 Seven releases are easy to scan. Seventy aren't. A search field narrows the list to the releases that mention what you type.
 
-Filtering on every key press would redraw the list for each letter, and a screen reader would read out a new count each time. So the search waits until you pause. A signal that waits for a pause is called **debounced**, and `@zerolith/state` has one. Install it:
+Filtering on every key press would redraw the list for each letter, and a screen reader would read out a new count each time. So the search waits until you pause. A signal that waits for a pause is called **debounced**, and `@zerolith/state` has one. Add it the same way:
 
 ```sh
-npm install @zerolith/state
+npx zerolith add state
 ```
 
 ## The search

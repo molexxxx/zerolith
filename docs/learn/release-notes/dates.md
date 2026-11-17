@@ -14,11 +14,13 @@ The file writes dates as `2026-10-20`, which is easy for a computer to read. Peo
 
 The browser already knows how every language writes dates, through a built-in feature called `Intl`. The page just has to ask in the reader's language.
 
-`@zerolith/i18n` is zerolith's package for languages. Install it:
+`@zerolith/i18n` is zerolith's package for languages. Add it to the project:
 
 ```sh
-npm install @zerolith/i18n
+npx zerolith add i18n
 ```
+
+`add` installs a zerolith package at the version your project is on, so the packages always match.
 
 It doesn't carry any language data of its own. It uses what the browser already has.
 

@@ -43,11 +43,13 @@ A server ignores parts of the body it doesn't know. So a later version of the wi
 
 ## Types from the contract
 
-`@zerolith/client` turns the contract into TypeScript. Install it:
+`@zerolith/client` turns the contract into TypeScript. Add it to the project:
 
 ```sh
-npm install @zerolith/client
+npx zerolith add client
 ```
+
+`add` installs a zerolith package at the version your project is on, so the packages always match.
 
 Then generate the file:
 

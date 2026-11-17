@@ -10,11 +10,13 @@ The browser's checks only go so far. It doesn't know your password rules, and ea
 
 So you'll write the rules once, in a file both the page and the server can use. The page shows each rule's message next to its field.
 
-`@zerolith/forms` runs the rules and keeps track of the form. Install it:
+`@zerolith/forms` runs the rules and keeps track of the form. Add it to the project:
 
 ```sh
-npm install @zerolith/forms
+npx zerolith add forms
 ```
+
+`add` installs a zerolith package at the version your project is on, so the packages always match.
 
 ## The rules
 

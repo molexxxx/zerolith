@@ -16,10 +16,10 @@ Checking on every key press isn't the answer either. Nobody wants "Enter an emai
 - **The password rules show from the start**, as a checklist. They're help, not a complaint.
 - **Messages wait for the first submit.** After that, they update as you type.
 
-The checklist needs text that only screen readers get. `@zerolith/a11y` has a helper for that. Install it:
+The checklist needs text that only screen readers get. `@zerolith/a11y` has a helper for that. Add it the same way:
 
 ```sh
-npm install @zerolith/a11y
+npx zerolith add a11y
 ```
 
 You'll use it again in the focus step.

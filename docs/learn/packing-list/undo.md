@@ -16,11 +16,21 @@ zerolith has two packages for all of this, both built on signals:
 - `@zerolith/state` for signals that save themselves, undo, and more.
 - `@zerolith/browser` for what the browser knows, such as whether you're online.
 
-Install both:
+Add both to the project:
 
 ```sh
-npm install @zerolith/state @zerolith/browser
+npx zerolith add state browser
 ```
+
+`add` is how a zerolith project gets another zerolith package. Every zerolith package shares one version number, and `add` picks the one your project is already on:
+
+| What it does | Where you can see it |
+| --- | --- |
+| Lists `@zerolith/state` and `@zerolith/browser` at your project's version | `package.json`, under `dependencies` |
+| Installs them with the package manager the project uses | `node_modules/` |
+| Prints the line that imports each package, and the guide that covers it | The terminal |
+
+`npm install @zerolith/state` would take the newest release instead, which may not be the version your project is on.
 
 ## A stored signal
 

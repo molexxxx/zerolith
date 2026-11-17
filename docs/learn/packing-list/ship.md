@@ -35,6 +35,22 @@ There's one setting every host needs. An address that doesn't match a file shoul
 
 [Building and serving](../../guide/deploying.md) has the setup for each kind of host. It also covers serving the app under a path such as `/app/`, caching, and working with a backend.
 
+## Keep it current
+
+When a new zerolith release comes out, one command moves every zerolith package in your project to it together:
+
+```sh
+npx zerolith upgrade
+```
+
+It installs the new versions, checks the project with `zerolith doctor`, and prints where the changelog is. It's the same idea as `add` in the [undo step](undo.md): the packages always share one version.
+
+| Command | When it helps |
+| --- | --- |
+| `npx zerolith upgrade` | A new release is out |
+| `npx zerolith upgrade --dry-run` | You want to see what would change first |
+| `npx zerolith add forms` | The app needs another zerolith package |
+
 ## Where to go next
 
 You've used every part of a zerolith app: components, signals, lists, events, derived values, effects, styles, routes, and tests, plus `@zerolith/state` and `@zerolith/browser`. From here:

@@ -68,6 +68,8 @@ In the project:
 | `zerolith dev` | Serves the app at http://127.0.0.1:8080/ and reloads it as you edit |
 | `zerolith build` | Bundles and minifies it into `dist/`, static files for any host or backend |
 | `zerolith preview` | Serves `dist/` the way a host will, to check the build |
+| `zerolith add forms` | Adds a zerolith package at the version the project is on |
+| `zerolith upgrade` | Moves every zerolith package to the newest release together |
 
 > [!TIP]
 > The project lists the command line, `@zerolith/cli`, itself. Inside it, `npx zerolith dev` and the `dev`, `build`, and `preview` npm scripts run the project's own copy, which is what CI should use. `npm install --global @zerolith/cli` puts `zerolith` on the PATH, so the commands in the table run as written and `zerolith new my-app` starts a project as well.
