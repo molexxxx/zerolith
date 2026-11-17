@@ -15,7 +15,7 @@ A standalone frontend framework monorepo. `packages/zerolith` is the browser run
 
 ## Hard rules
 
-- The core `zerolith` package has no `dependencies`, `peerDependencies`, or `optionalDependencies`, and no package has an install script; a test fails the build if they appear. Other packages list zerolith packages as peers, and the only third-party peers are Vite for `@zerolith/vite` and `@opentelemetry/api` for `@zerolith/otel`. A new one needs an RFC.
+- The core `zerolith` package has no `dependencies`, `peerDependencies`, or `optionalDependencies`, and no package has an install script; a test fails the build if they appear. Other packages list zerolith packages as peers, and the only third-party peers are Vite for `@zerolith/vite` and `@opentelemetry/api` for `@zerolith/otel`. A new one needs an RFC. The one dependency in any package is `create-zerolith`'s on `@zerolith/cli` at its own version, whose `new` it runs for `npm create zerolith`.
 - Templates never evaluate strings as code; no `eval`, `new Function`, `innerHTML` with unmarked strings, or `setTimeout` with a string. The runtime must pass under `script-src 'self'` and Trusted Types.
 - TypeScript is `erasableSyntaxOnly`: no `enum`, `namespace`, parameter properties, or decorators. Use `const` objects and union types.
 - Every public export has an explicit type annotation and a doc comment (`isolatedDeclarations` is on).

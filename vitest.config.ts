@@ -36,8 +36,8 @@ export default defineConfig({
         coverage: {
             provider: "v8",
             include: ["packages/*/src/**/*.ts"],
-            /** The launcher in packages/cli is tested in the cli project, against the built binary this run does not start. */
-            exclude: ["**/*.d.ts", "packages/cli/src/**"],
+            /** The launchers in packages/cli and packages/create-zerolith run as processes of their own, which this run does not measure: the first is tested in the cli project against the built binary, and the second there and against a stand-in for it. */
+            exclude: ["**/*.d.ts", "packages/cli/src/**", "packages/create-zerolith/src/**"],
             reporter: ["text-summary", "json-summary"],
             reportsDirectory: "coverage",
             thresholds: {

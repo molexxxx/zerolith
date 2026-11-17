@@ -46,12 +46,17 @@ name: Release
 # @zerolith/cli carries no binary: one platform package per target does,
 # built here on the matching runner. Linux builds on Ubuntu 22.04 so the
 # binaries link against glibc 2.35 and run on older distributions.
+#
+# create-zerolith, which `npm create zerolith` runs, depends on
+# @zerolith/cli at its own version and runs its `new`, so a run of "all"
+# publishes it last, once the command line has taken the run's tag.
 
 on:
   push:
     tags:
       - "zerolith@*"
       - "@zerolith/*@*"
+      - "create-zerolith@*"
       - "crate@*"
   workflow_dispatch:
     inputs:
@@ -109,7 +114,7 @@ jobs:
           set -eu
           version="$(node scripts/canary.ts version "$(date -u +%Y%m%d)" "$GITHUB_SHA")"
           publish=true
-          # @zerolith/cli publishes last, so its canary names the last run that finished.
+          # @zerolith/cli publishes after every package but create-zerolith, which only runs it, so its canary names the last run that published what a project installs.
           if previous="$(npm view @zerolith/cli@canary version 2>/dev/null)" && [ -n "$previous" ]; then
             commit="$(node scripts/canary.ts commit "$previous")"
             if [ -n "$commit" ] && git cat-file -e "$commit^{commit}" 2>/dev/null \
@@ -387,7 +392,7 @@ jobs:
           libraries="zerolith @zerolith/router @zerolith/forms @zerolith/client @zerolith/test @zerolith/a11y @zerolith/state @zerolith/browser @zerolith/i18n @zerolith/devtools @zerolith/vite @zerolith/otel"
           platforms="@zerolith/cli-linux-x64 @zerolith/cli-linux-arm64 @zerolith/cli-darwin-arm64 @zerolith/cli-darwin-x64 @zerolith/cli-win32-x64 @zerolith/cli-win32-arm64"
           case "$selection" in
-            all) packages="$libraries $platforms @zerolith/cli" ;;
+            all) packages="$libraries $platforms @zerolith/cli create-zerolith" ;;
             @zerolith/cli) packages="$platforms @zerolith/cli" ;;
             *) packages="$selection" ;;
           esac

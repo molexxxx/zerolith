@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const workflowUrl = new URL("../../.github/workflows/release.yml", import.meta.url);
 
-/** Stands in for npm, curl, node, and sleep: npm has never published @zerolith/state or @zerolith/browser, accepts the token only when WHOAMI is yes, refuses to create a package when CREATE is no, and the registry answers FORMS_STATUS for @zerolith/forms, with curl failing as it does when no registry answers. npm publishes the tarball it is given, printing its path. */
+/** Stands in for npm, curl, node, and sleep: npm has never published @zerolith/state or @zerolith/browser, accepts the token only when WHOAMI is yes, refuses to create a package when CREATE is no, and the registry answers FORMS_STATUS for @zerolith/forms, with curl failing as it does when no registry answers, and STARTER_STATUS for create-zerolith. npm publishes the tarball it is given, printing its path. */
 const STUBS = `
 npm()
 {
@@ -41,6 +41,7 @@ curl()
   case "$last" in
     *%2Fstate|*%2Fbrowser) printf 404 ;;
     *%2Fforms) printf '%s' "\${FORMS_STATUS:-200}"; [ "\${FORMS_STATUS:-200}" = "000" ] && return 7 ;;
+    */create-zerolith) printf '%s' "\${STARTER_STATUS:-200}" ;;
     https://registry.example/*) echo "DOWNLOADED $last" >&2 ;;
     *) printf 200 ;;
   esac
@@ -90,7 +91,7 @@ function publishScript(): string
 function packageOf(file: string, version: string): string
 {
     const base = file.slice(file.lastIndexOf("/") + 1, -`-${version}.tgz`.length);
-    return base === "zerolith" ? base : `@zerolith/${base.slice("zerolith-".length)}`;
+    return base === "zerolith" || base === "create-zerolith" ? base : `@zerolith/${base.slice("zerolith-".length)}`;
 }
 
 /** Runs the publish script under bash with the stubs and `env`, in a folder whose `packed` folder holds a tarball of every package at each version the tests use, less any in `missing`. */
@@ -128,7 +129,7 @@ function everything(): string[]
 {
     const libraries = /libraries="([^"]+)"/.exec(workflow)?.[1]?.split(" ") ?? [];
     const platforms = /platforms="([^"]+)"/.exec(workflow)?.[1]?.split(" ") ?? [];
-    return [...libraries, ...platforms, "@zerolith/cli"];
+    return [...libraries, ...platforms, "@zerolith/cli", "create-zerolith"];
 }
 
 /** The order a release publishes in: the names npm has never published first, then the rest in the workflow's order. */
@@ -220,6 +221,48 @@ describe("the release workflow's publish step with names npm has never published
         expect(canary.untagged).toEqual([]);
         expect(canary.output).toContain("DOWNLOADED https://registry.example/@zerolith/cli-win32-arm64@2.0.0-alpha.1.tgz");
         expect(canary.published).toContain("@zerolith/cli");
+    });
+
+    it("publishes create-zerolith last, once the command line it runs has the run's tag", () =>
+    {
+        const run = publish({ INPUT_PACKAGE: "all", WHOAMI: "yes", VERSION: "1.7.0" });
+        const lines = run.output.split("\n");
+        const published = lines.findIndex((line) => line === "PUBLISHED packed/create-zerolith-1.7.0.tgz");
+        expect(run.code).toBe(0);
+        expect(run.published.at(-1)).toBe("create-zerolith");
+        expect(published).toBeGreaterThan(lines.findIndex((line) => line === "TAGGED @zerolith/cli@1.7.0 latest"));
+        expect(run.flags.find((line) => line.includes("create-zerolith-1.7.0.tgz"))).toContain("--access public --provenance --tag latest");
+    });
+
+    it("publishes create-zerolith before every other package while npm has never published it, and leaves it out of a canary", () =>
+    {
+        const first = publish({ INPUT_PACKAGE: "all", WHOAMI: "yes", VERSION: "1.7.0", STARTER_STATUS: "404" });
+        expect(first.code).toBe(0);
+        expect(first.published).toEqual([...unpublished, "create-zerolith", ...everything().filter((name) => !unpublished.includes(name) && name !== "create-zerolith")]);
+        const refused = publish({ INPUT_PACKAGE: "all", VERSION: "1.7.0", STARTER_STATUS: "404" });
+        expect(refused.code).toBe(1);
+        expect(refused.published).toEqual([]);
+        expect(refused.output).toContain("npm has never published @zerolith/state @zerolith/browser create-zerolith, trusted publishing cannot publish a new name");
+        const canary = publish({ CANARY: "true", STARTER_STATUS: "404" });
+        expect(canary.code).toBe(0);
+        expect(canary.published).not.toContain("create-zerolith");
+        expect(canary.output).toContain("npm has never published create-zerolith, so the canary leaves it out");
+    });
+
+    it("publishes create-zerolith alone when a run or a tag names it", () =>
+    {
+        for (const env of [{ INPUT_PACKAGE: "create-zerolith" }, { REF_NAME: "create-zerolith@1.7.0" }])
+        {
+            const run = publish({ ...env, WHOAMI: "yes", VERSION: "1.7.0", STARTER_STATUS: "404" });
+            expect(run.code, JSON.stringify(env)).toBe(0);
+            expect(run.published, JSON.stringify(env)).toEqual(["create-zerolith"]);
+            expect(run.flags, JSON.stringify(env)).toEqual(["publish packed/create-zerolith-1.7.0.tgz --access public --provenance --tag latest"]);
+            expect(run.tagged, JSON.stringify(env)).toEqual([]);
+        }
+        const refused = publish({ INPUT_PACKAGE: "create-zerolith", VERSION: "1.7.0", STARTER_STATUS: "404" });
+        expect(refused.code).toBe(1);
+        expect(refused.published).toEqual([]);
+        expect(refused.output).toContain("npm has never published create-zerolith, trusted publishing cannot publish a new name");
     });
 
     it("publishes nothing when the pack job made no tarball of a package it would publish", () =>

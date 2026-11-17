@@ -97,7 +97,7 @@ describe("the repository", () =>
         }
     });
 
-    it("points every first-party range at that version, exactly where a package uses zerolith/internal", async () =>
+    it("points every first-party range at that version, exactly where a package uses zerolith/internal or runs the command line", async () =>
     {
         const { root: top, workspaces } = await manifests();
         for (const [index, manifest] of workspaces.entries())
@@ -112,7 +112,8 @@ describe("the repository", () =>
                 {
                     if (name === "zerolith" || name.startsWith("@zerolith/"))
                     {
-                        expect(range, `${manifest.name} -> ${name}`).toBe(internal && name === "zerolith" ? top.version : `^${top.version}`);
+                        const exact = (internal && name === "zerolith") || manifest.name === "create-zerolith";
+                        expect(range, `${manifest.name} -> ${name}`).toBe(exact ? top.version : `^${top.version}`);
                     }
                 }
             }
@@ -133,7 +134,14 @@ describe("the repository", () =>
         const published = /platforms="([^"]+)"/.exec(workflow)?.[1]?.split(" ") ?? [];
         const built = [...workflow.matchAll(/- \{ name: ([a-z0-9-]+), runner:/g)].map((match) => match[1]);
         expect(libraries[0]).toBe("zerolith");
-        expect(libraries.toSorted()).toEqual(workspaces.map((manifest) => manifest.name).filter((name) => name !== "@zerolith/cli").toSorted());
+        expect(libraries.toSorted()).toEqual(workspaces.map((manifest) => manifest.name).filter((name) => name !== "@zerolith/cli" && name !== "create-zerolith").toSorted());
+        expect(workflow).toContain("all) packages=\"$libraries $platforms @zerolith/cli create-zerolith\" ;;");
+        const triggers = workflow.slice(workflow.indexOf("\n    tags:\n"), workflow.indexOf("\n  workflow_dispatch:\n"));
+        for (const manifest of workspaces)
+        {
+            const pattern = manifest.name.startsWith("@zerolith/") ? "@zerolith/*@*" : `${manifest.name}@*`;
+            expect(triggers, manifest.name).toContain(`- "${pattern}"\n`);
+        }
         expect(published.toSorted()).toEqual(platforms.map((manifest) => manifest.name).toSorted());
         expect(built.map((name) => `@zerolith/cli-${name}`).toSorted()).toEqual(platforms.map((manifest) => manifest.name).toSorted());
     });

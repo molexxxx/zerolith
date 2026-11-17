@@ -1,0 +1,44 @@
+{
+    "name": "create-zerolith",
+    "version": "1.11.0",
+    "description": "Starts a zerolith project: npm create zerolith runs zerolith new from @zerolith/cli at this package's own version",
+    "license": "Apache-2.0",
+    "author": "molexxxx",
+    "homepage": "https://zerolith.dev/",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/molexxxx/zerolith.git",
+        "directory": "packages/create-zerolith"
+    },
+    "bugs": {
+        "url": "https://github.com/molexxxx/zerolith/issues"
+    },
+    "keywords": [
+        "zerolith",
+        "create",
+        "scaffold",
+        "starter"
+    ],
+    "type": "module",
+    "engines": {
+        "node": ">=22.18.0"
+    },
+    "bin": {
+        "create-zerolith": "dist/bin.js"
+    },
+    "exports": {
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "src",
+        "LICENSE",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json"
+    },
+    "dependencies": {
+        "@zerolith/cli": "1.11.0"
+    }
+}

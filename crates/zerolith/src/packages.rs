@@ -33,7 +33,7 @@ struct Package {
     guide: &'static str,
 }
 
-/// Every package released with zerolith, the core first. A test holds the list to the repository's `packages` folder.
+/// Every package a project lists, the core first. A test holds the list to the repository's `packages` folder, less `create-zerolith`, which a project runs once and never lists.
 const PACKAGES: [Package; 13] = [
     Package {
         name: "zerolith",

@@ -21,7 +21,8 @@
         "packages/browser",
         "packages/i18n",
         "packages/otel",
-        "packages/cli"
+        "packages/cli",
+        "packages/create-zerolith"
     ],
     "scripts": {
         "build": "npm run build --workspaces --if-present",
