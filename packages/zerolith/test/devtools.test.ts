@@ -31,6 +31,25 @@ describe("devtools hook", () =>
         expect(watcher).toMatchObject({ kind: "effect", observers: 0 });
     });
 
+    it("names a computed value by its function when given no name, and by the given name over its function's", () =>
+    {
+        const kept = [
+            computed(function tripled()
+            {
+                return 3;
+            }),
+            computed(function ignored()
+            {
+                return 4;
+            }, { name: "given" })
+        ];
+        const names = hook().nodes().filter((node) => node.kind === "computed").map((node) => node.name);
+        expect(names).toContain("tripled");
+        expect(names).toContain("given");
+        expect(names).not.toContain("ignored");
+        expect(kept).toHaveLength(2);
+    });
+
     it("announces nodes, flushes, and diagnostics to subscribers", () =>
     {
         const events: DevtoolsEvent[] = [];

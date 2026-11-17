@@ -58,13 +58,13 @@ export class Instance
     {
         const firstChild = firstChildOf ??= getter("firstChild");
         const nextSibling = nextSiblingOf ??= getter("nextSibling");
-        const { master, parts: specs, paths, unmarked } = prepared;
+        const { master, single, parts: specs, paths, unmarked } = prepared;
         let top: Node;
         let from = 0;
         let nodes: ChildNode[] | undefined;
         let content: Node;
         let fragment: DocumentFragment | undefined;
-        if (master !== undefined && master.nodeType !== 11)
+        if (master !== undefined && single)
         {
             const root = master.cloneNode(true) as ChildNode;
             top = root;
@@ -89,8 +89,9 @@ export class Instance
             }
         }
         const parts = values === undefined ? new Array<BoundPart>(specs.length) : NONE;
-        /** For each part from `first` on, whose values are bound after the walk, its node and the node the walk stepped from to reach it. */
+        /** For each part from `first` on, whose values are bound after the walk, its node and the node the walk stepped from to reach it; sized once, as growing it reallocates for every row. */
         let found: Node[] | undefined;
+        let held = 0;
         let first = 0;
         let offset = 0;
         let node: Node = top;
@@ -123,11 +124,14 @@ export class Instance
             }
             else if (found !== undefined)
             {
-                found.push(node, prior);
+                found[held++] = node;
+                found[held++] = prior;
             }
             else if (master === undefined || (spec.kind === CHILD ? !isText(values[offset]) : spec.kind === PROPERTY || spec.kind === REF))
             {
-                found = [node, prior];
+                found = new Array<Node>((specs.length - next) * 2);
+                found[held++] = node;
+                found[held++] = prior;
                 first = next;
             }
             else

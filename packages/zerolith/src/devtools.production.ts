@@ -37,7 +37,7 @@ export interface DevtoolsHook
 
 export type Inspect<T extends object> = (node: T) => { value?: unknown; observers: number };
 
-export function trackNode<T extends object>(_node: T, _kind: NodeSnapshot["kind"], _name: string | undefined, _inspect: Inspect<T>): void
+export function trackNode<T extends object>(_node: T, _kind: NodeSnapshot["kind"], _given: string | undefined, _inspect: Inspect<T>, _fn?: { readonly name: string }): void
 {
 }
 

@@ -711,13 +711,16 @@ abstract class Reaction implements Consumer, OwnerNode, Child
             if (!(this.flags & DISPOSED))
             {
                 const cleanup = this.execute();
-                if (typeof cleanup === "function")
+                if (cleanup !== undefined)
                 {
-                    this.cleanup = cleanup as () => void;
-                }
-                else if (isThenable(cleanup))
-                {
-                    report(diagnostic("effect_async", "warning"));
+                    if (typeof cleanup === "function")
+                    {
+                        this.cleanup = cleanup as () => void;
+                    }
+                    else if (isThenable(cleanup))
+                    {
+                        report(diagnostic("effect_async", "warning"));
+                    }
                 }
             }
         }
@@ -999,7 +1002,7 @@ function inspectEffect(): { observers: number }
 export function computed<T>(fn: () => T, options?: SignalOptions<T>): ReadableSignal<T>
 {
     const node = new Computed(fn, options?.equals ?? Object.is);
-    trackNode(node, "computed", options?.name ?? (fn.name === "" ? undefined : fn.name), inspectComputed);
+    trackNode(node, "computed", options?.name, inspectComputed, fn);
     return node;
 }
 
@@ -1026,7 +1029,7 @@ export function effect(fn: EffectFunction): () => void
 export function startEffect(fn: EffectFunction): Disposable
 {
     const node = new Effect(fn);
-    trackNode(node, "effect", fn.name === "" ? undefined : fn.name, inspectEffect);
+    trackNode(node, "effect", undefined, inspectEffect, fn);
     return start(node);
 }
 

@@ -182,12 +182,15 @@ const hook: DevtoolsHook = {
  * inspector asks; it must not capture the node itself. The registry is
  * pruned of collected nodes each time it doubles. An internal node is
  * recorded but not announced, so the inspector's own rendering never wakes
- * it.
+ * it. Without a `given` name, the node takes the name of `fn`, the function
+ * a computed value or effect runs; the name is read here, so a production
+ * build, whose stand-in ignores both, never reads it.
  */
-export function trackNode<T extends object>(node: T, kind: NodeSnapshot["kind"], name: string | undefined, inspect: Inspect<T>): void
+export function trackNode<T extends object>(node: T, kind: NodeSnapshot["kind"], given: string | undefined, inspect: Inspect<T>, fn?: { readonly name: string }): void
 {
     const id = nextId++;
     const inside = depth > 0;
+    const name = given ?? (fn === undefined || fn.name === "" ? undefined : fn.name);
     nodes.push({ id, kind, name, internal: inside, ref: new WeakRef(node), inspect: inspect as Inspect<object> });
     if (nodes.length >= pruneAt)
     {

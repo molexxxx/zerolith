@@ -48,6 +48,8 @@ export interface Prepared
      * copy would construct or load once more, so instances import `content`.
      */
     master: Node | undefined;
+    /** Whether `master` is the template's one top-level node rather than a fragment holding several, kept so an instance need not ask the node. */
+    single: boolean;
 }
 
 interface Policy
@@ -256,16 +258,18 @@ export function prepare(strings: TemplateStringsArray): Prepared
     parts.sort((a, b) => a.index - b.index);
     const paths = pathsOf(parts, targets, template.content);
     let master: Node | undefined;
+    let single = false;
     if (paths !== undefined && inert(template.content))
     {
         const copy = document.importNode(template.content, true);
-        master = copy.firstChild !== null && copy.firstChild.nextSibling === null ? copy.firstChild : copy;
+        single = copy.firstChild !== null && copy.firstChild.nextSibling === null;
+        master = single ? copy.firstChild as ChildNode : copy;
     }
     const unmarked = parts.map((spec) => targets.get(spec)?.nodeType === 3);
     const rooted = template.content.firstChild !== null && !edges;
     const result: Prepared = paths === undefined
-        ? { content: template.content, model, parts: [], unmarked: [], paths: [], edges, rooted, master }
-        : { content: template.content, model, parts, unmarked, paths, edges, rooted, master };
+        ? { content: template.content, model, parts: [], unmarked: [], paths: [], edges, rooted, master, single }
+        : { content: template.content, model, parts, unmarked, paths, edges, rooted, master, single };
     templates.set(strings, result);
     return result;
 }

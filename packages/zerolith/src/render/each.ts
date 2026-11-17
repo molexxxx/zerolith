@@ -5,7 +5,7 @@
 import { isInternal } from "../devtools.js";
 import { fail } from "../diagnostics.js";
 import { OwnerScope, type ReadableSignal, type Signal, createOwner, onDispose, own, signal, startEffect, untracked } from "../signals.js";
-import { prepare } from "../template.js";
+import { type Prepared, prepare } from "../template.js";
 import { ChildPart, Instance } from "./instance.js";
 import { isStart, matchingEnd, mismatch, removeUntil } from "./markers.js";
 import { type Controller, Directive, type Renderable, TemplateResult, type View, read } from "./view.js";
@@ -192,8 +192,9 @@ class Keyed<T> extends Directive
         for (let i = head; valid && i < newTail; i++)
         {
             const key = this.key(list[i] as T, i);
-            valid = key !== undefined && !keys.has(key);
+            const size = keys.size;
             keys.add(key);
+            valid = key !== undefined && keys.size !== size;
             fresh[i - head] = key;
         }
         for (let i = 0; valid && i < head; i++)
@@ -228,6 +229,11 @@ class Keyed<T> extends Directive
         const owner = createOwner();
         let order: Row<T>[] = [];
         const end = part.marker();
+        /** Whether the row function declares the index parameter, read once rather than per row. */
+        const indexed = this.row.length > 1;
+        /** The template the last row created rendered, and its preparation, since a list's rows usually share one. */
+        let template: TemplateStringsArray | undefined;
+        let prepared: Prepared | undefined;
         owner.run(() =>
         {
             onDispose(() =>
@@ -250,17 +256,21 @@ class Keyed<T> extends Directive
          */
         const create = (key: unknown, value: T, index: number, parent: Node, before: Node | null, adopt?: { start: Comment; end: Comment }): Row<T> =>
         {
-            const row = new Row<T>(key, signal(value), this.row.length > 1 ? signal(index) : undefined);
+            const row = new Row<T>(key, signal(value), indexed ? signal(index) : undefined);
             const outer = own(row);
             try
             {
                 const view = this.row(row.item, row.index as ReadableSignal<number>);
                 if (adopt === undefined && view instanceof TemplateResult)
                 {
-                    const prepared = prepare(view.strings);
-                    if (prepared.rooted)
+                    if (view.strings !== template)
                     {
-                        const made = Instance.create(view.strings, prepared, view.values);
+                        prepared = prepare(view.strings);
+                        template = view.strings;
+                    }
+                    if ((prepared as Prepared).rooted)
+                    {
+                        const made = Instance.create(view.strings, prepared as Prepared, view.values);
                         if (made instanceof Instance)
                         {
                             row.nodes = made.nodes;

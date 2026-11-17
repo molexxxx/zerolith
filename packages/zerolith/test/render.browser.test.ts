@@ -935,6 +935,34 @@ describe("each", () =>
         expect(new Set(moved)).toEqual(new Set([before[1], before[4]]));
     });
 
+    it("lets a signal in a row's child position change from text to a view, to nothing, and back, alone in its element or beside text", () =>
+    {
+        const shown = signal<unknown>("text");
+        const items = signal([{ id: 1 }, { id: 2 }]);
+        const el = mount(html`<ul>${each(items, (item) => item.id, () => html`<li><b>${shown}</b><i>a ${shown} b</i></li>`)}</ul>`);
+        const read = (): string[] => Array.from(el.querySelectorAll("li"), (li) => li.innerHTML.replace(/<!--.*?-->/g, ""));
+        expect(read()).toEqual(["<b>text</b><i>a text b</i>", "<b>text</b><i>a text b</i>"]);
+        shown.set(html`<em>view</em>`);
+        expect(read()).toEqual(["<b><em>view</em></b><i>a <em>view</em> b</i>", "<b><em>view</em></b><i>a <em>view</em> b</i>"]);
+        shown.set(null);
+        expect(read()).toEqual(["<b></b><i>a  b</i>", "<b></b><i>a  b</i>"]);
+        shown.set(7);
+        expect(read()).toEqual(["<b>7</b><i>a 7 b</i>", "<b>7</b><i>a 7 b</i>"]);
+        items.set([{ id: 2 }]);
+        shown.set("left");
+        expect(read()).toEqual(["<b>left</b><i>a left b</i>"]);
+    });
+
+    it("renders rows that take turns between two templates", () =>
+    {
+        const items = signal<Item[]>([{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }]);
+        const el = mount(html`<ul>${each(items, (item) => item.id, (item) => (item.get().id % 2 === 1 ? html`<li class="odd">${item.get().name}</li>` : html`<li class="even"><b>${item.get().name}</b></li>`))}</ul>`);
+        const read = (): string[] => Array.from(el.querySelectorAll("li"), (li) => `${li.className} ${li.textContent ?? ""}`);
+        expect(read()).toEqual(["odd a", "even b", "odd c"]);
+        items.set([{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }, { id: 4, name: "d" }, { id: 5, name: "e" }]);
+        expect(read()).toEqual(["odd a", "even b", "odd c", "even d", "odd e"]);
+    });
+
     it("moves, swaps, and removes rows of several top-level nodes, taking all of each row's nodes", () =>
     {
         const items = signal<Item[]>([{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }]);

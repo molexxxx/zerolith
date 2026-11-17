@@ -10,6 +10,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Changed
 
+- `zerolith`: creating a list's rows does less work. A list keeps the template its rows share in place of looking it up for each row, checks each new key with one set operation, and reads its row function's parameter count once; a template records whether its copy is one node, which each instance had asked the node; and a production build no longer reads the function name of a computed value or an effect, which only the development tools show. Rows render and update as before, and the [benchmarks](benchmarks/README.md) show the result with each release's run.
 - `@zerolith/cli` and the crate: the build's message for `package_version_mismatch`, and the diagnostic's fix, name the project's own command line without saying that a global install runs its own version, which no longer holds.
 - Docs: each row of the `zerolith.json` table in the command line guide ends with the key's default, and the example says that it changes every one.
 
