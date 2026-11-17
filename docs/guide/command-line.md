@@ -31,13 +31,13 @@ This guide writes each command as it runs with `zerolith` on the PATH. Inside a 
 | --- | --- |
 | A new project | `npm create zerolith my-app` runs [`new`](#new) with nothing installed first, and the project it writes lists `@zerolith/cli` as a development dependency |
 | Inside a project | `npx zerolith <command>` runs the project's own copy, as the npm scripts do, which is what CI should use |
-| Anywhere, as `zerolith` | `npm install --global @zerolith/cli` puts `zerolith` on the PATH, on Linux (glibc), macOS, or Windows, x64 or arm64 |
+| Anywhere, as `zerolith` | `npm install --global @zerolith/cli` puts `zerolith` on the PATH, on Linux (glibc), macOS, or Windows, x64 or arm64. It runs the version installed globally, so in a project `npx zerolith` is still the copy that matches the project |
 | Elsewhere, and on musl systems such as Alpine | `cargo install zerolith --locked` builds the same crate from crates.io, with the dependencies it was tested with, and `ZEROLITH_BINARY_PATH` tells the npm package where it is |
 
-`@zerolith/cli` is a thin package whose optional dependencies carry the prebuilt binary for each platform, so npm installs only the one it needs.
+`@zerolith/cli` is a thin package whose optional dependencies carry the prebuilt binary for each platform, so npm installs only the one it needs. `zerolith --version` prints the version that runs; in a project, `npx zerolith --version` prints the project's.
 
 > [!IMPORTANT]
-> The build prepares templates into calls to the `zerolith/internal` entry of the `zerolith` the project installs, which can change with every version. `zerolith build` therefore requires the `zerolith` of its own version and stops with `package_version_mismatch` when it finds another; the starters pin both to one version, so upgrade them together, which [`zerolith upgrade`](#upgrade) does.
+> The build prepares templates into calls to the `zerolith/internal` entry of the `zerolith` the project installs, which can change with every version. `zerolith build` therefore requires the `zerolith` of its own version and stops with `package_version_mismatch` when it finds another; the starters pin both to one version, so upgrade them together, which [`zerolith upgrade`](#upgrade) does. A command line installed globally runs its own version, so build a project with the copy it installs, `npx zerolith build` or `npm run build`.
 
 Every command opens with the `zerolith` badge and the command's name, and colors what follows by meaning: addresses and finished steps in green, errors in red, warnings in yellow, and labels and details dimmed. The colors are dropped when `NO_COLOR` is set or the output goes to a file or another program, so logs and CI output stay plain text, and `CLICOLOR_FORCE=1` keeps them.
 
@@ -367,7 +367,7 @@ Moves every zerolith package the project lists to one version together: the newe
 | --- | --- |
 | A new release is out | `zerolith upgrade` |
 | The project should be on one release in particular, such as the one a team agreed on | `zerolith upgrade 1.12.0` |
-| A build stopped with `package_version_mismatch` | `zerolith upgrade` with the version the message names |
+| A build stopped with `package_version_mismatch`, and `npx zerolith build` stops too | `zerolith upgrade` |
 | You want to see the change first | `zerolith upgrade --dry-run` |
 | A new major is out and you have read its breaking changes | `zerolith upgrade --major` |
 

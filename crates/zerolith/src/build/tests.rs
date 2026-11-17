@@ -676,6 +676,14 @@ async fn requires_the_zerolith_of_its_own_version_to_prepare_templates() {
         )),
         "{error}"
     );
+    assert!(
+        error.contains("npx zerolith build or npm run build"),
+        "{error}"
+    );
+    assert!(
+        !error.contains(&format!("zerolith upgrade {own}")),
+        "a command line installed globally can be older than the project, so the message does not offer its own version: {error}"
+    );
     let mut unprepared = options(&root, "/", "production");
     unprepared.prepare = false;
     assert!(build(&unprepared).await.is_ok());

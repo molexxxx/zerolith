@@ -2,16 +2,15 @@
 
 The `zerolith` command line from npm: `new`, `dev`, which serves a project with its packages resolved from `node_modules` and forwards its API to a backend, `serve`, `build`, which bundles and minifies an application with Rolldown compiled into the binary, or writes one module as a single script for other sites' pages with `--entry`, `preview`, `skill`, which writes the zerolith skill for coding agents into a project, `importmap`, `doctor`, and `add` and `upgrade`, which keep a project's zerolith packages on one version. The binary is written in Rust; this package carries none itself and depends optionally on one package per platform, so npm installs only the binary that matches the machine.
 
-Install it once and start a project. `new` asks a few questions, each with a default, writes the starter, and installs its dependencies, this package among them:
+Start a project with nothing installed first. [`create-zerolith`](https://www.npmjs.com/package/create-zerolith) runs this package's `new`, which asks a few questions, each with a default, writes the starter, and installs its dependencies, this package among them:
 
 ```
-npm install --global @zerolith/cli
-zerolith new my-app
+npm create zerolith my-app
 cd my-app
-zerolith dev
+npm run dev
 ```
 
-Without a global install, `npm create zerolith my-app` does the same through [`create-zerolith`](https://www.npmjs.com/package/create-zerolith), which runs this package's `new`, as `npx @zerolith/cli new my-app` does, and inside the project `npx zerolith dev` and its npm scripts run the copy it lists.
+Inside the project, the npm scripts and `npx zerolith`, as in `npx zerolith add forms`, run the copy the project lists, which matches its packages. `npm install --global @zerolith/cli` puts `zerolith` on the PATH as well, for `zerolith new my-app` anywhere; it runs the version installed globally, so a project is still built with its own copy.
 
 Or add it to an existing project and call it through `npx`:
 

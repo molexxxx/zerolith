@@ -71,13 +71,13 @@ In the project:
 
 | Command | What it does |
 | --- | --- |
-| `zerolith dev` | Serves the app at http://127.0.0.1:8080/ and reloads it as you edit |
-| `zerolith build` | Bundles and minifies it into `dist/`, static files for any host or backend |
-| `zerolith preview` | Serves `dist/` the way a host will, to check the build |
-| `zerolith add forms` | Adds a zerolith package at the version the project is on |
-| `zerolith upgrade` | Moves every zerolith package to the newest release together |
+| `npm run dev` | Serves the app at the address it prints and reloads it as you edit |
+| `npm run build` | Bundles and minifies it into `dist/`, static files for any host or backend |
+| `npm run preview` | Serves `dist/` the way a host will, to check the build |
+| `npx zerolith add forms` | Adds a zerolith package at the version the project is on |
+| `npx zerolith upgrade` | Moves every zerolith package to the newest release together |
 
-The project lists the command line, `@zerolith/cli`, itself: inside it, `npx zerolith dev` and the `dev`, `build`, and `preview` npm scripts run the project's own copy, which is what CI should use. `npm install --global @zerolith/cli` puts `zerolith` on the PATH, so the commands in the table run as written and `zerolith new my-app` starts a project as well. The starter's README covers deploying, environment variables, and when Vite is worth adding, and the [command line guide](docs/guide/command-line.md) has every option.
+The project lists the command line, `@zerolith/cli`, itself, so the npm scripts and `npx zerolith` run the copy that matches its packages, which is also what CI should use. The starter's README covers deploying, environment variables, and when Vite is worth adding, and the [command line guide](docs/guide/command-line.md) has every command and option.
 
 To add zerolith to an existing project, install `@zerolith/cli` as a development dependency and run `npx zerolith add` with the packages you need, as in `npx zerolith add router forms`: it lists `zerolith` and each of them at one version. To work against a backend, the [building and serving guide](docs/guide/deploying.md) covers the dev server's proxy, a base path, and serving the build from a static host, a web server, or the backend itself.
 
