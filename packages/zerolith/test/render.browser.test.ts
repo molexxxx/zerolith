@@ -940,7 +940,7 @@ describe("each", () =>
         const shown = signal<unknown>("text");
         const items = signal([{ id: 1 }, { id: 2 }]);
         const el = mount(html`<ul>${each(items, (item) => item.id, () => html`<li><b>${shown}</b><i>a ${shown} b</i></li>`)}</ul>`);
-        const read = (): string[] => Array.from(el.querySelectorAll("li"), (li) => li.innerHTML.replace(/<!--.*?-->/g, ""));
+        const read = (): string[] => Array.from(el.querySelectorAll("li"), (li) => withoutComments(li.innerHTML));
         expect(read()).toEqual(["<b>text</b><i>a text b</i>", "<b>text</b><i>a text b</i>"]);
         shown.set(html`<em>view</em>`);
         expect(read()).toEqual(["<b><em>view</em></b><i>a <em>view</em> b</i>", "<b><em>view</em></b><i>a <em>view</em> b</i>"]);
