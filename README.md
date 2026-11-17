@@ -39,21 +39,17 @@ Bind the signal, not its value: `${count}` stays live, while `${count.get()}` re
 
 ## Getting started
 
-Node 22.18 or newer is required. Install the command line once; npm puts the prebuilt binary for your platform on your PATH:
+Node 22.18 or newer is required. Write a starter application and run it; nothing has to be installed first:
 
 ```sh
-npm install --global @zerolith/cli
-```
-
-Then write a starter application and run it:
-
-```sh
-zerolith new my-app
+npm create zerolith my-app
 cd my-app
-zerolith dev
+npm run dev
 ```
 
-`zerolith new` asks a few questions. Enter takes the default, a flag answers a question on the command line, and `--yes` takes every default without asking:
+`pnpm create zerolith`, `yarn create zerolith`, and `bun create zerolith` do the same.
+
+The command runs `zerolith new`, which asks a few questions. Enter takes the default, a flag answers a question on the command line, and `--yes` takes every default without asking:
 
 | Choice | Default | Other choices |
 | --- | --- | --- |
@@ -65,6 +61,12 @@ zerolith dev
 | Skill for coding agents | Included | `--no-skill` |
 | Dependencies | Installed | `--no-install` |
 
+With npm, flags go after `--`, since npm takes a flag for itself otherwise:
+
+```sh
+npm create zerolith my-app -- --template ts --yes
+```
+
 In the project:
 
 | Command | What it does |
@@ -75,7 +77,7 @@ In the project:
 | `zerolith add forms` | Adds a zerolith package at the version the project is on |
 | `zerolith upgrade` | Moves every zerolith package to the newest release together |
 
-Without a global install, `npx @zerolith/cli new my-app` writes the project, and inside it `npx zerolith dev` and the `dev`, `build`, and `preview` npm scripts run the project's own copy of the command line, which is what CI should use. The starter's README covers deploying, environment variables, and when Vite is worth adding, and the [command line guide](docs/guide/command-line.md) has every option.
+The project lists the command line, `@zerolith/cli`, itself: inside it, `npx zerolith dev` and the `dev`, `build`, and `preview` npm scripts run the project's own copy, which is what CI should use. `npm install --global @zerolith/cli` puts `zerolith` on the PATH, so the commands in the table run as written and `zerolith new my-app` starts a project as well. The starter's README covers deploying, environment variables, and when Vite is worth adding, and the [command line guide](docs/guide/command-line.md) has every option.
 
 To add zerolith to an existing project, install `@zerolith/cli` as a development dependency and run `npx zerolith add` with the packages you need, as in `npx zerolith add router forms`: it lists `zerolith` and each of them at one version. To work against a backend, the [building and serving guide](docs/guide/deploying.md) covers the dev server's proxy, a base path, and serving the build from a static host, a web server, or the backend itself.
 

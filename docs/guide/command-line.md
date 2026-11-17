@@ -298,6 +298,15 @@ Writes a starter application and installs its dependencies. On a terminal it ask
 
 `--yes` takes the defaults for everything the flags leave open, the starter among them.
 
+A package manager's `create` command runs `new` with nothing installed first. It runs the `create-zerolith` package, which runs the `new` of the command line of its own version and hands it everything after the name as it was written:
+
+| Package manager | Command |
+| --- | --- |
+| npm | `npm create zerolith my-app`, with `--` before the first flag, as in `npm create zerolith my-app -- --template ts`, since npm takes a flag for itself otherwise |
+| pnpm | `pnpm create zerolith my-app` |
+| Yarn | `yarn create zerolith my-app` |
+| Bun | `bun create zerolith my-app` |
+
 The starter is three pages in the brand style: a home page that shows the workflow, a counter built on a named signal, and a searchable list that a resource loads from `public/data/packages.json`. It has the layout the [structure guide](structure.md) describes, a browser test with a `vitest.config.ts` that gives Vitest the zerolith plugin, `src/env.d.ts` typing `import.meta.env` and stylesheets imported with `?scoped`, an `AGENTS.md` for coding agents, and a README that walks through developing, building, previewing, deploying, environment variables, and when Vite is worth adding. Its `dev`, `build`, and `preview` scripts run the command line, or Vite with `--vite`; `--buildless` keeps `zerolith dev` and builds with `--unbundled`. The tool versions it pins are the ones this repository tests with.
 
 `--example fullstack` writes the [fullstack example](https://github.com/molexxxx/zerolith/tree/main/examples/fullstack) as a project of its own instead: Harbor, where a small team keeps its projects and tasks, under `/app/`, with its backend in `server/`, plain Node with no dependencies, and the types, the API contract, and the validation both sides share in `shared/`. It signs members in with a session cookie, streams the team's activity to the dashboard as server-sent events, and loads a project's board as a chunk of its own.

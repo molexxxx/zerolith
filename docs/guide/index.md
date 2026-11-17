@@ -38,21 +38,17 @@ Everything else is a package around that core, and an application installs the o
 
 ## Getting started
 
-Node 22.18 or newer is required. Install the command line once; npm puts the prebuilt binary for your platform on your PATH:
+Node 22.18 or newer is required. Write a starter application and run it; nothing has to be installed first:
 
 ```sh
-npm install --global @zerolith/cli
-```
-
-Then write a starter application and run it:
-
-```sh
-zerolith new my-app
+npm create zerolith my-app
 cd my-app
-zerolith dev
+npm run dev
 ```
 
-`zerolith new` asks a few questions. Enter takes the default, a flag answers a question on the command line, and `--yes` takes every default without asking:
+`pnpm create zerolith`, `yarn create zerolith`, and `bun create zerolith` do the same.
+
+The command runs `zerolith new`, which asks a few questions. Enter takes the default, a flag answers a question on the command line, and `--yes` takes every default without asking:
 
 | Choice | Default | Other choices |
 | --- | --- | --- |
@@ -64,6 +60,12 @@ zerolith dev
 | Skill for coding agents | Included | `--no-skill` |
 | Dependencies | Installed | `--no-install` |
 
+With npm, flags go after `--`, since npm takes a flag for itself otherwise:
+
+```sh
+npm create zerolith my-app -- --template ts --yes
+```
+
 In the project:
 
 | Command | What it does |
@@ -73,7 +75,7 @@ In the project:
 | `zerolith preview` | Serves `dist/` the way a host will, to check the build |
 
 > [!TIP]
-> Without a global install, `npx @zerolith/cli new my-app` writes the project. Inside it, `npx zerolith dev` and the `dev`, `build`, and `preview` npm scripts run the project's own copy of the command line, which is what CI should use.
+> The project lists the command line, `@zerolith/cli`, itself. Inside it, `npx zerolith dev` and the `dev`, `build`, and `preview` npm scripts run the project's own copy, which is what CI should use. `npm install --global @zerolith/cli` puts `zerolith` on the PATH, so the commands in the table run as written and `zerolith new my-app` starts a project as well.
 
 The starter's README walks through its files, deploying, and environment variables, and the [command line guide](command-line.md) has every option.
 

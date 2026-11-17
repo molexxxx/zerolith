@@ -77,7 +77,7 @@ export interface HomeData
     diagnosticCount: number;
 }
 
-export const createCommand = "npx @zerolith/cli new my-app";
+export const createCommand = "npm create zerolith my-app";
 const startCode = `${createCommand}\ncd my-app\nnpm run dev`;
 
 /** Text with `code` spans, as the characteristics write it. */

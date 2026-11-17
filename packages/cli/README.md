@@ -11,7 +11,7 @@ cd my-app
 zerolith dev
 ```
 
-Without a global install, `npx @zerolith/cli new my-app` does the same, and inside the project `npx zerolith dev` and its npm scripts run the copy it lists.
+Without a global install, `npm create zerolith my-app` does the same through [`create-zerolith`](https://www.npmjs.com/package/create-zerolith), which runs this package's `new`, as `npx @zerolith/cli new my-app` does, and inside the project `npx zerolith dev` and its npm scripts run the copy it lists.
 
 Or add it to an existing project and call it through `npx`:
 
