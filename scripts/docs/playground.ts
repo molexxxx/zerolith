@@ -26,7 +26,9 @@ export const examples: Example[] = [
     { id: "list", title: "Packing list", summary: "A keyed list with `each`, a form that adds to it, and counts derived from the list." },
     { id: "conditions", title: "Conditions", summary: "Showing one view or another with `when`, and a branch that cleans up after itself with `onDispose`." },
     { id: "async", title: "Async data", summary: "A `resource` that fetches a city's record from this site and formats every fact for your locale, with loading, error, and reload, keeping its last value while the next one loads." },
+    { id: "client", title: "Typed client", summary: "Calls from `@zerolith/client` to an in-page server: a `query` that follows a search signal and aborts the request it replaces, and a `ProblemError` whose field message shows under the form." },
     { id: "retry", title: "Retry and timeout", summary: "A `resource` that gives a flaky service three tries: a `timeout` on each run, a wait that doubles before each retry, the `attempt` it is on, and reload." },
+    { id: "router", title: "Routes", summary: "A table from `@zerolith/router`: a parameter in a path, a loader that runs before its page shows, links marked with `matches`, a navigation a newer one cancels, and a page for no match." },
     { id: "boundary", title: "Context and error boundary", summary: "A value every level reads through `context`, the same component under two provided values, and a `boundary` that shows a fallback in place of a part that throws." },
     { id: "saved", title: "Saved state", summary: "Notes that survive a reload with `@zerolith/state`: `stored`, undo and redo from `history`, a `debounced` search, and a `selector` for the open note." },
     { id: "board", title: "Task board", summary: "Nested data in a `store` from `@zerolith/state`: one field written by its path, a list that grows, and a server's copy merged in by id with `reconcile`." },
@@ -44,6 +46,7 @@ export const packages: ReadonlyArray<{ specifier: string; folder: string; module
     { specifier: "zerolith/element", folder: "zerolith", module: "element.js" },
     { specifier: "@zerolith/router", folder: "router", module: "index.js" },
     { specifier: "@zerolith/forms", folder: "forms", module: "index.js" },
+    { specifier: "@zerolith/client", folder: "client", module: "index.js" },
     { specifier: "@zerolith/a11y", folder: "a11y", module: "index.js" },
     { specifier: "@zerolith/state", folder: "state", module: "index.js" },
     { specifier: "@zerolith/browser", folder: "browser", module: "index.js" },
@@ -117,7 +120,7 @@ function escapeText(text: string): string
 /** The playground as Markdown: what it does and every example's code. */
 export async function playgroundMarkdown(root: string): Promise<string>
 {
-    const parts = ["# Playground", "", "Edit a zerolith app in the browser and run it with one key. The code runs in a sandboxed frame with the development builds of `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/a11y`, `@zerolith/state`, `@zerolith/browser`, and `@zerolith/i18n`, so diagnostics carry their full text. A view renders into `<main id=\"app\">`, and `console` output shows under the preview. What the code keeps in `localStorage` or `sessionStorage` lasts for the tab, through each run and a reload, until Reset. Copy link puts the code in the address, so a link opens with your code in the editor.", "", "## Examples"];
+    const parts = ["# Playground", "", "Edit a zerolith app in the browser and run it with one key. The code runs in a sandboxed frame with the development builds of `zerolith`, `@zerolith/router`, `@zerolith/forms`, `@zerolith/client`, `@zerolith/a11y`, `@zerolith/state`, `@zerolith/browser`, and `@zerolith/i18n`, so diagnostics carry their full text. A view renders into `<main id=\"app\">`, and `console` output shows under the preview. What the code keeps in `localStorage` or `sessionStorage` lasts for the tab, through each run and a reload, until Reset. Copy link puts the code in the address, so a link opens with your code in the editor.", "", "## Examples"];
     for (const example of examples)
     {
         const code = (await readFile(join(root, "scripts", "docs", "playground", `${example.id}.js`), "utf8")).trim();

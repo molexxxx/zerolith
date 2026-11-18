@@ -67,6 +67,8 @@ describe("client guide", () =>
         // #endregion client
         expect(note.title).toBe("Routing");
         expect(page.items).toHaveLength(1);
+        expect(api.request("getNote", { params: { id: "1" } }).url).toBe("https://notes.example/notes/1");
+        expect(api.request("listNotes", { query: { q: "rout", limit: 10 } }).url).toBe("https://notes.example/notes?q=rout&limit=10");
 
         // #region problem
         const notice = signal("");

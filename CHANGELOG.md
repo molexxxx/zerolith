@@ -14,6 +14,8 @@ Every package in this repository is released together and carries the same versi
 - `zerolith`: the core's size budgets grow by 128 B each, to 12,544 B after gzip bundled and 16,256 B for the unbundled modules, for the text binding above, which adds 65 B to each.
 - `@zerolith/cli` and the crate: the build's message for `package_version_mismatch`, and the diagnostic's fix, name the project's own command line without saying that a global install runs its own version, which no longer holds.
 - Docs: each row of the `zerolith.json` table in the command line guide ends with the key's default, and the example says that it changes every one.
+- Docs: at a phone's width, a table in the guides shows each row as a block, every cell under its column's name, in place of a table that scrolls sideways.
+- Docs: the playground has two more examples: routes from `@zerolith/router` with a loader, current links, and a fallback, and a typed client from `@zerolith/client` answered by an in-page server. The home page's tour has four more tabs, for the typed client, locales, accessibility, and custom elements, each with its guide's tested example.
 
 ## 1.12.0 (2026-11-17)
 

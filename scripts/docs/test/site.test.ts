@@ -444,9 +444,9 @@ describe("documentation site", () =>
         expect(await page.textContent("#tour-forms-panel code")).toContain("createForm");
         await page.focus("#tour-forms");
         await page.keyboard.press("ArrowRight");
-        expect(await shown()).toEqual(["tour-state-panel"]);
-        expect(await page.evaluate(() => document.activeElement?.id)).toBe("tour-state");
-        expect(await page.textContent("#tour-state-panel code")).toContain("history(draft)");
+        expect(await shown()).toEqual(["tour-client-panel"]);
+        expect(await page.evaluate(() => document.activeElement?.id)).toBe("tour-client");
+        expect(await page.textContent("#tour-client-panel code")).toContain("createClient");
         await page.click("#tour-server-rendering");
         await page.keyboard.press("ArrowRight");
         expect(await shown()).toEqual(["tour-signals-panel"]);
@@ -458,7 +458,7 @@ describe("documentation site", () =>
     {
         const { page, errors } = await open("/");
         const ids = await page.$$eval(".tour [role=\"tab\"]", (tabs) => tabs.map((tab) => tab.id));
-        expect(ids).toEqual(["tour-signals", "tour-templates", "tour-routing", "tour-forms", "tour-state", "tour-browser", "tour-server-rendering"]);
+        expect(ids).toEqual(["tour-signals", "tour-templates", "tour-routing", "tour-forms", "tour-client", "tour-state", "tour-browser", "tour-i18n", "tour-a11y", "tour-elements", "tour-server-rendering"]);
         const [first = "", ...others] = ids;
         const focused = (): Promise<string | undefined> => page.evaluate(() => document.activeElement?.id);
         for (const width of [320, 390, 768, 1024, 1440])
@@ -742,6 +742,83 @@ describe("documentation site", () =>
         await expect.poll(calls, { timeout: 5000 }).toEqual(["call 1 gets a 404", "call 1 gets a 404"]);
         await expect.poll(status, { timeout: 5000 }).toBe("status: error");
         expect(await runs()).toBe("1 of 3");
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("opens the router example's planets through their loader, marks the link to the page shown, cancels a navigation a newer one replaced, and shows the fallback for a path with no route", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/#example=router");
+        const frame = page.frameLocator(".preview iframe");
+        const shown = async (): Promise<string> => ((await frame.locator(".page").textContent()) ?? "").replace(/\s+/g, " ").trim();
+        const current = (): Promise<string[]> => frame.locator("a[aria-current=\"page\"]").allTextContents();
+        const logged = (): Promise<string[]> => page.$$eval(".console p", (lines) => lines.map((line) => line.textContent ?? ""));
+        await expect.poll(shown, { timeout: 10000 }).toBe("Pick a planet.");
+        expect(await current()).toEqual(["Home"]);
+        await frame.locator("a", { hasText: "Mars" }).click();
+        await expect.poll(() => frame.locator(".loading").count()).toBe(1);
+        await expect.poll(shown, { timeout: 5000 }).toBe("Mars The fourth planet from the Sun, with 2 moons.");
+        expect(await current()).toEqual(["Mars"]);
+        expect(await frame.locator(".loading").count()).toBe(0);
+        await frame.locator("a", { hasText: "Venus" }).click();
+        await frame.locator("a", { hasText: "Earth" }).click();
+        await expect.poll(shown, { timeout: 5000 }).toBe("Earth The third planet from the Sun, with one moon.");
+        expect(await current()).toEqual(["Earth"]);
+        await frame.locator("a", { hasText: "Moons" }).click();
+        await expect.poll(shown, { timeout: 5000 }).toBe("Nothing is at /moons.");
+        await expect.poll(logged).toEqual([
+            "start /",
+            "commit /, route home",
+            "start /planets/mars",
+            "commit /planets/mars, route planet",
+            "start /planets/venus",
+            "start /planets/earth",
+            "cancel /planets/venus",
+            "commit /planets/earth, route planet",
+            "start /moons",
+            "commit /moons"
+        ]);
+        expect(errors).toEqual([]);
+        await page.close();
+    });
+
+    it("lists, searches, adds, and deletes the client example's notes through its in-page server, aborts a search a newer one replaced, and shows the server's field message for a note with no title", { timeout: 60000 }, async () =>
+    {
+        const { page, errors } = await open("/playground/#example=client");
+        const frame = page.frameLocator(".preview iframe");
+        const titles = (): Promise<string[]> => frame.locator("li span").allTextContents();
+        const status = (): Promise<string | null> => frame.locator(".status").textContent();
+        const message = (): Promise<string | null> => frame.locator(".error").textContent();
+        const logged = (): Promise<string[]> => page.$$eval(".console p", (lines) => lines.map((line) => line.textContent ?? ""));
+        const saved = ["Book the venue", "Send the invitations", "Order the cake"];
+        await expect.poll(status, { timeout: 10000 }).toBe("3 notes");
+        expect(await titles()).toEqual(saved);
+        await frame.locator("input[type=\"search\"]").pressSequentially("ca");
+        await expect.poll(status, { timeout: 5000 }).toBe("1 note");
+        expect(await titles()).toEqual(["Order the cake"]);
+        await frame.locator("input[type=\"search\"]").fill("");
+        await expect.poll(status, { timeout: 5000 }).toBe("3 notes");
+        await frame.locator("button", { hasText: "Add" }).click();
+        await expect.poll(message, { timeout: 5000 }).toBe("Write a title.");
+        await frame.locator("input[name=\"title\"]").fill("Hire the band");
+        await frame.locator("button", { hasText: "Add" }).click();
+        await expect.poll(titles, { timeout: 5000 }).toEqual([...saved, "Hire the band"]);
+        expect(await message()).toBe("");
+        await frame.locator("li", { hasText: "Book the venue" }).locator("button").click();
+        await expect.poll(titles, { timeout: 5000 }).toEqual(["Send the invitations", "Order the cake", "Hire the band"]);
+        await expect.poll(status, { timeout: 5000 }).toBe("3 notes");
+        await expect.poll(logged).toEqual([
+            "GET /notes?q=",
+            "GET /notes?q=c",
+            "GET /notes?q=c, aborted",
+            "GET /notes?q=ca",
+            "GET /notes?q=",
+            "POST /notes",
+            "POST /notes",
+            "GET /notes?q=",
+            "DELETE /notes/1",
+            "GET /notes?q="
+        ]);
         expect(errors).toEqual([]);
         await page.close();
     });

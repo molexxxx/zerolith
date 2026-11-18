@@ -31,7 +31,7 @@ export interface Measure
 /** One pattern of the tour: a guide's tested example and the guide it comes from. */
 export interface TourStep
 {
-    id: "signals" | "templates" | "routing" | "forms" | "state" | "browser" | "server-rendering";
+    id: "signals" | "templates" | "routing" | "forms" | "client" | "state" | "browser" | "i18n" | "a11y" | "elements" | "server-rendering";
     title: string;
     guide: string;
     /** The title of the guide at `guide`, which the link under the result names. */
@@ -151,6 +151,16 @@ const columnWidth = 240;
 const columnsFit = Math.floor(panelWidth / columnWidth);
 const measured = `${columnsFit} columns fit in ${panelWidth}px.`;
 const clicks = 1;
+const requests = [
+    { call: '"getNote", { params: { id: "1" } }', path: "/notes/1" },
+    { call: '"listNotes", { query: { q: "rout", limit: 10 } }', path: "/notes?q=rout&limit=10" }
+];
+const noteTitle = "Routing";
+const pageItems = 1;
+const localeLines = ["de", `1.234,50${String.fromCodePoint(0xa0, 0x20ac)}`, "rtl"];
+const dialogTitle = "Delete the note?";
+const counterTag = '<note-count label="Drafts" count="2"></note-count>';
+const counterText = "Drafts: 2";
 
 /** Lines that follow one another in an example's source, as one check: each line after the first indented `indent` spaces, as the source writes it. */
 function consecutive(indent: number, ...lines: string[]): string
@@ -210,6 +220,20 @@ const results: Record<TourStep["id"], { label: string; checks: string[]; view: (
             </span>
             <p>The browser checks the schema first; the server's field errors land in the same place.</p>`
     },
+    "client": {
+        label: `Two requests, answered with the note ${noteTitle} and a page of ${pageItems} note`,
+        checks: [
+            ...requests.map((request) => `expect(api.request(${request.call}).url).toBe("https://notes.example${request.path}");`),
+            `expect(note.title).toBe("${noteTitle}");`,
+            `expect(page.items).toHaveLength(${pageItems});`
+        ],
+        view: () => html`
+            <span class="pane-label">Requests</span>
+            <ol class="rendered writes">${requests.map((request) => html`<li><code>GET</code><span>${request.path}</span></li>`)}</ol>
+            <span class="pane-label">Resolved</span>
+            <samp class="console"><span>${`note.title: "${noteTitle}"`}</span><span>${`page.items: ${pageItems} note`}</span></samp>
+            <p>Each call is checked against the contract generated from the OpenAPI document: the operation, its parameters, and what it resolves to.</p>`
+    },
     "state": {
         label: `The field back at ${undone} after an undo, and each write the draft made to localStorage`,
         checks: [
@@ -238,6 +262,35 @@ const results: Record<TourStep["id"], { label: string; checks: string[]; view: (
                 <span class="panel">${measured}</span>
             </span>
             <p>The section measures its own content box, kept current by one ResizeObserver that every measured element shares.</p>`
+    },
+    "i18n": {
+        label: `The console prints ${localeLines.join(", then ")}`,
+        checks: [`expect(printed).toEqual([${localeLines.map((line) => `["${line}"]`).join(", ")}]);`],
+        view: () => html`
+            <span class="pane-label">Console</span>
+            <samp class="console">${localeLines.map((line) => html`<span>${line}</span>`)}</samp>
+            <p>The locale is negotiated from the languages the reader asked for, and the formatters and the writing direction follow it as signals.</p>`
+    },
+    "a11y": {
+        label: `A dialog that reads ${dialogTitle}, with focus on Cancel`,
+        checks: [`<h2 id="confirm-title">${dialogTitle}</h2>`, 'expect(document.activeElement?.textContent).toBe("Cancel");', "expect(document.activeElement).toBe(trigger);"],
+        view: () => html`
+            <span class="pane-label">#app</span>
+            <span class="rendered-form">
+                <span class="mock-label">${dialogTitle}</span>
+                <span class="adopted"><span class="mock-button" data-focused>Cancel</span><span class="mock-button">Delete</span></span>
+            </span>
+            <p>The dialog takes focus as it opens and keeps Tab inside, and closing it gives focus back to the button that opened it.</p>`
+    },
+    "elements": {
+        label: `The tag ${counterTag}, showing ${counterText} and a Reset button`,
+        checks: [`host.innerHTML = ${JSON.stringify(counterTag)};`, `expect(host.querySelector("span")?.textContent).toBe("${counterText}");`],
+        view: () => html`
+            <span class="pane-label">Page</span>
+            <samp class="console"><span>${counterTag}</span></samp>
+            <span class="pane-label">Rendered</span>
+            <span class="adopted"><span>${counterText}</span><span class="mock-button">Reset</span></span>
+            <p>The tag works in any page, a React, Vue, or server-rendered one included, and its attributes and properties feed the same props.</p>`
     },
     "server-rendering": {
         label: "The server's markup, then the same button adopted in the browser",

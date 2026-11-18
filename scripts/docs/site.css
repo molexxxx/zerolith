@@ -1167,6 +1167,61 @@ article .tree li
     font-size: 0.9375rem;
 }
 
+@media (max-width: 640px)
+{
+    article .table:has(td[data-label])
+    {
+        overflow: visible;
+    }
+
+    article .table:has(td[data-label]) :is(table, tbody, tr, td)
+    {
+        display: block;
+    }
+
+    article .table:has(td[data-label]) thead
+    {
+        display: none;
+    }
+
+    article .table:has(td[data-label]) tbody tr
+    {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--zl-space-2);
+        padding: var(--zl-space-4);
+    }
+
+    article .table:has(td[data-label]) tbody tr + tr
+    {
+        border-top: var(--zl-rule) solid var(--zl-line);
+    }
+
+    article .table:has(td[data-label]) tbody td
+    {
+        padding: 0;
+        border: 0;
+        overflow-wrap: anywhere;
+    }
+
+    article .table:has(td[data-label]) td:first-child
+    {
+        font-weight: 600;
+    }
+
+    article .table:has(td[data-label]) td:not(:first-child)::before
+    {
+        content: attr(data-label);
+        display: block;
+        color: var(--zl-text-muted);
+        font-family: var(--zl-font-mono);
+        font-size: var(--zl-text-xs);
+        font-weight: 400;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+}
+
 .pager
 {
     display: grid;
@@ -2286,6 +2341,12 @@ main[tabindex="-1"]:focus
     padding: 0 var(--zl-space-4);
     border: var(--zl-rule) solid var(--zl-text);
     font-weight: 600;
+}
+
+.mock-button[data-focused]
+{
+    outline: var(--zl-rule) solid var(--zl-focus);
+    outline-offset: 2px;
 }
 
 .adopted
@@ -3441,6 +3502,7 @@ article .tracks li
 
 .console
 {
+    align-content: start;
     overflow: auto;
     padding: var(--zl-space-3) var(--zl-space-6);
     border-top: var(--zl-rule) solid var(--zl-line);

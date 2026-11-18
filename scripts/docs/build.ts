@@ -13,7 +13,7 @@ import { existsSync } from "node:fs";
 import { copyFile, cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Marked, marked } from "marked";
+import { Marked, type Renderer, type Tokens, marked } from "marked";
 import { rolldown } from "rolldown";
 import { diagnosticCatalog } from "zerolith";
 import { CORE_BUDGET_GZIP_BYTES, measure, moduleGraph } from "../measure.ts";
@@ -190,9 +190,26 @@ const callouts: Record<string, { label: string; icon: "hint" | "warning" | "erro
 };
 const diagnosticCodes = new Set(Object.keys(diagnosticCatalog));
 
+/**
+ * A table whose body cells carry their column's name in `data-label`, which
+ * a phone shows above each cell once the rows stack, and whose parts keep
+ * their table roles, which a browser drops from a table restyled as blocks.
+ */
+function labeledTable(renderer: Renderer, token: Tokens.Table): string
+{
+    const labels = token.header.map((cell) => renderer.parser.parseInline(cell.tokens).replace(/<[^>]*>/g, ""));
+    const head = token.header.map((cell) => renderer.tablecell(cell).replace(/^<th/, "<th role=\"columnheader\"")).join("");
+    const rows = token.rows.map((row) => `<tr role="row">\n${row.map((cell, index) => renderer.tablecell(cell).replace(/^<td/, `<td role="cell" data-label="${labels[index] ?? ""}"`)).join("")}</tr>\n`).join("");
+    return `<table role="table">\n<thead role="rowgroup">\n<tr role="row">\n${head}</tr>\n</thead>\n${rows === "" ? "" : `<tbody role="rowgroup">${rows}</tbody>`}</table>\n`;
+}
+
 const preview = new Marked({
     gfm: true,
     renderer: {
+        table(token)
+        {
+            return labeledTable(this, token);
+        },
         heading({ tokens, depth })
         {
             const level = Math.min(depth + 2, 6);
@@ -251,6 +268,10 @@ marked.use({
             const copy = `<button class="copy" type="button" aria-label="Copy code"><span class="idle">${copyIcon}</span><span class="done">${doneIcon}</span></button>`;
             return `<div class="code"${label}>${copy}<pre><code>${highlight(text, language, pageRoles)}</code></pre></div>\n`;
         },
+        table(token)
+        {
+            return labeledTable(this, token);
+        },
         blockquote({ tokens })
         {
             const body = this.parser.parse(tokens);
@@ -289,7 +310,7 @@ marked.use({
         },
         postprocess(html)
         {
-            return html.replace(/<table>/g, "<div class=\"table\"><table>").replace(/<\/table>/g, "</table></div>");
+            return html.replace(/<table( role="table")?>/g, "<div class=\"table\"><table$1>").replace(/<\/table>/g, "</table></div>");
         }
     }
 });
@@ -795,8 +816,12 @@ async function tour(guides: Page[]): Promise<TourStep[]>
         { id: "templates", title: "Templates", guide: "/guide/templates/", include: "packages/zerolith/test/examples/guide.example.browser.test.ts#lists" },
         { id: "routing", title: "Routing", guide: "/guide/routing/", include: "packages/router/test/examples/routes.ts" },
         { id: "forms", title: "Forms", guide: "/guide/forms/", include: "packages/forms/test/examples/forms.example.browser.test.ts#form" },
+        { id: "client", title: "Typed client", guide: "/guide/client/", include: "packages/client/test/examples/client.example.test.ts#client" },
         { id: "state", title: "Saved state", guide: "/guide/state/", include: "packages/state/test/examples/state.example.browser.test.ts#draft" },
         { id: "browser", title: "Browser", guide: "/guide/browser/", include: "packages/browser/test/examples/browser.example.browser.test.ts#size" },
+        { id: "i18n", title: "Locales", guide: "/guide/i18n/", include: "packages/i18n/test/examples/i18n.example.test.ts#locale" },
+        { id: "a11y", title: "Accessibility", guide: "/guide/accessibility/", include: "packages/a11y/test/examples/accessibility.example.browser.test.ts#dialog" },
+        { id: "elements", title: "Custom elements", guide: "/guide/elements/", include: "packages/zerolith/test/examples/element.example.browser.test.ts#define" },
         { id: "server-rendering", title: "Server rendering", guide: "/guide/server-rendering/", include: "packages/zerolith/test/examples/hydrate.example.browser.test.ts#hydrate" }
     ];
     return Promise.all(steps.map(async ({ id, title, guide, include }) =>
