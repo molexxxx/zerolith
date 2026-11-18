@@ -879,7 +879,7 @@ class Effect extends Reaction
     }
 }
 
-/** Where a binding writes its signal's value: one of the runtime's parts. Internal to the runtime packages. */
+/** Where a binding writes its signal's value: one of the runtime's parts, or the text of a list row's child position. Internal to the runtime packages. */
 export interface Sink
 {
     /** Takes the value, run as an effect's function runs: with the binding as the consumer and the owner of what taking it creates. */

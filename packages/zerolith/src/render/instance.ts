@@ -229,13 +229,18 @@ function bindOnce(node: Node, prior: Node, spec: PartSpec, lone: boolean, values
     if (spec.kind === CHILD)
     {
         const text = (lone ? node : prior) as Text;
+        const anchor = lone ? null : node as Comment;
         if (isText(value))
         {
             text.data = String(value);
         }
+        else if (isSignal(value))
+        {
+            startBinding(value, new TextSink(anchor, text));
+        }
         else
         {
-            new ChildPart(lone ? null : node as Comment, text).set(value);
+            new ChildPart(anchor, text).set(value);
         }
     }
     else if (spec.kind === EVENT && typeof value === "function")
@@ -245,6 +250,39 @@ function bindOnce(node: Node, prior: Node, spec: PartSpec, lone: boolean, values
     else
     {
         elementPart(node as Element, spec).bind(values, offset);
+    }
+}
+
+/**
+ * Where a signal bound once to a child position writes its values: text
+ * into the position's text node, as a `ChildPart` writes it, and any other
+ * value through a `ChildPart` made for the position when the first such
+ * value arrives, which takes every value from then on.
+ */
+class TextSink implements Sink
+{
+    private readonly anchor: Comment | null;
+    private readonly text: Text;
+    private part: ChildPart | undefined = undefined;
+
+    constructor(anchor: Comment | null, text: Text)
+    {
+        this.anchor = anchor;
+        this.text = text;
+    }
+
+    receive(value: unknown): void
+    {
+        if (this.part === undefined)
+        {
+            if (isText(value))
+            {
+                this.text.data = String(value);
+                return;
+            }
+            this.part = new ChildPart(this.anchor, this.text);
+        }
+        this.part.apply(value);
     }
 }
 

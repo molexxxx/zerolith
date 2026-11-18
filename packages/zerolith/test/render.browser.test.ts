@@ -953,6 +953,73 @@ describe("each", () =>
         expect(read()).toEqual(["<b>left</b><i>a left b</i>"]);
     });
 
+    it("lets a signal in a row's child position start as a view, a node, a list, or nothing, and turn to text and back", () =>
+    {
+        const starts: [() => unknown, string][] = [
+            [() => html`<em>view</em>`, "<em>view</em>"],
+            [() => Object.assign(document.createElement("u"), { textContent: "node" }), "<u>node</u>"],
+            [() => ["x", html`<s>y</s>`], "x<s>y</s>"],
+            [() => null, ""],
+            [() => undefined, ""],
+            [() => false, ""],
+            [() => true, ""],
+            [() => 10n, "10"],
+        ];
+        for (const [make, markup] of starts)
+        {
+            const alone = signal<unknown>(make());
+            const beside = signal<unknown>(make());
+            const items = signal([{ id: 1 }]);
+            const el = mount(html`<ul>${each(items, (item) => item.id, () => html`<li><b>${alone}</b><i>a ${beside} b</i></li>`)}</ul>`);
+            const read = (): string => withoutComments((el.querySelector("li") as Element).innerHTML);
+            expect(read()).toBe(`<b>${markup}</b><i>a ${markup} b</i>`);
+            alone.set("one");
+            beside.set(2);
+            expect(read()).toBe("<b>one</b><i>a 2 b</i>");
+            alone.set(make());
+            beside.set(make());
+            expect(read()).toBe(`<b>${markup}</b><i>a ${markup} b</i>`);
+        }
+    });
+
+    it("stops writing a row's text signal once the row goes, leaving the removed row's text as it was", () =>
+    {
+        const label = signal("a");
+        const items = signal([{ id: 1 }, { id: 2 }]);
+        const el = mount(html`<ul>${each(items, (item) => item.id, () => html`<li><b>${label}</b><i>x ${label}</i></li>`)}</ul>`);
+        const removed = el.querySelector("li") as Element;
+        items.set([{ id: 2 }]);
+        label.set("b");
+        expect(removed.textContent).toBe("ax a");
+        expect(Array.from(el.querySelectorAll("li"), (li) => li.textContent)).toEqual(["bx b"]);
+    });
+
+    it("ends what a signal in a row's child position started when its value changes and when the row goes", () =>
+    {
+        const tick = signal(0);
+        const runs = vi.fn(() => tick.get());
+        const inner = computed(runs);
+        const shown = signal<unknown>(inner);
+        const items = signal([{ id: 1 }]);
+        const el = mount(html`<ul>${each(items, (item) => item.id, () => html`<li>${shown}</li>`)}</ul>`);
+        expect(el.textContent).toBe("0");
+        tick.set(1);
+        expect(el.textContent).toBe("1");
+        shown.set("text");
+        const before = runs.mock.calls.length;
+        tick.set(2);
+        expect(el.textContent).toBe("text");
+        expect(runs).toHaveBeenCalledTimes(before);
+        shown.set(inner);
+        expect(el.textContent).toBe("2");
+        items.set([]);
+        const after = runs.mock.calls.length;
+        tick.set(3);
+        shown.set("gone");
+        expect(runs).toHaveBeenCalledTimes(after);
+        expect(el.textContent).toBe("");
+    });
+
     it("renders rows that take turns between two templates", () =>
     {
         const items = signal<Item[]>([{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }]);
