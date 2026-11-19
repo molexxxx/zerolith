@@ -2,7 +2,9 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
-## Unreleased
+## 1.13.0 (2026-11-18)
+
+A minor release from `main`: a global `zerolith` that hands each command to the project's own copy of the command line, less script for each row a list creates, and on the site, router and typed client examples in the playground, four more tabs in the home page's tour, and guide tables that fit a phone.
 
 ### Added
 
