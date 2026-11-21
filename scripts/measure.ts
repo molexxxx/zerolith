@@ -36,9 +36,15 @@ export function compressed(code: string | Buffer): Measurement
 /** Bundles and minifies `entry` and returns the size of the entry chunk, raw and compressed, leaving out the modules `external` names. */
 export async function measure(entry: string, external?: (id: string) => boolean): Promise<Measurement>
 {
-    const bundle = await rolldown(external === undefined ? { input: entry } : { input: entry, external });
-    const { output } = await bundle.generate({ format: "esm", minify: true });
-    await bundle.close();
+    return compressed(await bundle(entry, external));
+}
+
+/** Bundles and minifies `entry` and returns the code of the entry chunk, leaving out the modules `external` names. */
+export async function bundle(entry: string, external?: (id: string) => boolean): Promise<string>
+{
+    const built = await rolldown(external === undefined ? { input: entry } : { input: entry, external });
+    const { output } = await built.generate({ format: "esm", minify: true });
+    await built.close();
     let code = "";
     for (const item of output)
     {
@@ -51,7 +57,7 @@ export async function measure(entry: string, external?: (id: string) => boolean)
     {
         throw new Error(`rolldown produced no entry chunk for ${entry}`);
     }
-    return compressed(code);
+    return code;
 }
 
 /** The files `entry` loads through static relative imports and re-exports, itself included, with the text of each: everything a page loads before the entry runs. The packages load nothing through `import()`, which the production build test holds them to, so this is also every module the docs site serves. */

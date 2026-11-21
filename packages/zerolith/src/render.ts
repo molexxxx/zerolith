@@ -17,7 +17,7 @@
 import { adoptStylesAt } from "./css.js";
 import { measure, trackRoot, untrackRoot } from "./devtools.js";
 import { fail } from "./diagnostics.js";
-import { adoptChild } from "./render/adopt.js";
+import { adopter } from "./render/adopt.js";
 import { ChildPart, adoptWith } from "./render/instance.js";
 import { type HydrationMismatch, collect, firstStart, matchingEnd, mismatch } from "./render/markers.js";
 import type { Renderable } from "./render/view.js";
@@ -148,7 +148,7 @@ export function hydrate(view: Renderable | (() => Renderable), target: MountTarg
 {
     const container = resolveTarget(target);
     adoptStylesAt(container);
-    adoptWith(adoptChild);
+    adoptWith(adopter);
     const found: HydrationMismatch[] = [];
     const start = firstStart(container);
     const end = start === undefined ? undefined : matchingEnd(start);

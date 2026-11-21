@@ -327,24 +327,43 @@ export function slotOf(nodes: object): Slot | undefined
     return slots?.get(nodes) ?? undefined;
 }
 
+/** The markers the server put around one row of a list. */
+export interface RowMarkers
+{
+    readonly start: Comment;
+    readonly end: Comment;
+}
+
+/** Hydration's half of the renderer, `adopting` of adopt.ts: taking over the nodes the server rendered, and repairing what does not match, each repair reported as a mismatch. */
+export interface Adopting
+{
+    /** Takes over the server-rendered nodes from `cursor` to the part's anchor for `value`. */
+    child(part: ChildPart, value: unknown, cursor: ChildNode): void;
+    /** The closing marker of the server-rendered branch `cursor` opens; or, when it opens none, undefined, with the nodes from `cursor` up to `end` removed. */
+    branch(cursor: ChildNode, end: Comment): Comment | undefined;
+    /** Removes the nodes between a branch's closing marker `after` and `end`, which the server rendered and the view does not hold. */
+    trim(after: Comment, end: Comment): void;
+    /** Removes the nodes between a branch's markers, which content that threw as it adopted them left behind. */
+    empty(start: ChildNode, end: Comment): void;
+    /** Takes over the rows the server rendered from `cursor` up to `end`, one for each item of `list`, keyed by `key`: `create` makes each row in order, with its markers while the server's rows line up; from the first row without them, the rest of the server's nodes are removed and each row is made anew. The server's rows past the list are removed. */
+    rows<T>(cursor: ChildNode, end: Comment, list: readonly T[], key: (value: T, index: number) => unknown, create: (key: unknown, value: T, index: number, markers?: RowMarkers) => void): void;
+}
+
+/** Hydration's half of the renderer, once `hydrate` has installed it. A part, a list, or a branch is given a cursor only under `hydrate`, so a page that only renders never calls it and bundles none of it. */
+export let adopting: Adopting | undefined;
+
+/** Installs hydration's half of the renderer, before the first part is given a cursor. */
+export function adoptWith(installed: Adopting): void
+{
+    adopting = installed;
+}
+
 /**
  * A position that displays one value, before its marker comment. A part
  * that is its element's only child has no marker while it shows text or
  * nothing, which it does in the one text node it starts with, and adds the
  * marker after that node when it first shows anything else.
  */
-/** How a part takes over server-rendered nodes for a value: `adoptChild` of adopt.ts. */
-export type Adopt = (part: ChildPart, value: unknown, cursor: ChildNode) => void;
-
-/** Hydration's half of the renderer, once `hydrate` has installed it. A part is given a cursor only under `hydrate`, so a page that only renders never calls it and bundles none of it. */
-let adopt: Adopt | undefined;
-
-/** Installs hydration's half of the renderer, before the first part is given a cursor. */
-export function adoptWith(installed: Adopt): void
-{
-    adopt = installed;
-}
-
 export class ChildPart implements BoundPart, Sink
 {
     readonly count: number = 1;
@@ -402,7 +421,7 @@ export class ChildPart implements BoundPart, Sink
         {
             if (cursor !== undefined)
             {
-                (adopt as Adopt)(this, value, cursor);
+                (adopting as Adopting).child(this, value, cursor);
             }
             else
             {
@@ -416,7 +435,7 @@ export class ChildPart implements BoundPart, Sink
         {
             if (cursor !== undefined)
             {
-                (adopt as Adopt)(this, value, cursor);
+                (adopting as Adopting).child(this, value, cursor);
             }
             else
             {
@@ -432,7 +451,7 @@ export class ChildPart implements BoundPart, Sink
         if (start !== undefined)
         {
             this.pending = undefined;
-            (adopt as Adopt)(this, value, start);
+            (adopting as Adopting).child(this, value, start);
             return;
         }
         this.apply(value);

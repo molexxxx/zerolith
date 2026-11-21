@@ -16,6 +16,31 @@ function serverThenClient(view: Renderable | (() => Renderable), clientView: Ren
     return host;
 }
 
+/** A keyed list of one row per id, each showing its id. */
+function numbered(ids: number[]): Renderable
+{
+    return html`<ul>${each(signal(ids.map((id) => ({ id }))), (item) => item.id, (item) => html`<li>${item.get().id}</li>`)}</ul>`;
+}
+
+/** The markup of a `div` that holds one branch, with an element the view does not hold between the branch's closing marker and its part's. */
+function extraAfterBranch(markup: string): string
+{
+    return markup.replace("<!--/zl:p--><!--/zl:p--></div>", "<!--/zl:p--><b>extra</b><!--/zl:p--></div>");
+}
+
+/** Hydrates `view` over the markup the server rendered for it, changed by `edit` first, as a page whose markup a script or a proxy altered. */
+function editedThenClient(view: () => Renderable, edit: (markup: string) => string): HTMLElement
+{
+    host = document.createElement("div");
+    const markup = renderToString(view);
+    const edited = edit(markup);
+    expect(edited).not.toBe(markup);
+    host.innerHTML = edited;
+    document.body.append(host);
+    result = hydrate(view, host);
+    return host;
+}
+
 afterEach(() =>
 {
     vi.restoreAllMocks();
@@ -261,6 +286,61 @@ describe("hydrate", () =>
 
         items.set([...items.get(), { id: 3, name: "c" }]);
         expect(names()).toEqual(["a", "b", "c"]);
+    });
+
+    it("removes the rows the server rendered past the client's list, reporting them as extra", () =>
+    {
+        const el = serverThenClient(numbered([1, 2, 3]), numbered([1, 2]));
+        expect(Array.from(el.querySelectorAll("li"), (li) => li.textContent)).toEqual(["1", "2"]);
+        expect(result?.mismatches).toEqual([{ kind: "extra", expected: "", found: "#comment" }]);
+    });
+
+    it("creates the rows the server left out of a list, reporting each as missing", () =>
+    {
+        const el = serverThenClient(numbered([1]), numbered([1, 2]));
+        expect(Array.from(el.querySelectorAll("li"), (li) => li.textContent)).toEqual(["1", "2"]);
+        expect(result?.mismatches).toEqual([{ kind: "missing", expected: "row", found: "" }]);
+    });
+
+    it("replaces server content that holds no branch with the client's branch, reporting the branch as missing", () =>
+    {
+        const el = serverThenClient(html`<p>${"text"}</p>`, html`<p>${when(signal(true), () => "yes")}</p>`);
+        expect(el.querySelector("p")?.textContent).toBe("yes");
+        expect(result?.mismatches).toEqual([{ kind: "missing", expected: "branch", found: "#text" }]);
+    });
+
+    it("removes nodes after an adopted branch that the view does not hold, reporting them as extra", () =>
+    {
+        const el = editedThenClient(() => html`<div>${when(signal(true), () => html`<i>a</i>`)}</div>`, extraAfterBranch);
+        expect(withoutComments(el.querySelector("div")?.innerHTML ?? "")).toBe("<i>a</i>");
+        expect(result?.mismatches).toEqual([{ kind: "extra", expected: "", found: "B" }]);
+    });
+
+    it("removes nodes after a boundary's adopted content that the view does not hold, reporting them as extra", () =>
+    {
+        const el = editedThenClient(() => html`<div>${boundary(() => html`<i>a</i>`, () => "fallback")}</div>`, extraAfterBranch);
+        expect(withoutComments(el.querySelector("div")?.innerHTML ?? "")).toBe("<i>a</i>");
+        expect(result?.mismatches).toEqual([{ kind: "extra", expected: "", found: "B" }]);
+    });
+
+    it("keeps what follows a branch whose closing marker the markup lost", () =>
+    {
+        const el = editedThenClient(
+            () => html`<div>${when(signal(true), () => html`<i>a</i>`)}<p>after</p></div>`,
+            (markup) => markup.replace("<i>a</i><!--/zl:p--><!--/zl:p--><p>", "<i>a</i><!--/zl:p--><p>")
+        );
+        expect(withoutComments(el.querySelector("div")?.innerHTML ?? "")).toBe("<i>a</i><p>after</p>");
+        expect(result?.mismatches.length).toBeGreaterThan(0);
+    });
+
+    it("keeps what follows a list whose last row's closing marker the markup lost", () =>
+    {
+        const el = editedThenClient(
+            () => html`<div>${each(signal([{ id: 1 }, { id: 2 }]), (item) => item.id, (item) => html`<i>${item.get().id}</i>`)}<p>after</p></div>`,
+            (markup) => markup.replace("</i><!--/zl:p--><!--/zl:p--><p>", "</i><!--/zl:p--><p>")
+        );
+        expect(withoutComments(el.querySelector("div")?.innerHTML ?? "")).toBe("<i>1</i><i>2</i><p>after</p>");
+        expect(result?.mismatches.length).toBeGreaterThan(0);
     });
 
     it("renders every item of an array hydrated over server text", () =>

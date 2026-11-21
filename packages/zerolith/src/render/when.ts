@@ -5,8 +5,8 @@
  */
 import { fail } from "../diagnostics.js";
 import { type Owner, createOwner, onDispose, startEffect, untracked } from "../signals.js";
-import { ChildPart } from "./instance.js";
-import { anchorBefore, isStart, matchingEnd, mismatch, removeUntil } from "./markers.js";
+import { type Adopting, ChildPart, adopting } from "./instance.js";
+import { anchorBefore } from "./markers.js";
 import { type Controller, Directive, type Renderable, type View, read } from "./view.js";
 
 class Conditional extends Directive
@@ -35,7 +35,7 @@ class Conditional extends Directive
         {
             onDispose(() => branch?.dispose());
         });
-        const innerEnd = cursor !== undefined && isStart(cursor) ? matchingEnd(cursor) : undefined;
+        const innerEnd = cursor === undefined ? undefined : (adopting as Adopting).branch(cursor, end);
         if (cursor !== undefined && innerEnd !== undefined)
         {
             inner = new ChildPart(innerEnd);
@@ -48,19 +48,10 @@ class Conditional extends Directive
                     inner.set(shown ? this.whenTrue() : this.whenFalse?.(), cursor.nextSibling ?? innerEnd);
                 });
             });
-            if (innerEnd.nextSibling !== end)
-            {
-                mismatch("extra", "", innerEnd.nextSibling?.nodeName ?? "");
-                removeUntil(innerEnd.nextSibling as ChildNode, end);
-            }
+            (adopting as Adopting).trim(innerEnd, end);
         }
         else
         {
-            if (cursor !== undefined)
-            {
-                mismatch("missing", "branch", cursor === end ? "" : cursor.nodeName);
-                removeUntil(cursor, end);
-            }
             inner = new ChildPart(anchorBefore(end));
         }
         owner.run(() =>

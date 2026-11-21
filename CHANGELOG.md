@@ -2,6 +2,12 @@
 
 Every package in this repository is released together and carries the same version. Entries name the packages they touch; breaking changes, between pre-releases before 1.0.0 and in a package not yet frozen after it, are called out as such.
 
+## Unreleased
+
+### Changed
+
+- `zerolith`: a page that only calls `render` no longer bundles what `each`, `when`, and `boundary` hold to take over server-rendered markup and repair what does not match it. `hydrate` brings that in with the rest of the code that adopts markup, so a page that hydrates keeps it. The size rows of the [benchmarks](benchmarks/README.md), written from each release's run, show what the keyed entry saves.
+
 ## 1.13.0 (2026-11-18)
 
 A minor release from `main`: a global `zerolith` that hands each command to the project's own copy of the command line, less script for each row a list creates, and on the site, router and typed client examples in the playground, four more tabs in the home page's tour, and guide tables that fit a phone.

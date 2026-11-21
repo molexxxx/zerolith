@@ -15,7 +15,7 @@ import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseSync } from "rolldown/utils";
 import { describe, expect, it } from "vitest";
-import { measure } from "../measure.ts";
+import { bundle, measure } from "../measure.ts";
 
 const packages = fileURLToPath(new URL("../../packages/", import.meta.url));
 const PUBLISHED = ["zerolith", "router", "a11y", "state", "browser", "forms", "client", "i18n", "devtools", "otel"];
@@ -505,6 +505,29 @@ describe("what a bundler keeps of the core's production build", () =>
             const renders = await measure(join(folder, "renders.js"));
             const hydrates = await measure(join(folder, "hydrates.js"));
             expect(hydrates.raw - renders.raw).toBeGreaterThan(2000);
+        }
+        finally
+        {
+            rmSync(folder, { recursive: true, force: true });
+        }
+    });
+
+    it("leaves out of a page that only renders what lists, branches, and boundaries hold to adopt and repair server-rendered markup", async () =>
+    {
+        const folder = mkdtempSync(join(tmpdir(), "zl-kept-"));
+        try
+        {
+            const core = join(packages, "zerolith", "dist", "production", "index.js").replaceAll("\\", "/");
+            const page = (names: string): string => `import { ${names} } from ${JSON.stringify(core)};\nconsole.log(${names});\n`;
+            writeFileSync(join(folder, "renders.js"), page("boundary, each, html, render, when"));
+            writeFileSync(join(folder, "hydrates.js"), page("boundary, each, html, hydrate, render, when"));
+            const renders = await bundle(join(folder, "renders.js"));
+            const hydrates = await bundle(join(folder, "hydrates.js"));
+            for (const marker of ["hydration_mismatch", "zl:p"])
+            {
+                expect(renders.includes(marker), `a page that only renders holds ${marker}`).toBe(false);
+                expect(hydrates.includes(marker), `a page that hydrates holds ${marker}`).toBe(true);
+            }
         }
         finally
         {

@@ -6,8 +6,7 @@ import { isInternal } from "../devtools.js";
 import { fail } from "../diagnostics.js";
 import { OwnerScope, type ReadableSignal, type Signal, createOwner, onDispose, own, signal, startEffect, untracked } from "../signals.js";
 import { type Prepared, prepare } from "../template.js";
-import { ChildPart, Instance } from "./instance.js";
-import { isStart, matchingEnd, mismatch, removeUntil } from "./markers.js";
+import { type Adopting, ChildPart, Instance, type RowMarkers, adopting } from "./instance.js";
 import { type Controller, Directive, type Renderable, TemplateResult, type View, read } from "./view.js";
 
 /** The key function for `each()`. */
@@ -254,7 +253,7 @@ class Keyed<T> extends Directive
          * it are removed; the server's nodes of a row that was being hydrated
          * stay.
          */
-        const create = (key: unknown, value: T, index: number, parent: Node, before: Node | null, adopt?: { start: Comment; end: Comment }): Row<T> =>
+        const create = (key: unknown, value: T, index: number, parent: Node, before: Node | null, adopt?: RowMarkers): Row<T> =>
         {
             const row = new Row<T>(key, signal(value), indexed ? signal(index) : undefined);
             const outer = own(row);
@@ -553,34 +552,11 @@ class Keyed<T> extends Directive
             {
                 const list = untracked(() => read(this.items));
                 const keys = new Set<unknown>();
-                let node: ChildNode = cursor;
                 const adopted = order;
-                for (let i = 0; i < list.length; i++)
+                (adopting as Adopting).rows(cursor, end, list, (value, i) => this.keyOf(value, i, keys), (key, value, i, markers) =>
                 {
-                    const value = list[i] as T;
-                    const key = this.keyOf(value, i, keys);
-                    const rowStart = isStart(node) ? node : undefined;
-                    const rowEnd = rowStart === undefined ? undefined : matchingEnd(rowStart);
-                    if (rowStart === undefined || rowEnd === undefined)
-                    {
-                        mismatch("missing", "row", node === end ? "" : node.nodeName);
-                        if (node !== end)
-                        {
-                            mismatch("extra", "", node.nodeName);
-                            removeUntil(node, end);
-                            node = end;
-                        }
-                        adopted.push(create(key, value, i, end.parentNode as Node, end));
-                        continue;
-                    }
-                    adopted.push(create(key, value, i, end.parentNode as Node, end, { start: rowStart, end: rowEnd }));
-                    node = rowEnd.nextSibling ?? end;
-                }
-                if (node !== end)
-                {
-                    mismatch("extra", "", node.nodeName);
-                    removeUntil(node, end);
-                }
+                    adopted.push(create(key, value, i, end.parentNode as Node, end, markers));
+                });
             });
         }
 

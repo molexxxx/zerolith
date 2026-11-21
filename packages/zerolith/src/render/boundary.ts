@@ -4,8 +4,8 @@
  */
 import { diagnostic, report } from "../diagnostics.js";
 import { type Owner, batch, createOwner, guard, onDispose, signal, startEffect, untracked } from "../signals.js";
-import { ChildPart } from "./instance.js";
-import { anchorBefore, isStart, matchingEnd, mismatch, removeUntil } from "./markers.js";
+import { type Adopting, ChildPart, adopting } from "./instance.js";
+import { anchorBefore } from "./markers.js";
 import { type Controller, Directive, RawHtml, type Renderable, type View } from "./view.js";
 
 /** What `boundary()` shows in place of its content: given what the content threw, and a function that renders the content again. */
@@ -46,24 +46,15 @@ class Boundary extends Directive
         let branch: Owner | undefined;
         let adopt: ChildNode | undefined;
         let inner: ChildPart;
-        const innerEnd = cursor !== undefined && isStart(cursor) ? matchingEnd(cursor) : undefined;
+        const innerEnd = cursor === undefined ? undefined : (adopting as Adopting).branch(cursor, end);
         if (cursor !== undefined && innerEnd !== undefined)
         {
             inner = new ChildPart(innerEnd);
             adopt = cursor.nextSibling ?? innerEnd;
-            if (innerEnd.nextSibling !== end)
-            {
-                mismatch("extra", "", innerEnd.nextSibling?.nodeName ?? "");
-                removeUntil(innerEnd.nextSibling as ChildNode, end);
-            }
+            (adopting as Adopting).trim(innerEnd, end);
         }
         else
         {
-            if (cursor !== undefined)
-            {
-                mismatch("missing", "branch", cursor === end ? "" : cursor.nodeName);
-                removeUntil(cursor, end);
-            }
             inner = new ChildPart(anchorBefore(end));
         }
         const rerun = (): void =>
@@ -116,10 +107,7 @@ class Boundary extends Directive
                 if (from !== undefined && cursor !== undefined && innerEnd !== undefined)
                 {
                     inner.set(undefined);
-                    if (cursor.nextSibling !== innerEnd)
-                    {
-                        removeUntil(cursor.nextSibling as ChildNode, innerEnd);
-                    }
+                    (adopting as Adopting).empty(cursor, innerEnd);
                 }
             }
             const { error } = failed;

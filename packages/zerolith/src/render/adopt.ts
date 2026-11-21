@@ -1,16 +1,16 @@
 /**
  * Hydration's half of the renderer: taking over the nodes the server
  * rendered for a value in place of creating them, and repairing what does
- * not match. `hydrate` installs `adoptChild` before it hands a part its
- * first cursor, and nothing else imports this module, so a bundler leaves
- * it out of a page that only renders.
+ * not match, for a part, a list, and a branch. `hydrate` installs
+ * `adopter` before it hands out the first cursor, and nothing else imports
+ * this module, so a bundler leaves it out of a page that only renders.
  */
 import { describe, isNothing, isText } from "../binding.js";
 import { fail } from "../diagnostics.js";
 import { isSignal, recall, restore, startEffect } from "../signals.js";
 import { CHILD, type Prepared, prepare, walker } from "../template.js";
 import { elementPart } from "./attributes.js";
-import { ChildPart, Instance, edgesOf } from "./instance.js";
+import { type Adopting, ChildPart, Instance, type RowMarkers, edgesOf } from "./instance.js";
 import { anchorBefore, isStart, matchingEnd, mismatch, removeUntil } from "./markers.js";
 import { type BoundPart, Directive, RawHtml, TemplateResult } from "./view.js";
 
@@ -107,7 +107,7 @@ function adoptInstance(strings: TemplateStringsArray, prepared: Prepared, cursor
 }
 
 /** Takes over the server-rendered nodes from `cursor` to the anchor for `value`, repairing any disagreement. */
-export function adoptChild(part: ChildPart, value: unknown, cursor: ChildNode): void
+function adoptChild(part: ChildPart, value: unknown, cursor: ChildNode): void
 {
     const anchor = part.marker();
     if (isNothing(value))
@@ -244,3 +244,73 @@ export function adoptChild(part: ChildPart, value: unknown, cursor: ChildNode): 
     }
     throw fail("unrenderable_value", { type: describe(value) });
 }
+
+/** The closing marker of the branch `cursor` opens, or undefined, reported as missing, with the nodes from `cursor` up to `end` removed. */
+function adoptBranch(cursor: ChildNode, end: Comment): Comment | undefined
+{
+    const innerEnd = isStart(cursor) ? matchingEnd(cursor) : undefined;
+    if (innerEnd === undefined)
+    {
+        mismatch("missing", "branch", cursor === end ? "" : cursor.nodeName);
+        removeUntil(cursor, end);
+    }
+    return innerEnd;
+}
+
+/** Removes what follows a branch's closing marker `after` up to `end`, reported as extra. */
+function trimBranch(after: Comment, end: Comment): void
+{
+    if (after.nextSibling !== end)
+    {
+        mismatch("extra", "", after.nextSibling?.nodeName ?? "");
+        removeUntil(after.nextSibling as ChildNode, end);
+    }
+}
+
+/** Removes the nodes between a branch's markers. */
+function emptyBranch(start: ChildNode, end: Comment): void
+{
+    removeUntil(start.nextSibling as ChildNode, end);
+}
+
+/**
+ * Takes over the rows the server rendered from `cursor` up to `end`, in
+ * the list's order. At the first row whose markers are missing, the
+ * server's nodes from there to `end` are removed, reported as extra, and
+ * that row and each one after it are made anew, each reported as missing.
+ * The server's rows past the list are removed, reported as extra. Each
+ * row's key is read before its markers are looked at.
+ */
+function adoptRows<T>(cursor: ChildNode, end: Comment, list: readonly T[], key: (value: T, index: number) => unknown, create: (key: unknown, value: T, index: number, markers?: RowMarkers) => void): void
+{
+    let node: ChildNode = cursor;
+    for (let i = 0; i < list.length; i++)
+    {
+        const value = list[i] as T;
+        const rowKey = key(value, i);
+        const rowStart = isStart(node) ? node : undefined;
+        const rowEnd = rowStart === undefined ? undefined : matchingEnd(rowStart);
+        if (rowStart === undefined || rowEnd === undefined)
+        {
+            mismatch("missing", "row", node === end ? "" : node.nodeName);
+            if (node !== end)
+            {
+                mismatch("extra", "", node.nodeName);
+                removeUntil(node, end);
+                node = end;
+            }
+            create(rowKey, value, i);
+            continue;
+        }
+        create(rowKey, value, i, { start: rowStart, end: rowEnd });
+        node = rowEnd.nextSibling ?? end;
+    }
+    if (node !== end)
+    {
+        mismatch("extra", "", node.nodeName);
+        removeUntil(node, end);
+    }
+}
+
+/** Hydration's half of the renderer, which `hydrate` installs with `adoptWith`. */
+export const adopter: Adopting = { child: adoptChild, branch: adoptBranch, trim: trimBranch, empty: emptyBranch, rows: adoptRows };
