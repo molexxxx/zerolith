@@ -6,6 +6,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Changed
 
+- `zerolith`: a list makes the code that creates and updates its rows when its first rows arrive, not while the page first renders it, so a page whose lists start empty compiles less before it paints, and an update no longer makes a function for the rows it keeps at either end. The core's size budgets grow by 128 B each, to 12,672 B after gzip bundled and 16,384 B for the unbundled modules, for this and for the hydration hook below.
 - `zerolith`: a text value is written to its node as it is, so the DOM converts a number, in place of `String()` in the runtime. `String()` ran each whole number through V8's cache of number strings, which a list of a thousand distinct ids grew to its full size and the page kept after the rows were gone; the DOM converts a whole number without it. The memory rows of the [benchmarks](benchmarks/README.md), written from each release's run, show the result.
 - `zerolith`: a page that only calls `render` no longer bundles what `each`, `when`, and `boundary` hold to take over server-rendered markup and repair what does not match it. `hydrate` brings that in with the rest of the code that adopts markup, so a page that hydrates keeps it. The size rows of the [benchmarks](benchmarks/README.md), written from each release's run, show what the keyed entry saves.
 

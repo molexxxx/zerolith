@@ -145,12 +145,372 @@ function moveRow(row: Row<unknown>, before: Node): void
     parent.insertBefore(end, before);
 }
 
+/** A mounted list's rows and the work of creating them and bringing them in step with a new array. */
+interface Rows<T>
+{
+    /** Brings the rows in step with `list`. */
+    reconcile(list: readonly T[]): void;
+    /** Takes over the rows the server rendered from `cursor`, one for each item of `list`. */
+    adopt(list: readonly T[], cursor: ChildNode): void;
+    /** Disposes the rows, the last first. */
+    dispose(): void;
+    /** Removes the rows' nodes and forgets the rows. */
+    remove(): void;
+}
+
+/**
+ * The rows of the list `directive` shows before `end`. A list makes them
+ * when its first rows arrive, so the browser compiles this work then, not
+ * while the page first renders a list that has none. Whether the row
+ * function declares the index parameter is read once, and the template
+ * the last row rendered is kept with its preparation, since a list's rows
+ * usually share one.
+ */
+function rowsOf<T>(directive: Keyed<T>, end: Comment): Rows<T>
+{
+    let order: Row<T>[] = [];
+    const indexed = directive.row.length > 1;
+    let template: TemplateStringsArray | undefined;
+    let prepared: Prepared | undefined;
+
+    /**
+     * Creates a row in `parent` before `before`, which may be a fragment the
+     * caller inserts later. A row whose view is a template with no binding
+     * at its top level keeps the template's nodes; any other view, and a
+     * row hydrated from markers, goes in a part between markers. A row
+     * whose view throws is disposed, and the markers put in the page for
+     * it are removed; the server's nodes of a row that was being hydrated
+     * stay.
+     */
+    const create = (key: unknown, value: T, index: number, parent: Node, before: Node | null, adopt?: RowMarkers): Row<T> =>
+    {
+        const row = new Row<T>(key, signal(value), indexed ? signal(index) : undefined);
+        const outer = own(row);
+        try
+        {
+            const view = directive.row(row.item, row.index as ReadableSignal<number>);
+            if (adopt === undefined && view instanceof TemplateResult)
+            {
+                if (view.strings !== template)
+                {
+                    prepared = prepare(view.strings);
+                    template = view.strings;
+                }
+                if ((prepared as Prepared).rooted)
+                {
+                    const made = Instance.create(view.strings, prepared as Prepared, view.values);
+                    if (made instanceof Instance)
+                    {
+                        row.nodes = made.nodes;
+                        row.start = (made.nodes as readonly ChildNode[])[0] as ChildNode;
+                        parent.insertBefore(made.content as Node, before);
+                    }
+                    else
+                    {
+                        row.start = made;
+                        parent.insertBefore(made, before);
+                    }
+                    return row;
+                }
+            }
+            row.start = adopt?.start ?? parent.insertBefore(document.createComment(""), before);
+            const rowPart = new ChildPart(adopt?.end ?? parent.insertBefore(document.createComment(""), before));
+            row.part = rowPart;
+            rowPart.set(view, adopt === undefined ? undefined : adopt.start.nextSibling ?? adopt.end);
+        }
+        catch (error)
+        {
+            row.dispose();
+            if (adopt === undefined && (row.start as ChildNode | undefined) !== undefined)
+            {
+                removeRow(row);
+            }
+            throw error;
+        }
+        finally
+        {
+            own(outer);
+        }
+        return row;
+    };
+
+    /** Removes every current row at once when the list owns all of its parent's children, as a table body usually does. */
+    const clearAll = (parent: ParentNode & Node): boolean =>
+    {
+        if (parent.firstChild !== order[0]?.start || parent.lastChild !== end)
+        {
+            return false;
+        }
+        for (let i = order.length - 1; i >= 0; i--)
+        {
+            (order[i] as Row<T>).dispose();
+        }
+        parent.textContent = "";
+        parent.appendChild(end);
+        order = [];
+        return true;
+    };
+
+    /** Whether the new items between `head` and `tail` are the old rows with only the first and last exchanged. */
+    const swapped = (list: readonly T[], old: readonly Row<T>[], head: number, tail: number): boolean =>
+    {
+        if (directive.key(list[head] as T, head) !== (old[tail - 1] as Row<T>).key || directive.key(list[tail - 1] as T, tail - 1) !== (old[head] as Row<T>).key)
+        {
+            return false;
+        }
+        for (let i = head + 1; i < tail - 1; i++)
+        {
+            if (directive.key(list[i] as T, i) !== (old[i] as Row<T>).key)
+            {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    /** Gives the rows kept at the start and at the end their new values, once nothing left to check can fail the update. */
+    const keepEnds = (list: readonly T[], old: readonly Row<T>[], head: number, newTail: number, oldTail: number): void =>
+    {
+        for (let i = 0; i < head; i++)
+        {
+            (old[i] as Row<T>).item.set(list[i] as T);
+        }
+        for (let i = newTail, j = oldTail; i < list.length; i++, j++)
+        {
+            const row = old[j] as Row<T>;
+            row.item.set(list[i] as T);
+            row.index?.set(i);
+        }
+    };
+
+    /**
+     * Brings the rows between the ends an update keeps to the new items
+     * from `head` to `newTail`. Their keys are checked first, and then
+     * `keepEnds` gives the kept rows their values, since nothing left to
+     * check can fail the update. A run of new items between rows that
+     * stay gets its rows created in place; otherwise the old rows are
+     * matched by key, the others created, the ones left out removed, and
+     * the fewest moved that bring the rest into order: `middle` holds the
+     * rows in their new order, `from` where each was in `old` or -1 for one
+     * created now, `runs` the fragment one created now waits in, and
+     * `places` where each old row between the kept ends is, by its key.
+     * When a row's view throws, the rows created before it are taken out
+     * again. It stands apart from `reconcile`, which every update runs, so
+     * that one holds no `try` and stays short.
+     */
+    const change = (list: readonly T[], old: readonly Row<T>[], head: number, newTail: number, oldTail: number, parent: ParentNode & Node): void =>
+    {
+        const fresh = new Array<unknown>(newTail - head);
+        const keys = directive.keysOf(list, old, head, newTail, oldTail, fresh);
+        keepEnds(list, old, head, newTail, oldTail);
+        if (head === oldTail)
+        {
+            const before = oldTail < old.length ? (old[oldTail] as Row<T>).start : end;
+            const added: Row<T>[] = [];
+            try
+            {
+                for (let i = head; i < newTail; i++)
+                {
+                    added.push(create(fresh[i - head], list[i] as T, i, parent, before));
+                }
+            }
+            catch (error)
+            {
+                discard(added);
+                throw error;
+            }
+            order = old.length === 0 ? added : old.slice(0, head).concat(added, old.slice(oldTail));
+            return;
+        }
+        const middle: Row<T>[] = [];
+        const from: number[] = [];
+        const runs: Array<DocumentFragment | undefined> = [];
+        const places = new Map<unknown, number>();
+        for (let i = head; i < oldTail; i++)
+        {
+            places.set((old[i] as Row<T>).key, i);
+        }
+        let fragment: DocumentFragment | undefined;
+        let survivors = head + old.length - oldTail;
+        try
+        {
+            for (let i = head; i < newTail; i++)
+            {
+                const value = list[i] as T;
+                const key = fresh[i - head];
+                const place = places.get(key);
+                if (place !== undefined)
+                {
+                    const existing = old[place] as Row<T>;
+                    existing.item.set(value);
+                    existing.index?.set(i);
+                    middle.push(existing);
+                    from.push(place);
+                    runs.push(undefined);
+                    survivors++;
+                    fragment = undefined;
+                }
+                else
+                {
+                    fragment ??= document.createDocumentFragment();
+                    middle.push(create(key, value, i, fragment, null));
+                    from.push(-1);
+                    runs.push(fragment);
+                }
+            }
+        }
+        catch (error)
+        {
+            discard(middle.filter((_, at) => runs[at] !== undefined));
+            throw error;
+        }
+        if (survivors === 0 && clearAll(parent))
+        {
+            parent.insertBefore(fragment as DocumentFragment, end);
+            order = middle;
+            return;
+        }
+        for (let i = head; i < oldTail; i++)
+        {
+            const row = old[i] as Row<T>;
+            if (!keys.has(row.key))
+            {
+                row.dispose();
+                removeRow(row);
+            }
+        }
+        const kept = longestIncreasing(from);
+        let before: Node = oldTail < old.length ? (old[oldTail] as Row<T>).start : end;
+        for (let i = middle.length - 1; i >= 0; i--)
+        {
+            const row = middle[i] as Row<T>;
+            const run = runs[i];
+            if (run !== undefined)
+            {
+                if (run.firstChild !== null)
+                {
+                    parent.insertBefore(run, before);
+                }
+            }
+            else if (!kept.has(i))
+            {
+                moveRow(row, before);
+            }
+            before = row.start;
+        }
+        order = old.slice(0, head).concat(middle, old.slice(oldTail));
+    };
+
+    const reconcile = (list: readonly T[]): void =>
+    {
+        const parent = end.parentNode;
+        if (parent === null)
+        {
+            return;
+        }
+        const old = order;
+        if (list.length === 0)
+        {
+            if (old.length > 0 && !clearAll(parent))
+            {
+                for (const row of old)
+                {
+                    row.dispose();
+                    removeRow(row);
+                }
+                order = [];
+            }
+            return;
+        }
+        let head = 0;
+        while (head < list.length && head < old.length && directive.key(list[head] as T, head) === (old[head] as Row<T>).key)
+        {
+            head++;
+        }
+        let newTail = list.length;
+        let oldTail = old.length;
+        while (newTail > head && oldTail > head && directive.key(list[newTail - 1] as T, newTail - 1) === (old[oldTail - 1] as Row<T>).key)
+        {
+            newTail--;
+            oldTail--;
+        }
+        if (head === list.length && head === old.length)
+        {
+            keepEnds(list, old, head, newTail, oldTail);
+            return;
+        }
+        if (newTail - head > 1 && newTail === oldTail && swapped(list, old, head, newTail))
+        {
+            keepEnds(list, old, head, newTail, oldTail);
+            const first = old[head] as Row<T>;
+            const last = old[newTail - 1] as Row<T>;
+            for (let i = head + 1; i < newTail - 1; i++)
+            {
+                (old[i] as Row<T>).item.set(list[i] as T);
+            }
+            first.item.set(list[newTail - 1] as T);
+            first.index?.set(newTail - 1);
+            last.item.set(list[head] as T);
+            last.index?.set(head);
+            const after = nodeAfter(last);
+            moveRow(last, first.start);
+            moveRow(first, after);
+            const next = old.slice();
+            next[head] = last;
+            next[newTail - 1] = first;
+            order = next;
+            return;
+        }
+        if (newTail === head)
+        {
+            keepEnds(list, old, head, newTail, oldTail);
+            for (let i = head; i < oldTail; i++)
+            {
+                const row = old[i] as Row<T>;
+                row.dispose();
+                removeRow(row);
+            }
+            order = old.slice(0, head).concat(old.slice(oldTail));
+            return;
+        }
+        change(list, old, head, newTail, oldTail, parent);
+    };
+
+    return {
+        reconcile,
+        adopt(list: readonly T[], cursor: ChildNode): void
+        {
+            const keys = new Set<unknown>();
+            const adopted = order;
+            (adopting as Adopting).rows(cursor, end, list, (value, i) => directive.keyOf(value, i, keys), (key, value, i, markers) =>
+            {
+                adopted.push(create(key, value, i, end.parentNode as Node, end, markers));
+            });
+        },
+        dispose(): void
+        {
+            for (let i = order.length - 1; i >= 0; i--)
+            {
+                (order[i] as Row<T>).dispose();
+            }
+        },
+        remove(): void
+        {
+            for (const row of order)
+            {
+                removeRow(row);
+            }
+            order = [];
+        }
+    };
+}
+
 class Keyed<T> extends Directive
 {
     readonly wrapsBranch: boolean = false;
     private readonly items: ReadableSignal<readonly T[]> | readonly T[];
-    private readonly key: KeyOf<T>;
-    private readonly row: RowOf<T>;
+    readonly key: KeyOf<T>;
+    readonly row: RowOf<T>;
 
     constructor(items: ReadableSignal<readonly T[]> | readonly T[], key: KeyOf<T>, row: RowOf<T>)
     {
@@ -160,7 +520,7 @@ class Keyed<T> extends Directive
         this.row = row;
     }
 
-    private keyOf(value: T, index: number, keys: Set<unknown>): unknown
+    keyOf(value: T, index: number, keys: Set<unknown>): unknown
     {
         const key = this.key(value, index);
         if (key === undefined)
@@ -184,7 +544,7 @@ class Keyed<T> extends Directive
      * update leaves alone. Keys that fail are gone through again in order,
      * the kept ones first, so the error names the first item at fault.
      */
-    private keysOf(list: readonly T[], old: readonly Row<T>[], head: number, newTail: number, oldTail: number, fresh: unknown[]): Set<unknown>
+    keysOf(list: readonly T[], old: readonly Row<T>[], head: number, newTail: number, oldTail: number, fresh: unknown[]): Set<unknown>
     {
         let keys = new Set<unknown>();
         let valid = true;
@@ -226,340 +586,20 @@ class Keyed<T> extends Directive
     override mount(part: ChildPart, cursor?: ChildNode): Controller
     {
         const owner = createOwner();
-        let order: Row<T>[] = [];
         const end = part.marker();
-        /** Whether the row function declares the index parameter, read once rather than per row. */
-        const indexed = this.row.length > 1;
-        /** The template the last row created rendered, and its preparation, since a list's rows usually share one. */
-        let template: TemplateStringsArray | undefined;
-        let prepared: Prepared | undefined;
+        let rows: Rows<T> | undefined;
+        const made = (): Rows<T> => (rows ??= rowsOf(this, end));
         owner.run(() =>
         {
-            onDispose(() =>
-            {
-                for (let i = order.length - 1; i >= 0; i--)
-                {
-                    (order[i] as Row<T>).dispose();
-                }
-            });
+            onDispose(() => rows?.dispose());
         });
-
-        /**
-         * Creates a row in `parent` before `before`, which may be a fragment the
-         * caller inserts later. A row whose view is a template with no binding
-         * at its top level keeps the template's nodes; any other view, and a
-         * row hydrated from markers, goes in a part between markers. A row
-         * whose view throws is disposed, and the markers put in the page for
-         * it are removed; the server's nodes of a row that was being hydrated
-         * stay.
-         */
-        const create = (key: unknown, value: T, index: number, parent: Node, before: Node | null, adopt?: RowMarkers): Row<T> =>
-        {
-            const row = new Row<T>(key, signal(value), indexed ? signal(index) : undefined);
-            const outer = own(row);
-            try
-            {
-                const view = this.row(row.item, row.index as ReadableSignal<number>);
-                if (adopt === undefined && view instanceof TemplateResult)
-                {
-                    if (view.strings !== template)
-                    {
-                        prepared = prepare(view.strings);
-                        template = view.strings;
-                    }
-                    if ((prepared as Prepared).rooted)
-                    {
-                        const made = Instance.create(view.strings, prepared as Prepared, view.values);
-                        if (made instanceof Instance)
-                        {
-                            row.nodes = made.nodes;
-                            row.start = (made.nodes as readonly ChildNode[])[0] as ChildNode;
-                            parent.insertBefore(made.content as Node, before);
-                        }
-                        else
-                        {
-                            row.start = made;
-                            parent.insertBefore(made, before);
-                        }
-                        return row;
-                    }
-                }
-                row.start = adopt?.start ?? parent.insertBefore(document.createComment(""), before);
-                const rowPart = new ChildPart(adopt?.end ?? parent.insertBefore(document.createComment(""), before));
-                row.part = rowPart;
-                rowPart.set(view, adopt === undefined ? undefined : adopt.start.nextSibling ?? adopt.end);
-            }
-            catch (error)
-            {
-                row.dispose();
-                if (adopt === undefined && (row.start as ChildNode | undefined) !== undefined)
-                {
-                    removeRow(row);
-                }
-                throw error;
-            }
-            finally
-            {
-                own(outer);
-            }
-            return row;
-        };
-
-        /** Removes every current row at once when the list owns all of its parent's children, as a table body usually does. */
-        const clearAll = (parent: ParentNode & Node): boolean =>
-        {
-            if (parent.firstChild !== order[0]?.start || parent.lastChild !== end)
-            {
-                return false;
-            }
-            for (let i = order.length - 1; i >= 0; i--)
-            {
-                (order[i] as Row<T>).dispose();
-            }
-            parent.textContent = "";
-            parent.appendChild(end);
-            order = [];
-            return true;
-        };
-
-        /** Whether the new items between `head` and `tail` are the old rows with only the first and last exchanged. */
-        const swapped = (list: readonly T[], old: readonly Row<T>[], head: number, tail: number): boolean =>
-        {
-            if (this.key(list[head] as T, head) !== (old[tail - 1] as Row<T>).key || this.key(list[tail - 1] as T, tail - 1) !== (old[head] as Row<T>).key)
-            {
-                return false;
-            }
-            for (let i = head + 1; i < tail - 1; i++)
-            {
-                if (this.key(list[i] as T, i) !== (old[i] as Row<T>).key)
-                {
-                    return false;
-                }
-            }
-            return true;
-        };
-
-        /**
-         * Brings the rows between the ends an update keeps to the new items
-         * from `head` to `newTail`. Their keys are checked first, and then
-         * `keepEnds` gives the kept rows their values, since nothing left to
-         * check can fail the update. A run of new items between rows that
-         * stay gets its rows created in place; otherwise the old rows are
-         * matched by key, the others created, the ones left out removed, and
-         * the fewest moved that bring the rest into order. When a row's view
-         * throws, the rows created before it are taken out again. It stands
-         * apart from `reconcile`, which every update runs, so that one holds
-         * no `try` and stays short.
-         */
-        const change = (list: readonly T[], old: readonly Row<T>[], head: number, newTail: number, oldTail: number, parent: ParentNode & Node, keepEnds: () => void): void =>
-        {
-            const fresh = new Array<unknown>(newTail - head);
-            const keys = this.keysOf(list, old, head, newTail, oldTail, fresh);
-            keepEnds();
-            if (head === oldTail)
-            {
-                const before = oldTail < old.length ? (old[oldTail] as Row<T>).start : end;
-                const added: Row<T>[] = [];
-                try
-                {
-                    for (let i = head; i < newTail; i++)
-                    {
-                        added.push(create(fresh[i - head], list[i] as T, i, parent, before));
-                    }
-                }
-                catch (error)
-                {
-                    discard(added);
-                    throw error;
-                }
-                order = old.length === 0 ? added : old.slice(0, head).concat(added, old.slice(oldTail));
-                return;
-            }
-            const middle: Row<T>[] = [];
-            /** Per row of `middle`, where it was in `old`, or -1 for one created now. */
-            const from: number[] = [];
-            /** Per row of `middle`, the fragment one created now waits in. */
-            const runs: Array<DocumentFragment | undefined> = [];
-            /** Where each old row between the kept ends is, by its key. */
-            const places = new Map<unknown, number>();
-            for (let i = head; i < oldTail; i++)
-            {
-                places.set((old[i] as Row<T>).key, i);
-            }
-            let fragment: DocumentFragment | undefined;
-            let survivors = head + old.length - oldTail;
-            try
-            {
-                for (let i = head; i < newTail; i++)
-                {
-                    const value = list[i] as T;
-                    const key = fresh[i - head];
-                    const place = places.get(key);
-                    if (place !== undefined)
-                    {
-                        const existing = old[place] as Row<T>;
-                        existing.item.set(value);
-                        existing.index?.set(i);
-                        middle.push(existing);
-                        from.push(place);
-                        runs.push(undefined);
-                        survivors++;
-                        fragment = undefined;
-                    }
-                    else
-                    {
-                        fragment ??= document.createDocumentFragment();
-                        middle.push(create(key, value, i, fragment, null));
-                        from.push(-1);
-                        runs.push(fragment);
-                    }
-                }
-            }
-            catch (error)
-            {
-                discard(middle.filter((_, at) => runs[at] !== undefined));
-                throw error;
-            }
-            if (survivors === 0 && clearAll(parent))
-            {
-                parent.insertBefore(fragment as DocumentFragment, end);
-                order = middle;
-                return;
-            }
-            for (let i = head; i < oldTail; i++)
-            {
-                const row = old[i] as Row<T>;
-                if (!keys.has(row.key))
-                {
-                    row.dispose();
-                    removeRow(row);
-                }
-            }
-            const kept = longestIncreasing(from);
-            let before: Node = oldTail < old.length ? (old[oldTail] as Row<T>).start : end;
-            for (let i = middle.length - 1; i >= 0; i--)
-            {
-                const row = middle[i] as Row<T>;
-                const run = runs[i];
-                if (run !== undefined)
-                {
-                    if (run.firstChild !== null)
-                    {
-                        parent.insertBefore(run, before);
-                    }
-                }
-                else if (!kept.has(i))
-                {
-                    moveRow(row, before);
-                }
-                before = row.start;
-            }
-            order = old.slice(0, head).concat(middle, old.slice(oldTail));
-        };
-
-        const reconcile = (list: readonly T[]): void =>
-        {
-            const parent = end.parentNode;
-            if (parent === null)
-            {
-                return;
-            }
-            const old = order;
-            if (list.length === 0)
-            {
-                if (old.length > 0 && !clearAll(parent))
-                {
-                    for (const row of old)
-                    {
-                        row.dispose();
-                        removeRow(row);
-                    }
-                    order = [];
-                }
-                return;
-            }
-            let head = 0;
-            while (head < list.length && head < old.length && this.key(list[head] as T, head) === (old[head] as Row<T>).key)
-            {
-                head++;
-            }
-            let newTail = list.length;
-            let oldTail = old.length;
-            while (newTail > head && oldTail > head && this.key(list[newTail - 1] as T, newTail - 1) === (old[oldTail - 1] as Row<T>).key)
-            {
-                newTail--;
-                oldTail--;
-            }
-            /** Gives the rows kept at the start and at the end their new values, once nothing left to check can fail the update. */
-            const keepEnds = (): void =>
-            {
-                for (let i = 0; i < head; i++)
-                {
-                    (old[i] as Row<T>).item.set(list[i] as T);
-                }
-                for (let i = newTail, j = oldTail; i < list.length; i++, j++)
-                {
-                    const row = old[j] as Row<T>;
-                    row.item.set(list[i] as T);
-                    row.index?.set(i);
-                }
-            };
-            if (head === list.length && head === old.length)
-            {
-                keepEnds();
-                return;
-            }
-            if (newTail - head > 1 && newTail === oldTail && swapped(list, old, head, newTail))
-            {
-                keepEnds();
-                const first = old[head] as Row<T>;
-                const last = old[newTail - 1] as Row<T>;
-                for (let i = head + 1; i < newTail - 1; i++)
-                {
-                    (old[i] as Row<T>).item.set(list[i] as T);
-                }
-                first.item.set(list[newTail - 1] as T);
-                first.index?.set(newTail - 1);
-                last.item.set(list[head] as T);
-                last.index?.set(head);
-                const after = nodeAfter(last);
-                moveRow(last, first.start);
-                moveRow(first, after);
-                const next = old.slice();
-                next[head] = last;
-                next[newTail - 1] = first;
-                order = next;
-                return;
-            }
-            if (newTail === head)
-            {
-                keepEnds();
-                for (let i = head; i < oldTail; i++)
-                {
-                    const row = old[i] as Row<T>;
-                    row.dispose();
-                    removeRow(row);
-                }
-                order = old.slice(0, head).concat(old.slice(oldTail));
-                return;
-            }
-            change(list, old, head, newTail, oldTail, parent, keepEnds);
-        };
-
         if (cursor !== undefined)
         {
             owner.run(() =>
             {
-                const list = untracked(() => read(this.items));
-                const keys = new Set<unknown>();
-                const adopted = order;
-                (adopting as Adopting).rows(cursor, end, list, (value, i) => this.keyOf(value, i, keys), (key, value, i, markers) =>
-                {
-                    adopted.push(create(key, value, i, end.parentNode as Node, end, markers));
-                });
+                made().adopt(untracked(() => read(this.items)), cursor);
             });
         }
-
         let initial = cursor !== undefined;
         owner.run(() =>
         {
@@ -571,22 +611,21 @@ class Keyed<T> extends Directive
                     initial = false;
                     return;
                 }
+                if (list.length === 0 && rows === undefined)
+                {
+                    return;
+                }
                 owner.run(() =>
                 {
-                    reconcile(list);
+                    made().reconcile(list);
                 });
             });
         });
-
         return {
             dispose(): void
             {
                 owner.dispose();
-                for (const row of order)
-                {
-                    removeRow(row);
-                }
-                order = [];
+                rows?.remove();
             }
         };
     }
