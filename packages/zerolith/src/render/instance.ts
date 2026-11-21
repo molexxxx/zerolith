@@ -139,7 +139,7 @@ export class Instance
                 const value = values[offset];
                 if (spec.kind === CHILD)
                 {
-                    ((unmarked[next] === true ? node : prior) as Text).data = String(value);
+                    ((unmarked[next] === true ? node : prior) as Text).data = value as string;
                 }
                 else if (spec.kind === EVENT && typeof value === "function")
                 {
@@ -232,7 +232,7 @@ function bindOnce(node: Node, prior: Node, spec: PartSpec, lone: boolean, values
         const anchor = lone ? null : node as Comment;
         if (isText(value))
         {
-            text.data = String(value);
+            text.data = value as string;
         }
         else if (isSignal(value))
         {
@@ -277,7 +277,7 @@ class TextSink implements Sink
         {
             if (isText(value))
             {
-                this.text.data = String(value);
+                this.text.data = value as string;
                 return;
             }
             this.part = new ChildPart(this.anchor, this.text);
@@ -525,15 +525,14 @@ export class ChildPart implements BoundPart, Sink
         }
         if (isText(value))
         {
-            const text = String(value);
             if (this.text !== undefined)
             {
-                this.text.data = text;
+                this.text.data = value as string;
                 return;
             }
             const anchor = this.marker();
             this.clear();
-            this.text = document.createTextNode(text);
+            this.text = document.createTextNode(value as string);
             anchor.parentNode?.insertBefore(this.text, anchor);
             return;
         }

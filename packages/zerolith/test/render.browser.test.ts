@@ -1020,6 +1020,25 @@ describe("each", () =>
         expect(el.textContent).toBe("");
     });
 
+    it("writes numbers and bigints as String() writes them, through every path the client renderer writes text", () =>
+    {
+        for (const value of [-0, 0.1 + 0.2, 1e21, -1e-7, Number.NaN, -Infinity, 10n, 2n ** 64n, "text"] as const)
+        {
+            const live = signal<unknown>(value);
+            const after = signal<unknown>("x");
+            const el = mount(html`<div><ul>${each(signal([{ id: 1 }]), (item) => item.id, () => html`<li><b>${value}</b><i>${after}</i><s>${value}</s><u>${live}</u></li>`)}</ul><p>${value}</p><q>${live}</q></div>`);
+            const read = (): string[] => ["b", "s", "u", "p", "q"].map((tag) => el.querySelector(tag)?.textContent ?? "");
+            expect(read(), String(value)).toEqual(Array.from({ length: 5 }, () => String(value)));
+            live.set(html`<em>view</em>`);
+            live.set(value);
+            expect(read(), String(value)).toEqual(Array.from({ length: 5 }, () => String(value)));
+            root?.dispose();
+            el.remove();
+            root = undefined;
+            host = undefined;
+        }
+    });
+
     it("renders rows that take turns between two templates", () =>
     {
         const items = signal<Item[]>([{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }]);

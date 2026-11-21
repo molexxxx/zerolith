@@ -6,6 +6,7 @@ Every package in this repository is released together and carries the same versi
 
 ### Changed
 
+- `zerolith`: a text value is written to its node as it is, so the DOM converts a number, in place of `String()` in the runtime. `String()` ran each whole number through V8's cache of number strings, which a list of a thousand distinct ids grew to its full size and the page kept after the rows were gone; the DOM converts a whole number without it. The memory rows of the [benchmarks](benchmarks/README.md), written from each release's run, show the result.
 - `zerolith`: a page that only calls `render` no longer bundles what `each`, `when`, and `boundary` hold to take over server-rendered markup and repair what does not match it. `hydrate` brings that in with the rest of the code that adopts markup, so a page that hydrates keeps it. The size rows of the [benchmarks](benchmarks/README.md), written from each release's run, show what the keyed entry saves.
 
 ## 1.13.0 (2026-11-18)

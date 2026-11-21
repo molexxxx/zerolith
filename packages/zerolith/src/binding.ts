@@ -76,7 +76,7 @@ export function isNothing(value: unknown): value is null | undefined | boolean
     return value === null || value === undefined || typeof value === "boolean";
 }
 
-/** True for values that render as text. */
+/** True for values that render as text. The client renderer writes such a value to its text node as it is and lets the DOM convert it, so it must stay limited to types the DOM converts as `String()` does: a whole number converted there skips V8's cache of number strings, which `String()` grows to its full size over a run of distinct whole numbers and keeps. */
 export function isText(value: unknown): value is string | number | bigint
 {
     return typeof value === "string" || typeof value === "number" || typeof value === "bigint";
